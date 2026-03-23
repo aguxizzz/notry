@@ -1,0 +1,8 @@
+{
+  "name": "visor-workspace",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}

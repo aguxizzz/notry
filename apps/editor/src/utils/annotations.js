@@ -1,0 +1,80 @@
+export function annotationsToMarkers(annotations) {
+  if (!Array.isArray(annotations)) return [];
+
+  return annotations.map((ann) => {
+    const base = {
+      id: ann.id,
+      tooltip: ann.tooltip ?? null,
+      visible: ann.visible !== false,
+      ...(ann.svgStyle && { svgStyle: ann.svgStyle }),
+      ...(ann.style && { style: ann.style }),
+      ...(ann.className && { className: ann.className }),
+    };
+
+    if (ann.fillColor) {
+      base.svgStyle = {
+        ...(base.svgStyle || {}),
+        fill: ann.fillColor,
+        fillOpacity: ann.fillOpacity !== undefined ? ann.fillOpacity : 0.5,
+        stroke: ann.fillColor,
+        strokeWidth: '2'
+      };
+    }
+
+    switch (ann.type) {
+      case 'rectangle': {
+        const position = ann.position && ('textureX' in ann.position || 'textureY' in ann.position)
+          ? { textureX: ann.position.textureX, textureY: ann.position.textureY }
+          : undefined;
+        const size = ann.size ?? { width: 40, height: 30 };
+        return { ...base, rect: Array.isArray(size) ? size : [size.width, size.height], position };
+      }
+      case 'polygon': {
+        const points = ann.polygonPixels ?? ann.polygon ?? [];
+        return { ...base, polygonPixels: points };
+      }
+      case 'polyline': {
+        const points = ann.polylinePixels ?? ann.polyline ?? [];
+        return { ...base, polylinePixels: points };
+      }
+      case 'circle': {
+        const position = ann.position && ('textureX' in ann.position || 'textureY' in ann.position)
+          ? { textureX: ann.position.textureX, textureY: ann.position.textureY }
+          : undefined;
+        return { ...base, circle: ann.radius ?? 10, position };
+      }
+      case 'text': {
+        const position = ann.position && ('textureX' in ann.position || 'textureY' in ann.position)
+          ? { textureX: ann.position.textureX, textureY: ann.position.textureY }
+          : undefined;
+        const displayContent = ann.tooltip || '&nbsp;';
+        
+        // Interpretar opacidad (HEX a RGBA opcional para fondo)
+        const hexBg = ann.bgColor || '#ffffff';
+        const bgOpa = ann.bgOpacity !== undefined ? ann.bgOpacity : 1;
+        const rgbaBg = hexBg.length === 7 ? `rgba(${parseInt(hexBg.slice(1,3),16)}, ${parseInt(hexBg.slice(3,5),16)}, ${parseInt(hexBg.slice(5,7),16)}, ${bgOpa})` : hexBg;
+        
+        const textColor = ann.textColor || '#000000';
+        const generatedHtml = `<div style='background:${rgbaBg};padding:5px;border-radius:4px;color:${textColor};min-width:20px;min-height:20px;font-family:sans-serif;'>${displayContent}</div>`;
+        return {
+          ...base,
+          html: generatedHtml,
+          size: ann.size ?? { width: 120, height: 30 },
+          position,
+          style: { ...(ann.style || {}), cursor: 'pointer' },
+        };
+      }
+      case 'point': {
+        const position = ann.position && ('textureX' in ann.position || 'textureY' in ann.position)
+          ? { textureX: ann.position.textureX, textureY: ann.position.textureY }
+          : undefined;
+        return { ...base, circle: ann.radius ?? 8, position };
+      }
+      default:
+        return { ...base, circle: 5, position: { textureX: 0, textureY: 0 } };
+    }
+  }).filter((m) => {
+    if (m.position === undefined && !m.polygonPixels?.length && !m.polylinePixels?.length) return false;
+    return true;
+  });
+}

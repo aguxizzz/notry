@@ -1,0 +1,232 @@
+/* =============================================
+   GLOBAL RESET & BASE
+   ============================================= */
+html, body {
+  margin: 0;
+  height: 100%;
+  font-family: 'Raleway', sans-serif;
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+}
+
+#viewer-container {
+  width: 100%;
+  height: 100%;
+}
+
+/* =============================================
+   BACKDROP (fondo oscuro detrás del modal)
+   ============================================= */
+#info-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+#info-backdrop.visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* =============================================
+   PANEL MODAL
+   ============================================= */
+#info-panel {
+  position: relative;
+  width: 360px;
+  max-height: 85vh;
+  padding: 0 1.5rem 1.5rem 1.5rem;
+  background: #1e1e24;
+  color: #e8e8e8;
+  font-family: 'Raleway', sans-serif;
+  font-size: 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
+  overflow: hidden;
+  z-index: 101;
+  transform: scale(0.96);
+  opacity: 0;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+#info-backdrop.visible #info-panel {
+  transform: scale(1);
+  opacity: 1;
+}
+
+/* =============================================
+   HEADER DEL PANEL
+   ============================================= */
+#info-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 2.75rem;
+  margin: 0 -1.5rem 0 -1.5rem;
+  padding: 0 1.5rem;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 12px 12px 0 0;
+}
+#info-panel-header-left,
+#info-panel-header-right {
+  flex: 0 0 28px;
+  width: 28px;
+}
+#info-panel-header-right {
+  display: flex;
+  justify-content: flex-end;
+}
+#info-panel-header-center {
+  flex: 1;
+  text-align: center;
+  font-weight: 600;
+  color: #e8e8e8;
+}
+#info-panel-lot-title {
+  font-size: 1.35rem;
+}
+.info-panel-form-title {
+  font-size: 1.1rem;
+}
+
+/* Botón cerrar */
+#info-panel-close {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #aaa;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 6px;
+}
+#info-panel-close:hover { color: #fff; background: rgba(255,255,255,0.1); }
+
+/* Botón volver (flecha) */
+#info-panel-back {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: #aaa;
+}
+#info-panel-back:hover { color: #fff; background: rgba(255,255,255,0.1); }
+#info-panel-back::before {
+  content: '';
+  width: 0;
+  height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-right: 10px solid currentColor;
+  margin-left: -2px;
+}
+
+/* =============================================
+   CONTENIDO DEL PANEL (VISTA INFO)
+   ============================================= */
+#info-panel-content {
+  padding-top: 0.75rem;
+}
+#info-panel-view {
+  padding: 0 0 0.75rem 0;
+}
+#info-content { margin: 0 0 1rem 0; }
+#info-content p { margin: 0 0 0.5rem 0; }
+#info-content p:last-child { margin-bottom: 0; }
+#info-actions { margin-top: 0.75rem; }
+#info-actions button {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+#info-actions button:hover { background: #1557b0; }
+
+/* =============================================
+   VISTA FORMULARIO DE PRE CALIFICACIÓN
+   ============================================= */
+.info-panel-form {
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem 0 1rem 0;
+}
+#precal-detail-summary {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+#precal-detail-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+#precal-detail-meta {
+  font-size: 0.85rem;
+  color: #aaa;
+}
+.info-panel-form label {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: #aaa;
+  font-size: 0.9rem;
+}
+.info-panel-form input {
+  width: 100%;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #444;
+  border-radius: 6px;
+  background: #2a2a30;
+  color: #e8e8e8;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+.info-panel-form input::placeholder { color: #666; }
+.info-panel-form input:focus {
+  outline: none;
+  border-color: #1a73e8;
+}
+.btn-enviar {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.btn-enviar:hover { background: #1557b0; }
+
+/* =============================================
+   HOVER EN MARCADORES TIPO "TEXT"
+   ============================================= */
+.psv-marker.psv-marker--label-hover {
+  filter: brightness(1.15);
+  transition: filter 0.15s ease;
+}

@@ -1,0 +1,82 @@
+{
+  "panoramaUrl": "/panorama.jpg",
+  "annotations": [
+    {
+      "id": "polygon-1774014485266",
+      "type": "polygon",
+      "polygonPixels": [
+        [
+          3477,
+          5230
+        ],
+        [
+          3971,
+          5732
+        ],
+        [
+          4601,
+          6182
+        ],
+        [
+          5134,
+          5979
+        ],
+        [
+          5594,
+          5713
+        ],
+        [
+          5624,
+          5633
+        ],
+        [
+          5583,
+          5565
+        ],
+        [
+          5515,
+          5500
+        ],
+        [
+          5443,
+          5458
+        ],
+        [
+          5350,
+          5436
+        ]
+      ],
+      "tooltip": "Lote 01",
+      "svgStyle": {
+        "fill": "rgba(0,100,255,0.3)",
+        "stroke": "#06c",
+        "strokeWidth": "2"
+      },
+      "precio": "20.000.000",
+      "area": "120m2",
+      "fillColor": "#d00b0b",
+      "fillOpacity": 0
+    },
+    {
+      "id": "text-1774014538522",
+      "type": "text",
+      "position": {
+        "textureX": 3354,
+        "textureY": 5476
+      },
+      "tooltip": "Lote 01",
+      "svgStyle": {
+        "fill": "rgba(255,0,0,0.3)",
+        "stroke": "#c00",
+        "strokeWidth": "2"
+      },
+      "textColor": "#000000",
+      "bgColor": "#ffffff",
+      "bgOpacity": 0.9,
+      "size": {
+        "width": 80,
+        "height": 30
+      }
+    }
+  ]
+}

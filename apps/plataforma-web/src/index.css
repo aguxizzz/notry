@@ -1,0 +1,14 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  width: 100vw;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #1e1e24;
+  color: #e8e8e8;
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
