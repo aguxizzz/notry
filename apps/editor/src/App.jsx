@@ -27,13 +27,23 @@ function App() {
           if (!res.ok) throw new Error(`Error ${res.status}`);
           return res.json();
         })
-        .then(data => {
+        .then(async data => {
           if (data.annotations && Array.isArray(data.annotations)) {
             setAnnotations(data.annotations);
           }
           if (data.panoramaUrl && typeof data.panoramaUrl === 'string') {
-            setPanoramaUrl(data.panoramaUrl);
             setPanoramaFilename(data.panoramaUrl);
+            try {
+              const imgRes = await fetch(data.panoramaUrl);
+              if (imgRes.ok) {
+                const blob = await imgRes.blob();
+                setPanoramaUrl(URL.createObjectURL(blob));
+              } else {
+                setPanoramaUrl(data.panoramaUrl);
+              }
+            } catch {
+              setPanoramaUrl(data.panoramaUrl);
+            }
           }
         })
         .catch(err => {

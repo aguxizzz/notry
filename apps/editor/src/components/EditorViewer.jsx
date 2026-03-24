@@ -9,6 +9,7 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
   const markersPluginRef = useRef(null);
+  const isPanoramaReadyRef = useRef(false);
   
   const onClickRef = useRef(onClick);
   const onMarkerSelectRef = useRef(onMarkerSelect);
@@ -28,8 +29,9 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
   useEffect(() => {
     if (!containerRef.current) return;
 
+    const initialMarkers = annotations ? annotationsToMarkers(annotations) : [];
     const pluginConfig = MarkersPlugin.withConfig({
-      markers: [],
+      markers: initialMarkers,
     });
 
     viewerRef.current = new Viewer({
@@ -44,6 +46,11 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
     });
 
     markersPluginRef.current = viewerRef.current.getPlugin(MarkersPlugin);
+    isPanoramaReadyRef.current = false;
+
+    viewerRef.current.addEventListener('ready', () => {
+      isPanoramaReadyRef.current = true;
+    });
 
     viewerRef.current.addEventListener('click', (e) => {
       onClickRef.current && onClickRef.current(e.data.textureX, e.data.textureY);
@@ -319,6 +326,7 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
         });
       }
 
+      if (!isPanoramaReadyRef.current) return;
       markersPluginRef.current.setMarkers(markers);
     }
   }, [annotations]);
