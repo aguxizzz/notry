@@ -1,11 +1,77 @@
 import React, { useState } from 'react';
+import { Copy, Search, SlidersHorizontal } from 'lucide-react';
+import Sidebar from './components/Sidebar';
+import StatCard from './components/StatCard';
+import LoginBackground from './components/LoginBackground';
+import KanbanBoard from './components/KanbanBoard';
 import './App.css';
 
+const API_BASE = 'https://notry-back.onrender.com/api/v1';
+
+const STATUS_DISPLAY = {
+  available: 'disponible',
+  reserved: 'reservado',
+  sold: 'vendido',
+};
+
+const CATEGORY_DISPLAY = {
+  primer_contacto: 'Primer Contacto',
+  seguimiento: 'Seguimiento',
+  negociacion: 'Negociación',
+  vendido: 'Vendido',
+};
+
+const formatDate = (iso) => {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
 function App() {
+  const [view, setView] = useState('login'); // 'login' | 'lote_owner' | 'super_admin'
+  const [adminSubView, setAdminSubView] = useState('lotes'); // 'lotes' | 'loteos'
+  const [ownerSubView, setOwnerSubView] = useState('inicio');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [token, setToken] = useState(null);
+  const [user, setUser] = useState(null);
+  const [lots, setLots] = useState(null);
+  const [loteos, setLoteos] = useState(null);
+  const [selectedLot, setSelectedLot] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState(null); // { type: 'success' | 'error', message: string }
+  const [status, setStatus] = useState(null);
+  const [inventoryLots, setInventoryLots] = useState([]);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [inventorySearch, setInventorySearch] = useState('');
+  const [inventoryStatusFilter, setInventoryStatusFilter] = useState('');
+  const [prospectosList, setProspectosList] = useState([]);
+  const [prospectosLoading, setProspectosLoading] = useState(false);
+  const [prospectosCategoryFilter, setProspectosCategoryFilter] = useState('');
+  const [prospectosWithoutAdvisor, setProspectosWithoutAdvisor] = useState(false);
+
+  // Auto-fetch lots when entering super_admin view
+  React.useEffect(() => {
+    if (view === 'super_admin' && !lots) {
+      fetchLots();
+    }
+  }, [view]);
+
+  // Debounced fetch for inventory (triggers on view change, search, or filter)
+  React.useEffect(() => {
+    if (ownerSubView !== 'inventario' || !token) return;
+    const timer = setTimeout(() => {
+      fetchInventory(inventorySearch, inventoryStatusFilter);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [ownerSubView, inventorySearch, inventoryStatusFilter]);
+
+  // Debounced fetch for clientes
+  React.useEffect(() => {
+    if (ownerSubView !== 'clientes' || !token) return;
+    const timer = setTimeout(() => {
+      fetchProspectos(prospectosCategoryFilter, prospectosWithoutAdvisor);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [ownerSubView, prospectosCategoryFilter, prospectosWithoutAdvisor]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -13,90 +79,500 @@ function App() {
     setStatus(null);
 
     try {
-      const response = await fetch('https://notry-back.onrender.com/api/v1/auth/login', {
+      // 1. Login
+      const loginRes = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
+      const loginData = await loginRes.json();
+      if (!loginRes.ok) throw new Error(loginData.detail || 'Error en login');
 
-      if (response.ok) {
-        setStatus({
-          type: 'success',
-          message: `¡Bienvenido! Token: ${data.access_token.substring(0, 10)}...`,
-        });
-        console.log('Login exitoso:', data);
-      } else {
-        setStatus({
-          type: 'error',
-          message: data.detail || 'Error al iniciar sesión. Inténtalo de nuevo.',
-        });
-      }
-    } catch (error) {
-      setStatus({
-        type: 'error',
-        message: 'Error de conexión. Verifica tu internet.',
+      const accessToken = loginData.access_token;
+      setToken(accessToken);
+
+      // 2. Fetch Me
+      const meRes = await fetch(`${API_BASE}/auth/me`, {
+        method: 'GET',
+        headers: {
+          'accept': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
       });
-      console.error('Error en login:', error);
+
+      const meData = await meRes.json();
+      if (!meRes.ok) throw new Error('Error al obtener perfil');
+
+      setUser(meData);
+
+      // 3. Redirect
+      if (meData.role === 'super_admin' || meData.role === 'admin') {
+        setView('super_admin');
+      } else if (meData.role === 'lote_owner') {
+        setView('lote_owner');
+      } else {
+        setStatus({ type: 'error', message: `Rol no reconocido: ${meData.role}` });
+      }
+
+    } catch (error) {
+      setStatus({ type: 'error', message: error.message });
+      console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="login-container">
-      <div className="login-card">
-        <div className="login-header">
-          <h1>Notry</h1>
-          <p>Ingresa a tu cuenta para continuar</p>
+  const fetchLots = async () => {
+    setLoading(true);
+    setAdminSubView('lotes');
+    try {
+      const res = await fetch(`${API_BASE}/lots?status=available&limit=50&offset=0`, {
+        method: 'GET',
+        headers: {
+          'accept': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error('Error al listar lotes');
+      setLots(data.items);
+      if (data.items.length > 0 && !selectedLot) {
+        setSelectedLot(data.items[0]);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchLoteos = async () => {
+    setLoading(true);
+    setAdminSubView('loteos');
+    try {
+      const res = await fetch(`${API_BASE}/loteos?include_lotes=false&limit=50&offset=0`, {
+        method: 'GET',
+        headers: {
+          'accept': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error('Error al listar loteos');
+      setLoteos(data.items);
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchInventory = async (name, status) => {
+    setInventoryLoading(true);
+    try {
+      const params = new URLSearchParams({ limit: 50, offset: 0 });
+      if (name) params.set('name', name);
+      if (status) params.set('status', status);
+      const res = await fetch(`${API_BASE}/lots?${params}`, {
+        headers: {
+          'accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error('Error al cargar inventario');
+      setInventoryLots(data.items);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setInventoryLoading(false);
+    }
+  };
+
+  const fetchProspectos = async (category, withoutAdvisor) => {
+    setProspectosLoading(true);
+    try {
+      const params = new URLSearchParams({ limit: 50, offset: 0 });
+      if (category) params.set('category', category);
+      if (withoutAdvisor) params.set('without_advisor', 'true');
+      const res = await fetch(`${API_BASE}/prospects?${params}`, {
+        headers: {
+          'accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error('Error al cargar prospectos');
+      setProspectosList(data.items);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setProspectosLoading(false);
+    }
+  };
+
+  const logout = () => {
+    setView('login');
+    setToken(null);
+    setUser(null);
+    setLots(null);
+    setLoteos(null);
+    setSelectedLot(null);
+    setStatus(null);
+    setAdminSubView('lotes');
+    setInventoryLots([]);
+    setInventorySearch('');
+    setInventoryStatusFilter('');
+    setProspectosList([]);
+    setProspectosCategoryFilter('');
+    setProspectosWithoutAdvisor(false);
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+  };
+
+  if (view === 'login') {
+    return (
+      <div className="login-container">
+        <LoginBackground />
+        <div className="login-card">
+          <div className="login-header">
+            <h1>Notry</h1>
+            <p>Ingresa para administrar tus lotes</p>
+          </div>
+          <form onSubmit={handleLogin}>
+            <div className="form-group">
+              <label>Correo Electrónico</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </div>
+            <div className="form-group">
+              <label>Contraseña</label>
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            </div>
+            <button type="submit" className="primary-button" disabled={loading}>
+              {loading ? <span className="loader"></span> : 'Iniciar Sesión'}
+            </button>
+          </form>
+          {status && <div className={`status-message ${status.type}`}>{status.message}</div>}
         </div>
+      </div>
+    );
+  }
 
-        <form onSubmit={handleLogin}>
-          <div className="form-group">
-            <label htmlFor="email">Correo Electrónico</label>
-            <input
-              id="email"
-              type="email"
-              placeholder="nombre@ejemplo.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+  return (
+    <div className={`dashboard-container ${view === 'lote_owner' ? 'with-sidebar' : ''}`}>
+      {view !== 'lote_owner' && (
+        <nav className="dashboard-nav">
+          <div className="nav-brand">NOTRY / {view.replace('_', ' ').toUpperCase()}</div>
+          <div className="nav-user">
+            <span>{user?.full_name}</span>
+            <button onClick={logout} className="outline-button">Salir</button>
           </div>
+        </nav>
+      )}
 
-          <div className="form-group">
-            <label htmlFor="password">Contraseña</label>
-            <input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+      {view === 'lote_owner' && (
+        <Sidebar 
+          user={user} 
+          activeItem={ownerSubView} 
+          onItemClick={setOwnerSubView} 
+          onLogout={logout} 
+        />
+      )}
+
+      <main className="dashboard-content">
+        {view === 'super_admin' ? (
+          <div className="admin-layout">
+            <div className="side-panel">
+              {adminSubView === 'lotes' ? (
+                <div className="details-card">
+                  <h3>Detalles del Lote</h3>
+                  {selectedLot ? (
+                    <div className="lot-details">
+                      <div className="detail-row">
+                        <label>ID</label>
+                        <div className="id-cell">
+                          <span>{selectedLot.id.substring(0, 12)}...</span>
+                          <button onClick={() => copyToClipboard(selectedLot.id)} className="copy-btn-inline">
+                            <Copy size={16} />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="detail-row">
+                        <label>Nombre</label>
+                        <p>{selectedLot.name}</p>
+                      </div>
+                      <div className="detail-row">
+                        <label>Slug</label>
+                        <p>{selectedLot.slug}</p>
+                      </div>
+                      <div className="detail-row">
+                        <label>Estado</label>
+                        <span className="badge">{selectedLot.status}</span>
+                      </div>
+                      <div className="detail-row">
+                        <label>Área</label>
+                        <p>{selectedLot.area_m2 ? `${selectedLot.area_m2} m²` : '-'}</p>
+                      </div>
+                      <div className="detail-row">
+                        <label>Precio</label>
+                        <p className="price-tag">{selectedLot.price ? `$${selectedLot.price}` : '-'}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="placeholder-text">Selecciona un lote para ver los detalles</p>
+                  )}
+                </div>
+              ) : (
+                <div className="loteos-view">
+                  <h3>Gestión de Loteos</h3>
+                  <div className="loteos-container">
+                    {loteos?.map(loteo => (
+                      <div key={loteo.id} className="loteo-item">
+                        <div className="loteo-info">
+                          <h4>{loteo.name}</h4>
+                          <span>{loteo.id.substring(0, 8)}...</span>
+                        </div>
+                        <a 
+                          href={`https://notry-visor.vercel.app/?data=${API_BASE}/loteos/${loteo.id}/visor_data`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="visor-link"
+                        >
+                          👁️ Visor
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="side-nav-footer">
+                <button 
+                  onClick={adminSubView === 'loteos' ? fetchLots : fetchLoteos} 
+                  className="primary-button btn-fit gold"
+                >
+                  {adminSubView === 'loteos' ? 'Volver a Lotes' : 'Listar Loteos'}
+                </button>
+              </div>
+            </div>
+
+            <div className="list-panel">
+              <header className="panel-header">
+                <h2>{adminSubView === 'lotes' ? 'Todos los Lotes' : 'Loteos Disponibles'}</h2>
+                {loading && <span className="loader small"></span>}
+              </header>
+
+              <div className="scroll-area">
+                {adminSubView === 'lotes' ? (
+                  <div className="selectable-list">
+                    {lots?.map(lot => (
+                      <div 
+                        key={lot.id} 
+                        className={`list-item ${selectedLot?.id === lot.id ? 'selected' : ''}`}
+                        onClick={() => setSelectedLot(lot)}
+                      >
+                        <div className="item-main">
+                          <span className="item-name">{lot.name}</span>
+                          <span className="item-slug">{lot.slug}</span>
+                        </div>
+                        <span className="badge">{lot.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="info-text">Administra tus loteos desde el panel izquierdo.</p>
+                )}
+              </div>
+            </div>
           </div>
+        ) : (
+          <div className="owner-layout">
+            <div key={ownerSubView} className="view-content">
+              <header className="owner-header">
+                <h1 className="view-title">{ownerSubView.toUpperCase()}</h1>
+                <h2>Bienvenido, {user?.full_name?.split(' ')[0]}</h2>
+              </header>
 
-          <button type="submit" className="login-button" disabled={loading}>
-            {loading ? (
-              <>
-                <span className="loader"></span>
-                Iniciando sesión...
-              </>
-            ) : (
-              'Iniciar Sesión'
-            )}
-          </button>
-        </form>
+              {ownerSubView === 'inicio' && (
+                <>
+                  <div className="stats-grid">
+                    <StatCard label="Lotes Disponibles" value="124" color="#c5a059" />
+                    <StatCard label="Nuevos Leads" value="48" color="#3b82f6" />
+                    <StatCard label="Tasa de Conversión" value="12.5%" color="#10b981" />
+                  </div>
+                  <KanbanBoard token={token} />
+                </>
+              )}
 
-        {status && (
-          <div className={`status-message ${status.type}`}>
-            {status.message}
+              {ownerSubView === 'inventario' && (
+                <>
+                  <div className="stats-grid">
+                    <StatCard label="Lotes Disponibles" value="124" color="#c5a059" />
+                    <StatCard label="Reservados" value="12" color="#f59e0b" />
+                    <StatCard label="Vendidos este mes" value="8" color="#ef4444" />
+                  </div>
+
+                  <div className="inventory-section">
+                    <div className="inventory-controls">
+                      <div className="inventory-search">
+                        <Search size={16} className="search-icon" />
+                        <input
+                          type="text"
+                          placeholder="Buscar por nombre..."
+                          className="search-input"
+                          value={inventorySearch}
+                          onChange={e => setInventorySearch(e.target.value)}
+                        />
+                      </div>
+                      <div className="inventory-filters">
+                        <SlidersHorizontal size={16} className="filter-icon" />
+                        <select
+                          className="filter-select"
+                          value={inventoryStatusFilter}
+                          onChange={e => setInventoryStatusFilter(e.target.value)}
+                        >
+                          <option value="">Estado: Todos</option>
+                          <option value="available">Disponible</option>
+                          <option value="reserved">Reservado</option>
+                          <option value="sold">Vendido</option>
+                        </select>
+                        <select className="filter-select" disabled>
+                          <option>Área: Todas</option>
+                          <option>Menor a 200 m²</option>
+                          <option>200 – 500 m²</option>
+                          <option>Mayor a 500 m²</option>
+                        </select>
+                      </div>
+                      {inventoryLoading && <span className="loader small"></span>}
+                    </div>
+
+                    <div className="inventory-table-wrapper">
+                      <table className="inventory-table">
+                        <thead>
+                          <tr>
+                            <th>Nombre</th>
+                            <th>Área</th>
+                            <th>Precio</th>
+                            <th>Estado</th>
+                            <th>Loteo</th>
+                            <th>Prospectos</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {inventoryLots.length === 0 && !inventoryLoading ? (
+                            <tr>
+                              <td colSpan={6} className="td-empty-row">No se encontraron lotes.</td>
+                            </tr>
+                          ) : (
+                            inventoryLots.map(lot => (
+                              <tr key={lot.id}>
+                                <td className="td-name">{lot.name}</td>
+                                <td>{lot.area_m2 ? `${parseFloat(lot.area_m2).toLocaleString()} m²` : '—'}</td>
+                                <td className="td-price">{lot.price ? `$${parseFloat(lot.price).toLocaleString()}` : '—'}</td>
+                                <td>
+                                  <span className={`badge status-${STATUS_DISPLAY[lot.status] ?? lot.status}`}>
+                                    {STATUS_DISPLAY[lot.status] ?? lot.status}
+                                  </span>
+                                </td>
+                                <td className="td-loteo">{lot.loteo_name}</td>
+                                <td>
+                                  {!lot.prospect_names?.length ? (
+                                    <span className="td-empty">—</span>
+                                  ) : (
+                                    <div className="prospectos-list">
+                                      {lot.prospect_names.map((p, i) => (
+                                        <span key={i} className="prospecto-tag">{p}</span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {ownerSubView === 'clientes' && (
+                <div className="inventory-section">
+                  <div className="inventory-controls">
+                    <div className="inventory-filters">
+                      <SlidersHorizontal size={16} className="filter-icon" />
+                      <select
+                        className="filter-select"
+                        value={prospectosCategoryFilter}
+                        onChange={e => setProspectosCategoryFilter(e.target.value)}
+                      >
+                        <option value="">Categoría: Todas</option>
+                        {Object.entries(CATEGORY_DISPLAY).map(([val, label]) => (
+                          <option key={val} value={val}>{label}</option>
+                        ))}
+                      </select>
+                      <label className="filter-toggle">
+                        <input
+                          type="checkbox"
+                          checked={prospectosWithoutAdvisor}
+                          onChange={e => setProspectosWithoutAdvisor(e.target.checked)}
+                        />
+                        Sin asesor
+                      </label>
+                    </div>
+                    {prospectosLoading && <span className="loader small"></span>}
+                  </div>
+
+                  <div className="inventory-table-wrapper">
+                    <table className="inventory-table">
+                      <thead>
+                        <tr>
+                          <th>Nombre</th>
+                          <th>Email</th>
+                          <th>Teléfono</th>
+                          <th>Categoría</th>
+                          <th>Presupuesto</th>
+                          <th>Último Contacto</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {prospectosList.length === 0 && !prospectosLoading ? (
+                          <tr>
+                            <td colSpan={6} className="td-empty-row">No se encontraron prospectos.</td>
+                          </tr>
+                        ) : (
+                          prospectosList.map(p => (
+                            <tr key={p.id}>
+                              <td className="td-name">{p.name}</td>
+                              <td className="td-muted">{p.email || '—'}</td>
+                              <td className="td-muted">{p.phone || '—'}</td>
+                              <td>
+                                <span className={`badge category-${p.category}`}>
+                                  {CATEGORY_DISPLAY[p.category] ?? p.category?.replace(/_/g, ' ')}
+                                </span>
+                              </td>
+                              <td className="td-price">{p.budget ? `$${parseFloat(p.budget).toLocaleString()}` : '—'}</td>
+                              <td className="td-muted">{formatDate(p.last_contact)}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {ownerSubView !== 'inventario' && ownerSubView !== 'clientes' && (
+                <div className="owner-panel">
+                  <p>Tu dashboard de {ownerSubView} está siendo preparado.</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

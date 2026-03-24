@@ -16,8 +16,33 @@ function App() {
   const [panoramaFilename, setPanoramaFilename] = useState('');
   const [isLoadingDefault, setIsLoadingDefault] = useState(true);
 
-  // Verifica si el proyecto padre tiene panorama.jpg disponible al abrir
+  // Carga datos desde ?data=URL o desde el panorama.jpg del proyecto padre
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const dataUrl = params.get('data');
+
+    if (dataUrl) {
+      fetch(dataUrl)
+        .then(res => {
+          if (!res.ok) throw new Error(`Error ${res.status}`);
+          return res.json();
+        })
+        .then(data => {
+          if (data.annotations && Array.isArray(data.annotations)) {
+            setAnnotations(data.annotations);
+          }
+          if (data.panoramaUrl && typeof data.panoramaUrl === 'string') {
+            setPanoramaUrl(data.panoramaUrl);
+            setPanoramaFilename(data.panoramaUrl);
+          }
+        })
+        .catch(err => {
+          alert(`No se pudo cargar el JSON desde la URL: ${err.message}`);
+        })
+        .finally(() => setIsLoadingDefault(false));
+      return;
+    }
+
     fetch('/panorama.jpg', { method: 'HEAD' })
       .then(res => {
         if (res.ok) {
