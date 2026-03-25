@@ -2,40 +2,42 @@ import { useState, useEffect } from 'react';
 
 const PRE_CALIFICACION_URL = 'https://ejemplo.com/api/lote/pre-calificacion';
 
-/**
- * Subcomponente del formulario de pre calificación.
- */
-function PrecalificacionForm({ lotDetail, onBack, onClose }) {
+function PrecalificacionForm({ lotDetail, onClose }) {
   const [nombre, setNombre] = useState('');
   const [numero, setNumero] = useState('');
   const [presupuesto, setPresupuesto] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!nombre && !numero) return;
-
     fetch(PRE_CALIFICACION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: lotDetail.markerId, nombre, numero, presupuesto }),
     }).catch((err) => console.warn('POST pre calificación:', err));
-
     onClose();
   };
 
-  const metaParts = [];
-  if (lotDetail.precio) metaParts.push(`Precio: ${lotDetail.precio}`);
-  if (lotDetail.area) metaParts.push(`Área: ${lotDetail.area}`);
-
   return (
-    <div id="info-panel-form" className="info-panel-form visible">
-      <div id="precal-detail-summary">
-        <div id="precal-detail-title">{lotDetail.title}</div>
-        {metaParts.length > 0 && (
-          <div id="precal-detail-meta">{metaParts.join(' · ')}</div>
-        )}
-      </div>
-      <form onSubmit={handleSubmit}>
+    <div className="info-panel-form">
+      {(lotDetail.precio || lotDetail.area) && (
+        <div id="precal-detail-summary">
+          <div id="precal-detail-meta">
+            {lotDetail.precio && (
+              <div className="precal-meta-item">
+                <span className="precal-meta-label">Precio</span>
+                <span className="precal-meta-value">{lotDetail.precio}</span>
+              </div>
+            )}
+            {lotDetail.area && (
+              <div className="precal-meta-item">
+                <span className="precal-meta-label">Área</span>
+                <span className="precal-meta-value">{lotDetail.area}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      <form onSubmit={handleSubmit} autoComplete="off">
         <label htmlFor="precal-nombre">Nombre</label>
         <input
           type="text"
@@ -44,6 +46,7 @@ function PrecalificacionForm({ lotDetail, onBack, onClose }) {
           placeholder="Ingrese su nombre"
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
+          autoComplete="off"
           required
           autoFocus
         />
@@ -55,6 +58,7 @@ function PrecalificacionForm({ lotDetail, onBack, onClose }) {
           placeholder="Ingrese su número"
           value={numero}
           onChange={(e) => setNumero(e.target.value)}
+          autoComplete="off"
           required
         />
         <label htmlFor="precal-presupuesto">Presupuesto</label>
@@ -65,6 +69,7 @@ function PrecalificacionForm({ lotDetail, onBack, onClose }) {
           placeholder="Ej. 50.000.000"
           value={presupuesto}
           onChange={(e) => setPresupuesto(e.target.value)}
+          autoComplete="off"
         />
         <button type="submit" className="btn-enviar">Enviar solicitud</button>
       </form>
@@ -72,44 +77,38 @@ function PrecalificacionForm({ lotDetail, onBack, onClose }) {
   );
 }
 
-/**
- * Panel lateral/modal que muestra el detalle de un marcador y el formulario de precalificación.
- *
- * @param {{ isOpen: boolean, title: string, content: string, markerId: string,
- *           detail: { precio?: string, area?: string }, onClose: Function }} props
- */
 export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClose }) {
   const [showForm, setShowForm] = useState(false);
+  const [transDir, setTransDir] = useState(null);
 
-  // Resetear a vista info cada vez que se abre un marcador nuevo
+  useEffect(() => {
+    if (!isOpen) { setShowForm(false); setTransDir(null); }
+  }, [isOpen]);
+
   useEffect(() => {
     setShowForm(false);
+    setTransDir(null);
   }, [markerId]);
 
-  if (!isOpen) return null;
+  const goToForm = () => { setTransDir('forward'); setShowForm(true); };
+  const goBack  = () => { setTransDir('back');    setShowForm(false); };
 
   const lotDetail = {
     title: title ?? '',
     markerId,
     precio: detail.precio != null ? String(detail.precio).trim() : '',
-    area: detail.area != null ? String(detail.area).trim() : '',
+    area:   detail.area   != null ? String(detail.area).trim()   : '',
   };
 
   return (
     <div
       id="info-backdrop"
-      className="visible"
-      aria-hidden="false"
+      className={isOpen ? 'visible' : ''}
+      aria-hidden={!isOpen}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div
-        id="info-panel"
-        className={`info-panel${showForm ? ' info-panel--form-visible' : ''}`}
-        role="dialog"
-        aria-modal="true"
-        aria-live="polite"
-      >
-        {/* HEADER */}
+      <div id="info-panel" role="dialog" aria-modal="true" aria-live="polite">
+
         <header id="info-panel-header">
           <div id="info-panel-header-left">
             {showForm && (
@@ -117,13 +116,13 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
                 type="button"
                 id="info-panel-back"
                 aria-label="Volver al detalle"
-                onClick={() => setShowForm(false)}
+                onClick={goBack}
               />
             )}
           </div>
           <div id="info-panel-header-center">
             {showForm
-              ? <span className="info-panel-form-title">Pre calificación</span>
+              ? <span className="info-panel-form-title">Solicitud: {title}</span>
               : <span id="info-panel-lot-title">{title}</span>
             }
           </div>
@@ -134,30 +133,26 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
           </div>
         </header>
 
-        {/* CONTENT */}
         <div id="info-panel-content">
           {!showForm ? (
-            <div id="info-panel-view">
-              <div
-                id="info-content"
-                dangerouslySetInnerHTML={{ __html: content ?? '' }}
-              />
+            <div
+              id="info-panel-view"
+              className={transDir === 'back' ? 'anim-from-left' : ''}
+            >
+              <div id="info-content" dangerouslySetInnerHTML={{ __html: content ?? '' }} />
               {markerId && (
                 <div id="info-actions">
-                  <button type="button" onClick={() => setShowForm(true)}>
+                  <button type="button" onClick={goToForm}>
                     Pre calificación
                   </button>
                 </div>
               )}
             </div>
           ) : (
-            <PrecalificacionForm
-              lotDetail={lotDetail}
-              onBack={() => setShowForm(false)}
-              onClose={onClose}
-            />
+            <PrecalificacionForm key={markerId} lotDetail={lotDetail} onClose={onClose} />
           )}
         </div>
+
       </div>
     </div>
   );
