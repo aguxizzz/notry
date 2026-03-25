@@ -1,4 +1,26 @@
 /* =============================================
+   CSS VARIABLES
+   ============================================= */
+:root {
+  --accent:          #c5a059;
+  --accent-hover:    #d9b38c;
+  --panel-bg:        #18181f;
+  --panel-header-bg: rgba(255, 255, 255, 0.05);
+  --panel-border:    rgba(255, 255, 255, 0.07);
+  --text-primary:    #efefef;
+  --text-secondary:  #b0b0bf;
+  --text-muted:      #7a7a8a;
+  --input-bg:        #222230;
+  --input-border:    #38384a;
+  --backdrop-bg:     rgba(0, 0, 0, 0.55);
+  --shadow:          0 24px 56px -8px rgba(0, 0, 0, 0.7), 0 0 0 1px var(--panel-border);
+  --panel-radius:    14px;
+  --btn-radius:      8px;
+  --t-fast:          0.15s ease;
+  --t:               0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* =============================================
    GLOBAL RESET & BASE
    ============================================= */
 html, body {
@@ -6,24 +28,22 @@ html, body {
   height: 100%;
   font-family: 'Raleway', sans-serif;
 }
-
 #root {
   width: 100%;
   height: 100vh;
 }
-
 #viewer-container {
   width: 100%;
   height: 100%;
 }
 
 /* =============================================
-   BACKDROP (fondo oscuro detrás del modal)
+   BACKDROP
    ============================================= */
 #info-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
+  background: var(--backdrop-bg);
   z-index: 100;
   display: flex;
   align-items: center;
@@ -31,7 +51,7 @@ html, body {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity 0.25s ease, visibility 0.25s ease;
+  transition: opacity var(--t), visibility var(--t);
 }
 #info-backdrop.visible {
   opacity: 1;
@@ -44,46 +64,45 @@ html, body {
    ============================================= */
 #info-panel {
   position: relative;
-  width: 360px;
-  max-height: 85vh;
-  padding: 0 1.5rem 1.5rem 1.5rem;
-  background: #1e1e24;
-  color: #e8e8e8;
+  width: min(400px, calc(100vw - 2rem));
+  max-height: min(88vh, 620px);
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg);
+  color: var(--text-primary);
   font-family: 'Raleway', sans-serif;
   font-size: 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.1);
+  border-radius: var(--panel-radius);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow);
   box-sizing: border-box;
   overflow: hidden;
   z-index: 101;
-  transform: scale(0.96);
+  transform: translateY(20px);
   opacity: 0;
-  transition: transform 0.25s ease, opacity 0.25s ease;
+  transition: transform var(--t), opacity var(--t);
 }
 #info-backdrop.visible #info-panel {
-  transform: scale(1);
+  transform: translateY(0);
   opacity: 1;
 }
 
 /* =============================================
-   HEADER DEL PANEL
+   HEADER
    ============================================= */
 #info-panel-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  height: 2.75rem;
-  margin: 0 -1.5rem 0 -1.5rem;
-  padding: 0 1.5rem;
+  gap: 0.5rem;
+  padding: 0 1rem;
+  height: 3rem;
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 12px 12px 0 0;
+  background: var(--panel-header-bg);
+  border-bottom: 1px solid var(--panel-border);
 }
 #info-panel-header-left,
 #info-panel-header-right {
   flex: 0 0 28px;
-  width: 28px;
 }
 #info-panel-header-right {
   display: flex;
@@ -93,140 +112,245 @@ html, body {
   flex: 1;
   text-align: center;
   font-weight: 600;
-  color: #e8e8e8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 #info-panel-lot-title {
-  font-size: 1.35rem;
+  font-size: 1.05rem;
+  color: var(--accent);
 }
 .info-panel-form-title {
-  font-size: 1.1rem;
+  font-size: 0.88rem;
+  color: var(--text-primary);
 }
 
-/* Botón cerrar */
-#info-panel-close {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: #aaa;
-  font-size: 1.25rem;
-  line-height: 1;
-  cursor: pointer;
-  border-radius: 6px;
-}
-#info-panel-close:hover { color: #fff; background: rgba(255,255,255,0.1); }
-
-/* Botón volver (flecha) */
+/* Botones cerrar / volver */
+#info-panel-close,
 #info-panel-back {
   width: 28px;
   height: 28px;
   padding: 0;
   border: none;
   background: transparent;
+  color: var(--text-muted);
   cursor: pointer;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
-  color: #aaa;
+  transition: color var(--t-fast), background var(--t-fast);
 }
-#info-panel-back:hover { color: #fff; background: rgba(255,255,255,0.1); }
+#info-panel-close:hover,
+#info-panel-back:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+#info-panel-close {
+  font-size: 1.3rem;
+  line-height: 1;
+}
 #info-panel-back::before {
   content: '';
   width: 0;
   height: 0;
-  border-top: 6px solid transparent;
-  border-bottom: 6px solid transparent;
-  border-right: 10px solid currentColor;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-right: 8px solid currentColor;
   margin-left: -2px;
 }
 
 /* =============================================
-   CONTENIDO DEL PANEL (VISTA INFO)
+   CONTENIDO — área scrollable
    ============================================= */
 #info-panel-content {
-  padding-top: 0.75rem;
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem 1.5rem 1.5rem;
 }
+#info-panel-content::-webkit-scrollbar { width: 4px; }
+#info-panel-content::-webkit-scrollbar-track { background: transparent; }
+#info-panel-content::-webkit-scrollbar-thumb {
+  background: var(--input-border);
+  border-radius: 4px;
+}
+
+/* Vista detalle */
 #info-panel-view {
-  padding: 0 0 0.75rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
-#info-content { margin: 0 0 1rem 0; }
-#info-content p { margin: 0 0 0.5rem 0; }
+#info-content {
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+#info-content p { margin: 0 0 0.4rem; }
 #info-content p:last-child { margin-bottom: 0; }
-#info-actions { margin-top: 0.75rem; }
+#info-content strong { color: var(--text-primary); font-weight: 600; }
+
 #info-actions button {
   width: 100%;
-  padding: 0.5rem 0.75rem;
-  background: #1a73e8;
-  color: #fff;
+  padding: 0.65rem 1rem;
+  background: var(--accent);
+  color: #111;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--btn-radius);
   font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
   cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: background var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
 }
-#info-actions button:hover { background: #1557b0; }
+#info-actions button:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(197, 160, 89, 0.3);
+}
+#info-actions button:active { transform: translateY(0); box-shadow: none; }
 
 /* =============================================
-   VISTA FORMULARIO DE PRE CALIFICACIÓN
+   FORMULARIO DE PRE CALIFICACIÓN
    ============================================= */
 .info-panel-form {
   display: flex;
   flex-direction: column;
-  padding: 0.75rem 0 1rem 0;
 }
 #precal-detail-summary {
   text-align: center;
+  padding-bottom: 1rem;
   margin-bottom: 1rem;
+  border-bottom: 1px solid var(--panel-border);
 }
 #precal-detail-title {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 0.25rem;
 }
 #precal-detail-meta {
-  font-size: 0.85rem;
-  color: #aaa;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.precal-meta-item {
+  background: var(--input-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--btn-radius);
+  padding: 0.5rem 0.75rem;
+  text-align: center;
+}
+.precal-meta-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 0.2rem;
+}
+.precal-meta-value {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 .info-panel-form label {
   display: block;
-  margin-bottom: 0.25rem;
-  color: #aaa;
-  font-size: 0.9rem;
+  margin-bottom: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.83rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 .info-panel-form input {
   width: 100%;
   margin-bottom: 1rem;
-  padding: 0.5rem 0.6rem;
-  border: 1px solid #444;
-  border-radius: 6px;
-  background: #2a2a30;
-  color: #e8e8e8;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--input-border);
+  border-radius: var(--btn-radius);
+  background: var(--input-bg);
+  color: var(--text-primary);
   font-size: 14px;
+  font-family: inherit;
   box-sizing: border-box;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
 }
-.info-panel-form input::placeholder { color: #666; }
+.info-panel-form input::placeholder { color: var(--text-muted); }
 .info-panel-form input:focus {
   outline: none;
-  border-color: #1a73e8;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.15);
 }
 .btn-enviar {
   width: 100%;
-  margin-top: 0.5rem;
-  padding: 0.6rem 0.75rem;
-  background: #1a73e8;
-  color: #fff;
+  margin-top: 0.25rem;
+  padding: 0.65rem 1rem;
+  background: var(--accent);
+  color: #111;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--btn-radius);
   font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
   cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: background var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
 }
-.btn-enviar:hover { background: #1557b0; }
+.btn-enviar:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(197, 160, 89, 0.3);
+}
+.btn-enviar:active { transform: translateY(0); box-shadow: none; }
+
+/* =============================================
+   ANIMACIONES DE TRANSICIÓN ENTRE VISTAS
+   ============================================= */
+@keyframes slide-from-right {
+  from { opacity: 0; transform: translateX(22px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slide-from-left {
+  from { opacity: 0; transform: translateX(-22px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* La vista de formulario siempre entra desde la derecha */
+.info-panel-form {
+  animation: slide-from-right 0.22s ease;
+}
+/* La vista de detalle entra desde la izquierda al volver */
+#info-panel-view.anim-from-left {
+  animation: slide-from-left 0.22s ease;
+}
 
 /* =============================================
    HOVER EN MARCADORES TIPO "TEXT"
    ============================================= */
 .psv-marker.psv-marker--label-hover {
-  filter: brightness(1.15);
-  transition: filter 0.15s ease;
+  filter: brightness(1.2);
+  transition: filter var(--t-fast);
+}
+
+/* =============================================
+   ACCESIBILIDAD
+   ============================================= */
+@media (prefers-reduced-motion: reduce) {
+  #info-backdrop,
+  #info-panel,
+  #info-panel-close,
+  #info-panel-back,
+  #info-actions button,
+  .btn-enviar,
+  .info-panel-form input {
+    transition: none;
+  }
+  .info-panel-form,
+  #info-panel-view.anim-from-left {
+    animation: none;
+  }
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { InfoPanel } from './components/InfoPanel.jsx';
 import { useViewer } from './hooks/useViewer.js';
 import { annotationsToMarkers } from './annotations.js';
@@ -45,27 +45,26 @@ function postLoteId(url, id) {
   }).catch((err) => console.warn('POST lote:', err));
 }
 
+const PANEL_CLOSED = { isOpen: false, title: '', content: '', markerId: null, detail: {} };
+
 export default function App() {
   const [rawData, setRawData] = useState(null);
   const [error, setError] = useState(null);
+  const [panel, setPanel] = useState(PANEL_CLOSED);
 
-  // Estado del panel de info
-  const [panelOpen, setPanelOpen] = useState(false);
-  const [panelTitle, setPanelTitle] = useState('');
-  const [panelContent, setPanelContent] = useState('');
-  const [panelMarkerId, setPanelMarkerId] = useState(null);
-  const [panelDetail, setPanelDetail] = useState({});
-
-  // Cargar datos al montar
   useEffect(() => {
     fetchViewerData()
       .then((data) => setRawData(data))
       .catch((err) => setError(err.message));
   }, []);
 
-  // Preparar datos del visor (anotaciones → markers)
   const annotations = rawData?.annotations ?? [];
-  const annotationsById = Object.fromEntries(annotations.map((a) => [a.id, a]));
+
+  const annotationsById = useMemo(
+    () => Object.fromEntries(annotations.map((a) => [a.id, a])),
+    [annotations]
+  );
+
   const markers = annotationsToMarkers(annotations);
   const viewerData = rawData
     ? { panoramaUrl: rawData.panoramaUrl, markers, annotations }
@@ -74,7 +73,6 @@ export default function App() {
   const handleMarkerSelect = useCallback((marker, markersPlugin) => {
     const ann = annotationsById[marker.id];
 
-    // Marcadores de tipo "text" no abren el panel
     if (ann?.type === 'text') {
       markersPlugin.hideMarkerPanel?.();
       return;
@@ -94,15 +92,17 @@ export default function App() {
       content = ann?.tooltip ?? '';
     }
 
-    setPanelTitle(title);
-    setPanelContent(content);
-    setPanelMarkerId(marker.id);
-    setPanelDetail({ precio: ann?.precio, area: ann?.area });
-    setPanelOpen(true);
+    setPanel({
+      isOpen: true,
+      title,
+      content,
+      markerId: marker.id,
+      detail: { precio: ann?.precio, area: ann?.area },
+    });
   }, [annotationsById]);
 
   const handleMarkerUnselect = useCallback(() => {
-    setPanelOpen(false);
+    setPanel(PANEL_CLOSED);
   }, []);
 
   const viewerRef = useViewer(viewerData, handleMarkerSelect, handleMarkerUnselect);
@@ -120,12 +120,12 @@ export default function App() {
     <>
       <div id="viewer-container" ref={viewerRef} />
       <InfoPanel
-        isOpen={panelOpen}
-        title={panelTitle}
-        content={panelContent}
-        markerId={panelMarkerId}
-        detail={panelDetail}
-        onClose={() => setPanelOpen(false)}
+        isOpen={panel.isOpen}
+        title={panel.title}
+        content={panel.content}
+        markerId={panel.markerId}
+        detail={panel.detail}
+        onClose={() => setPanel(PANEL_CLOSED)}
       />
     </>
   );
