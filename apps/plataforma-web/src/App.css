@@ -1,11 +1,11 @@
 :root {
   --accent-color: #c5a059;
   --accent-hover: #d9b38c;
-  --bg-dark: #0f172a;
-  --panel-bg: #1e293b;
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --border-color: #334155;
+  --bg-dark: #faf8f4;
+  --panel-bg: #ffffff;
+  --text-main: #1a1a2a;
+  --text-muted: #6b7280;
+  --border-color: #e8e2d9;
 }
 
 .login-container {
@@ -26,7 +26,8 @@
   background: var(--panel-bg);
   padding: 36px 48px 48px;
   border: 1px solid var(--border-color);
-  box-shadow: 12px 12px 0px rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  box-shadow: 12px 12px 0px rgba(0, 0, 0, 0.1);
   position: relative;
   z-index: 1;
 }
@@ -61,13 +62,13 @@
 
 .form-group input {
   width: 100%;
-  background: #0f172a;
+  background: var(--bg-dark);
   border: 1px solid var(--border-color);
   padding: 12px 16px;
   color: var(--text-main);
   font-size: 1rem;
   font-family: inherit;
-  border-radius: 0;
+  border-radius: 6px;
 }
 
 .form-group input:focus {
@@ -79,9 +80,9 @@
 .primary-button {
   width: 100%;
   background: var(--accent-color);
-  color: var(--bg-dark);
+  color: #1a1a2a;
   border: none;
-  border-radius: 0;
+  border-radius: 6px;
   padding: 16px 24px;
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
@@ -116,7 +117,7 @@
 
 .primary-button.gold {
   background: var(--accent-color);
-  color: var(--bg-dark);
+  color: #1a1a2a;
 }
 
 .primary-button:disabled {
@@ -124,14 +125,15 @@
 }
 
 .primary-button .loader {
-  border-color: rgba(15, 23, 42, 0.25);
-  border-top-color: var(--bg-dark);
+  border-color: rgba(26, 26, 42, 0.2);
+  border-top-color: #1a1a2a;
 }
 
 .outline-button {
   background: transparent;
   color: var(--text-muted);
   border: 1px solid var(--border-color);
+  border-radius: 6px;
   padding: 8px 16px;
   text-transform: uppercase;
   font-size: 0.75rem;
@@ -153,6 +155,7 @@
 .copy-btn-inline {
   background: transparent;
   border: none;
+  border-radius: 4px;
   color: var(--text-muted);
   cursor: pointer;
   padding: 4px;
@@ -164,7 +167,7 @@
 
 .copy-btn-inline:hover {
   color: var(--accent-color);
-  background: rgba(197, 160, 89, 0.1);
+  background: rgba(197, 160, 89, 0.15);
 }
 
 /* DASHBOARD LAYOUT */
@@ -177,7 +180,7 @@
 
 .dashboard-nav {
   height: 64px;
-  border-bottom: 2px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -260,6 +263,7 @@
   background: var(--panel-bg);
   border: 1px solid var(--border-color);
   border-left: 6px solid var(--card-accent);
+  border-radius: 8px;
   padding: 24px 32px;
   display: flex;
   align-items: center;
@@ -269,7 +273,7 @@
 
 .stat-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
 }
 
 .stat-label {
@@ -305,7 +309,7 @@
 
 .list-panel {
   flex: 1;
-  background: #0f172a;
+  background: var(--bg-dark);
   display: flex;
   flex-direction: column;
   padding: 40px;
@@ -375,12 +379,13 @@
 .selectable-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .list-item {
   background: var(--panel-bg);
   border: 1px solid var(--border-color);
+  border-radius: 6px;
   padding: 20px 24px;
   display: flex;
   align-items: center;
@@ -424,9 +429,10 @@
 }
 
 .loteo-item {
-  background: #0f172a;
-  padding: 16px;
+  background: var(--bg-dark);
+  padding: 18px 24px;
   border: 1px solid var(--border-color);
+  border-radius: 6px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -444,8 +450,9 @@
 
 .visor-link {
   background: var(--accent-color);
-  color: var(--bg-dark);
+  color: #1a1a2a;
   padding: 8px 16px;
+  border-radius: 4px;
   font-size: 0.75rem;
   font-weight: 800;
   text-decoration: none;
@@ -455,7 +462,8 @@
 .badge {
   background: rgba(197, 160, 89, 0.1);
   color: var(--accent-color);
-  padding: 4px 8px;
+  padding: 4px 10px;
+  border-radius: 4px;
   font-size: 0.7rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -488,7 +496,7 @@
 
 .kanban-board {
   display: flex;
-  gap: 14px;
+  gap: 16px;
   flex: 1;
   min-height: 0;
   height: calc(100vh - 370px);
@@ -501,12 +509,14 @@
   background: var(--panel-bg);
   border: 1px solid var(--border-color);
   border-top: 3px solid var(--col-accent);
+  border-radius: 8px;
   min-width: 0;
+  overflow: hidden;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .kanban-col.drag-over {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(0, 0, 0, 0.03);
   border-color: var(--col-accent);
 }
 
@@ -531,7 +541,8 @@
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 4px;
   padding: 2px 8px;
 }
 
@@ -541,13 +552,14 @@
   padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .kanban-card {
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
-  padding: 12px 14px;
+  border-radius: 6px;
+  padding: 14px 16px;
   cursor: grab;
   display: flex;
   flex-direction: column;
@@ -605,6 +617,8 @@
   gap: 0;
   background: var(--panel-bg);
   border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .inventory-controls {
@@ -622,6 +636,7 @@
   gap: 10px;
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
+  border-radius: 6px;
   padding: 10px 14px;
   flex: 1;
   min-width: 200px;
@@ -664,6 +679,7 @@
 .filter-select {
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
+  border-radius: 6px;
   color: var(--text-muted);
   font-family: inherit;
   font-size: 0.8rem;
@@ -695,7 +711,7 @@
 
 .inventory-table th {
   text-align: left;
-  padding: 14px 20px;
+  padding: 16px 24px;
   font-size: 0.7rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -713,11 +729,11 @@
 }
 
 .inventory-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(0, 0, 0, 0.03);
 }
 
 .inventory-table td {
-  padding: 16px 20px;
+  padding: 20px 24px;
   font-size: 0.9rem;
   color: var(--text-muted);
 }
@@ -733,18 +749,18 @@
 }
 
 .badge.status-disponible {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
 }
 
 .badge.status-reservado {
-  background: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
 }
 
 .badge.status-vendido {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
 }
 
 .td-loteo {
@@ -770,10 +786,10 @@
 }
 
 /* Category badges */
-.badge.category-primer_contacto { background: rgba(99, 102, 241, 0.12); color: #818cf8; }
-.badge.category-seguimiento     { background: rgba(59, 130, 246, 0.12); color: #60a5fa; }
-.badge.category-negociacion     { background: rgba(245, 158, 11, 0.12); color: #fbbf24; }
-.badge.category-vendido         { background: rgba(16, 185, 129, 0.12); color: #34d399; }
+.badge.category-primer_contacto { background: rgba(99, 102, 241, 0.12); color: #4338ca; }
+.badge.category-seguimiento     { background: rgba(59, 130, 246, 0.12); color: #1d4ed8; }
+.badge.category-negociacion     { background: rgba(245, 158, 11, 0.12); color: #b45309; }
+.badge.category-vendido         { background: rgba(16, 185, 129, 0.12); color: #047857; }
 
 /* Sin asesor toggle */
 .filter-toggle {
@@ -803,8 +819,9 @@
 }
 
 .prospecto-tag {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.04);
   border: 1px solid var(--border-color);
+  border-radius: 4px;
   color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 600;
