@@ -3,17 +3,17 @@
    ============================================= */
 :root {
   --accent:          #c5a059;
-  --accent-hover:    #d9b38c;
-  --panel-bg:        #18181f;
-  --panel-header-bg: rgba(255, 255, 255, 0.05);
-  --panel-border:    rgba(255, 255, 255, 0.07);
-  --text-primary:    #efefef;
-  --text-secondary:  #b0b0bf;
-  --text-muted:      #7a7a8a;
-  --input-bg:        #222230;
-  --input-border:    #38384a;
-  --backdrop-bg:     rgba(0, 0, 0, 0.55);
-  --shadow:          0 24px 56px -8px rgba(0, 0, 0, 0.7), 0 0 0 1px var(--panel-border);
+  --accent-hover:    #b38a3f;
+  --panel-bg:        #ffffff;
+  --panel-header-bg: var(--accent);
+  --panel-border:    rgba(0, 0, 0, 0.1);
+  --text-primary:    #1a1a1a;
+  --text-secondary:  #444444;
+  --text-muted:      #888888;
+  --input-bg:        #f7f5f1;
+  --input-border:    #d8d0c0;
+  --backdrop-bg:     rgba(0, 0, 0, 0.4);
+  --shadow:          0 24px 56px -8px rgba(0, 0, 0, 0.18), 0 0 0 1px var(--panel-border);
   --panel-radius:    14px;
   --btn-radius:      8px;
   --t-fast:          0.15s ease;
@@ -118,11 +118,11 @@ html, body {
 }
 #info-panel-lot-title {
   font-size: 1.05rem;
-  color: var(--accent);
+  color: #ffffff;
 }
 .info-panel-form-title {
   font-size: 0.88rem;
-  color: var(--text-primary);
+  color: #ffffff;
 }
 
 /* Botones cerrar / volver */
@@ -133,7 +133,7 @@ html, body {
   padding: 0;
   border: none;
   background: transparent;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.8);
   cursor: pointer;
   border-radius: 6px;
   display: flex;
@@ -143,8 +143,8 @@ html, body {
 }
 #info-panel-close:hover,
 #info-panel-back:hover {
-  color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.12);
 }
 #info-panel-close {
   font-size: 1.3rem;
@@ -334,6 +334,17 @@ html, body {
 .psv-marker.psv-marker--label-hover {
   filter: brightness(1.2);
   transition: filter var(--t-fast);
+}
+
+/* =============================================
+   HOVER EN POLÍGONOS
+   ============================================= */
+.psv-marker--poly {
+  transition: filter var(--t-fast);
+  cursor: pointer;
+}
+.psv-marker--poly:hover {
+  filter: brightness(1.5) saturate(1.1);
 }
 
 /* =============================================
