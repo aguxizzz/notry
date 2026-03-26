@@ -33,9 +33,18 @@ export function annotationsToMarkers(annotations) {
 
       case 'polygon': {
         const points = ann.polygonPixels ?? ann.polygon ?? [];
+        const estadoStyles = {
+          available: { fill: 'rgba(34,197,94,0.15)',  stroke: 'rgba(22,163,74,0.5)',  strokeWidth: '2' },
+          sold:      { fill: 'rgba(239,68,68,0.25)',   stroke: 'rgba(220,38,38,0.7)',  strokeWidth: '2' },
+          reserved:  { fill: 'rgba(59,130,246,0.22)',  stroke: 'rgba(37,99,235,0.65)', strokeWidth: '2' },
+        };
+        const svgStyle = ann.estado && estadoStyles[ann.estado]
+          ? estadoStyles[ann.estado]
+          : (ann.svgStyle ?? {});
         return {
           ...base,
-          tooltip: null, // suppress the cursor tooltip; interaction is handled by our panel
+          svgStyle,
+          tooltip: null,
           polygonPixels: points,
         };
       }
@@ -72,7 +81,7 @@ export function annotationsToMarkers(annotations) {
           const rgbaBg = hexBg.length === 7 ? `rgba(${parseInt(hexBg.slice(1,3),16)}, ${parseInt(hexBg.slice(3,5),16)}, ${parseInt(hexBg.slice(5,7),16)}, ${bgOpa})` : hexBg;
           const textColor = ann.textColor || '#000000';
           const fontSize = ann.fontSize ?? 14;
-          generatedHtml = `<div style='background:${rgbaBg};padding:5px;border-radius:4px;color:${textColor};min-width:20px;min-height:20px;font-family:"Anton SC",sans-serif;font-size:${fontSize}px;'>${displayContent}</div>`;
+          generatedHtml = `<div style='background:${rgbaBg};padding:5px;border-radius:4px;color:${textColor};min-width:20px;min-height:20px;font-family:"Oswald",sans-serif;font-weight:600;font-size:${fontSize}px;'>${displayContent}</div>`;
         }
 
         return {

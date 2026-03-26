@@ -1,0 +1,252 @@
+{
+  "panoramaUrl": "https://notry-back.onrender.com/static/panorama.jpg",
+  "annotations": [
+    {
+      "id": "polygon-543d2234-dce0-477d-b665-df695f583045",
+      "type": "polygon",
+      "polygonPixels": [
+        [
+          4600,
+          6216
+        ],
+        [
+          5664,
+          5667
+        ],
+        [
+          5541,
+          5533
+        ],
+        [
+          5444,
+          5459
+        ],
+        [
+          5319,
+          5435
+        ],
+        [
+          4379,
+          5365
+        ],
+        [
+          3459,
+          5225
+        ]
+      ],
+      "tooltip": "LoteTest01",
+      "svgStyle": {
+        "fill": "rgba(0,100,255,0.3)",
+        "stroke": "#06c",
+        "strokeWidth": "2"
+      },
+      "precio": "150.000",
+      "area": "200m2",
+      "estado": "available"
+    },
+    {
+      "id": "polygon-9a191f8d-c6de-4eee-8e26-29ae825ba9c8",
+      "type": "polygon",
+      "polygonPixels": [
+        [
+          2127,
+          5032
+        ],
+        [
+          1099,
+          5294
+        ],
+        [
+          1275,
+          5428
+        ],
+        [
+          2152,
+          5325
+        ],
+        [
+          2644,
+          5240
+        ],
+        [
+          2990,
+          5148
+        ],
+        [
+          2913,
+          5108
+        ],
+        [
+          2753,
+          5067
+        ],
+        [
+          2449,
+          5018
+        ],
+        [
+          2167,
+          5010
+        ]
+      ],
+      "tooltip": "LoteTest03",
+      "svgStyle": {
+        "fill": "rgba(0,100,255,0.3)",
+        "stroke": "#06c",
+        "strokeWidth": "2"
+      },
+      "precio": "180.000",
+      "area": "220m2",
+      "estado": "reserved"
+    },
+    {
+      "id": "polygon-a730aa79-1736-4df6-877a-9a211608bdd9",
+      "type": "polygon",
+      "polygonPixels": [
+        [
+          2922,
+          5590
+        ],
+        [
+          2720,
+          6248
+        ],
+        [
+          3823,
+          6496
+        ],
+        [
+          4429,
+          6279
+        ],
+        [
+          3702,
+          5591
+        ]
+      ],
+      "tooltip": "LoteTest02",
+      "svgStyle": {
+        "fill": "rgba(0,100,255,0.3)",
+        "stroke": "#06c",
+        "strokeWidth": "2"
+      },
+      "precio": "130.000",
+      "area": "150m2",
+      "estado": "sold"
+    },
+    {
+      "id": "polygon-869bdc4d-d28f-44c3-b5ce-44da32130930",
+      "type": "polygon",
+      "polygonPixels": [
+        "string"
+      ],
+      "tooltip": "LoteTest04",
+      "svgStyle": {
+        "fill": "rgba(0,100,255,0.3)",
+        "stroke": "#06c",
+        "strokeWidth": "2"
+      },
+      "precio": "150",
+      "area": "120m2",
+      "estado": "available"
+    },
+    {
+      "id": "polygon-354f1351-1787-471a-bb84-f9dceb785f17",
+      "type": "polygon",
+      "polygonPixels": [
+        "string"
+      ],
+      "tooltip": "LoteTest05",
+      "svgStyle": {
+        "fill": "rgba(0,100,255,0.3)",
+        "stroke": "#06c",
+        "strokeWidth": "2"
+      },
+      "precio": "130",
+      "area": "100m2",
+      "estado": "available"
+    },
+    {
+      "id": "polygon-29223004-ab08-4c9f-9b4e-0cb1db627549",
+      "type": "polygon",
+      "polygonPixels": [
+        "string"
+      ],
+      "tooltip": "LoteTest06",
+      "svgStyle": {
+        "fill": "rgba(0,100,255,0.3)",
+        "stroke": "#06c",
+        "strokeWidth": "2"
+      },
+      "precio": "130",
+      "area": "100m2",
+      "estado": "available"
+    },
+    {
+      "id": "text-1774525329908",
+      "size": {
+        "width": 100,
+        "height": 30
+      },
+      "type": "text",
+      "bgColor": "#ffffff",
+      "tooltip": "Lote 01",
+      "fontSize": 30,
+      "position": {
+        "textureX": 4709,
+        "textureY": 5651
+      },
+      "svgStyle": {
+        "fill": "rgba(255,0,0,0.3)",
+        "stroke": "#c00",
+        "strokeWidth": "2"
+      },
+      "bgOpacity": 0,
+      "textColor": "#fffafa"
+    },
+    {
+      "id": "text-1774526630309",
+      "size": {
+        "width": 100,
+        "height": 30
+      },
+      "type": "text",
+      "bgColor": "#ffffff",
+      "tooltip": "Lote 02",
+      "fontSize": 30,
+      "position": {
+        "textureX": 3478,
+        "textureY": 5960
+      },
+      "svgStyle": {
+        "fill": "rgba(255,0,0,0.3)",
+        "stroke": "#c00",
+        "strokeWidth": "2"
+      },
+      "bgOpacity": 0,
+      "textColor": "#fffafa"
+    },
+    {
+      "id": "text-1774526646652",
+      "size": {
+        "width": 100,
+        "height": 30
+      },
+      "type": "text",
+      "bgColor": "#ffffff",
+      "tooltip": "Lote 03",
+      "fontSize": 27,
+      "position": {
+        "textureX": 2087,
+        "textureY": 5138
+      },
+      "svgStyle": {
+        "fill": "rgba(255,0,0,0.3)",
+        "stroke": "#c00",
+        "strokeWidth": "2"
+      },
+      "bgOpacity": 0,
+      "textColor": "#ffffff"
+    }
+  ]
+}
