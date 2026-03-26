@@ -15,11 +15,22 @@ function App() {
   const [panoramaUrl, setPanoramaUrl] = useState(null);
   const [panoramaFilename, setPanoramaFilename] = useState('');
   const [isLoadingDefault, setIsLoadingDefault] = useState(true);
+  const [loteoId, setLoteoId] = useState(null);
+  const [isSavingText, setIsSavingText] = useState(false);
 
   // Carga datos desde ?data=URL o desde el panorama.jpg del proyecto padre
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const dataUrl = params.get('data');
+
+    // loteo_id may come as a direct param or be embedded in the data URL path
+    const loteoIdParam = params.get('loteo_id');
+    if (loteoIdParam) {
+      setLoteoId(loteoIdParam);
+    } else if (dataUrl) {
+      const match = dataUrl.match(/\/loteos\/([^/?]+)/);
+      if (match) setLoteoId(match[1]);
+    }
 
     if (dataUrl) {
       fetch(dataUrl)
@@ -109,6 +120,7 @@ function App() {
       newAnn.textColor = "#000000";
       newAnn.bgColor = "#ffffff";
       newAnn.bgOpacity = 1;
+      newAnn.fontSize = 14;
       newAnn.size = { width: 100, height: 30 };
     }
 
@@ -269,7 +281,7 @@ function App() {
 
     try {
       // TODO: Reemplazar por la URL real de tu API
-      const response = await fetch('http://127.0.0.1:8000/api/v1/lots/update-coordinates', {
+      const response = await fetch('https://notry-back.onrender.com/api/v1/lots/update-coordinates', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -285,6 +297,37 @@ function App() {
     } catch (error) {
       console.error("Error al actualizar el polígono:", error);
       alert("Error de conexión al intentar actualizar");
+    }
+  };
+
+  const handleSaveTextAnnotations = async () => {
+    if (!loteoId) {
+      alert("No se encontró loteo_id en la URL. Agrega ?loteo_id=... al abrir el editor.");
+      return;
+    }
+    const textAnnotations = annotations.filter(a => a.type === 'text');
+    if (textAnnotations.length === 0) {
+      alert("No hay anotaciones de texto para guardar.");
+      return;
+    }
+    setIsSavingText(true);
+    try {
+      const response = await fetch(`https://notry-back.onrender.com/api/v1/loteos/${loteoId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text_annotations: textAnnotations })
+      });
+      if (response.ok) {
+        alert(`¡${textAnnotations.length} anotación(es) de texto guardadas correctamente!`);
+      } else {
+        const msg = await response.text();
+        alert(`Error al guardar: ${response.status} - ${msg}`);
+      }
+    } catch (error) {
+      console.error("Error al guardar anotaciones de texto:", error);
+      alert("Error de conexión al intentar guardar.");
+    } finally {
+      setIsSavingText(false);
     }
   };
 
@@ -421,6 +464,15 @@ function App() {
                     <input type="color" value={selectedMarker.bgColor || '#ffffff'} onChange={e => updateSelected('bgColor', e.target.value)} style={{ width: '40px', height: '30px', padding: 0, border: 'none', background: 'transparent' }} />
                     <input type="range" min="0" max="1" step="0.05" value={selectedMarker.bgOpacity !== undefined ? selectedMarker.bgOpacity : 1} onChange={e => updateSelected('bgOpacity', parseFloat(e.target.value))} style={{ flex: 1 }} />
                   </div>
+
+                  <label style={{ fontSize: '0.85rem', color: '#aaa', marginTop: '10px' }}>Tamaño de fuente (px)</label>
+                  <input
+                    type="number"
+                    min="8" max="200"
+                    value={selectedMarker.fontSize ?? 14}
+                    onChange={e => updateSelected('fontSize', parseInt(e.target.value))}
+                    style={{ background: '#1e1e24', border: '1px solid #444', color: '#eee', padding: '6px', borderRadius: '4px' }}
+                  />
                 </>
               )}
 
@@ -493,6 +545,14 @@ function App() {
               <Download size={18} /> JSON
             </button>
           </div>
+          <button
+            className="btn-primary"
+            onClick={handleSaveTextAnnotations}
+            disabled={isSavingText}
+            style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: isSavingText ? '#555' : '#1a73e8', padding: '0.75rem 0' }}
+          >
+            <Type size={18} /> {isSavingText ? 'Guardando...' : 'Guardar anotaciones de texto'}
+          </button>
         </div>
       </div>
     </div>

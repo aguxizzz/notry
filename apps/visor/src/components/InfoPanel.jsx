@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const PRE_CALIFICACION_URL = 'https://ejemplo.com/api/lote/pre-calificacion';
 
@@ -77,12 +77,30 @@ function PrecalificacionForm({ lotDetail, onClose }) {
   );
 }
 
+// Duration must match --t in index.css (0.28s)
+const CLOSE_DURATION_MS = 280;
+
 export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClose }) {
   const [showForm, setShowForm] = useState(false);
   const [transDir, setTransDir] = useState(null);
 
+  // Freeze displayed content while the panel is closing so the close animation
+  // plays with the content still visible, not an empty shell.
+  const displayRef = useRef({ title: '', content: '', markerId: null, detail: {} });
+  if (isOpen) {
+    displayRef.current = { title, content, markerId, detail };
+  }
+  const display = displayRef.current;
+
   useEffect(() => {
-    if (!isOpen) { setShowForm(false); setTransDir(null); }
+    if (!isOpen) {
+      // Delay the form/view reset until the close transition finishes
+      const timer = setTimeout(() => {
+        setShowForm(false);
+        setTransDir(null);
+      }, CLOSE_DURATION_MS);
+      return () => clearTimeout(timer);
+    }
   }, [isOpen]);
 
   useEffect(() => {
@@ -94,10 +112,10 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
   const goBack  = () => { setTransDir('back');    setShowForm(false); };
 
   const lotDetail = {
-    title: title ?? '',
-    markerId,
-    precio: detail.precio != null ? String(detail.precio).trim() : '',
-    area:   detail.area   != null ? String(detail.area).trim()   : '',
+    title: display.title ?? '',
+    markerId: display.markerId,
+    precio: display.detail?.precio != null ? String(display.detail.precio).trim() : '',
+    area:   display.detail?.area   != null ? String(display.detail.area).trim()   : '',
   };
 
   return (
@@ -122,8 +140,8 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
           </div>
           <div id="info-panel-header-center">
             {showForm
-              ? <span className="info-panel-form-title">Solicitud: {title}</span>
-              : <span id="info-panel-lot-title">{title}</span>
+              ? <span className="info-panel-form-title">Solicitud: {display.title}</span>
+              : <span id="info-panel-lot-title">{display.title}</span>
             }
           </div>
           <div id="info-panel-header-right">
@@ -139,8 +157,8 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
               id="info-panel-view"
               className={transDir === 'back' ? 'anim-from-left' : ''}
             >
-              <div id="info-content" dangerouslySetInnerHTML={{ __html: content ?? '' }} />
-              {markerId && (
+              <div id="info-content" dangerouslySetInnerHTML={{ __html: display.content ?? '' }} />
+              {display.markerId && (
                 <div id="info-actions">
                   <button type="button" onClick={goToForm}>
                     Pre calificación
@@ -149,7 +167,7 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
               )}
             </div>
           ) : (
-            <PrecalificacionForm key={markerId} lotDetail={lotDetail} onClose={onClose} />
+            <PrecalificacionForm key={display.markerId} lotDetail={lotDetail} onClose={onClose} />
           )}
         </div>
 
