@@ -81,23 +81,14 @@ export default function App() {
     postLoteId(CLICK_TRACKING_URL, marker.id);
 
     const title = ann?.tooltip ?? marker.id;
-    let content = ann?.content;
-    if (!content && (ann?.precio || ann?.area)) {
-      const parts = [];
-      if (title) parts.push(`<p>Detalle de <strong>${title}</strong>.</p>`);
-      if (ann.precio) parts.push(`<p>Precio: ${ann.precio}</p>`);
-      if (ann.area) parts.push(`<p>Área: ${ann.area}</p>`);
-      content = parts.join('');
-    } else if (!content) {
-      content = ann?.tooltip ?? '';
-    }
+    const content = ann?.content ?? '';
 
     setPanel({
       isOpen: true,
       title,
       content,
       markerId: marker.id,
-      detail: { precio: ann?.precio, area: ann?.area },
+      detail: { precio: ann?.precio, area: ann?.area, estado: ann?.estado },
     });
   }, [annotationsById]);
 

@@ -30,11 +30,15 @@ export function annotationsToMarkers(annotations) {
         return { ...base, rect: Array.isArray(size) ? size : [size.width, size.height], position };
       }
       case 'polygon': {
-        const points = ann.polygonPixels ?? ann.polygon ?? [];
+        const points = (ann.polygonPixels ?? ann.polygon ?? []).filter(
+          pt => Array.isArray(pt) && pt.length === 2 && typeof pt[0] === 'number' && typeof pt[1] === 'number'
+        );
         return { ...base, polygonPixels: points };
       }
       case 'polyline': {
-        const points = ann.polylinePixels ?? ann.polyline ?? [];
+        const points = (ann.polylinePixels ?? ann.polyline ?? []).filter(
+          pt => Array.isArray(pt) && pt.length === 2 && typeof pt[0] === 'number' && typeof pt[1] === 'number'
+        );
         return { ...base, polylinePixels: points };
       }
       case 'circle': {
@@ -56,7 +60,7 @@ export function annotationsToMarkers(annotations) {
         
         const textColor = ann.textColor || '#000000';
         const fontSize = ann.fontSize ?? 14;
-        const generatedHtml = `<div style='background:${rgbaBg};padding:5px;border-radius:4px;color:${textColor};min-width:20px;min-height:20px;font-family:"Anton SC",sans-serif;font-size:${fontSize}px;'>${displayContent}</div>`;
+        const generatedHtml = `<div style='background:${rgbaBg};padding:5px;border-radius:4px;color:${textColor};min-width:20px;min-height:20px;font-family:"Oswald",sans-serif;font-weight:600;font-size:${fontSize}px;'>${displayContent}</div>`;
         return {
           ...base,
           html: generatedHtml,
@@ -75,6 +79,7 @@ export function annotationsToMarkers(annotations) {
         return { ...base, circle: 5, position: { textureX: 0, textureY: 0 } };
     }
   }).filter((m) => {
+    if (m.polygonPixels !== undefined && m.polygonPixels.length < 3) return false;
     if (m.position === undefined && !m.polygonPixels?.length && !m.polylinePixels?.length) return false;
     return true;
   });

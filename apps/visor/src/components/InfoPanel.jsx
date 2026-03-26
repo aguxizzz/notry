@@ -1,6 +1,25 @@
 import { useState, useEffect, useRef } from 'react';
 
+const IconRuler = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21.3 8.7 8.7 21.3c-1 1-2.5 1-3.4 0l-2.6-2.6c-1-1-1-2.5 0-3.4L15.3 2.7c1-1 2.5-1 3.4 0l2.6 2.6c1 1 1 2.5 0 3.4Z"/>
+    <path d="m7.5 10.5 2 2"/><path d="m10.5 7.5 2 2"/><path d="m13.5 4.5 2 2"/><path d="m4.5 13.5 2 2"/>
+  </svg>
+);
+
+const IconDollar = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+  </svg>
+);
+
 const PRE_CALIFICACION_URL = 'https://ejemplo.com/api/lote/pre-calificacion';
+
+const ESTADO_CONFIG = {
+  available: { accent: '#1e6e3e', accentHover: '#175c33', label: 'Disponible' },
+  sold:      { accent: '#a82828', accentHover: '#8e2020', label: 'Vendido'    },
+  reserved:  { accent: '#1e4d8c', accentHover: '#173f75', label: 'Reservado'  },
+};
 
 function PrecalificacionForm({ lotDetail, onClose }) {
   const [nombre, setNombre] = useState('');
@@ -19,7 +38,7 @@ function PrecalificacionForm({ lotDetail, onClose }) {
 
   return (
     <div className="info-panel-form">
-      {(lotDetail.precio || lotDetail.area) && (
+      {(lotDetail.precio || lotDetail.area || lotDetail.estado) && (
         <div id="precal-detail-summary">
           <div id="precal-detail-meta">
             {lotDetail.precio && (
@@ -32,6 +51,14 @@ function PrecalificacionForm({ lotDetail, onClose }) {
               <div className="precal-meta-item">
                 <span className="precal-meta-label">Área</span>
                 <span className="precal-meta-value">{lotDetail.area}</span>
+              </div>
+            )}
+            {lotDetail.estado && ESTADO_CONFIG[lotDetail.estado] && (
+              <div className="precal-meta-item" style={{ gridColumn: lotDetail.precio && lotDetail.area ? '1 / -1' : 'auto' }}>
+                <span className="precal-meta-label">Estado</span>
+                <span className="precal-meta-value" style={{ color: ESTADO_CONFIG[lotDetail.estado].accent }}>
+                  {ESTADO_CONFIG[lotDetail.estado].label}
+                </span>
               </div>
             )}
           </div>
@@ -111,12 +138,20 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
   const goToForm = () => { setTransDir('forward'); setShowForm(true); };
   const goBack  = () => { setTransDir('back');    setShowForm(false); };
 
+  const estadoKey = display.detail?.estado;
+  const estadoCfg = ESTADO_CONFIG[estadoKey] ?? null;
+
   const lotDetail = {
     title: display.title ?? '',
     markerId: display.markerId,
     precio: display.detail?.precio != null ? String(display.detail.precio).trim() : '',
     area:   display.detail?.area   != null ? String(display.detail.area).trim()   : '',
+    estado: estadoKey ?? '',
   };
+
+  const panelAccentStyle = estadoCfg
+    ? { '--accent': estadoCfg.accent, '--accent-hover': estadoCfg.accentHover, '--panel-header-bg': estadoCfg.accent }
+    : {};
 
   return (
     <div
@@ -125,7 +160,7 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
       aria-hidden={!isOpen}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div id="info-panel" role="dialog" aria-modal="true" aria-live="polite">
+      <div id="info-panel" role="dialog" aria-modal="true" aria-live="polite" style={panelAccentStyle}>
 
         <header id="info-panel-header">
           <div id="info-panel-header-left">
@@ -157,7 +192,32 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
               id="info-panel-view"
               className={transDir === 'back' ? 'anim-from-left' : ''}
             >
-              <div id="info-content" dangerouslySetInnerHTML={{ __html: display.content ?? '' }} />
+              {estadoCfg && (
+                <div className="estado-badge" style={{ background: estadoCfg.accent }}>
+                  {estadoCfg.label}
+                </div>
+              )}
+              {(display.detail?.precio || display.detail?.area) && (
+                <div className="lote-metrics">
+                  {display.detail.precio && (
+                    <div className="lote-metric-card">
+                      <span className="lote-metric-icon"><IconDollar /></span>
+                      <span className="lote-metric-label">Precio</span>
+                      <span className="lote-metric-value">{display.detail.precio}</span>
+                    </div>
+                  )}
+                  {display.detail.area && (
+                    <div className="lote-metric-card">
+                      <span className="lote-metric-icon"><IconRuler /></span>
+                      <span className="lote-metric-label">Área</span>
+                      <span className="lote-metric-value">{display.detail.area}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {display.content && (
+                <div id="info-content" dangerouslySetInnerHTML={{ __html: display.content }} />
+              )}
               {display.markerId && (
                 <div id="info-actions">
                   <button type="button" onClick={goToForm}>
