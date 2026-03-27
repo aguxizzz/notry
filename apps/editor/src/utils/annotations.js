@@ -2,8 +2,9 @@ export function annotationsToMarkers(annotations) {
   if (!Array.isArray(annotations)) return [];
 
   return annotations.map((ann) => {
+    if (!ann || typeof ann !== 'object') return null;
     const base = {
-      id: ann.id,
+      id: ann.id ?? ann.uuid,
       tooltip: ann.tooltip ?? null,
       visible: ann.visible !== false,
       ...(ann.svgStyle && { svgStyle: ann.svgStyle }),
@@ -79,6 +80,7 @@ export function annotationsToMarkers(annotations) {
         return { ...base, circle: 5, position: { textureX: 0, textureY: 0 } };
     }
   }).filter((m) => {
+    if (!m) return false;
     if (m.polygonPixels !== undefined && m.polygonPixels.length < 3) return false;
     if (m.position === undefined && !m.polygonPixels?.length && !m.polylinePixels?.length) return false;
     return true;

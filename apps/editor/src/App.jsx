@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { MousePointer2, Pentagon, Square, Circle, Type, MapPin, Download, Upload, Image as ImageIcon } from 'lucide-react';
+import { MousePointer2, Pentagon, Type, Download, Upload, Image as ImageIcon, ArrowLeft } from 'lucide-react';
 import EditorViewer from './components/EditorViewer';
+import LoginScreen from './components/LoginScreen';
+import LoteoList from './components/LoteoList';
 import './App.css';
 
 function App() {
@@ -17,6 +19,19 @@ function App() {
   const [isLoadingDefault, setIsLoadingDefault] = useState(true);
   const [loteoId, setLoteoId] = useState(null);
   const [isSavingText, setIsSavingText] = useState(false);
+  const [isSavingAll, setIsSavingAll] = useState(false);
+  const [accessToken, setAccessToken] = useState(() => localStorage.getItem('notry_token'));
+  const [selectedLoteo, setSelectedLoteo] = useState(null);
+
+  const handleLogin = (token) => {
+    localStorage.setItem('notry_token', token);
+    setAccessToken(token);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('notry_token');
+    setAccessToken(null);
+  };
 
   // Carga datos desde ?data=URL o desde el panorama.jpg del proyecto padre
   useEffect(() => {
@@ -40,7 +55,7 @@ function App() {
         })
         .then(async data => {
           if (data.annotations && Array.isArray(data.annotations)) {
-            setAnnotations(data.annotations);
+            setAnnotations(data.annotations.map(a => ({ ...a, id: a.id ?? a.uuid })));
           }
           if (data.panoramaUrl && typeof data.panoramaUrl === 'string') {
             setPanoramaFilename(data.panoramaUrl);
@@ -78,9 +93,6 @@ function App() {
   const tools = [
     { id: 'select', icon: MousePointer2, title: 'Seleccionar' },
     { id: 'polygon', icon: Pentagon, title: 'Polígono' },
-    { id: 'rectangle', icon: Square, title: 'Rectángulo' },
-    { id: 'circle', icon: Circle, title: 'Círculo' },
-    { id: 'point', icon: MapPin, title: 'Punto' },
     { id: 'text', icon: Type, title: 'Texto' },
   ];
 
@@ -104,17 +116,6 @@ function App() {
       svgStyle: { fill: 'rgba(255,0,0,0.3)', stroke: '#c00', strokeWidth: '2' }
     };
 
-    if (activeTool === 'rectangle') {
-      newAnn.type = 'polygon';
-      newAnn.polygonPixels = [
-        [textureX - 50, textureY - 50],
-        [textureX + 50, textureY - 50],
-        [textureX + 50, textureY + 50],
-        [textureX - 50, textureY + 50]
-      ];
-      delete newAnn.position;
-    }
-    if (activeTool === 'circle' || activeTool === 'point') newAnn.radius = 20;
     if (activeTool === 'text') {
       newAnn.tooltip = "Texto";
       newAnn.textColor = "#000000";
@@ -284,11 +285,13 @@ function App() {
       const response = await fetch('https://notry-back.onrender.com/api/v1/lots/update-coordinates', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
         },
         body: JSON.stringify(payload)
       });
 
+      if (response.status === 401) { handleLogout(); return; }
       if (response.ok) {
         alert("¡Coordenadas actualizadas correctamente en la base de datos!");
       } else {
@@ -314,9 +317,13 @@ function App() {
     try {
       const response = await fetch(`https://notry-back.onrender.com/api/v1/loteos/${loteoId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
         body: JSON.stringify({ text_annotations: textAnnotations })
       });
+      if (response.status === 401) { handleLogout(); return; }
       if (response.ok) {
         alert(`¡${textAnnotations.length} anotación(es) de texto guardadas correctamente!`);
       } else {
@@ -328,6 +335,54 @@ function App() {
       alert("Error de conexión al intentar guardar.");
     } finally {
       setIsSavingText(false);
+    }
+  };
+
+  const handleSaveAll = async () => {
+    setIsSavingAll(true);
+    const summary = { textOk: false, polyOk: 0, polyFailed: 0, polySkipped: 0 };
+
+    try {
+      const textAnnotations = annotations.filter(a => a.type === 'text');
+      const polygonsWithUuid = annotations.filter(a => a.type === 'polygon' && a.uuid);
+      summary.polySkipped = annotations.filter(a => a.type === 'polygon' && !a.uuid).length;
+
+      const [textRes, ...polyResults] = await Promise.all([
+        loteoId && textAnnotations.length > 0
+          ? fetch(`https://notry-back.onrender.com/api/v1/loteos/${loteoId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+              body: JSON.stringify({ text_annotations: textAnnotations })
+            })
+          : Promise.resolve(null),
+        ...polygonsWithUuid.map(marker =>
+          fetch('https://notry-back.onrender.com/api/v1/lots/update-coordinates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+            body: JSON.stringify({ uuid: marker.uuid, polygonPoints: marker.polygonPixels || [] })
+          })
+        )
+      ]);
+
+      if (textRes?.status === 401 || polyResults.some(r => r?.status === 401)) {
+        handleLogout();
+        return;
+      }
+
+      summary.textOk = textRes?.ok ?? false;
+      polyResults.forEach(r => { if (r.ok) summary.polyOk++; else summary.polyFailed++; });
+
+      const parts = [];
+      if (summary.textOk) parts.push(`${textAnnotations.length} texto(s) guardados`);
+      if (summary.polyOk > 0) parts.push(`${summary.polyOk} polígono(s) actualizados`);
+      if (summary.polyFailed > 0) parts.push(`${summary.polyFailed} polígono(s) fallaron`);
+      if (summary.polySkipped > 0) parts.push(`${summary.polySkipped} polígono(s) sin UUID omitidos`);
+      alert(parts.length ? parts.join(' · ') : 'Nada que guardar.');
+    } catch (error) {
+      console.error('Error en Guardar Todo:', error);
+      alert('Error de conexión al guardar.');
+    } finally {
+      setIsSavingAll(false);
     }
   };
 
@@ -352,10 +407,37 @@ function App() {
     reader.readAsText(file);
   };
 
+  const handleLoteoSelect = (loteo) => {
+    const dataUrl = `https://notry-back.onrender.com/api/v1/loteos/${loteo.id}/visor_data`;
+    const editorUrl = `${window.location.origin}${window.location.pathname}?data=${encodeURIComponent(dataUrl)}`;
+    window.open(editorUrl, '_blank');
+  };
+
+  const hasDataParam = new URLSearchParams(window.location.search).has('data');
+
+  if (!accessToken) {
+    return <LoginScreen onLogin={handleLogin} />;
+  }
+
+  if (!selectedLoteo && !hasDataParam) {
+    return <LoteoList token={accessToken} onSelect={handleLoteoSelect} onAuthError={handleLogout} />;
+  }
+
   return (
     <div className="editor-container">
       <div className="viewer-pane">
         <div className="toolbar">
+          <button 
+            className="tool-btn" 
+            onClick={() => window.location.href = window.location.origin + window.location.pathname} 
+            title="Volver al listado"
+            style={{ marginRight: '10px', background: '#333' }}
+          >
+            <ArrowLeft size={20} />
+          </button>
+          
+          <div style={{ height: '24px', width: '1px', background: '#444', marginRight: '10px' }} />
+
           {tools.map(tool => {
             const Icon = tool.icon;
             return (
@@ -374,6 +456,25 @@ function App() {
             )
           })}
         </div>
+
+        <button 
+          onClick={handleLogout}
+          style={{ 
+            position: 'absolute', 
+            top: '1rem', 
+            right: '1rem', 
+            zIndex: 10,
+            background: 'rgba(0,0,0,0.5)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            padding: '6px 12px',
+            cursor: 'pointer',
+            fontSize: '0.8rem'
+          }}
+        >
+          Cerrar Sesión
+        </button>
 
         {activeTool === 'polygon' && drawingPolygon.length > 0 && (
           <div style={{ position: 'absolute', bottom: '1rem', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', gap: '1rem' }}>
@@ -432,10 +533,14 @@ function App() {
                 <button onClick={removeSelected} style={{ background: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Borrar</button>
               </div>
 
-              <label style={{ fontSize: '0.85rem', color: '#aaa' }}>ID</label>
-              <input value={selectedMarker.id} onChange={e => updateSelected('id', e.target.value)} style={{ background: '#1e1e24', border: '1px solid #444', color: '#eee', padding: '6px', borderRadius: '4px' }} />
+              {selectedMarker.type !== 'polygon' && (
+                <>
+                  <label style={{ fontSize: '0.85rem', color: '#aaa' }}>ID</label>
+                  <input value={selectedMarker.id} onChange={e => updateSelected('id', e.target.value)} style={{ background: '#1e1e24', border: '1px solid #444', color: '#eee', padding: '6px', borderRadius: '4px' }} />
+                </>
+              )}
 
-              {selectedMarker.type !== 'text' ? (
+              {selectedMarker.type !== 'text' && selectedMarker.type !== 'polygon' ? (
                 <>
                   <label style={{ fontSize: '0.85rem', color: '#aaa' }}>Tooltip</label>
                   <input value={selectedMarker.tooltip || ''} onChange={e => updateSelected('tooltip', e.target.value)} style={{ background: '#1e1e24', border: '1px solid #444', color: '#eee', padding: '6px', borderRadius: '4px' }} />
@@ -445,9 +550,8 @@ function App() {
 
                   <label style={{ fontSize: '0.85rem', color: '#aaa' }}>Área</label>
                   <input value={selectedMarker.area || ''} onChange={e => updateSelected('area', e.target.value)} style={{ background: '#1e1e24', border: '1px solid #444', color: '#eee', padding: '6px', borderRadius: '4px' }} />
-
                 </>
-              ) : (
+              ) : selectedMarker.type === 'text' ? (
                 <>
                   <label style={{ fontSize: '0.85rem', color: '#aaa' }}>Texto a mostrar (Tooltip)</label>
                   <input
@@ -474,9 +578,9 @@ function App() {
                     style={{ background: '#1e1e24', border: '1px solid #444', color: '#eee', padding: '6px', borderRadius: '4px' }}
                   />
                 </>
-              )}
+              ) : null}
 
-              {(selectedMarker.type === 'polygon' || selectedMarker.type === 'rectangle') && (
+              {selectedMarker.type === 'rectangle' && (
                 <>
                   <label style={{ fontSize: '0.85rem', color: '#aaa', marginTop: '10px' }}>Estilo de Polígono</label>
                   <div style={{ display: 'flex', gap: '10px' }}>
@@ -496,14 +600,18 @@ function App() {
                 </>
               )}
 
-              <hr style={{ borderColor: '#444', width: '100%', margin: '15px 0' }} />
-              <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem', fontWeight: 600 }}>Estilos SVG</p>
+              {selectedMarker.type !== 'polygon' && (
+                <>
+                  <hr style={{ borderColor: '#444', width: '100%', margin: '15px 0' }} />
+                  <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem', fontWeight: 600 }}>Estilos SVG</p>
 
-              <label style={{ fontSize: '0.85rem', color: '#aaa' }}>Color de relleno (fill)</label>
-              <input value={selectedMarker.svgStyle?.fill || selectedMarker.style?.backgroundColor || ''} onChange={e => { updateNestedSelected('svgStyle', 'fill', e.target.value); updateNestedSelected('style', 'backgroundColor', e.target.value); }} style={{ background: '#1e1e24', border: '1px solid #444', color: '#eee', padding: '6px', borderRadius: '4px' }} placeholder="rgba(0,0,0,0.5)" />
+                  <label style={{ fontSize: '0.85rem', color: '#aaa' }}>Color de relleno (fill)</label>
+                  <input value={selectedMarker.svgStyle?.fill || selectedMarker.style?.backgroundColor || ''} onChange={e => { updateNestedSelected('svgStyle', 'fill', e.target.value); updateNestedSelected('style', 'backgroundColor', e.target.value); }} style={{ background: '#1e1e24', border: '1px solid #444', color: '#eee', padding: '6px', borderRadius: '4px' }} placeholder="rgba(0,0,0,0.5)" />
 
-              <label style={{ fontSize: '0.85rem', color: '#aaa' }}>Color de borde (stroke)</label>
-              <input value={selectedMarker.svgStyle?.stroke || selectedMarker.style?.borderColor || ''} onChange={e => { updateNestedSelected('svgStyle', 'stroke', e.target.value); updateNestedSelected('style', 'borderColor', e.target.value) }} style={{ background: '#1e1e24', border: '1px solid #444', color: '#eee', padding: '6px', borderRadius: '4px' }} />
+                  <label style={{ fontSize: '0.85rem', color: '#aaa' }}>Color de borde (stroke)</label>
+                  <input value={selectedMarker.svgStyle?.stroke || selectedMarker.style?.borderColor || ''} onChange={e => { updateNestedSelected('svgStyle', 'stroke', e.target.value); updateNestedSelected('style', 'borderColor', e.target.value) }} style={{ background: '#1e1e24', border: '1px solid #444', color: '#eee', padding: '6px', borderRadius: '4px' }} />
+                </>
+              )}
 
               {selectedMarker.type === 'polygon' && (
                 <>
@@ -545,6 +653,14 @@ function App() {
               <Download size={18} /> JSON
             </button>
           </div>
+          <button
+            className="btn-primary"
+            onClick={handleSaveAll}
+            disabled={isSavingAll}
+            style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: isSavingAll ? '#555' : '#28a745', padding: '0.75rem 0', fontWeight: 700 }}
+          >
+            <Download size={18} /> {isSavingAll ? 'Guardando...' : 'Guardar Todo'}
+          </button>
           <button
             className="btn-primary"
             onClick={handleSaveTextAnnotations}
