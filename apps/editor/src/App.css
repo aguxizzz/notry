@@ -83,3 +83,93 @@
 .btn-primary:hover {
   background: #1557b0;
 }
+
+/* Loteo List Styles */
+.loteo-container {
+  padding: 3rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: #1a1a20;
+  color: #fff;
+}
+
+.loteo-header {
+  margin-bottom: 3rem;
+}
+
+.loteo-title {
+  font-size: 2rem;
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.loteo-subtitle {
+  color: #aaa;
+  font-size: 1rem;
+  margin-top: 8px;
+}
+
+.loteo-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.loteo-card {
+  background: #2a2a30;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #333;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.loteo-card:hover {
+  background: #32323a;
+  border-color: #1a73e8;
+  transform: translateX(4px);
+}
+
+.loteo-card-content {
+  padding: 1.25rem;
+}
+
+.loteo-card-title {
+  margin: 0 0 6px 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.loteo-card-info {
+  margin: 0;
+  color: #aaa;
+  font-size: 0.85rem;
+}
+
+.loteo-card-footer {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.loteo-edit-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #1a73e8;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.loteo-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: #1a1a20;
+  color: #fff;
+  gap: 16px;
+}

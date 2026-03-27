@@ -16,6 +16,7 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
   const onPolygonUpdateRef = useRef(onPolygonUpdate);
   const onMarkerDragEndRef = useRef(onMarkerDragEnd);
   const activeToolRef = useRef(activeTool);
+  const annotationsRef = useRef(annotations);
 
   useEffect(() => {
     onClickRef.current = onClick;
@@ -23,7 +24,8 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
     onPolygonUpdateRef.current = onPolygonUpdate;
     onMarkerDragEndRef.current = onMarkerDragEnd;
     activeToolRef.current = activeTool;
-  }, [onClick, onMarkerSelect, onPolygonUpdate, onMarkerDragEnd, activeTool]);
+    annotationsRef.current = annotations;
+  }, [onClick, onMarkerSelect, onPolygonUpdate, onMarkerDragEnd, activeTool, annotations]);
 
   // Init viewer
   useEffect(() => {
@@ -50,6 +52,9 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
 
     viewerRef.current.addEventListener('ready', () => {
       isPanoramaReadyRef.current = true;
+      if (annotationsRef.current) {
+        markersPluginRef.current.setMarkers(annotationsToMarkers(annotationsRef.current));
+      }
     });
 
     viewerRef.current.addEventListener('click', (e) => {
@@ -278,7 +283,7 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
       const viewer = viewerRef.current;
       if (viewer) {
         markers.forEach(m => {
-          if (m.id.startsWith('edit-midpoint-')) {
+          if (typeof m.id === 'string' && m.id.startsWith('edit-midpoint-')) {
              const parts = m.id.replace('edit-midpoint-', '').split('-');
              const index = parseInt(parts.pop(), 10);
              const polyId = parts.join('-');
