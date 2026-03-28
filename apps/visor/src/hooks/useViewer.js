@@ -53,34 +53,6 @@ export function useViewer(viewerData, onMarkerSelect, onMarkerUnselect) {
       onMarkerUnselect?.();
     });
 
-    // Hover en marcadores de tipo "text" (pointer-events none, así que usamos mousemove)
-    const textMarkerIds = (viewerData.annotations ?? [])
-      .filter((a) => a.type === 'text')
-      .map((a) => a.id);
-    const hoverClass = 'psv-marker--label-hover';
-
-    viewer.addEventListener('ready', () => {
-      if (textMarkerIds.length === 0) return;
-
-      const updateHover = (x, y) => {
-        for (const id of textMarkerIds) {
-          const el = document.getElementById(`psv-marker-${id}`);
-          if (!el) continue;
-          const rect = el.getBoundingClientRect();
-          const inside = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-          el.classList.toggle(hoverClass, inside);
-        }
-      };
-
-      document.addEventListener('mousemove', (e) => updateHover(e.clientX, e.clientY));
-
-      viewerRef.current?.addEventListener('mouseleave', () => {
-        for (const id of textMarkerIds) {
-          document.getElementById(`psv-marker-${id}`)?.classList.remove(hoverClass);
-        }
-      });
-    });
-
     // Cleanup: destruir el visor al desmontar el componente
     return () => {
       viewer.destroy();

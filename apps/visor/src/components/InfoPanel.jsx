@@ -13,7 +13,7 @@ const IconDollar = () => (
   </svg>
 );
 
-const PRE_CALIFICACION_URL = 'https://ejemplo.com/api/lote/pre-calificacion';
+const PRE_CALIFICACION_URL = 'https://notry-back.onrender.com/api/v1/public/pre-qualification';
 
 const ESTADO_CONFIG = {
   available: { accent: '#1e6e3e', accentHover: '#175c33', label: 'Disponible' },
@@ -25,13 +25,20 @@ function PrecalificacionForm({ lotDetail, onClose }) {
   const [nombre, setNombre] = useState('');
   const [numero, setNumero] = useState('');
   const [presupuesto, setPresupuesto] = useState('');
+  const [metodoPago, setMetodoPago] = useState('contado');
 
   const handleSubmit = (e) => {
     e.preventDefault();
     fetch(PRE_CALIFICACION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: lotDetail.markerId, nombre, numero, presupuesto }),
+      body: JSON.stringify({
+        lote_id: lotDetail.markerId,
+        name: nombre,
+        phone: numero,
+        budget: Number(presupuesto) || 0,
+        payment_method: metodoPago,
+      }),
     }).catch((err) => console.warn('POST pre calificación:', err));
     onClose();
   };
@@ -90,14 +97,25 @@ function PrecalificacionForm({ lotDetail, onClose }) {
         />
         <label htmlFor="precal-presupuesto">Presupuesto</label>
         <input
-          type="text"
+          type="number"
           id="precal-presupuesto"
           name="presupuesto"
-          placeholder="Ej. 50.000.000"
+          placeholder="Ej. 50000000"
           value={presupuesto}
           onChange={(e) => setPresupuesto(e.target.value)}
           autoComplete="off"
+          min="0"
         />
+        <label htmlFor="precal-metodo-pago">Método de pago</label>
+        <select
+          id="precal-metodo-pago"
+          name="metodoPago"
+          value={metodoPago}
+          onChange={(e) => setMetodoPago(e.target.value)}
+        >
+          <option value="contado">Contado</option>
+          <option value="credito">Crédito</option>
+        </select>
         <button type="submit" className="btn-enviar">Enviar solicitud</button>
       </form>
     </div>

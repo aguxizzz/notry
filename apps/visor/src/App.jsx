@@ -6,7 +6,7 @@ import { annotationsToMarkers } from './annotations.js';
 const API_URL = '/api/viewer/current';
 const FALLBACK_DATA_URL = '/data/viewer.json';
 const DATA_URL_PARAM = 'data';
-const CLICK_TRACKING_URL = 'https://ejemplo.com/api/lote/click';
+const CLICK_BASE_URL = 'https://notry-back.onrender.com/api/v1/public/lots';
 
 function getDataUrlFromQuery() {
   const params = new URLSearchParams(window.location.search);
@@ -27,22 +27,22 @@ async function fetchViewerData() {
     }
   }
   try {
-    const res = await fetch(API_URL);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(API_URL, { signal: controller.signal });
+    clearTimeout(timeout);
     if (res.ok) return await res.json();
   } catch (_) {
-    // Backend no disponible: usar datos locales
+    // Backend no disponible o tardó demasiado: usar datos locales
   }
   const res = await fetch(FALLBACK_DATA_URL);
   if (!res.ok) throw new Error('No se pudo cargar el panorama ni los datos de prueba.');
   return await res.json();
 }
 
-function postLoteId(url, id) {
-  fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id }),
-  }).catch((err) => console.warn('POST lote:', err));
+function postLoteClick(id) {
+  fetch(`${CLICK_BASE_URL}/${id}/click`, { method: 'POST' })
+    .catch((err) => console.warn('POST lote click:', err));
 }
 
 const PANEL_CLOSED = { isOpen: false, title: '', content: '', markerId: null, detail: {} };
@@ -61,14 +61,15 @@ export default function App() {
   const annotations = rawData?.annotations ?? [];
 
   const annotationsById = useMemo(
-    () => Object.fromEntries(annotations.map((a) => [a.id, a])),
+    () => Object.fromEntries(annotations.map((a) => [a.uuid ?? a.id, a])),
     [annotations]
   );
 
-  const markers = annotationsToMarkers(annotations);
-  const viewerData = rawData
-    ? { panoramaUrl: rawData.panoramaUrl, markers, annotations }
-    : null;
+  const markers = useMemo(() => annotationsToMarkers(annotations), [annotations]);
+  const viewerData = useMemo(
+    () => rawData ? { panoramaUrl: rawData.panoramaUrl, markers, annotations } : null,
+    [rawData, markers, annotations]
+  );
 
   const handleMarkerSelect = useCallback((marker, markersPlugin) => {
     const ann = annotationsById[marker.id];
@@ -78,7 +79,7 @@ export default function App() {
       return;
     }
 
-    postLoteId(CLICK_TRACKING_URL, marker.id);
+    postLoteClick(marker.id);
 
     const title = ann?.tooltip ?? marker.id;
     const content = ann?.content ?? '';
@@ -104,6 +105,15 @@ export default function App() {
         Error: {error}. Puedes usar <code>?data=URL</code> para cargar un JSON desde una URL, o
         asegúrate de tener <code>public/data/viewer.json</code> y una imagen de panorama válida.
       </p>
+    );
+  }
+
+  if (!rawData) {
+    return (
+      <div style={{ width: '100%', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#111' }}>
+        <div style={{ width: 40, height: 40, border: '4px solid #444', borderTopColor: '#c5a059', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      </div>
     );
   }
 
