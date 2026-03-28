@@ -16,7 +16,14 @@ function App() {
   const [loteoId, setLoteoId] = useState(null);
   const [isSavingText, setIsSavingText] = useState(false);
   const [isSavingAll, setIsSavingAll] = useState(false);
-  const [accessToken, setAccessToken] = useState(() => localStorage.getItem('notry_token'));
+  const [accessToken, setAccessToken] = useState(() => {
+    const urlToken = new URLSearchParams(window.location.search).get('token');
+    if (urlToken) {
+      localStorage.setItem('notry_token', urlToken);
+      return urlToken;
+    }
+    return localStorage.getItem('notry_token');
+  });
   const [selectedLoteo, setSelectedLoteo] = useState(null);
   const [loteForm, setLoteForm] = useState({ name: '', slug: '', status: 'available', price: '', area: '' });
   const [isCreatingLote, setIsCreatingLote] = useState(false);
