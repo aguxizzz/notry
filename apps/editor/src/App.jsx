@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MousePointer2, Pentagon, Type, Download, Upload, Image as ImageIcon, ArrowLeft } from 'lucide-react';
+import { MousePointer2, Pentagon, Type, Download, Image as ImageIcon, ArrowLeft } from 'lucide-react';
 import EditorViewer from './components/EditorViewer';
 import LoginScreen from './components/LoginScreen';
 import LoteoList from './components/LoteoList';
@@ -11,17 +11,15 @@ function App() {
   const [selectedId, setSelectedId] = useState(null);
   const [drawingPolygon, setDrawingPolygon] = useState([]);
 
-  const fileInputRef = useRef(null);
-  const imageInputRef = useRef(null);
-
   const [panoramaUrl, setPanoramaUrl] = useState(null);
-  const [panoramaFilename, setPanoramaFilename] = useState('');
   const [isLoadingDefault, setIsLoadingDefault] = useState(true);
   const [loteoId, setLoteoId] = useState(null);
   const [isSavingText, setIsSavingText] = useState(false);
   const [isSavingAll, setIsSavingAll] = useState(false);
   const [accessToken, setAccessToken] = useState(() => localStorage.getItem('notry_token'));
   const [selectedLoteo, setSelectedLoteo] = useState(null);
+  const [loteForm, setLoteForm] = useState({ name: '', slug: '', status: 'available', price: '', area: '' });
+  const [isCreatingLote, setIsCreatingLote] = useState(false);
 
   const handleLogin = (token) => {
     localStorage.setItem('notry_token', token);
@@ -38,11 +36,7 @@ function App() {
     const params = new URLSearchParams(window.location.search);
     const dataUrl = params.get('data');
 
-    // loteo_id may come as a direct param or be embedded in the data URL path
-    const loteoIdParam = params.get('loteo_id');
-    if (loteoIdParam) {
-      setLoteoId(loteoIdParam);
-    } else if (dataUrl) {
+    if (dataUrl) {
       const match = dataUrl.match(/\/loteos\/([^/?]+)/);
       if (match) setLoteoId(match[1]);
     }
@@ -58,7 +52,6 @@ function App() {
             setAnnotations(data.annotations.map(a => ({ ...a, id: a.id ?? a.uuid })));
           }
           if (data.panoramaUrl && typeof data.panoramaUrl === 'string') {
-            setPanoramaFilename(data.panoramaUrl);
             try {
               const imgRes = await fetch(data.panoramaUrl);
               if (imgRes.ok) {
@@ -83,7 +76,6 @@ function App() {
       .then(res => {
         if (res.ok) {
           setPanoramaUrl('/panorama.jpg');
-          setPanoramaFilename('/panorama.jpg');
         }
       })
       .catch(() => { })
@@ -118,9 +110,9 @@ function App() {
 
     if (activeTool === 'text') {
       newAnn.tooltip = "Texto";
-      newAnn.textColor = "#000000";
+      newAnn.textColor = "#ffffff";
       newAnn.bgColor = "#ffffff";
-      newAnn.bgOpacity = 1;
+      newAnn.bgOpacity = 0;
       newAnn.fontSize = 14;
       newAnn.size = { width: 100, height: 30 };
     }
@@ -139,9 +131,10 @@ function App() {
     const newAnn = {
       id: newId,
       type: 'polygon',
+      pending: true,
       polygonPixels: drawingPolygon,
-      tooltip: 'Nuevo polígono',
-      svgStyle: { fill: 'rgba(0,100,255,0.3)', stroke: '#06c', strokeWidth: '2' }
+      tooltip: 'Nuevo lote (sin guardar)',
+      svgStyle: { fill: 'rgba(255,165,0,0.15)', stroke: '#ffa500', strokeWidth: '2', strokeDasharray: '8,4' }
     };
     setAnnotations([...annotations, newAnn]);
     setDrawingPolygon([]);
@@ -243,30 +236,26 @@ function App() {
     ));
   };
 
-  const removeSelected = () => {
+  const removeSelected = async () => {
+    if (!selectedMarker) return;
+
+    if (selectedMarker.type === 'polygon' && selectedMarker.uuid) {
+      if (!confirm(`¿Eliminar el lote "${selectedMarker.tooltip || selectedMarker.uuid}" de la base de datos? Esta acción no se puede deshacer.`)) return;
+      try {
+        const res = await fetch(`https://notry-back.onrender.com/api/v1/lots/${selectedMarker.uuid}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+        if (res.status === 401) { handleLogout(); return; }
+        if (!res.ok) { alert(`Error al eliminar el lote: ${res.status}`); return; }
+      } catch (err) {
+        alert('Error de conexión al intentar eliminar el lote.');
+        return;
+      }
+    }
+
     setAnnotations(annotations.filter(a => a.id !== selectedId));
     setSelectedId(null);
-  };
-
-  const handleExport = () => {
-    const data = {
-      panoramaUrl: panoramaFilename || "/panorama.jpg",
-      annotations: annotations
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'viewer.json';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImageImport = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setPanoramaFilename("/" + file.name);
-    setPanoramaUrl(URL.createObjectURL(file));
   };
 
   const handlePolygonDbUpdate = async (marker) => {
@@ -303,6 +292,53 @@ function App() {
     }
   };
 
+  const handleCreateLote = async () => {
+    if (!loteForm.name.trim()) { alert('El nombre es requerido.'); return; }
+    if (!loteoId) { alert('No se encontró el loteo_id.'); return; }
+
+    setIsCreatingLote(true);
+    try {
+      const res = await fetch('https://notry-back.onrender.com/api/v1/lots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          name: loteForm.name.trim(),
+          ...(loteForm.slug.trim() && { slug: loteForm.slug.trim() }),
+          status: loteForm.status,
+          ...(loteForm.price !== '' && { price: parseFloat(loteForm.price) }),
+          ...(loteForm.area !== '' && { area_m2: parseFloat(loteForm.area) }),
+          loteo_id: loteoId,
+          coordinates_360: selectedMarker.polygonPixels,
+        })
+      });
+
+      if (res.status === 401) { handleLogout(); return; }
+      if (!res.ok) { const msg = await res.text(); alert(`Error al crear lote: ${msg}`); return; }
+
+      const lote = await res.json();
+
+      setAnnotations(prev => prev.map(a =>
+        a.id === selectedId ? {
+          ...a,
+          id: lote.id,
+          uuid: lote.id,
+          pending: false,
+          tooltip: lote.name,
+          precio: lote.price,
+          area: lote.area_m2,
+          estado: lote.status
+        } : a
+      ));
+      setSelectedId(lote.id);
+      setLoteForm({ name: '', slug: '', status: 'available', price: '', area: '' });
+    } catch (err) {
+      console.error('Error al crear lote:', err);
+      alert('Error de conexión al crear el lote.');
+    } finally {
+      setIsCreatingLote(false);
+    }
+  };
+
   const handleSaveTextAnnotations = async () => {
     if (!loteoId) {
       alert("No se encontró loteo_id en la URL. Agrega ?loteo_id=... al abrir el editor.");
@@ -317,7 +353,7 @@ function App() {
     try {
       const response = await fetch(`https://notry-back.onrender.com/api/v1/loteos/${loteoId}`, {
         method: 'PATCH',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${accessToken}`
         },
@@ -350,10 +386,10 @@ function App() {
       const [textRes, ...polyResults] = await Promise.all([
         loteoId && textAnnotations.length > 0
           ? fetch(`https://notry-back.onrender.com/api/v1/loteos/${loteoId}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-              body: JSON.stringify({ text_annotations: textAnnotations })
-            })
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+            body: JSON.stringify({ text_annotations: textAnnotations })
+          })
           : Promise.resolve(null),
         ...polygonsWithUuid.map(marker =>
           fetch('https://notry-back.onrender.com/api/v1/lots/update-coordinates', {
@@ -386,26 +422,6 @@ function App() {
     }
   };
 
-  const handleImport = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const data = JSON.parse(evt.target.result);
-        if (data.annotations && Array.isArray(data.annotations)) {
-          setAnnotations(data.annotations);
-          setSelectedId(null);
-          if (fileInputRef.current) fileInputRef.current.value = '';
-        } else {
-          alert('El archivo no tiene el formato correcto de viewer.json');
-        }
-      } catch (err) {
-        alert("JSON Inválido importado");
-      }
-    };
-    reader.readAsText(file);
-  };
 
   const handleLoteoSelect = (loteo) => {
     const dataUrl = `https://notry-back.onrender.com/api/v1/loteos/${loteo.id}/visor_data`;
@@ -427,15 +443,15 @@ function App() {
     <div className="editor-container">
       <div className="viewer-pane">
         <div className="toolbar">
-          <button 
-            className="tool-btn" 
-            onClick={() => window.location.href = window.location.origin + window.location.pathname} 
+          <button
+            className="tool-btn"
+            onClick={() => window.location.href = window.location.origin + window.location.pathname}
             title="Volver al listado"
             style={{ marginRight: '10px', background: '#333' }}
           >
             <ArrowLeft size={20} />
           </button>
-          
+
           <div style={{ height: '24px', width: '1px', background: '#444', marginRight: '10px' }} />
 
           {tools.map(tool => {
@@ -457,12 +473,12 @@ function App() {
           })}
         </div>
 
-        <button 
+        <button
           onClick={handleLogout}
-          style={{ 
-            position: 'absolute', 
-            top: '1rem', 
-            right: '1rem', 
+          style={{
+            position: 'absolute',
+            top: '1rem',
+            right: '1rem',
             zIndex: 10,
             background: 'rgba(0,0,0,0.5)',
             color: '#fff',
@@ -522,142 +538,125 @@ function App() {
 
         <div className="inspector-body">
           {!selectedMarker ? (
-            <div style={{ color: '#aaa', fontSize: '0.9rem' }}>
+
+            <div style={{ color: '#888', fontSize: '0.9rem' }}>
               <p>Ningún marcador seleccionado.</p>
               <p>Selecciona una herramienta y haz clic en la imagen, o selecciona uno existente.</p>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0, fontSize: '1rem', color: '#1a73e8' }}>{selectedMarker.type.toUpperCase()}</h3>
-                <button onClick={removeSelected} style={{ background: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Borrar</button>
+                <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#c5a059', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{selectedMarker.type}</h3>
+                <button onClick={removeSelected} style={{ background: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', padding: '4px 10px', cursor: 'pointer', fontSize: '0.8rem' }}>Borrar</button>
               </div>
 
               {selectedMarker.type !== 'polygon' && (
-                <>
-                  <label style={{ fontSize: '0.85rem', color: '#aaa' }}>ID</label>
-                  <input value={selectedMarker.id} onChange={e => updateSelected('id', e.target.value)} style={{ background: '#1e1e24', border: '1px solid #444', color: '#eee', padding: '6px', borderRadius: '4px' }} />
-                </>
+                <div className="inspector-section">
+                  <span className="inspector-section-title">General</span>
+                  <span className="inspector-label">ID</span>
+                  <input className="inspector-input" value={selectedMarker.id} onChange={e => updateSelected('id', e.target.value)} />
+                </div>
               )}
 
-              {selectedMarker.type !== 'text' && selectedMarker.type !== 'polygon' ? (
-                <>
-                  <label style={{ fontSize: '0.85rem', color: '#aaa' }}>Tooltip</label>
-                  <input value={selectedMarker.tooltip || ''} onChange={e => updateSelected('tooltip', e.target.value)} style={{ background: '#1e1e24', border: '1px solid #444', color: '#eee', padding: '6px', borderRadius: '4px' }} />
-
-                  <label style={{ fontSize: '0.85rem', color: '#aaa' }}>Precio</label>
-                  <input value={selectedMarker.precio || ''} onChange={e => updateSelected('precio', e.target.value)} style={{ background: '#1e1e24', border: '1px solid #444', color: '#eee', padding: '6px', borderRadius: '4px' }} />
-
-                  <label style={{ fontSize: '0.85rem', color: '#aaa' }}>Área</label>
-                  <input value={selectedMarker.area || ''} onChange={e => updateSelected('area', e.target.value)} style={{ background: '#1e1e24', border: '1px solid #444', color: '#eee', padding: '6px', borderRadius: '4px' }} />
-                </>
-              ) : selectedMarker.type === 'text' ? (
-                <>
-                  <label style={{ fontSize: '0.85rem', color: '#aaa' }}>Texto a mostrar (Tooltip)</label>
-                  <input
-                    value={selectedMarker.tooltip || ''}
-                    onChange={e => updateSelected('tooltip', e.target.value)}
-                    style={{ background: '#1e1e24', border: '1px solid #444', color: '#eee', padding: '6px', borderRadius: '4px' }}
-                  />
-
-                  <label style={{ fontSize: '0.85rem', color: '#aaa', marginTop: '10px' }}>Color del Texto</label>
-                  <input type="color" value={selectedMarker.textColor || '#000000'} onChange={e => updateSelected('textColor', e.target.value)} style={{ width: '40px', height: '30px', padding: 0, border: 'none', background: 'transparent' }} />
-
-                  <label style={{ fontSize: '0.85rem', color: '#aaa', marginTop: '10px' }}>Fondo del Contenedor</label>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <input type="color" value={selectedMarker.bgColor || '#ffffff'} onChange={e => updateSelected('bgColor', e.target.value)} style={{ width: '40px', height: '30px', padding: 0, border: 'none', background: 'transparent' }} />
-                    <input type="range" min="0" max="1" step="0.05" value={selectedMarker.bgOpacity !== undefined ? selectedMarker.bgOpacity : 1} onChange={e => updateSelected('bgOpacity', parseFloat(e.target.value))} style={{ flex: 1 }} />
-                  </div>
-
-                  <label style={{ fontSize: '0.85rem', color: '#aaa', marginTop: '10px' }}>Tamaño de fuente (px)</label>
-                  <input
-                    type="number"
-                    min="8" max="200"
-                    value={selectedMarker.fontSize ?? 14}
-                    onChange={e => updateSelected('fontSize', parseInt(e.target.value))}
-                    style={{ background: '#1e1e24', border: '1px solid #444', color: '#eee', padding: '6px', borderRadius: '4px' }}
-                  />
-                </>
-              ) : null}
-
-              {selectedMarker.type === 'rectangle' && (
-                <>
-                  <label style={{ fontSize: '0.85rem', color: '#aaa', marginTop: '10px' }}>Estilo de Polígono</label>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <input type="color" value={selectedMarker.fillColor || '#ff0000'} onChange={e => updateSelected('fillColor', e.target.value)} style={{ width: '40px', height: '30px', padding: 0, border: 'none', background: 'transparent' }} />
-                    <input type="range" min="0" max="1" step="0.05" value={selectedMarker.fillOpacity !== undefined ? selectedMarker.fillOpacity : 0.5} onChange={e => updateSelected('fillOpacity', parseFloat(e.target.value))} style={{ flex: 1 }} />
-                  </div>
-                </>
+              {selectedMarker.type !== 'text' && selectedMarker.type !== 'polygon' && (
+                <div className="inspector-section">
+                  <span className="inspector-section-title">Datos</span>
+                  <span className="inspector-label">Tooltip</span>
+                  <input className="inspector-input" value={selectedMarker.tooltip || ''} onChange={e => updateSelected('tooltip', e.target.value)} />
+                  <span className="inspector-label">Precio</span>
+                  <input className="inspector-input" value={selectedMarker.precio || ''} onChange={e => updateSelected('precio', e.target.value)} />
+                  <span className="inspector-label">Área</span>
+                  <input className="inspector-input" value={selectedMarker.area || ''} onChange={e => updateSelected('area', e.target.value)} />
+                </div>
               )}
 
-              {(selectedMarker.type === 'text') && (
+              {selectedMarker.type === 'text' && (
                 <>
-                  <label style={{ fontSize: '0.85rem', color: '#aaa', marginTop: '10px' }}>Ancho</label>
-                  <input type="number" value={selectedMarker.size?.width || 0} onChange={e => updateNestedSelected('size', 'width', parseInt(e.target.value))} style={{ background: '#1e1e24', border: '1px solid #444', color: '#eee', padding: '6px', borderRadius: '4px' }} />
+                  <div className="inspector-section">
+                    <span className="inspector-section-title">Contenido</span>
+                    <span className="inspector-label">Texto</span>
+                    <input className="inspector-input" value={selectedMarker.tooltip || ''} onChange={e => updateSelected('tooltip', e.target.value)} />
+                    <span className="inspector-label">Color del texto</span>
+                    <input type="color" value={selectedMarker.textColor || '#ffffff'} onChange={e => updateSelected('textColor', e.target.value)} style={{ width: '40px', height: '30px', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }} />
+                    <span className="inspector-label">Fondo</span>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      <input type="color" value={selectedMarker.bgColor || '#ffffff'} onChange={e => updateSelected('bgColor', e.target.value)} style={{ width: '40px', height: '30px', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }} />
+                      <input type="range" min="0" max="1" step="0.05" value={selectedMarker.bgOpacity !== undefined ? selectedMarker.bgOpacity : 0} onChange={e => updateSelected('bgOpacity', parseFloat(e.target.value))} style={{ flex: 1 }} />
+                    </div>
+                    <span className="inspector-label">Tamaño de fuente (px)</span>
+                    <input className="inspector-input" type="number" min="8" max="200" value={selectedMarker.fontSize ?? 14} onChange={e => updateSelected('fontSize', parseInt(e.target.value))} />
+                  </div>
 
-                  <label style={{ fontSize: '0.85rem', color: '#aaa' }}>Alto</label>
-                  <input type="number" value={selectedMarker.size?.height || 0} onChange={e => updateNestedSelected('size', 'height', parseInt(e.target.value))} style={{ background: '#1e1e24', border: '1px solid #444', color: '#eee', padding: '6px', borderRadius: '4px' }} />
+                  <div className="inspector-section">
+                    <span className="inspector-section-title">Tamaño</span>
+                    <span className="inspector-label">Ancho</span>
+                    <input className="inspector-input" type="number" value={selectedMarker.size?.width || 0} onChange={e => updateNestedSelected('size', 'width', parseInt(e.target.value))} />
+                    <span className="inspector-label">Alto</span>
+                    <input className="inspector-input" type="number" value={selectedMarker.size?.height || 0} onChange={e => updateNestedSelected('size', 'height', parseInt(e.target.value))} />
+                  </div>
                 </>
               )}
 
               {selectedMarker.type !== 'polygon' && (
-                <>
-                  <hr style={{ borderColor: '#444', width: '100%', margin: '15px 0' }} />
-                  <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem', fontWeight: 600 }}>Estilos SVG</p>
-
-                  <label style={{ fontSize: '0.85rem', color: '#aaa' }}>Color de relleno (fill)</label>
-                  <input value={selectedMarker.svgStyle?.fill || selectedMarker.style?.backgroundColor || ''} onChange={e => { updateNestedSelected('svgStyle', 'fill', e.target.value); updateNestedSelected('style', 'backgroundColor', e.target.value); }} style={{ background: '#1e1e24', border: '1px solid #444', color: '#eee', padding: '6px', borderRadius: '4px' }} placeholder="rgba(0,0,0,0.5)" />
-
-                  <label style={{ fontSize: '0.85rem', color: '#aaa' }}>Color de borde (stroke)</label>
-                  <input value={selectedMarker.svgStyle?.stroke || selectedMarker.style?.borderColor || ''} onChange={e => { updateNestedSelected('svgStyle', 'stroke', e.target.value); updateNestedSelected('style', 'borderColor', e.target.value) }} style={{ background: '#1e1e24', border: '1px solid #444', color: '#eee', padding: '6px', borderRadius: '4px' }} />
-                </>
+                <div className="inspector-section">
+                  <span className="inspector-section-title">Estilos SVG</span>
+                  <span className="inspector-label">Relleno (fill)</span>
+                  <input className="inspector-input" value={selectedMarker.svgStyle?.fill || selectedMarker.style?.backgroundColor || ''} onChange={e => { updateNestedSelected('svgStyle', 'fill', e.target.value); updateNestedSelected('style', 'backgroundColor', e.target.value); }} placeholder="rgba(0,0,0,0.5)" />
+                  <span className="inspector-label">Borde (stroke)</span>
+                  <input className="inspector-input" value={selectedMarker.svgStyle?.stroke || selectedMarker.style?.borderColor || ''} onChange={e => { updateNestedSelected('svgStyle', 'stroke', e.target.value); updateNestedSelected('style', 'borderColor', e.target.value); }} />
+                </div>
               )}
 
               {selectedMarker.type === 'polygon' && (
-                <>
-                  <hr style={{ borderColor: '#444', width: '100%', margin: '15px 0' }} />
-                  <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem', fontWeight: 600 }}>Servidor de BD</p>
-
-                  <label style={{ fontSize: '0.85rem', color: '#aaa' }}>UUID</label>
-                  <input
-                    value={selectedMarker.uuid || ''}
-                    onChange={e => updateSelected('uuid', e.target.value)}
-                    style={{ background: '#1e1e24', border: '1px solid #444', color: '#eee', padding: '6px', borderRadius: '4px' }}
-                    placeholder="3fa85f64-...-2c963f66afa6"
-                  />
-
-                  <button
-                    onClick={() => handlePolygonDbUpdate(selectedMarker)}
-                    style={{ marginTop: '10px', background: '#28a745', color: 'white', border: 'none', borderRadius: '4px', padding: '8px', cursor: 'pointer', fontWeight: 'bold' }}
-                  >
-                    Actualizar
-                  </button>
-                </>
+                <div className="inspector-section">
+                  {selectedMarker.pending ? (
+                    <>
+                      <span className="inspector-section-title" style={{ color: '#ffa500' }}>Crear Lote</span>
+                      <span className="inspector-label">Nombre *</span>
+                      <input className="inspector-input" value={loteForm.name} onChange={e => setLoteForm(f => ({ ...f, name: e.target.value }))} placeholder="Ej: Lote 07" />
+                      <span className="inspector-label">Slug</span>
+                      <input className="inspector-input" value={loteForm.slug} onChange={e => setLoteForm(f => ({ ...f, slug: e.target.value }))} placeholder="Ej: lote-07" />
+                      <span className="inspector-label">Estado</span>
+                      <select className="inspector-input" value={loteForm.status} onChange={e => setLoteForm(f => ({ ...f, status: e.target.value }))}>
+                        <option value="available">Disponible</option>
+                        <option value="reserved">Reservado</option>
+                        <option value="sold">Vendido</option>
+                      </select>
+                      <span className="inspector-label">Precio</span>
+                      <input className="inspector-input" type="number" value={loteForm.price} onChange={e => setLoteForm(f => ({ ...f, price: e.target.value }))} placeholder="Ej: 150000" />
+                      <span className="inspector-label">Área (m²)</span>
+                      <input className="inspector-input" type="number" value={loteForm.area} onChange={e => setLoteForm(f => ({ ...f, area: e.target.value }))} placeholder="Ej: 150" />
+                      <button
+                        onClick={handleCreateLote}
+                        disabled={isCreatingLote}
+                        className="btn-primary"
+                        style={{ marginTop: '4px', background: isCreatingLote ? '#555' : '#28a745' }}
+                      >
+                        {isCreatingLote ? 'Creando...' : 'Crear Lote'}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="inspector-section-title">Base de datos</span>
+                      <span className="inspector-label">UUID</span>
+                      <input className="inspector-input" value={selectedMarker.uuid || ''} onChange={e => updateSelected('uuid', e.target.value)} placeholder="3fa85f64-...-2c963f66afa6" />
+                      <button onClick={() => handlePolygonDbUpdate(selectedMarker)} className="btn-primary" style={{ marginTop: '4px' }}>
+                        Actualizar coordenadas
+                      </button>
+                    </>
+                  )}
+                </div>
               )}
-
-            </div>
+            </>
           )}
         </div>
 
-        <div className="inspector-footer" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <input type="file" ref={imageInputRef} accept="image/*" onChange={handleImageImport} style={{ display: 'none' }} id="import-img" />
-          <label htmlFor="import-img" className="btn-primary" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#555', textAlign: 'center' }}>
-            <ImageIcon size={18} /> Cargar Imagen
-          </label>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <input type="file" ref={fileInputRef} accept=".json" onChange={handleImport} style={{ display: 'none' }} id="import-json" />
-            <label htmlFor="import-json" className="btn-primary" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', flex: 1, backgroundColor: '#444', textAlign: 'center', padding: '0.75rem 0' }}>
-              <Upload size={18} /> JSON
-            </label>
-            <button className="btn-primary" onClick={handleExport} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', flex: 1, padding: '0.75rem 0' }}>
-              <Download size={18} /> JSON
-            </button>
-          </div>
+        <div className="inspector-footer">
           <button
             className="btn-primary"
             onClick={handleSaveAll}
             disabled={isSavingAll}
-            style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: isSavingAll ? '#555' : '#28a745', padding: '0.75rem 0', fontWeight: 700 }}
+            style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: isSavingAll ? '#555' : '#28a745' }}
           >
             <Download size={18} /> {isSavingAll ? 'Guardando...' : 'Guardar Todo'}
           </button>
@@ -665,9 +664,9 @@ function App() {
             className="btn-primary"
             onClick={handleSaveTextAnnotations}
             disabled={isSavingText}
-            style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: isSavingText ? '#555' : '#1a73e8', padding: '0.75rem 0' }}
+            style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
           >
-            <Type size={18} /> {isSavingText ? 'Guardando...' : 'Guardar anotaciones de texto'}
+            <Type size={18} /> {isSavingText ? 'Guardando...' : 'Guardar textos'}
           </button>
         </div>
       </div>
