@@ -4,9 +4,12 @@ import Sidebar from './components/Sidebar';
 import StatCard from './components/StatCard';
 import LoginBackground from './components/LoginBackground';
 import KanbanBoard from './components/KanbanBoard';
+import AnalisisView from './components/AnalisisView';
 import './App.css';
 
 const API_BASE = 'https://notry-back.onrender.com/api/v1';
+const EDITOR_URL = 'https://notry-editor.vercel.app';
+const VISOR_URL = 'https://notry-visor.vercel.app';
 
 const STATUS_DISPLAY = {
   available: 'disponible',
@@ -43,10 +46,17 @@ function App() {
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [inventorySearch, setInventorySearch] = useState('');
   const [inventoryStatusFilter, setInventoryStatusFilter] = useState('');
+  const [inventoryTab, setInventoryTab] = useState('lotes'); // 'lotes' | 'loteos'
+  const [inventoryLoteos, setInventoryLoteos] = useState([]);
+  const [inventoryLoteosLoading, setInventoryLoteosLoading] = useState(false);
   const [prospectosList, setProspectosList] = useState([]);
   const [prospectosLoading, setProspectosLoading] = useState(false);
   const [prospectosCategoryFilter, setProspectosCategoryFilter] = useState('');
   const [prospectosWithoutAdvisor, setProspectosWithoutAdvisor] = useState(false);
+  const [createLoteoOpen, setCreateLoteoOpen] = useState(false);
+  const [createLoteoForm, setCreateLoteoForm] = useState({ name: '', slug: '', image_url: '' });
+  const [createLoteoLoading, setCreateLoteoLoading] = useState(false);
+  const [createLoteoError, setCreateLoteoError] = useState(null);
 
   // Auto-fetch lots when entering super_admin view
   React.useEffect(() => {
@@ -63,6 +73,13 @@ function App() {
     }, 300);
     return () => clearTimeout(timer);
   }, [ownerSubView, inventorySearch, inventoryStatusFilter]);
+
+  // Fetch loteos for inventory editor tab (lazy, only once)
+  React.useEffect(() => {
+    if (ownerSubView !== 'inventario' || inventoryTab !== 'loteos' || !token) return;
+    if (inventoryLoteos.length > 0) return;
+    fetchInventoryLoteos();
+  }, [ownerSubView, inventoryTab]);
 
   // Debounced fetch for clientes
   React.useEffect(() => {
@@ -190,6 +207,59 @@ function App() {
     }
   };
 
+  const fetchInventoryLoteos = async () => {
+    setInventoryLoteosLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/loteos?include_lotes=false&limit=50&offset=0`, {
+        headers: { accept: 'application/json', Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error('Error al cargar loteos');
+      setInventoryLoteos(data.items);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setInventoryLoteosLoading(false);
+    }
+  };
+
+  const createLoteo = async (e) => {
+    e.preventDefault();
+    setCreateLoteoLoading(true);
+    setCreateLoteoError(null);
+    try {
+      const res = await fetch(`${API_BASE}/loteos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: createLoteoForm.name,
+          slug: createLoteoForm.slug,
+          image_url: createLoteoForm.image_url,
+          text_annotations: [],
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Error al crear loteo');
+      setCreateLoteoOpen(false);
+      setCreateLoteoForm({ name: '', slug: '', image_url: '' });
+      setInventoryLoteos([]);
+      fetchInventoryLoteos();
+    } catch (error) {
+      setCreateLoteoError(error.message);
+    } finally {
+      setCreateLoteoLoading(false);
+    }
+  };
+
+  const openEditor = (loteoId) => {
+    const dataUrl = `${API_BASE}/loteos/${loteoId}/visor_data`;
+    window.open(`${EDITOR_URL}/?data=${encodeURIComponent(dataUrl)}&token=${encodeURIComponent(token)}`, '_blank');
+  };
+
   const fetchProspectos = async (category, withoutAdvisor) => {
     setProspectosLoading(true);
     try {
@@ -224,6 +294,8 @@ function App() {
     setInventoryLots([]);
     setInventorySearch('');
     setInventoryStatusFilter('');
+    setInventoryTab('lotes');
+    setInventoryLoteos([]);
     setProspectosList([]);
     setProspectosCategoryFilter('');
     setProspectosWithoutAdvisor(false);
@@ -415,6 +487,77 @@ function App() {
                   </div>
 
                   <div className="inventory-section">
+                    <div className="inventory-tab-bar">
+                      <button
+                        className={`inventory-tab-btn ${inventoryTab === 'lotes' ? 'active' : ''}`}
+                        onClick={() => setInventoryTab('lotes')}
+                      >
+                        Lotes
+                      </button>
+                      <button
+                        className={`inventory-tab-btn ${inventoryTab === 'loteos' ? 'active' : ''}`}
+                        onClick={() => setInventoryTab('loteos')}
+                      >
+                        Loteos
+                      </button>
+                    </div>
+
+                    {inventoryTab === 'loteos' ? (
+                      <div className="inventory-table-wrapper">
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+                          <button
+                            className="primary-button btn-fit gold"
+                            onClick={() => { setCreateLoteoOpen(true); setCreateLoteoError(null); }}
+                          >
+                            + Nuevo Loteo
+                          </button>
+                        </div>
+                        {inventoryLoteosLoading ? (
+                          <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+                            <span className="loader"></span>
+                          </div>
+                        ) : (
+                          <table className="inventory-table">
+                            <thead>
+                              <tr>
+                                <th>Nombre</th>
+                                <th>ID</th>
+                                <th></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {inventoryLoteos.length === 0 ? (
+                                <tr>
+                                  <td colSpan={3} className="td-empty-row">No se encontraron loteos.</td>
+                                </tr>
+                              ) : (
+                                inventoryLoteos.map(loteo => (
+                                  <tr key={loteo.id}>
+                                    <td className="td-name">{loteo.name}</td>
+                                    <td className="td-muted">{loteo.id.substring(0, 8)}…</td>
+                                    <td style={{ textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                      <button
+                                        className="primary-button btn-fit"
+                                        onClick={() => window.open(`${VISOR_URL}/?data=${encodeURIComponent(`${API_BASE}/loteos/${loteo.id}/visor_data`)}`, '_blank')}
+                                      >
+                                        Visor
+                                      </button>
+                                      <button
+                                        className="primary-button btn-fit gold"
+                                        onClick={() => openEditor(loteo.id)}
+                                      >
+                                        Editor
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    ) : (
+                    <>
                     <div className="inventory-controls">
                       <div className="inventory-search">
                         <Search size={16} className="search-icon" />
@@ -494,6 +637,8 @@ function App() {
                         </tbody>
                       </table>
                     </div>
+                    </>
+                    )}
                   </div>
                 </>
               )}
@@ -564,7 +709,11 @@ function App() {
                 </div>
               )}
 
-              {ownerSubView !== 'inventario' && ownerSubView !== 'clientes' && (
+              {ownerSubView === 'analisis' && (
+                <AnalisisView token={token} />
+              )}
+
+              {ownerSubView !== 'inventario' && ownerSubView !== 'clientes' && ownerSubView !== 'analisis' && ownerSubView !== 'inicio' && (
                 <div className="owner-panel">
                   <p>Tu dashboard de {ownerSubView} está siendo preparado.</p>
                 </div>
@@ -573,6 +722,51 @@ function App() {
           </div>
         )}
       </main>
+
+      {createLoteoOpen && (
+        <div className="modal-overlay" onClick={() => setCreateLoteoOpen(false)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()}>
+            <h3 className="modal-title">Nuevo Loteo</h3>
+            <form onSubmit={createLoteo}>
+              <div className="form-group">
+                <label>Nombre</label>
+                <input
+                  type="text"
+                  required
+                  value={createLoteoForm.name}
+                  onChange={e => setCreateLoteoForm(f => ({ ...f, name: e.target.value }))}
+                />
+              </div>
+              <div className="form-group">
+                <label>Slug</label>
+                <input
+                  type="text"
+                  required
+                  value={createLoteoForm.slug}
+                  onChange={e => setCreateLoteoForm(f => ({ ...f, slug: e.target.value }))}
+                />
+              </div>
+              <div className="form-group">
+                <label>URL de Imagen</label>
+                <input
+                  type="text"
+                  value={createLoteoForm.image_url}
+                  onChange={e => setCreateLoteoForm(f => ({ ...f, image_url: e.target.value }))}
+                />
+              </div>
+              {createLoteoError && <div className="status-message error">{createLoteoError}</div>}
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '8px' }}>
+                <button type="button" className="outline-button" onClick={() => setCreateLoteoOpen(false)}>
+                  Cancelar
+                </button>
+                <button type="submit" className="primary-button btn-fit gold" disabled={createLoteoLoading}>
+                  {createLoteoLoading ? <span className="loader small"></span> : 'Crear'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

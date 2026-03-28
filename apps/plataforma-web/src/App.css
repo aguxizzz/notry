@@ -611,6 +611,36 @@
 }
 
 /* INVENTORY TABLE */
+.inventory-tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.inventory-tab-btn {
+  flex: 1;
+  padding: 14px 24px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  margin-bottom: -1px;
+}
+
+.inventory-tab-btn:hover {
+  color: var(--text-main);
+}
+
+.inventory-tab-btn.active {
+  color: var(--gold, #c5a059);
+  border-bottom-color: var(--gold, #c5a059);
+}
+
 .inventory-section {
   display: flex;
   flex-direction: column;
@@ -827,4 +857,227 @@
   font-weight: 600;
   padding: 3px 8px;
   white-space: nowrap;
+}
+
+/* ANÁLISIS VIEW */
+.loteo-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.loteo-pill {
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 8px 18px;
+  text-transform: uppercase;
+  transition: all 0.15s ease;
+}
+
+.loteo-pill:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.loteo-pill.active {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: #1a1a2a;
+}
+
+.heatmap-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.analisis-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.analisis-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  min-height: 200px;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.analisis-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.analisis-summary {
+  display: flex;
+  gap: 24px;
+}
+
+.analisis-stat {
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--accent-color);
+  border-radius: 8px;
+  padding: 20px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+}
+
+.analisis-stat-value {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text-main);
+  line-height: 1;
+}
+
+.analisis-stat-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+/* HEATMAP */
+.heatmap-card {
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.heatmap-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.heatmap-title {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.legend-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.legend-gradient {
+  width: 80px;
+  height: 10px;
+  border-radius: 4px;
+  background: linear-gradient(to right, rgb(245, 240, 232), rgb(197, 160, 89));
+  border: 1px solid var(--border-color);
+}
+
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 2px;
+  padding: 2px;
+  background: var(--border-color);
+}
+
+.heatmap-cell {
+  position: relative;
+  padding: 18px 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+  cursor: default;
+  transition: filter 0.15s ease;
+  min-height: 80px;
+}
+
+.heatmap-cell:hover {
+  filter: brightness(0.94);
+}
+
+.cell-id {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+}
+
+.cell-clicks {
+  font-size: 1.8rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.cell-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  border-radius: 0 2px 0 0;
+  transition: width 0.4s ease;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-card {
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 32px 36px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 12px 12px 0px rgba(0, 0, 0, 0.1);
+}
+
+.modal-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 24px;
+}
+
+.heatmap-empty {
+  padding: 48px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
 }
