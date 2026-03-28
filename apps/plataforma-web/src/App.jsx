@@ -504,14 +504,6 @@ function App() {
 
                     {inventoryTab === 'loteos' ? (
                       <div className="inventory-table-wrapper">
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
-                          <button
-                            className="primary-button btn-fit gold"
-                            onClick={() => { setCreateLoteoOpen(true); setCreateLoteoError(null); }}
-                          >
-                            + Nuevo Loteo
-                          </button>
-                        </div>
                         {inventoryLoteosLoading ? (
                           <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
                             <span className="loader"></span>
@@ -555,6 +547,14 @@ function App() {
                             </tbody>
                           </table>
                         )}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+                          <button
+                            className="primary-button btn-fit gold"
+                            onClick={() => { setCreateLoteoOpen(true); setCreateLoteoError(null); }}
+                          >
+                            + Nuevo Loteo
+                          </button>
+                        </div>
                       </div>
                     ) : (
                     <>
