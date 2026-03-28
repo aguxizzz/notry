@@ -56,7 +56,7 @@ function App() {
         })
         .then(async data => {
           if (data.annotations && Array.isArray(data.annotations)) {
-            setAnnotations(data.annotations.map(a => ({ ...a, id: a.id ?? a.uuid })));
+            setAnnotations(data.annotations.map((a, i) => ({ ...a, id: a.id ?? a.uuid ?? `ann-${i}` })));
           }
           if (data.panoramaUrl && typeof data.panoramaUrl === 'string') {
             try {

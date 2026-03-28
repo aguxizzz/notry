@@ -89,6 +89,7 @@ export function annotationsToMarkers(annotations) {
     }
   }).filter((m) => {
     if (!m) return false;
+    if (!m.id) return false;
     if (m.polygonPixels !== undefined && m.polygonPixels.length < 3) return false;
     if (m.position === undefined && !m.polygonPixels?.length && !m.polylinePixels?.length) return false;
     return true;
