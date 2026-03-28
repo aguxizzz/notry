@@ -11,7 +11,7 @@ export function annotationsToMarkers(annotations) {
   return annotations.map((ann) => {
     // No pasamos content al plugin para que no abra su propio panel; el contenido se muestra en nuestro panel lateral.
     const base = {
-      id: ann.id,
+      id: ann.uuid ?? ann.id,
       tooltip: ann.tooltip ?? null,
       visible: ann.visible !== false,
       ...(ann.svgStyle && { svgStyle: ann.svgStyle }),

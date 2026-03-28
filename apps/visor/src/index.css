@@ -375,14 +375,6 @@ html, body {
 }
 
 /* =============================================
-   HOVER EN MARCADORES TIPO "TEXT"
-   ============================================= */
-.psv-marker.psv-marker--label-hover {
-  filter: brightness(1.2);
-  transition: filter var(--t-fast);
-}
-
-/* =============================================
    HOVER EN POLÍGONOS
    ============================================= */
 .psv-marker--poly {
