@@ -32,14 +32,15 @@ export function annotationsToMarkers(annotations) {
       }
 
       case 'polygon': {
-        const points = ann.polygonPixels ?? ann.polygon ?? [];
-        const estadoStyles = {
+        const points = ann.panorama_coordinates ?? ann.polygonPixels ?? ann.polygon ?? [];
+        const statusKey = ann.status ?? ann.estado;
+        const statusStyles = {
           available: { fill: 'rgba(34,197,94,0.15)',  stroke: 'rgba(22,163,74,0.5)',  strokeWidth: '2' },
           sold:      { fill: 'rgba(239,68,68,0.25)',   stroke: 'rgba(220,38,38,0.7)',  strokeWidth: '2' },
           reserved:  { fill: 'rgba(59,130,246,0.22)',  stroke: 'rgba(37,99,235,0.65)', strokeWidth: '2' },
         };
-        const svgStyle = ann.estado && estadoStyles[ann.estado]
-          ? estadoStyles[ann.estado]
+        const svgStyle = statusKey && statusStyles[statusKey]
+          ? statusStyles[statusKey]
           : (ann.svgStyle ?? {});
         return {
           ...base,
