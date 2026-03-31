@@ -45,23 +45,23 @@ function PrecalificacionForm({ lotDetail, onClose }) {
 
   return (
     <div className="info-panel-form">
-      {(lotDetail.precio || lotDetail.area || lotDetail.estado) && (
+      {(lotDetail.price || lotDetail.area_m2 || lotDetail.estado) && (
         <div id="precal-detail-summary">
           <div id="precal-detail-meta">
-            {lotDetail.precio && (
+            {lotDetail.price && (
               <div className="precal-meta-item">
                 <span className="precal-meta-label">Precio</span>
-                <span className="precal-meta-value">{lotDetail.precio}</span>
+                <span className="precal-meta-value">{lotDetail.price}</span>
               </div>
             )}
-            {lotDetail.area && (
+            {lotDetail.area_m2 && (
               <div className="precal-meta-item">
                 <span className="precal-meta-label">Área</span>
-                <span className="precal-meta-value">{lotDetail.area}</span>
+                <span className="precal-meta-value">{lotDetail.area_m2}</span>
               </div>
             )}
             {lotDetail.estado && ESTADO_CONFIG[lotDetail.estado] && (
-              <div className="precal-meta-item" style={{ gridColumn: lotDetail.precio && lotDetail.area ? '1 / -1' : 'auto' }}>
+              <div className="precal-meta-item" style={{ gridColumn: lotDetail.price && lotDetail.area_m2 ? '1 / -1' : 'auto' }}>
                 <span className="precal-meta-label">Estado</span>
                 <span className="precal-meta-value" style={{ color: ESTADO_CONFIG[lotDetail.estado].accent }}>
                   {ESTADO_CONFIG[lotDetail.estado].label}
@@ -162,8 +162,8 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
   const lotDetail = {
     title: display.title ?? '',
     markerId: display.markerId,
-    precio: display.detail?.precio != null ? String(display.detail.precio).trim() : '',
-    area:   display.detail?.area   != null ? String(display.detail.area).trim()   : '',
+    price: display.detail?.price != null ? String(display.detail.price).trim() : '',
+    area_m2: display.detail?.area_m2 != null ? String(display.detail.area_m2).trim() : '',
     estado: estadoKey ?? '',
   };
 
@@ -215,20 +215,20 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
                   {estadoCfg.label}
                 </div>
               )}
-              {(display.detail?.precio || display.detail?.area) && (
+              {(display.detail?.price || display.detail?.area_m2) && (
                 <div className="lote-metrics">
-                  {display.detail.precio && (
+                  {display.detail.price && (
                     <div className="lote-metric-card">
                       <span className="lote-metric-icon"><IconDollar /></span>
                       <span className="lote-metric-label">Precio</span>
-                      <span className="lote-metric-value">{display.detail.precio}</span>
+                      <span className="lote-metric-value">{display.detail.price}</span>
                     </div>
                   )}
-                  {display.detail.area && (
+                  {display.detail.area_m2 && (
                     <div className="lote-metric-card">
                       <span className="lote-metric-icon"><IconRuler /></span>
                       <span className="lote-metric-label">Área</span>
-                      <span className="lote-metric-value">{display.detail.area}</span>
+                      <span className="lote-metric-value">{display.detail.area_m2}</span>
                     </div>
                   )}
                 </div>
