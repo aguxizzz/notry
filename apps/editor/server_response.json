@@ -1,363 +1,178 @@
 {
-  "panoramaUrl": "https://notry-back.onrender.com/static/panorama.webp",
+  "panoramaUrl": "https://res.cloudinary.com/dvwxigdri/image/upload/v1774807857/Gemini_Generated_Image_d8scbjd8scbjd8sc_ugumtx.png",
+  "blueprintUrl": null,
   "annotations": [
     {
-      "uuid": "543d2234-dce0-477d-b665-df695f583045",
+      "uuid": "29a67330-7ef5-4ddb-b66f-4d407068c236",
       "type": "polygon",
-      "polygonPixels": [
+      "panorama_coordinates": [
         [
-          4600,
-          6216
+          685,
+          549
         ],
         [
-          5664,
-          5667
+          586,
+          491
         ],
         [
-          5541,
-          5533
+          625,
+          475
         ],
         [
-          5444,
-          5459
-        ],
-        [
-          5319,
-          5435
-        ],
-        [
-          4379,
-          5365
-        ],
-        [
-          3459,
-          5225
+          720,
+          518
         ]
       ],
-      "tooltip": "LoteTest01",
+      "blueprint_coordinates": null,
+      "tooltip": "Lote 2B",
       "svgStyle": {
         "fill": "rgba(0,100,255,0.3)",
         "stroke": "#06c",
         "strokeWidth": "2"
       },
-      "precio": "150.000",
-      "area": "200m2",
-      "estado": "available"
+      "price": "70000.00",
+      "area_m2": "550.00",
+      "status": "available"
     },
     {
-      "uuid": "9a191f8d-c6de-4eee-8e26-29ae825ba9c8",
+      "uuid": "0cae8e8e-3405-43c9-8d3b-3575e1015b5c",
       "type": "polygon",
-      "polygonPixels": [
+      "panorama_coordinates": [
         [
-          2127,
-          5032
+          634,
+          583
         ],
         [
-          1099,
-          5294
+          685,
+          549
         ],
         [
-          1275,
-          5428
+          586,
+          491
         ],
         [
-          2152,
-          5325
-        ],
-        [
-          2644,
-          5240
-        ],
-        [
-          2990,
-          5148
-        ],
-        [
-          2913,
-          5108
-        ],
-        [
-          2753,
-          5067
-        ],
-        [
-          2449,
-          5018
-        ],
-        [
-          2167,
-          5010
+          536,
+          507
         ]
       ],
-      "tooltip": "LoteTest03",
+      "blueprint_coordinates": null,
+      "tooltip": "Lote 1A",
       "svgStyle": {
         "fill": "rgba(0,100,255,0.3)",
         "stroke": "#06c",
         "strokeWidth": "2"
       },
-      "precio": "180.000",
-      "area": "220m2",
-      "estado": "reserved"
+      "price": "80000.00",
+      "area_m2": "800.00",
+      "status": "available"
     },
     {
-      "uuid": "a730aa79-1736-4df6-877a-9a211608bdd9",
+      "uuid": "52b31859-ac96-4e59-9eeb-f45a2d1ab8e0",
       "type": "polygon",
-      "polygonPixels": [
+      "panorama_coordinates": [
         [
-          2922,
-          5590
+          595,
+          487
         ],
         [
-          2720,
-          6248
+          571,
+          465
         ],
         [
-          3823,
-          6496
+          615,
+          448
         ],
         [
-          4429,
-          6279
+          654,
+          461
         ],
         [
-          3702,
-          5591
+          627,
+          474
         ]
       ],
-      "tooltip": "LoteTest02",
+      "blueprint_coordinates": null,
+      "tooltip": "Lote 4A",
       "svgStyle": {
         "fill": "rgba(0,100,255,0.3)",
         "stroke": "#06c",
         "strokeWidth": "2"
       },
-      "precio": "130.000",
-      "area": "150m2",
-      "estado": "sold"
+      "price": "65000.00",
+      "area_m2": "650.00",
+      "status": "sold"
     },
     {
-      "uuid": "869bdc4d-d28f-44c3-b5ce-44da32130930",
+      "uuid": "8a1e6457-c74e-4a2c-bccc-04faffc558d1",
       "type": "polygon",
-      "polygonPixels": [
+      "panorama_coordinates": [
         [
-          2911,
-          5588
+          536,
+          506
         ],
         [
-          2702,
-          6239
+          517,
+          480
         ],
         [
-          1918,
-          5875
+          571,
+          465
         ],
         [
-          2389,
-          5490
+          595,
+          487
         ]
       ],
-      "tooltip": "LoteTest04",
+      "blueprint_coordinates": null,
+      "tooltip": "Lote 8A",
       "svgStyle": {
         "fill": "rgba(0,100,255,0.3)",
         "stroke": "#06c",
         "strokeWidth": "2"
       },
-      "precio": "150.000",
-      "area": "120m2",
-      "estado": "available"
+      "price": "60000.00",
+      "area_m2": "450.00",
+      "status": "sold"
     },
     {
-      "uuid": "29223004-ab08-4c9f-9b4e-0cb1db627549",
+      "uuid": "07b9802c-a6f9-4c90-ab46-0546681666d9",
       "type": "polygon",
-      "polygonPixels": [
+      "panorama_coordinates": [
         [
-          3392,
-          5213
+          625,
+          475
         ],
         [
-          3698,
-          5585
+          654,
+          461
         ],
         [
-          2932,
-          5584
+          716,
+          485
         ],
         [
-          3041,
-          5138
+          722,
+          500
+        ],
+        [
+          721,
+          508
+        ],
+        [
+          720,
+          517
         ]
       ],
-      "tooltip": "LoteTest06",
+      "blueprint_coordinates": null,
+      "tooltip": "Lote 3B",
       "svgStyle": {
         "fill": "rgba(0,100,255,0.3)",
         "stroke": "#06c",
         "strokeWidth": "2"
       },
-      "precio": "130.000",
-      "area": "100m2",
-      "estado": "available"
-    },
-    {
-      "uuid": "354f1351-1787-471a-bb84-f9dceb785f17",
-      "type": "polygon",
-      "polygonPixels": [
-        [
-          2384,
-          5489
-        ],
-        [
-          2117,
-          5338
-        ],
-        [
-          1270,
-          5437
-        ],
-        [
-          1917,
-          5846
-        ]
-      ],
-      "tooltip": "LoteTest05",
-      "svgStyle": {
-        "fill": "rgba(0,100,255,0.3)",
-        "stroke": "#06c",
-        "strokeWidth": "2"
-      },
-      "precio": "130.000",
-      "area": "100m2",
-      "estado": "available"
-    },
-    {
-      "id": "text-1774525329908",
-      "size": {
-        "width": 100,
-        "height": 30
-      },
-      "type": "text",
-      "bgColor": "#ffffff",
-      "tooltip": "Lote 01",
-      "fontSize": 25,
-      "position": {
-        "textureX": 4621,
-        "textureY": 5611
-      },
-      "svgStyle": {
-        "fill": "rgba(255,0,0,0.3)",
-        "stroke": "#c00",
-        "strokeWidth": "2"
-      },
-      "bgOpacity": 0,
-      "textColor": "#fffafa"
-    },
-    {
-      "id": "text-1774526630309",
-      "size": {
-        "width": 150,
-        "height": 30
-      },
-      "type": "text",
-      "bgColor": "#ffffff",
-      "tooltip": "Lote 02",
-      "fontSize": 25,
-      "position": {
-        "textureX": 3535,
-        "textureY": 5887
-      },
-      "svgStyle": {
-        "fill": "rgba(255,0,0,0.3)",
-        "stroke": "#c00",
-        "strokeWidth": "2"
-      },
-      "bgOpacity": 0,
-      "textColor": "#fffafa"
-    },
-    {
-      "id": "text-1774526646652",
-      "size": {
-        "width": 100,
-        "height": 30
-      },
-      "type": "text",
-      "bgColor": "#ffffff",
-      "tooltip": "Lote 03",
-      "fontSize": 22,
-      "position": {
-        "textureX": 2022,
-        "textureY": 4651
-      },
-      "svgStyle": {
-        "fill": "rgba(255,0,0,0.3)",
-        "stroke": "#c00",
-        "strokeWidth": "2"
-      },
-      "bgOpacity": 0,
-      "textColor": "#ffffff"
-    },
-    {
-      "id": "text-1774535697535",
-      "size": {
-        "width": 150,
-        "height": 30
-      },
-      "type": "text",
-      "bgColor": "#ffffff",
-      "tooltip": "Lote 04",
-      "fontSize": 25,
-      "position": {
-        "textureX": 2573,
-        "textureY": 5757
-      },
-      "svgStyle": {
-        "fill": "rgba(255,0,0,0.3)",
-        "stroke": "#c00",
-        "strokeWidth": "2"
-      },
-      "bgOpacity": 0,
-      "textColor": "#fafafa"
-    },
-    {
-      "id": "text-1774535712038",
-      "size": {
-        "width": 100,
-        "height": 30
-      },
-      "type": "text",
-      "bgColor": "#ffffff",
-      "tooltip": "LOTE 05",
-      "fontSize": 22,
-      "position": {
-        "textureX": 1887,
-        "textureY": 5493
-      },
-      "svgStyle": {
-        "fill": "rgba(255,0,0,0.3)",
-        "stroke": "#c00",
-        "strokeWidth": "2"
-      },
-      "bgOpacity": 0,
-      "textColor": "#fafafa"
-    },
-    {
-      "id": "text-1774536168475",
-      "size": {
-        "width": 100,
-        "height": 30
-      },
-      "type": "text",
-      "bgColor": "#ffffff",
-      "tooltip": "Lote 06",
-      "fontSize": 22,
-      "position": {
-        "textureX": 3270,
-        "textureY": 5293
-      },
-      "svgStyle": {
-        "fill": "rgba(255,0,0,0.3)",
-        "stroke": "#c00",
-        "strokeWidth": "2"
-      },
-      "bgOpacity": 0,
-      "textColor": "#ffffff"
+      "price": "78000.00",
+      "area_m2": "550.00",
+      "status": "reserved"
     }
   ]
 }

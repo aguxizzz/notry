@@ -1,9 +1,23 @@
 import { useState, useRef, useEffect } from 'react';
-import { MousePointer2, Pentagon, Type, Download, Image as ImageIcon, ArrowLeft } from 'lucide-react';
+import { MousePointer2, Pentagon, Type, Download, Image as ImageIcon, ArrowLeft, Grid3x3 } from 'lucide-react';
 import EditorViewer from './components/EditorViewer';
+import BlueprintEditor from './components/BlueprintEditor';
 import LoginScreen from './components/LoginScreen';
 import LoteoList from './components/LoteoList';
 import './App.css';
+
+// Map annotations to the right coordinate system based on mode
+const getAnnotationsForMode = (annotations, currentMode) => {
+  return annotations.map(ann => {
+    if (ann.type === 'polygon' && (ann.panorama_coordinates || ann.blueprint_coordinates)) {
+      const coords = currentMode === 'blueprint'
+        ? ann.blueprint_coordinates
+        : ann.panorama_coordinates;
+      return { ...ann, polygonPixels: coords || [] };
+    }
+    return ann;
+  });
+};
 
 function App() {
   const [activeTool, setActiveTool] = useState('select');
@@ -12,6 +26,8 @@ function App() {
   const [drawingPolygon, setDrawingPolygon] = useState([]);
 
   const [panoramaUrl, setPanoramaUrl] = useState(null);
+  const [blueprintUrl, setBlueprintUrl] = useState(null);
+  const [mode, setMode] = useState('panorama'); // 'panorama' or 'blueprint'
   const [isLoadingDefault, setIsLoadingDefault] = useState(true);
   const [loteoId, setLoteoId] = useState(null);
   const [isSavingText, setIsSavingText] = useState(false);
@@ -27,6 +43,11 @@ function App() {
   const [selectedLoteo, setSelectedLoteo] = useState(null);
   const [loteForm, setLoteForm] = useState({ name: '', slug: '', status: 'available', price: '', area: '' });
   const [isCreatingLote, setIsCreatingLote] = useState(false);
+  const [loteUpdateForm, setLoteUpdateForm] = useState({ name: '', slug: '', status: 'available', price: '', area: '' });
+  const [isUpdatingLote, setIsUpdatingLote] = useState(false);
+  const [pendingMode, setPendingMode] = useState('create'); // 'create' | 'assign'
+  const [assignTargetId, setAssignTargetId] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
 
   const handleLogin = (token) => {
     localStorage.setItem('notry_token', token);
@@ -56,7 +77,19 @@ function App() {
         })
         .then(async data => {
           if (data.annotations && Array.isArray(data.annotations)) {
-            setAnnotations(data.annotations.map((a, i) => ({ ...a, id: a.id ?? a.uuid ?? `ann-${i}` })));
+            const mappedAnnotations = data.annotations.map((a, i) => {
+              const ann = { ...a, id: a.id ?? a.uuid ?? `ann-${i}` };
+              // Keep both coordinate systems for mode switching
+              // Store panorama_coordinates/blueprint_coordinates as-is for later retrieval
+              // For initial display, use panorama mode as default
+              if (ann.type === 'polygon' && ann.panorama_coordinates) {
+                ann.polygonPixels = ann.panorama_coordinates;
+              } else if (ann.type === 'polygon' && ann.blueprint_coordinates) {
+                ann.polygonPixels = ann.blueprint_coordinates;
+              }
+              return ann;
+            });
+            setAnnotations(mappedAnnotations);
           }
           if (data.panoramaUrl && typeof data.panoramaUrl === 'string') {
             try {
@@ -70,6 +103,9 @@ function App() {
             } catch {
               setPanoramaUrl(data.panoramaUrl);
             }
+          }
+          if (data.blueprintUrl && typeof data.blueprintUrl === 'string') {
+            setBlueprintUrl(data.blueprintUrl);
           }
         })
         .catch(err => {
@@ -88,6 +124,26 @@ function App() {
       .catch(() => { })
       .finally(() => setIsLoadingDefault(false));
   }, []);
+
+  // Reset pending panel state when selection changes
+  useEffect(() => {
+    setPendingMode('create');
+    setAssignTargetId('');
+  }, [selectedId]);
+
+  // Populate update form when an existing (non-pending) polygon is selected
+  useEffect(() => {
+    const marker = annotations.find(a => a.id === selectedId);
+    if (marker && marker.type === 'polygon' && !marker.pending) {
+      setLoteUpdateForm({
+        name: marker.tooltip || '',
+        slug: marker.slug || '',
+        status: marker.status || marker.estado || 'available',
+        price: marker.price !== undefined && marker.price !== null ? String(marker.price) : (marker.precio !== undefined && marker.precio !== null ? String(marker.precio) : ''),
+        area: marker.area_m2 !== undefined && marker.area_m2 !== null ? String(marker.area_m2) : (marker.area !== undefined && marker.area !== null ? String(marker.area) : ''),
+      });
+    }
+  }, [selectedId]);
 
   const tools = [
     { id: 'select', icon: MousePointer2, title: 'Seleccionar' },
@@ -154,7 +210,18 @@ function App() {
     setActiveTool('select');
   };
 
-  const displayAnnotations = [...annotations];
+  // Apply mode-based coordinate mapping
+  const modeAdjustedAnnotations = annotations.map(ann => {
+    if (ann.type === 'polygon' && (ann.panorama_coordinates || ann.blueprint_coordinates)) {
+      const coords = mode === 'blueprint'
+        ? (ann.blueprint_coordinates || [])
+        : (ann.panorama_coordinates || []);
+      return { ...ann, polygonPixels: coords };
+    }
+    return ann;
+  });
+
+  const displayAnnotations = [...modeAdjustedAnnotations];
   if (drawingPolygon.length > 0) {
     displayAnnotations.push({
       id: 'temp-drawing',
@@ -216,7 +283,10 @@ function App() {
   const handlePolygonUpdate = (markerId, newPolygonPixels) => {
     setAnnotations(prevAnnotations => prevAnnotations.map(a => {
       if (a.id === markerId) {
-        return { ...a, polygonPixels: newPolygonPixels };
+        const update = { ...a, polygonPixels: newPolygonPixels };
+        if (mode === 'blueprint') update.blueprint_coordinates = newPolygonPixels;
+        else update.panorama_coordinates = newPolygonPixels;
+        return update;
       }
       return a;
     }));
@@ -277,8 +347,8 @@ function App() {
     };
 
     try {
-      // TODO: Reemplazar por la URL real de tu API
-      const response = await fetch('https://notry-back.onrender.com/api/v1/lots/update-coordinates', {
+      const endpoint = mode === 'blueprint' ? 'update-blueprint-coordinates' : 'update-coordinates';
+      const response = await fetch(`https://notry-back.onrender.com/api/v1/lots/${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -296,6 +366,86 @@ function App() {
     } catch (error) {
       console.error("Error al actualizar el polígono:", error);
       alert("Error de conexión al intentar actualizar");
+    }
+  };
+
+  const handleUpdateLote = async () => {
+    if (!selectedMarker?.uuid) return;
+
+    const body = {};
+    if (loteUpdateForm.name.trim()) body.name = loteUpdateForm.name.trim();
+    if (loteUpdateForm.slug.trim()) body.slug = loteUpdateForm.slug.trim();
+    body.status = loteUpdateForm.status;
+    if (loteUpdateForm.price !== '') body.price = parseFloat(loteUpdateForm.price);
+    if (loteUpdateForm.area !== '') body.area_m2 = loteUpdateForm.area;
+
+    setIsUpdatingLote(true);
+    try {
+      const res = await fetch(`https://notry-back.onrender.com/api/v1/lots/${selectedMarker.uuid}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify(body)
+      });
+
+      if (res.status === 401) { handleLogout(); return; }
+      if (!res.ok) { const msg = await res.text(); alert(`Error al actualizar: ${msg}`); return; }
+
+      const updated = await res.json();
+      setAnnotations(prev => prev.map(a =>
+        a.id === selectedId ? {
+          ...a,
+          tooltip: updated.name ?? a.tooltip,
+          slug: updated.slug ?? a.slug,
+          status: updated.status ?? a.status,
+          price: updated.price ?? a.price,
+          area_m2: updated.area_m2 ?? a.area_m2,
+        } : a
+      ));
+      alert('¡Datos del lote actualizados correctamente!');
+    } catch (err) {
+      console.error('Error al actualizar lote:', err);
+      alert('Error de conexión al actualizar el lote.');
+    } finally {
+      setIsUpdatingLote(false);
+    }
+  };
+
+  const handleAssignToExistingLot = async () => {
+    if (!assignTargetId || !selectedMarker) return;
+    const targetLot = annotations.find(a => a.id === assignTargetId);
+    if (!targetLot?.uuid) return;
+
+    setIsAssigning(true);
+    try {
+      const endpoint = mode === 'blueprint' ? 'update-blueprint-coordinates' : 'update-coordinates';
+      const response = await fetch(`https://notry-back.onrender.com/api/v1/lots/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify({ uuid: targetLot.uuid, polygonPoints: selectedMarker.polygonPixels || [] })
+      });
+
+      if (response.status === 401) { handleLogout(); return; }
+      if (!response.ok) { alert('Error al asignar coordenadas'); return; }
+
+      setAnnotations(prev => prev
+        .filter(a => a.id !== selectedId)
+        .map(a => {
+          if (a.id === assignTargetId) {
+            const updated = { ...a };
+            if (mode === 'blueprint') updated.blueprint_coordinates = selectedMarker.polygonPixels;
+            else updated.panorama_coordinates = selectedMarker.polygonPixels;
+            updated.polygonPixels = selectedMarker.polygonPixels;
+            return updated;
+          }
+          return a;
+        })
+      );
+      setSelectedId(assignTargetId);
+    } catch (err) {
+      console.error('Error al asignar:', err);
+      alert('Error de conexión al asignar coordenadas.');
+    } finally {
+      setIsAssigning(false);
     }
   };
 
@@ -399,10 +549,13 @@ function App() {
           })
           : Promise.resolve(null),
         ...polygonsWithUuid.map(marker =>
-          fetch('https://notry-back.onrender.com/api/v1/lots/update-coordinates', {
+          fetch(`https://notry-back.onrender.com/api/v1/lots/${mode === 'blueprint' ? 'update-blueprint-coordinates' : 'update-coordinates'}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-            body: JSON.stringify({ uuid: marker.uuid, polygonPoints: marker.polygonPixels || [] })
+            body: JSON.stringify({
+              uuid: marker.uuid,
+              polygonPoints: marker.polygonPixels || []
+            })
           })
         )
       ]);
@@ -461,6 +614,28 @@ function App() {
 
           <div style={{ height: '24px', width: '1px', background: '#444', marginRight: '10px' }} />
 
+          {/* Mode toggle */}
+          <button
+            className={`tool-btn ${mode === 'panorama' ? 'active' : ''}`}
+            onClick={() => setMode('panorama')}
+            title="Modo Panorama"
+            disabled={!panoramaUrl}
+            style={{ opacity: !panoramaUrl ? 0.4 : 1 }}
+          >
+            📸
+          </button>
+          <button
+            className={`tool-btn ${mode === 'blueprint' ? 'active' : ''}`}
+            onClick={() => setMode('blueprint')}
+            title="Modo Blueprint"
+            disabled={!blueprintUrl}
+            style={{ opacity: !blueprintUrl ? 0.4 : 1 }}
+          >
+            <Grid3x3 size={20} />
+          </button>
+
+          <div style={{ height: '24px', width: '1px', background: '#444', marginRight: '10px' }} />
+
           {tools.map(tool => {
             const Icon = tool.icon;
             return (
@@ -509,9 +684,25 @@ function App() {
         <div style={{ width: '100%', height: '100%' }}>
           {isLoadingDefault ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#aaa' }}>
-              Cargando motor 3D...
+              Cargando...
             </div>
-          ) : panoramaUrl ? (
+          ) : mode === 'blueprint' && blueprintUrl ? (
+            <BlueprintEditor
+              blueprintUrl={blueprintUrl}
+              activeTool={activeTool}
+              annotations={displayAnnotations}
+              onClick={handleViewerClick}
+              onMarkerSelect={(id) => {
+                if (activeTool === 'polygon' && id === 'temp-pt-0') {
+                  finishPolygon();
+                } else {
+                  setSelectedId(id);
+                }
+              }}
+              onPolygonUpdate={handlePolygonUpdate}
+              onMarkerDragEnd={handleMarkerDragEnd}
+            />
+          ) : mode === 'panorama' && panoramaUrl ? (
             <EditorViewer
               panoramaUrl={panoramaUrl}
               activeTool={activeTool}
@@ -530,7 +721,7 @@ function App() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#aaa', textAlign: 'center', padding: '2rem' }}>
               <ImageIcon size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-              <h2>No hay imagen panorámica cargada</h2>
+              <h2>{mode === 'blueprint' ? 'No hay blueprint cargado' : 'No hay imagen panorámica cargada'}</h2>
               <p style={{ maxWidth: '400px', lineHeight: '1.5' }}>Usa el botón <b>"Cargar Imagen"</b> en el panel derecho para subir tu fotografía equirrectangular (JPG/PNG) localmente y empezar a mapear.</p>
             </div>
           )}
@@ -617,31 +808,96 @@ function App() {
               {selectedMarker.type === 'polygon' && (
                 <div className="inspector-section">
                   {selectedMarker.pending ? (
-                    <>
-                      <span className="inspector-section-title" style={{ color: '#ffa500' }}>Crear Lote</span>
-                      <span className="inspector-label">Nombre *</span>
-                      <input className="inspector-input" value={loteForm.name} onChange={e => setLoteForm(f => ({ ...f, name: e.target.value }))} placeholder="Ej: Lote 07" />
-                      <span className="inspector-label">Slug</span>
-                      <input className="inspector-input" value={loteForm.slug} onChange={e => setLoteForm(f => ({ ...f, slug: e.target.value }))} placeholder="Ej: lote-07" />
-                      <span className="inspector-label">Estado</span>
-                      <select className="inspector-input" value={loteForm.status} onChange={e => setLoteForm(f => ({ ...f, status: e.target.value }))}>
-                        <option value="available">Disponible</option>
-                        <option value="reserved">Reservado</option>
-                        <option value="sold">Vendido</option>
-                      </select>
-                      <span className="inspector-label">Precio</span>
-                      <input className="inspector-input" type="number" value={loteForm.price} onChange={e => setLoteForm(f => ({ ...f, price: e.target.value }))} placeholder="Ej: 150000" />
-                      <span className="inspector-label">Área (m²)</span>
-                      <input className="inspector-input" type="number" value={loteForm.area} onChange={e => setLoteForm(f => ({ ...f, area: e.target.value }))} placeholder="Ej: 150" />
-                      <button
-                        onClick={handleCreateLote}
-                        disabled={isCreatingLote}
-                        className="btn-primary"
-                        style={{ marginTop: '4px', background: isCreatingLote ? '#555' : '#28a745' }}
-                      >
-                        {isCreatingLote ? 'Creando...' : 'Crear Lote'}
-                      </button>
-                    </>
+                    (() => {
+                      const lotsWithEmptyCoords = annotations.filter(a =>
+                        a.type === 'polygon' && !a.pending && a.uuid &&
+                        (mode === 'panorama'
+                          ? (!a.panorama_coordinates || a.panorama_coordinates.length === 0)
+                          : (!a.blueprint_coordinates || a.blueprint_coordinates.length === 0))
+                      );
+                      return (
+                        <>
+                          {/* Toggle buttons */}
+                          <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+                            <button
+                              onClick={() => setPendingMode('create')}
+                              style={{
+                                flex: 1, padding: '5px', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem',
+                                background: pendingMode === 'create' ? '#ffa500' : '#333', color: pendingMode === 'create' ? '#000' : '#aaa'
+                              }}
+                            >
+                              Nuevo lote
+                            </button>
+                            <button
+                              onClick={() => setPendingMode('assign')}
+                              disabled={lotsWithEmptyCoords.length === 0}
+                              style={{
+                                flex: 1, padding: '5px', border: 'none', borderRadius: '4px', cursor: lotsWithEmptyCoords.length === 0 ? 'not-allowed' : 'pointer', fontSize: '0.8rem',
+                                background: pendingMode === 'assign' ? '#0d6efd' : '#333',
+                                color: pendingMode === 'assign' ? '#fff' : lotsWithEmptyCoords.length === 0 ? '#555' : '#aaa'
+                              }}
+                            >
+                              Asignar existente {lotsWithEmptyCoords.length > 0 ? `(${lotsWithEmptyCoords.length})` : ''}
+                            </button>
+                          </div>
+
+                          {pendingMode === 'create' ? (
+                            <>
+                              <span className="inspector-section-title" style={{ color: '#ffa500' }}>Crear Lote</span>
+                              <span className="inspector-label">Nombre *</span>
+                              <input className="inspector-input" value={loteForm.name} onChange={e => setLoteForm(f => ({ ...f, name: e.target.value }))} placeholder="Ej: Lote 07" />
+                              <span className="inspector-label">Slug</span>
+                              <input className="inspector-input" value={loteForm.slug} onChange={e => setLoteForm(f => ({ ...f, slug: e.target.value }))} placeholder="Ej: lote-07" />
+                              <span className="inspector-label">Estado</span>
+                              <select className="inspector-input" value={loteForm.status} onChange={e => setLoteForm(f => ({ ...f, status: e.target.value }))}>
+                                <option value="available">Disponible</option>
+                                <option value="reserved">Reservado</option>
+                                <option value="sold">Vendido</option>
+                              </select>
+                              <span className="inspector-label">Precio</span>
+                              <input className="inspector-input" type="number" value={loteForm.price} onChange={e => setLoteForm(f => ({ ...f, price: e.target.value }))} placeholder="Ej: 150000" />
+                              <span className="inspector-label">Área (m²)</span>
+                              <input className="inspector-input" type="number" value={loteForm.area} onChange={e => setLoteForm(f => ({ ...f, area: e.target.value }))} placeholder="Ej: 150" />
+                              <button
+                                onClick={handleCreateLote}
+                                disabled={isCreatingLote}
+                                className="btn-primary"
+                                style={{ marginTop: '4px', background: isCreatingLote ? '#555' : '#28a745' }}
+                              >
+                                {isCreatingLote ? 'Creando...' : 'Crear Lote'}
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="inspector-section-title" style={{ color: '#0d6efd' }}>Asignar a lote existente</span>
+                              <span className="inspector-label" style={{ marginBottom: '4px' }}>
+                                Lotes sin coords de {mode === 'panorama' ? 'panorama' : 'plano'}
+                              </span>
+                              <select
+                                className="inspector-input"
+                                value={assignTargetId}
+                                onChange={e => setAssignTargetId(e.target.value)}
+                              >
+                                <option value="">— Seleccionar lote —</option>
+                                {lotsWithEmptyCoords.map(lot => (
+                                  <option key={lot.id} value={lot.id}>
+                                    {lot.tooltip || lot.uuid}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                onClick={handleAssignToExistingLot}
+                                disabled={!assignTargetId || isAssigning}
+                                className="btn-primary"
+                                style={{ marginTop: '4px', background: !assignTargetId || isAssigning ? '#555' : '#0d6efd' }}
+                              >
+                                {isAssigning ? 'Asignando...' : 'Asignar coordenadas'}
+                              </button>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()
                   ) : (
                     <>
                       <span className="inspector-section-title">Base de datos</span>
@@ -649,6 +905,30 @@ function App() {
                       <input className="inspector-input" value={selectedMarker.uuid || ''} onChange={e => updateSelected('uuid', e.target.value)} placeholder="3fa85f64-...-2c963f66afa6" />
                       <button onClick={() => handlePolygonDbUpdate(selectedMarker)} className="btn-primary" style={{ marginTop: '4px' }}>
                         Actualizar coordenadas
+                      </button>
+
+                      <span className="inspector-section-title" style={{ marginTop: '12px' }}>Datos del lote</span>
+                      <span className="inspector-label">Nombre</span>
+                      <input className="inspector-input" value={loteUpdateForm.name} onChange={e => setLoteUpdateForm(f => ({ ...f, name: e.target.value }))} placeholder="Ej: Lote 07" />
+                      <span className="inspector-label">Slug</span>
+                      <input className="inspector-input" value={loteUpdateForm.slug} onChange={e => setLoteUpdateForm(f => ({ ...f, slug: e.target.value }))} placeholder="Ej: lote-07" />
+                      <span className="inspector-label">Estado</span>
+                      <select className="inspector-input" value={loteUpdateForm.status} onChange={e => setLoteUpdateForm(f => ({ ...f, status: e.target.value }))}>
+                        <option value="available">Disponible</option>
+                        <option value="reserved">Reservado</option>
+                        <option value="sold">Vendido</option>
+                      </select>
+                      <span className="inspector-label">Precio</span>
+                      <input className="inspector-input" type="number" value={loteUpdateForm.price} onChange={e => setLoteUpdateForm(f => ({ ...f, price: e.target.value }))} placeholder="Ej: 150000" />
+                      <span className="inspector-label">Área (m²)</span>
+                      <input className="inspector-input" type="text" value={loteUpdateForm.area} onChange={e => setLoteUpdateForm(f => ({ ...f, area: e.target.value }))} placeholder="Ej: 200m2" />
+                      <button
+                        onClick={handleUpdateLote}
+                        disabled={isUpdatingLote}
+                        className="btn-primary"
+                        style={{ marginTop: '4px', background: isUpdatingLote ? '#555' : '#0d6efd' }}
+                      >
+                        {isUpdatingLote ? 'Guardando...' : 'Actualizar datos'}
                       </button>
                     </>
                   )}
