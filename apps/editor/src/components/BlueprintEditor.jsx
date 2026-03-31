@@ -121,7 +121,7 @@ export default function BlueprintEditor({
     e.preventDefault();
     setZoom(prev => {
       const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      return Math.max(0.5, Math.min(5, prev * delta));
+      return Math.max(0.5, Math.min(100, prev * delta));
     });
   }, []);
 
@@ -211,7 +211,7 @@ export default function BlueprintEditor({
       const firstPt = polyline.polylinePixels[0];
       const dx = norm.nx - firstPt[0];
       const dy = norm.ny - firstPt[1];
-      isSnappedRef.current = Math.sqrt(dx * dx + dy * dy) < 0.05;
+      isSnappedRef.current = Math.sqrt(dx * dx + dy * dy) < 15 / (displayDimsRef.current.w * zoomRef.current);
     } else {
       isSnappedRef.current = false;
     }
@@ -382,7 +382,7 @@ export default function BlueprintEditor({
                     points={polyStr}
                     fill={ann.svgStyle?.fill || 'rgba(0,100,255,0.2)'}
                     stroke={ann.svgStyle?.stroke || '#06f'}
-                    strokeWidth={ann.svgStyle?.strokeWidth || 2}
+                    strokeWidth={(ann.svgStyle?.strokeWidth || 2) / zoom}
                     data-type="polygon"
                     data-marker-id={ann.id}
                     style={{ cursor: 'pointer' }}
@@ -392,10 +392,10 @@ export default function BlueprintEditor({
                       key={`${ann.id}-corner-${i}`}
                       cx={p.x}
                       cy={p.y}
-                      r={6}
+                      r={6 / zoom}
                       fill="#fff"
                       stroke="#06f"
-                      strokeWidth={2}
+                      strokeWidth={2 / zoom}
                       data-type="corner"
                       data-marker-id={ann.id}
                       data-index={i}
@@ -410,10 +410,10 @@ export default function BlueprintEditor({
                         key={`${ann.id}-mid-${i}`}
                         cx={mid.x}
                         cy={mid.y}
-                        r={5}
+                        r={5 / zoom}
                         fill="#fff"
                         stroke="#0f0"
-                        strokeWidth={2}
+                        strokeWidth={2 / zoom}
                         opacity={0.8}
                         data-type="midpoint"
                         data-marker-id={ann.id}
@@ -434,7 +434,7 @@ export default function BlueprintEditor({
                 const firstPt = ann.polylinePixels[0];
                 const dx = cursorNorm.nx - firstPt[0];
                 const dy = cursorNorm.ny - firstPt[1];
-                if (Math.sqrt(dx * dx + dy * dy) < 0.05) {
+                if (Math.sqrt(dx * dx + dy * dy) < 15 / (dw * zoom)) {
                   snapTarget = firstPt;
                 }
               }
@@ -458,8 +458,8 @@ export default function BlueprintEditor({
                   points={ptsStr}
                   fill="none"
                   stroke={ann.svgStyle?.stroke || '#ff0'}
-                  strokeWidth={ann.svgStyle?.strokeWidth || 3}
-                  strokeDasharray="5,5"
+                  strokeWidth={(ann.svgStyle?.strokeWidth || 3) / zoom}
+                  strokeDasharray={`${5 / zoom},${5 / zoom}`}
                   pointerEvents="none"
                 />
               );
@@ -476,20 +476,20 @@ export default function BlueprintEditor({
                   <circle
                     cx={x}
                     cy={y}
-                    r={r}
+                    r={r / zoom}
                     fill={ann.svgStyle?.fill || '#ff0'}
                     stroke={ann.svgStyle?.stroke || 'none'}
-                    strokeWidth={ann.svgStyle?.strokeWidth || 2}
+                    strokeWidth={(ann.svgStyle?.strokeWidth || 2) / zoom}
                     pointerEvents="none"
                   />
                   {isFirstPoint && (
                     <circle
                       cx={x}
                       cy={y}
-                      r={r + 8}
+                      r={(r + 8) / zoom}
                       fill="none"
                       stroke="#ff0"
-                      strokeWidth={2}
+                      strokeWidth={2 / zoom}
                       opacity={0.6}
                       pointerEvents="none"
                     />
