@@ -89,7 +89,7 @@ export default function App() {
       title,
       content,
       markerId: marker.id,
-      detail: { precio: ann?.precio, area: ann?.area, estado: ann?.estado },
+      detail: { price: ann?.price, area_m2: ann?.area_m2, estado: ann?.estado },
     });
   }, [annotationsById]);
 
