@@ -210,6 +210,17 @@ function App() {
     setActiveTool('select');
   };
 
+  // Clear in-progress drawing when switching modes — coordinates are not transferable between spaces
+  useEffect(() => {
+    setDrawingPolygon([]);
+    setActiveTool('select');
+  }, [mode]);
+
+  // If blueprintUrl disappears while in blueprint mode, fall back to panorama
+  useEffect(() => {
+    if (!blueprintUrl && mode === 'blueprint') setMode('panorama');
+  }, [blueprintUrl, mode]);
+
   // Apply mode-based coordinate mapping
   const modeAdjustedAnnotations = annotations.map(ann => {
     if (ann.type === 'polygon' && (ann.panorama_coordinates || ann.blueprint_coordinates)) {
@@ -229,8 +240,6 @@ function App() {
       polylinePixels: [...drawingPolygon, drawingPolygon[drawingPolygon.length - 1]],
       svgStyle: { stroke: '#ff0', strokeWidth: '3', strokeDasharray: '5,5' }
     });
-  }
-  if (drawingPolygon.length > 0) {
     drawingPolygon.forEach((pt, i) => {
       displayAnnotations.push({
         id: `temp-pt-${i}`,
@@ -242,7 +251,8 @@ function App() {
     });
   }
 
-  const selectedMarker = annotations.find(a => a.id === selectedId);
+  // Use modeAdjustedAnnotations so selectedMarker.polygonPixels always matches the active view's coordinate space
+  const selectedMarker = modeAdjustedAnnotations.find(a => a.id === selectedId);
 
   if (selectedMarker && selectedMarker.type === 'polygon' && selectedMarker.polygonPixels) {
     selectedMarker.polygonPixels.forEach((pt, i) => {
@@ -624,15 +634,15 @@ function App() {
           >
             📸
           </button>
-          <button
-            className={`tool-btn ${mode === 'blueprint' ? 'active' : ''}`}
-            onClick={() => setMode('blueprint')}
-            title="Modo Blueprint"
-            disabled={!blueprintUrl}
-            style={{ opacity: !blueprintUrl ? 0.4 : 1 }}
-          >
-            <Grid3x3 size={20} />
-          </button>
+          {blueprintUrl && (
+            <button
+              className={`tool-btn ${mode === 'blueprint' ? 'active' : ''}`}
+              onClick={() => setMode('blueprint')}
+              title="Modo Blueprint"
+            >
+              <Grid3x3 size={20} />
+            </button>
+          )}
 
           <div style={{ height: '24px', width: '1px', background: '#444', marginRight: '10px' }} />
 
