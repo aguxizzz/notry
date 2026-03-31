@@ -245,7 +245,7 @@ function App() {
         id: `temp-pt-${i}`,
         type: 'point',
         position: { textureX: pt[0], textureY: pt[1] },
-        radius: i === 0 ? 6 : 4,
+        radius: i === 0 ? 4 : 3,
         svgStyle: { fill: '#ff0' }
       });
     });
@@ -260,7 +260,7 @@ function App() {
         id: `edit-corner-${selectedMarker.id}-${i}`,
         type: 'point',
         position: { textureX: pt[0], textureY: pt[1] },
-        radius: 6,
+        radius: 4,
         svgStyle: {
           fill: '#fff',
           stroke: '#00f',
@@ -283,7 +283,7 @@ function App() {
         id: `edit-midpoint-${selectedMarker.id}-${i}`,
         type: 'point',
         position: { textureX: midX, textureY: midY },
-        radius: 5,
+        radius: 3,
         svgStyle: { fill: '#fff', stroke: '#0f0', strokeWidth: '2', opacity: 0.8, cursor: 'copy' },
         tooltip: 'Arrastra para añadir punto'
       });

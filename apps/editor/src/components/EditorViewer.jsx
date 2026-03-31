@@ -43,6 +43,7 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
       plugins: [pluginConfig],
       navbar: 'zoom move fullscreen',
       defaultZoomLvl: 50,
+      minFov: 5,
       mousewheel: true,
       mousemove: true,
     });
@@ -186,7 +187,8 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
                 const dy = y - p2d.y;
                 const screenDist = Math.sqrt(dx*dx + dy*dy);
                 
-                if (screenDist < 40) { 
+                const snapPx = 15 + viewer.getZoomLevel() * 0.4;
+                if (screenDist < snapPx) {
                    if (firstPtMarker.config.position) {
                       snapTx = firstPtMarker.config.position.textureX;
                       snapTy = firstPtMarker.config.position.textureY;
