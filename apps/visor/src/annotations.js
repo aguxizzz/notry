@@ -82,14 +82,14 @@ export function annotationsToMarkers(annotations) {
           const rgbaBg = hexBg.length === 7 ? `rgba(${parseInt(hexBg.slice(1,3),16)}, ${parseInt(hexBg.slice(3,5),16)}, ${parseInt(hexBg.slice(5,7),16)}, ${bgOpa})` : hexBg;
           const textColor = ann.textColor || '#000000';
           const fontSize = ann.fontSize ?? 14;
-          generatedHtml = `<div style='background:${rgbaBg};padding:5px;border-radius:4px;color:${textColor};min-width:20px;min-height:20px;font-family:"Oswald",sans-serif;font-weight:600;font-size:${fontSize}px;'>${displayContent}</div>`;
+          generatedHtml = `<div style='background:${rgbaBg};padding:5px;border-radius:4px;color:${textColor};white-space:nowrap;text-align:center;font-family:"Oswald",sans-serif;font-weight:600;font-size:${fontSize}px;'>${displayContent}</div>`;
         }
 
         return {
           ...base,
           tooltip: null, // Sin tooltip del plugin: con pointer-events none parpadea; solo usamos nuestro hover (brightness).
           html: generatedHtml,
-          size: ann.size ?? { width: 120, height: 30 },
+          ...(ann.size ? { size: ann.size } : {}),
           position,
           style: { ...(ann.style || {}), pointerEvents: 'none' },
         };
