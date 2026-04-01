@@ -37,7 +37,9 @@ async function fetchViewerData() {
   }
   const res = await fetch(FALLBACK_DATA_URL);
   if (!res.ok) throw new Error('No se pudo cargar el panorama ni los datos de prueba.');
-  return await res.json();
+  const data = await res.json();
+  data.__usingFallback = true;
+  return data;
 }
 
 function postLoteClick(id) {
@@ -50,11 +52,15 @@ const PANEL_CLOSED = { isOpen: false, title: '', content: '', markerId: null, de
 export default function App() {
   const [rawData, setRawData] = useState(null);
   const [error, setError] = useState(null);
+  const [usingFallback, setUsingFallback] = useState(false);
   const [panel, setPanel] = useState(PANEL_CLOSED);
 
   useEffect(() => {
     fetchViewerData()
-      .then((data) => setRawData(data))
+      .then((data) => {
+        if (data.__usingFallback) setUsingFallback(true);
+        setRawData(data);
+      })
       .catch((err) => setError(err.message));
   }, []);
 
@@ -120,6 +126,16 @@ export default function App() {
   return (
     <>
       <div id="viewer-container" ref={viewerRef} />
+      {usingFallback && (
+        <div style={{
+          position: 'fixed', bottom: 12, left: '50%', transform: 'translateX(-50%)',
+          background: '#333', color: '#aaa', fontSize: '0.75rem',
+          padding: '6px 14px', borderRadius: 20, zIndex: 9999,
+          pointerEvents: 'none'
+        }}>
+          Modo offline · datos locales
+        </div>
+      )}
       <InfoPanel
         isOpen={panel.isOpen}
         title={panel.title}

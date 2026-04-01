@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import DOMPurify from 'dompurify';
 
 const IconRuler = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -19,6 +20,18 @@ const ESTADO_CONFIG = {
   available: { accent: '#1e6e3e', accentHover: '#175c33', label: 'Disponible' },
   sold:      { accent: '#a82828', accentHover: '#8e2020', label: 'Vendido'    },
   reserved:  { accent: '#1e4d8c', accentHover: '#173f75', label: 'Reservado'  },
+};
+
+const formatPrice = (price) => {
+  if (!price) return '';
+  const num = parseFloat(price);
+  if (isNaN(num)) return price;
+  return `$${num.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+};
+
+const formatArea = (area) => {
+  if (!area) return '';
+  return `${area} m²`;
 };
 
 function PrecalificacionForm({ lotDetail, onClose }) {
@@ -51,13 +64,13 @@ function PrecalificacionForm({ lotDetail, onClose }) {
             {lotDetail.price && (
               <div className="precal-meta-item">
                 <span className="precal-meta-label">Precio</span>
-                <span className="precal-meta-value">{lotDetail.price}</span>
+                <span className="precal-meta-value">{formatPrice(lotDetail.price)}</span>
               </div>
             )}
             {lotDetail.area_m2 && (
               <div className="precal-meta-item">
                 <span className="precal-meta-label">Área</span>
-                <span className="precal-meta-value">{lotDetail.area_m2}</span>
+                <span className="precal-meta-value">{formatArea(lotDetail.area_m2)}</span>
               </div>
             )}
             {lotDetail.estado && ESTADO_CONFIG[lotDetail.estado] && (
@@ -221,20 +234,20 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
                     <div className="lote-metric-card">
                       <span className="lote-metric-icon"><IconDollar /></span>
                       <span className="lote-metric-label">Precio</span>
-                      <span className="lote-metric-value">{display.detail.price}</span>
+                      <span className="lote-metric-value">{formatPrice(display.detail.price)}</span>
                     </div>
                   )}
                   {display.detail.area_m2 && (
                     <div className="lote-metric-card">
                       <span className="lote-metric-icon"><IconRuler /></span>
                       <span className="lote-metric-label">Área</span>
-                      <span className="lote-metric-value">{display.detail.area_m2}</span>
+                      <span className="lote-metric-value">{formatArea(display.detail.area_m2)}</span>
                     </div>
                   )}
                 </div>
               )}
               {display.content && (
-                <div id="info-content" dangerouslySetInnerHTML={{ __html: display.content }} />
+                <div id="info-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(display.content) }} />
               )}
               {display.markerId && (
                 <div id="info-actions">
