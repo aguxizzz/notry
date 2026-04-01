@@ -63,6 +63,9 @@ function App() {
   const [isAssigning, setIsAssigning] = useState(false);
   const [pendingDraft, setPendingDraft] = useState(null);
   const [sessionExpiredDuringSave, setSessionExpiredDuringSave] = useState(false);
+  
+  // Track blob URLs to revoke and prevent memory leak
+  const prevPanoramaUrlRef = useRef(null);
 
   const handleLogin = (token) => {
     localStorage.setItem('notry_token', token);
@@ -155,7 +158,13 @@ function App() {
               const imgRes = await fetch(data.panoramaUrl);
               if (imgRes.ok) {
                 const blob = await imgRes.blob();
-                setPanoramaUrl(URL.createObjectURL(blob));
+                // Revoke previous blob URL if exists
+                if (prevPanoramaUrlRef.current?.startsWith('blob:')) {
+                  URL.revokeObjectURL(prevPanoramaUrlRef.current);
+                }
+                const newUrl = URL.createObjectURL(blob);
+                prevPanoramaUrlRef.current = newUrl;
+                setPanoramaUrl(newUrl);
               } else {
                 setPanoramaUrl(data.panoramaUrl);
               }
@@ -180,7 +189,7 @@ function App() {
           setPanoramaUrl('/panorama.jpg');
         }
       })
-      .catch(() => { })
+      .catch((err) => console.warn('Fallback panorama.jpg not available:', err))
       .finally(() => setIsLoadingDefault(false));
   }, []);
 
@@ -536,6 +545,7 @@ function App() {
   const handleCreateLote = async () => {
     if (!loteForm.name.trim()) { alert('El nombre es requerido.'); return; }
     if (!loteoId) { alert('No se encontró el loteo_id.'); return; }
+    if (!selectedMarker?.polygonPixels) { alert('Por favor, selecciona un polígono antes de crear un lote.'); return; }
 
     setIsCreatingLote(true);
     try {
