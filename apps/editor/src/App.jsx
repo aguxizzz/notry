@@ -102,10 +102,14 @@ function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const dataUrl = params.get('data');
+    let extractedLoteoId = null;
 
     if (dataUrl) {
       const match = dataUrl.match(/\/loteos\/([^/?]+)/);
-      if (match) setLoteoId(match[1]);
+      if (match) {
+        extractedLoteoId = match[1];
+        setLoteoId(extractedLoteoId);
+      }
     }
 
     if (dataUrl) {
@@ -131,7 +135,6 @@ function App() {
             setAnnotations(mappedAnnotations);
 
             // Check for draft from previous session
-            const extractedLoteoId = match ? match[1] : null;
             if (extractedLoteoId) {
               const draftKey = `notry_draft_${extractedLoteoId}`;
               const raw = localStorage.getItem(draftKey);
