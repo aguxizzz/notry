@@ -19,6 +19,14 @@ const getAnnotationsForMode = (annotations, currentMode) => {
   });
 };
 
+// Fetch with timeout using AbortController
+const fetchWithTimeout = (url, options, ms = 30000) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timer));
+};
+
 function App() {
   const [activeTool, setActiveTool] = useState('select');
   const [annotations, setAnnotations] = useState([]);
@@ -36,6 +44,11 @@ function App() {
     const urlToken = new URLSearchParams(window.location.search).get('token');
     if (urlToken) {
       localStorage.setItem('notry_token', urlToken);
+      // Remove token from URL to prevent exposure in browser history/address bar
+      const params = new URLSearchParams(window.location.search);
+      params.delete('token');
+      const cleaned = window.location.pathname + (params.toString() ? `?${params.toString()}` : '');
+      window.history.replaceState({}, '', cleaned);
       return urlToken;
     }
     return localStorage.getItem('notry_token');
@@ -48,6 +61,8 @@ function App() {
   const [pendingMode, setPendingMode] = useState('create'); // 'create' | 'assign'
   const [assignTargetId, setAssignTargetId] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
+  const [pendingDraft, setPendingDraft] = useState(null);
+  const [sessionExpiredDuringSave, setSessionExpiredDuringSave] = useState(false);
 
   const handleLogin = (token) => {
     localStorage.setItem('notry_token', token);
@@ -58,6 +73,30 @@ function App() {
     localStorage.removeItem('notry_token');
     setAccessToken(null);
   };
+
+  // Draft persistence helpers
+  const DRAFT_KEY = loteoId ? `notry_draft_${loteoId}` : null;
+  const saveDraft = (currentAnnotations) => {
+    if (!DRAFT_KEY) return;
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({
+      loteoId,
+      savedAt: new Date().toISOString(),
+      annotations: currentAnnotations,
+    }));
+  };
+  const clearDraft = () => {
+    if (!DRAFT_KEY) return;
+    localStorage.removeItem(DRAFT_KEY);
+  };
+
+  // Auto-save debounced (2s)
+  useEffect(() => {
+    if (!loteoId || annotations.length === 0) return;
+    const timer = setTimeout(() => {
+      saveDraft(annotations);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [annotations, loteoId]);
 
   // Carga datos desde ?data=URL o desde el panorama.jpg del proyecto padre
   useEffect(() => {
@@ -90,6 +129,23 @@ function App() {
               return ann;
             });
             setAnnotations(mappedAnnotations);
+
+            // Check for draft from previous session
+            const extractedLoteoId = match ? match[1] : null;
+            if (extractedLoteoId) {
+              const draftKey = `notry_draft_${extractedLoteoId}`;
+              const raw = localStorage.getItem(draftKey);
+              if (raw) {
+                try {
+                  const draft = JSON.parse(raw);
+                  if (draft.annotations?.length > 0) {
+                    setPendingDraft(draft);
+                  }
+                } catch {
+                  localStorage.removeItem(draftKey);
+                }
+              }
+            }
           }
           if (data.panoramaUrl && typeof data.panoramaUrl === 'string') {
             try {
@@ -208,6 +264,21 @@ function App() {
   const cancelPolygon = () => {
     setDrawingPolygon([]);
     setActiveTool('select');
+  };
+
+  const handleModeChange = (nextMode) => {
+    if (nextMode === mode) return;
+    const polygons = annotations.filter(a => a.type === 'polygon' && !a.pending);
+    const coordKey = nextMode === 'blueprint' ? 'blueprint_coordinates' : 'panorama_coordinates';
+    const missing = polygons.filter(a => !a[coordKey] || a[coordKey].length === 0);
+    if (missing.length > 0) {
+      const ok = window.confirm(
+        `${missing.length} polígono(s) no tienen coordenadas en modo ${nextMode === 'blueprint' ? 'Blueprint' : 'Panorama'}.\n` +
+        `Aparecerán vacíos. ¿Continuar de todas formas?`
+      );
+      if (!ok) return;
+    }
+    setMode(nextMode);
   };
 
   // Clear in-progress drawing when switching modes — coordinates are not transferable between spaces
@@ -552,14 +623,14 @@ function App() {
 
       const [textRes, ...polyResults] = await Promise.all([
         loteoId && textAnnotations.length > 0
-          ? fetch(`https://notry-back.onrender.com/api/v1/loteos/${loteoId}`, {
+          ? fetchWithTimeout(`https://notry-back.onrender.com/api/v1/loteos/${loteoId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
             body: JSON.stringify({ text_annotations: textAnnotations })
           })
           : Promise.resolve(null),
         ...polygonsWithUuid.map(marker =>
-          fetch(`https://notry-back.onrender.com/api/v1/lots/${mode === 'blueprint' ? 'update-blueprint-coordinates' : 'update-coordinates'}`, {
+          fetchWithTimeout(`https://notry-back.onrender.com/api/v1/lots/${mode === 'blueprint' ? 'update-blueprint-coordinates' : 'update-coordinates'}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
             body: JSON.stringify({
@@ -571,7 +642,7 @@ function App() {
       ]);
 
       if (textRes?.status === 401 || polyResults.some(r => r?.status === 401)) {
-        handleLogout();
+        setSessionExpiredDuringSave(true);
         return;
       }
 
@@ -583,10 +654,16 @@ function App() {
       if (summary.polyOk > 0) parts.push(`${summary.polyOk} polígono(s) actualizados`);
       if (summary.polyFailed > 0) parts.push(`${summary.polyFailed} polígono(s) fallaron`);
       if (summary.polySkipped > 0) parts.push(`${summary.polySkipped} polígono(s) sin UUID omitidos`);
+
+      clearDraft();
       alert(parts.length ? parts.join(' · ') : 'Nada que guardar.');
     } catch (error) {
-      console.error('Error en Guardar Todo:', error);
-      alert('Error de conexión al guardar.');
+      if (error.name === 'AbortError') {
+        alert('El servidor tardó demasiado en responder. Tu trabajo se guardó localmente. Intenta guardar de nuevo en unos segundos.');
+      } else {
+        console.error('Error en Guardar Todo:', error);
+        alert('Error de conexión al guardar.');
+      }
     } finally {
       setIsSavingAll(false);
     }
@@ -611,6 +688,38 @@ function App() {
 
   return (
     <div className="editor-container">
+      {pendingDraft && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+          background: '#3a3a00', color: '#ffeb3b', padding: '10px 16px',
+          display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.875rem'
+        }}>
+          <span>Hay cambios sin guardar de la sesión anterior ({new Date(pendingDraft.savedAt).toLocaleTimeString()}).</span>
+          <button onClick={() => { setAnnotations(pendingDraft.annotations); setPendingDraft(null); }}
+            style={{ background: '#ffeb3b', color: '#1a1a00', border: 'none', borderRadius: 4, padding: '4px 10px', cursor: 'pointer', fontWeight: 600 }}>
+            Restaurar
+          </button>
+          <button onClick={() => { clearDraft(); setPendingDraft(null); }}
+            style={{ background: 'transparent', color: '#ffeb3b', border: '1px solid #ffeb3b', borderRadius: 4, padding: '4px 10px', cursor: 'pointer' }}>
+            Descartar
+          </button>
+        </div>
+      )}
+
+      {sessionExpiredDuringSave && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+          background: '#3a0000', color: '#ff8a80', padding: '10px 16px',
+          display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.875rem'
+        }}>
+          <span>Sesión expirada. Tu trabajo está guardado localmente.</span>
+          <button onClick={() => { setSessionExpiredDuringSave(false); handleLogout(); }}
+            style={{ background: '#ff8a80', color: '#1a0000', border: 'none', borderRadius: 4, padding: '4px 10px', cursor: 'pointer', fontWeight: 600 }}>
+            Iniciar sesión
+          </button>
+        </div>
+      )}
+
       <div className="viewer-pane">
         <div className="toolbar">
           <button
@@ -627,7 +736,7 @@ function App() {
           {/* Mode toggle */}
           <button
             className={`tool-btn ${mode === 'panorama' ? 'active' : ''}`}
-            onClick={() => setMode('panorama')}
+            onClick={() => handleModeChange('panorama')}
             title="Modo Panorama"
             disabled={!panoramaUrl}
             style={{ opacity: !panoramaUrl ? 0.4 : 1 }}
@@ -637,7 +746,7 @@ function App() {
           {blueprintUrl && (
             <button
               className={`tool-btn ${mode === 'blueprint' ? 'active' : ''}`}
-              onClick={() => setMode('blueprint')}
+              onClick={() => handleModeChange('blueprint')}
               title="Modo Blueprint"
             >
               <Grid3x3 size={20} />

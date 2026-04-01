@@ -279,63 +279,62 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
 
   // Sync annotations to markers
   useEffect(() => {
-    if (markersPluginRef.current && annotations) {
-      const markers = annotationsToMarkers(annotations);
+    if (!markersPluginRef.current || !annotations || !viewerRef.current || !isPanoramaReadyRef.current) return;
 
-      const viewer = viewerRef.current;
-      if (viewer) {
-        markers.forEach(m => {
-          if (typeof m.id === 'string' && m.id.startsWith('edit-midpoint-')) {
-             const parts = m.id.replace('edit-midpoint-', '').split('-');
-             const index = parseInt(parts.pop(), 10);
-             const polyId = parts.join('-');
-             
-             const poly = annotations.find(a => a.id === polyId);
-             if (poly && poly.polygonPixels) {
-                const pt1 = poly.polygonPixels[index];
-                const pt2 = poly.polygonPixels[(index + 1) % poly.polygonPixels.length];
-                
-                const sph1 = viewer.dataHelper.textureCoordsToSphericalCoords({ textureX: pt1[0], textureY: pt1[1] });
-                const sph2 = viewer.dataHelper.textureCoordsToSphericalCoords({ textureX: pt2[0], textureY: pt2[1] });
-                
-                const v1 = {
-                   x: Math.cos(sph1.pitch) * Math.sin(sph1.yaw),
-                   y: Math.sin(sph1.pitch),
-                   z: -Math.cos(sph1.pitch) * Math.cos(sph1.yaw)
-                };
-                const v2 = {
-                   x: Math.cos(sph2.pitch) * Math.sin(sph2.yaw),
-                   y: Math.sin(sph2.pitch),
-                   z: -Math.cos(sph2.pitch) * Math.cos(sph2.yaw)
-                };
-                
-                const midV = {
-                   x: (v1.x + v2.x) / 2,
-                   y: (v1.y + v2.y) / 2,
-                   z: (v1.z + v2.z) / 2
-                };
-                const len = Math.sqrt(midV.x*midV.x + midV.y*midV.y + midV.z*midV.z);
-                midV.x /= len; midV.y /= len; midV.z /= len;
-                
-                const midSph = {
-                   pitch: Math.asin(midV.y),
-                   yaw: Math.atan2(midV.x, -midV.z)
-                };
-                if (midSph.yaw < 0) midSph.yaw += 2 * Math.PI;
-                
-                const midTex = viewer.dataHelper.sphericalCoordsToTextureCoords(midSph);
-                
-                if (m.position) {
-                   m.position = { textureX: midTex.textureX, textureY: midTex.textureY };
-                }
-             }
-          }
-        });
-      }
+    const markers = annotationsToMarkers(annotations);
 
-      if (!isPanoramaReadyRef.current) return;
-      markersPluginRef.current.setMarkers(markers);
+    const viewer = viewerRef.current;
+    if (viewer) {
+      markers.forEach(m => {
+        if (typeof m.id === 'string' && m.id.startsWith('edit-midpoint-')) {
+           const parts = m.id.replace('edit-midpoint-', '').split('-');
+           const index = parseInt(parts.pop(), 10);
+           const polyId = parts.join('-');
+
+           const poly = annotations.find(a => a.id === polyId);
+           if (poly && poly.polygonPixels) {
+              const pt1 = poly.polygonPixels[index];
+              const pt2 = poly.polygonPixels[(index + 1) % poly.polygonPixels.length];
+
+              const sph1 = viewer.dataHelper.textureCoordsToSphericalCoords({ textureX: pt1[0], textureY: pt1[1] });
+              const sph2 = viewer.dataHelper.textureCoordsToSphericalCoords({ textureX: pt2[0], textureY: pt2[1] });
+
+              const v1 = {
+                 x: Math.cos(sph1.pitch) * Math.sin(sph1.yaw),
+                 y: Math.sin(sph1.pitch),
+                 z: -Math.cos(sph1.pitch) * Math.cos(sph1.yaw)
+              };
+              const v2 = {
+                 x: Math.cos(sph2.pitch) * Math.sin(sph2.yaw),
+                 y: Math.sin(sph2.pitch),
+                 z: -Math.cos(sph2.pitch) * Math.cos(sph2.yaw)
+              };
+
+              const midV = {
+                 x: (v1.x + v2.x) / 2,
+                 y: (v1.y + v2.y) / 2,
+                 z: (v1.z + v2.z) / 2
+              };
+              const len = Math.sqrt(midV.x*midV.x + midV.y*midV.y + midV.z*midV.z);
+              midV.x /= len; midV.y /= len; midV.z /= len;
+
+              const midSph = {
+                 pitch: Math.asin(midV.y),
+                 yaw: Math.atan2(midV.x, -midV.z)
+              };
+              if (midSph.yaw < 0) midSph.yaw += 2 * Math.PI;
+
+              const midTex = viewer.dataHelper.sphericalCoordsToTextureCoords(midSph);
+
+              if (m.position) {
+                 m.position = { textureX: midTex.textureX, textureY: midTex.textureY };
+              }
+           }
+        }
+      });
     }
+
+    markersPluginRef.current.setMarkers(markers);
   }, [annotations]);
 
   return (
