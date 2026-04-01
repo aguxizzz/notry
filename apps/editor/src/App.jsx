@@ -582,6 +582,7 @@ function App() {
       ));
       setSelectedId(lote.id);
       setLoteForm({ name: '', slug: '', status: 'available', price: '', area: '' });
+      clearDraft();
     } catch (err) {
       console.error('Error al crear lote:', err);
       alert('Error de conexión al crear el lote.');
@@ -613,6 +614,7 @@ function App() {
       if (response.status === 401) { handleLogout(); return; }
       if (response.ok) {
         alert(`¡${textAnnotations.length} anotación(es) de texto guardadas correctamente!`);
+        clearDraft();
       } else {
         const msg = await response.text();
         alert(`Error al guardar: ${response.status} - ${msg}`);
