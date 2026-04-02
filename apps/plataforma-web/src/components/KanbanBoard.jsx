@@ -11,7 +11,7 @@ const COL_META = {
   vendido:         { label: 'Vendido',           accent: '#34d399' },
 };
 
-export default function KanbanBoard({ token }) {
+export default function KanbanBoard({ token, onSessionExpired }) {
   const [columns, setColumns] = useState({
     primer_contacto: [],
     seguimiento: [],
@@ -21,6 +21,7 @@ export default function KanbanBoard({ token }) {
   const [loading, setLoading] = useState(true);
   const [patchingIds, setPatchingIds] = useState(new Set());
   const [dragOverCol, setDragOverCol] = useState(null);
+  const [kanbanError, setKanbanError] = useState(null);
 
   useEffect(() => {
     fetchAll();
@@ -73,6 +74,9 @@ export default function KanbanBoard({ token }) {
 
     if (!prospect || sourceCat === targetCat) return;
 
+    // Snapshot before optimistic move for rollback if needed
+    const previousColumns = columns;
+
     // Optimistic move — don't wait for the API
     setColumns(prev => ({
       ...prev,
@@ -80,13 +84,13 @@ export default function KanbanBoard({ token }) {
       [targetCat]: [...prev[targetCat], { ...prospect, category: targetCat }],
     }));
 
-    patchProspect(id, targetCat);
+    patchProspect(id, targetCat, previousColumns);
   };
 
-  const patchProspect = async (id, category) => {
+  const patchProspect = async (id, category, previousColumns) => {
     setPatchingIds(prev => new Set([...prev, id]));
     try {
-      await fetch(`${API_BASE}/prospects/${id}`, {
+      const res = await fetch(`${API_BASE}/prospects/${id}`, {
         method: 'PATCH',
         headers: {
           'accept': 'application/json',
@@ -95,8 +99,18 @@ export default function KanbanBoard({ token }) {
         },
         body: JSON.stringify({ category }),
       });
+      if (!res.ok) throw new Error('Error al actualizar prospect');
     } catch (err) {
       console.error(err);
+      // Rollback on error
+      setColumns(previousColumns);
+      // Show error banner
+      setKanbanError('No se pudo mover el prospecto');
+      setTimeout(() => setKanbanError(null), 3000);
+      // Handle session expiration
+      if (err.message?.includes('401') && onSessionExpired) {
+        onSessionExpired();
+      }
     } finally {
       setPatchingIds(prev => {
         const next = new Set(prev);
@@ -116,6 +130,18 @@ export default function KanbanBoard({ token }) {
 
   return (
     <div className="kanban-board">
+      {kanbanError && (
+        <div style={{
+          backgroundColor: '#fee2e2',
+          color: '#991b1b',
+          padding: '12px 16px',
+          borderRadius: '6px',
+          marginBottom: '16px',
+          fontSize: '0.875rem',
+        }}>
+          {kanbanError}
+        </div>
+      )}
       {CATEGORIES.map(cat => {
         const { label, accent } = COL_META[cat];
         const prospects = columns[cat];
