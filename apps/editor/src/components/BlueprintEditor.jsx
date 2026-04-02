@@ -4,6 +4,7 @@ export default function BlueprintEditor({
   blueprintUrl,
   annotations,
   activeTool,
+  selectedId,
   onClick,
   onMarkerSelect,
   onPolygonUpdate,
@@ -375,6 +376,7 @@ export default function BlueprintEditor({
             if (ann.type === 'polygon' && ann.polygonPixels && ann.polygonPixels.length >= 3) {
               const pts = ann.polygonPixels.map(([nx, ny]) => normToSvg(nx, ny));
               const polyStr = pts.map((p) => `${p.x},${p.y}`).join(' ');
+              const isSelected = ann.id === selectedId;
 
               return (
                 <g key={ann.id}>
@@ -387,7 +389,7 @@ export default function BlueprintEditor({
                     data-marker-id={ann.id}
                     style={{ cursor: 'pointer' }}
                   />
-                  {pts.map((p, i) => (
+                  {isSelected && pts.map((p, i) => (
                     <circle
                       key={`${ann.id}-corner-${i}`}
                       cx={p.x}
@@ -402,7 +404,7 @@ export default function BlueprintEditor({
                       style={{ cursor: 'grab' }}
                     />
                   ))}
-                  {pts.map((p, i) => {
+                  {isSelected && pts.map((p, i) => {
                     const next = pts[(i + 1) % pts.length];
                     const mid = { x: (p.x + next.x) / 2, y: (p.y + next.y) / 2 };
                     return (
