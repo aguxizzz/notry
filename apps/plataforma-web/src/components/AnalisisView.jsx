@@ -17,9 +17,9 @@ function getTextColor(clicks, maxClicks) {
   return clicks / maxClicks > 0.55 ? '#1a1a2a' : 'var(--text-main)';
 }
 
-export default function AnalisisView({ token, onSessionExpired }) {
-  const [loteos, setLoteos]           = useState([]);
-  const [loteosLoading, setLoteosLoading] = useState(true);
+export default function AnalisisView({ token, onSessionExpired, prefetchedLoteos = [], cachedClicks = {}, cachedVisorData = {} }) {
+  const [loteos, setLoteos]           = useState(prefetchedLoteos);
+  const [loteosLoading, setLoteosLoading] = useState(prefetchedLoteos.length === 0);
   const [loteosError, setLoteosError] = useState(null);
 
   const [selectedLoteo, setSelectedLoteo] = useState(null);
@@ -31,20 +31,41 @@ export default function AnalisisView({ token, onSessionExpired }) {
   const [visorLoading, setVisorLoading] = useState(false);
   const [visorError, setVisorError]   = useState(null);
 
-  // fetch loteos on mount
+  // fetch loteos on mount or use prefetched data
   useEffect(() => {
     if (!token) return;
-    fetchLoteos();
-  }, [token]);
+    if (prefetchedLoteos.length > 0) {
+      setLoteos(prefetchedLoteos);
+      setLoteosLoading(false);
+      if (prefetchedLoteos.length > 0) setSelectedLoteo(prefetchedLoteos[0]);
+    } else {
+      fetchLoteos();
+    }
+  }, [token, prefetchedLoteos]);
 
-  // fetch clicks and visor data whenever selected loteo changes
+  // use cached data or fetch on demand whenever selected loteo changes
   useEffect(() => {
     if (!selectedLoteo) return;
     const controller = new AbortController();
-    fetchClicks(selectedLoteo.id, controller.signal);
-    fetchVisorData(selectedLoteo.id, controller.signal);
+
+    // Use cached clicks if available, otherwise fetch
+    if (cachedClicks[selectedLoteo.id]) {
+      setClicksData(cachedClicks[selectedLoteo.id]);
+      setClicksLoading(false);
+    } else {
+      fetchClicks(selectedLoteo.id, controller.signal);
+    }
+
+    // Use cached visor data if available, otherwise fetch
+    if (cachedVisorData[selectedLoteo.id]) {
+      setVisorData(cachedVisorData[selectedLoteo.id]);
+      setVisorLoading(false);
+    } else {
+      fetchVisorData(selectedLoteo.id, controller.signal);
+    }
+
     return () => controller.abort();
-  }, [selectedLoteo]);
+  }, [selectedLoteo, cachedClicks, cachedVisorData]);
 
   const fetchLoteos = async () => {
     setLoteosLoading(true);
