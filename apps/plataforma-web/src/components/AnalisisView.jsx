@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import BlueprintHeatmap from './BlueprintHeatmap';
 
 const API_BASE = 'https://notry-back.onrender.com/api/v1';
 
@@ -16,7 +17,7 @@ function getTextColor(clicks, maxClicks) {
   return clicks / maxClicks > 0.55 ? '#1a1a2a' : 'var(--text-main)';
 }
 
-export default function AnalisisView({ token }) {
+export default function AnalisisView({ token, onSessionExpired }) {
   const [loteos, setLoteos]           = useState([]);
   const [loteosLoading, setLoteosLoading] = useState(true);
   const [loteosError, setLoteosError] = useState(null);
@@ -26,16 +27,23 @@ export default function AnalisisView({ token }) {
   const [clicksLoading, setClicksLoading] = useState(false);
   const [clicksError, setClicksError] = useState(null);
 
+  const [visorData, setVisorData]     = useState(null);
+  const [visorLoading, setVisorLoading] = useState(false);
+  const [visorError, setVisorError]   = useState(null);
+
   // fetch loteos on mount
   useEffect(() => {
     if (!token) return;
     fetchLoteos();
   }, [token]);
 
-  // fetch clicks whenever selected loteo changes
+  // fetch clicks and visor data whenever selected loteo changes
   useEffect(() => {
     if (!selectedLoteo) return;
-    fetchClicks(selectedLoteo.id);
+    const controller = new AbortController();
+    fetchClicks(selectedLoteo.id, controller.signal);
+    fetchVisorData(selectedLoteo.id, controller.signal);
+    return () => controller.abort();
   }, [selectedLoteo]);
 
   const fetchLoteos = async () => {
@@ -60,7 +68,7 @@ export default function AnalisisView({ token }) {
     }
   };
 
-  const fetchClicks = async (loteoId) => {
+  const fetchClicks = async (loteoId, signal) => {
     setClicksLoading(true);
     setClicksError(null);
     setClicksData([]);
@@ -70,20 +78,62 @@ export default function AnalisisView({ token }) {
           accept: 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        signal,
       });
+      if (res.status === 401 && onSessionExpired) {
+        onSessionExpired();
+        return;
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Error al cargar clicks');
       setClicksData([...data].sort((a, b) => b.clicks - a.clicks));
     } catch (err) {
-      setClicksError(err.message);
-      console.error(err);
+      if (err.name !== 'AbortError') {
+        setClicksError(err.message);
+        console.error(err);
+      }
     } finally {
       setClicksLoading(false);
     }
   };
 
+  const fetchVisorData = async (loteoId, signal) => {
+    setVisorLoading(true);
+    setVisorError(null);
+    setVisorData(null);
+    try {
+      const res = await fetch(`${API_BASE}/loteos/${loteoId}/visor_data`, { signal });
+      if (res.status === 401 && onSessionExpired) {
+        onSessionExpired();
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Error al cargar datos del blueprint');
+      setVisorData(data);
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        setVisorError(err.message);
+        console.error(err);
+        setVisorData(null);
+      }
+    } finally {
+      setVisorLoading(false);
+    }
+  };
+
   const maxClicks   = clicksData.reduce((m, d) => Math.max(m, d.clicks), 0);
   const totalClicks = clicksData.reduce((s, d) => s + d.clicks, 0);
+
+  // Check if we can show blueprint heatmap
+  const canShowBlueprint = visorData?.blueprintUrl && visorData?.annotations;
+  const polygonAnnotations = visorData?.annotations?.filter(
+    a => a.type === 'polygon'
+  ) || [];
+  const annotationsWithCoords = polygonAnnotations.filter(
+    a => a.blueprint_coordinates && a.blueprint_coordinates.length > 0
+  );
+  const missingCoordinatesCount = polygonAnnotations.length - annotationsWithCoords.length;
+  const shouldShowBlueprint = canShowBlueprint && annotationsWithCoords.length > 0;
 
   if (loteosLoading) {
     return (
@@ -149,7 +199,7 @@ export default function AnalisisView({ token }) {
           </div>
         </div>
 
-        {clicksLoading ? (
+        {clicksLoading || visorLoading ? (
           <div className="heatmap-loading">
             <span className="loader"></span>
           </div>
@@ -162,6 +212,13 @@ export default function AnalisisView({ token }) {
           </div>
         ) : clicksData.length === 0 ? (
           <p className="heatmap-empty">Sin datos de clicks para este loteo.</p>
+        ) : shouldShowBlueprint ? (
+          <BlueprintHeatmap
+            blueprintUrl={visorData.blueprintUrl}
+            annotations={annotationsWithCoords}
+            clicksData={clicksData}
+            missingCoordinatesCount={missingCoordinatesCount}
+          />
         ) : (
           <div className="heatmap-grid">
             {clicksData.map((item) => {

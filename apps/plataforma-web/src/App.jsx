@@ -68,10 +68,11 @@ function App() {
   // Debounced fetch for inventory (triggers on view change, search, or filter)
   React.useEffect(() => {
     if (ownerSubView !== 'inventario' || !token) return;
+    const controller = new AbortController();
     const timer = setTimeout(() => {
-      fetchInventory(inventorySearch, inventoryStatusFilter);
+      fetchInventory(inventorySearch, inventoryStatusFilter, controller.signal);
     }, 300);
-    return () => clearTimeout(timer);
+    return () => { clearTimeout(timer); controller.abort(); };
   }, [ownerSubView, inventorySearch, inventoryStatusFilter]);
 
   // Fetch loteos for inventory editor tab (lazy, only once)
@@ -84,10 +85,11 @@ function App() {
   // Debounced fetch for clientes
   React.useEffect(() => {
     if (ownerSubView !== 'clientes' || !token) return;
+    const controller = new AbortController();
     const timer = setTimeout(() => {
-      fetchProspectos(prospectosCategoryFilter, prospectosWithoutAdvisor);
+      fetchProspectos(prospectosCategoryFilter, prospectosWithoutAdvisor, controller.signal);
     }, 300);
-    return () => clearTimeout(timer);
+    return () => { clearTimeout(timer); controller.abort(); };
   }, [ownerSubView, prospectosCategoryFilter, prospectosWithoutAdvisor]);
 
   const handleLogin = async (e) => {
@@ -144,13 +146,7 @@ function App() {
     setLoading(true);
     setAdminSubView('lotes');
     try {
-      const res = await fetch(`${API_BASE}/lots?status=available&limit=50&offset=0`, {
-        method: 'GET',
-        headers: {
-          'accept': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-      });
+      const res = await apiFetch(`${API_BASE}/lots?status=available&limit=50&offset=0`);
       const data = await res.json();
       if (!res.ok) throw new Error('Error al listar lotes');
       setLots(data.items);
@@ -168,13 +164,7 @@ function App() {
     setLoading(true);
     setAdminSubView('loteos');
     try {
-      const res = await fetch(`${API_BASE}/loteos?include_lotes=false&limit=50&offset=0`, {
-        method: 'GET',
-        headers: {
-          'accept': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-      });
+      const res = await apiFetch(`${API_BASE}/loteos?include_lotes=false&limit=50&offset=0`);
       const data = await res.json();
       if (!res.ok) throw new Error('Error al listar loteos');
       setLoteos(data.items);
@@ -185,23 +175,18 @@ function App() {
     }
   };
 
-  const fetchInventory = async (name, status) => {
+  const fetchInventory = async (name, status, signal) => {
     setInventoryLoading(true);
     try {
       const params = new URLSearchParams({ limit: 50, offset: 0 });
       if (name) params.set('name', name);
       if (status) params.set('status', status);
-      const res = await fetch(`${API_BASE}/lots?${params}`, {
-        headers: {
-          'accept': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const res = await apiFetch(`${API_BASE}/lots?${params}`, { signal });
       const data = await res.json();
       if (!res.ok) throw new Error('Error al cargar inventario');
       setInventoryLots(data.items);
     } catch (error) {
-      console.error(error);
+      if (error.name !== 'AbortError') console.error(error);
     } finally {
       setInventoryLoading(false);
     }
@@ -210,9 +195,7 @@ function App() {
   const fetchInventoryLoteos = async () => {
     setInventoryLoteosLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/loteos?include_lotes=false&limit=50&offset=0`, {
-        headers: { accept: 'application/json', Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch(`${API_BASE}/loteos?include_lotes=false&limit=50&offset=0`);
       const data = await res.json();
       if (!res.ok) throw new Error('Error al cargar loteos');
       setInventoryLoteos(data.items);
@@ -228,12 +211,10 @@ function App() {
     setCreateLoteoLoading(true);
     setCreateLoteoError(null);
     try {
-      const res = await fetch(`${API_BASE}/loteos`, {
+      const res = await apiFetch(`${API_BASE}/loteos`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'accept': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           name: createLoteoForm.name,
@@ -260,23 +241,18 @@ function App() {
     window.open(`${EDITOR_URL}/?data=${encodeURIComponent(dataUrl)}&token=${encodeURIComponent(token)}`, '_blank');
   };
 
-  const fetchProspectos = async (category, withoutAdvisor) => {
+  const fetchProspectos = async (category, withoutAdvisor, signal) => {
     setProspectosLoading(true);
     try {
       const params = new URLSearchParams({ limit: 50, offset: 0 });
       if (category) params.set('category', category);
       if (withoutAdvisor) params.set('without_advisor', 'true');
-      const res = await fetch(`${API_BASE}/prospects?${params}`, {
-        headers: {
-          'accept': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const res = await apiFetch(`${API_BASE}/prospects?${params}`, { signal });
       const data = await res.json();
       if (!res.ok) throw new Error('Error al cargar prospectos');
       setProspectosList(data.items);
     } catch (error) {
-      console.error(error);
+      if (error.name !== 'AbortError') console.error(error);
     } finally {
       setProspectosLoading(false);
     }
@@ -299,6 +275,22 @@ function App() {
     setProspectosList([]);
     setProspectosCategoryFilter('');
     setProspectosWithoutAdvisor(false);
+  };
+
+  const apiFetch = async (url, opts = {}) => {
+    const res = await fetch(url, {
+      ...opts,
+      headers: {
+        accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...opts.headers,
+      },
+    });
+    if (res.status === 401) {
+      logout();
+      throw new Error('Sesión expirada. Inicia sesión nuevamente.');
+    }
+    return res;
   };
 
   const copyToClipboard = (text) => {
@@ -474,7 +466,7 @@ function App() {
                     <StatCard label="Nuevos Leads" value="48" color="#3b82f6" />
                     <StatCard label="Tasa de Conversión" value="12.5%" color="#10b981" />
                   </div>
-                  <KanbanBoard token={token} />
+                  <KanbanBoard token={token} onSessionExpired={logout} />
                 </>
               )}
 
@@ -710,7 +702,7 @@ function App() {
               )}
 
               {ownerSubView === 'analisis' && (
-                <AnalisisView token={token} />
+                <AnalisisView token={token} onSessionExpired={logout} />
               )}
 
               {ownerSubView !== 'inventario' && ownerSubView !== 'clientes' && ownerSubView !== 'analisis' && ownerSubView !== 'inicio' && (
