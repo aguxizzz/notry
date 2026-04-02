@@ -57,6 +57,20 @@ function App() {
   const [createLoteoForm, setCreateLoteoForm] = useState({ name: '', slug: '', image_url: '' });
   const [createLoteoLoading, setCreateLoteoLoading] = useState(false);
   const [createLoteoError, setCreateLoteoError] = useState(null);
+  const [toasts, setToasts] = useState([]);
+  const [bgLoadingLots, setBgLoadingLots] = useState(false);
+  const [bgLoadingLoteos, setBgLoadingLoteos] = useState(false);
+  const [bgLoadingProspectos, setBgLoadingProspectos] = useState(false);
+  const [clicksCache, setClicksCache] = useState({}); // { loteoId: clicksData }
+  const [visorDataCache, setVisorDataCache] = useState({}); // { loteoId: visorData }
+
+  const addToast = (message) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  };
 
   // Auto-fetch lots when entering super_admin view
   React.useEffect(() => {
@@ -64,6 +78,61 @@ function App() {
       fetchLots();
     }
   }, [view]);
+
+  // Background polling for lote_owner
+  React.useEffect(() => {
+    if (!token || view !== 'lote_owner') return;
+
+    // Initial prefetch if not already loaded
+    if (inventoryLots.length === 0) {
+      fetchInventoryBg('', '');
+    }
+    if (inventoryLoteos.length === 0) {
+      fetchInventoryLoteosBg();
+    }
+    if (prospectosList.length === 0) {
+      fetchProspectosBg('', false);
+    }
+    if (inventoryLoteos.length > 0 && Object.keys(clicksCache).length === 0) {
+      fetchClicksForAllLoteos(inventoryLoteos);
+    }
+    if (inventoryLoteos.length > 0 && Object.keys(visorDataCache).length === 0) {
+      fetchVisorDataForAllLoteos(inventoryLoteos);
+    }
+
+    // Set up polling intervals
+    const lotsInterval = setInterval(() => {
+      fetchInventoryBg(inventorySearch, inventoryStatusFilter);
+    }, 15000); // 15s
+
+    const loteosInterval = setInterval(() => {
+      fetchInventoryLoteosBg();
+    }, 30000); // 30s
+
+    const prospectosInterval = setInterval(() => {
+      fetchProspectosBg(prospectosCategoryFilter, prospectosWithoutAdvisor);
+    }, 30000); // 30s
+
+    const clicksInterval = setInterval(() => {
+      if (inventoryLoteos.length > 0) {
+        fetchClicksForAllLoteos(inventoryLoteos);
+      }
+    }, 30000); // 30s
+
+    const visorDataInterval = setInterval(() => {
+      if (inventoryLoteos.length > 0) {
+        fetchVisorDataForAllLoteos(inventoryLoteos);
+      }
+    }, 300000); // 5 minutes
+
+    return () => {
+      clearInterval(lotsInterval);
+      clearInterval(loteosInterval);
+      clearInterval(prospectosInterval);
+      clearInterval(clicksInterval);
+      clearInterval(visorDataInterval);
+    };
+  }, [token, view, inventoryLoteos]);
 
   // Debounced fetch for inventory (triggers on view change, search, or filter)
   React.useEffect(() => {
@@ -128,8 +197,13 @@ function App() {
       // 3. Redirect
       if (meData.role === 'super_admin' || meData.role === 'admin') {
         setView('super_admin');
+        // Prefetch lots for super_admin
+        setTimeout(() => {
+          fetchLots();
+        }, 0);
       } else if (meData.role === 'lote_owner') {
         setView('lote_owner');
+        // Prefetch data for lote_owner (polling will start via useEffect)
       } else {
         setStatus({ type: 'error', message: `Rol no reconocido: ${meData.role}` });
       }
@@ -239,6 +313,14 @@ function App() {
   const openEditor = (loteoId) => {
     const dataUrl = `${API_BASE}/loteos/${loteoId}/visor_data`;
     window.open(`${EDITOR_URL}/?data=${encodeURIComponent(dataUrl)}&token=${encodeURIComponent(token)}`, '_blank');
+
+    // Refresh data when user returns from editor
+    const onFocus = () => {
+      fetchInventoryLoteosBg();
+      fetchInventoryBg(inventorySearch, inventoryStatusFilter);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
+    document.addEventListener('visibilitychange', onFocus);
   };
 
   const fetchProspectos = async (category, withoutAdvisor, signal) => {
@@ -255,6 +337,102 @@ function App() {
       if (error.name !== 'AbortError') console.error(error);
     } finally {
       setProspectosLoading(false);
+    }
+  };
+
+  // Background fetch functions (for polling)
+  const fetchInventoryBg = async (name, status) => {
+    setBgLoadingLots(true);
+    try {
+      const params = new URLSearchParams({ limit: 50, offset: 0 });
+      if (name) params.set('name', name);
+      if (status) params.set('status', status);
+      const res = await apiFetch(`${API_BASE}/lots?${params}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error('Error al cargar inventario');
+      setInventoryLots(data.items);
+    } catch (error) {
+      addToast(`Error actualizando lotes: ${error.message}`);
+    } finally {
+      setBgLoadingLots(false);
+    }
+  };
+
+  const fetchInventoryLoteosBg = async () => {
+    setBgLoadingLoteos(true);
+    try {
+      const res = await apiFetch(`${API_BASE}/loteos?include_lotes=false&limit=50&offset=0`);
+      const data = await res.json();
+      if (!res.ok) throw new Error('Error al cargar loteos');
+      setInventoryLoteos(data.items);
+    } catch (error) {
+      addToast(`Error actualizando loteos: ${error.message}`);
+    } finally {
+      setBgLoadingLoteos(false);
+    }
+  };
+
+  const fetchProspectosBg = async (category, withoutAdvisor) => {
+    setBgLoadingProspectos(true);
+    try {
+      const params = new URLSearchParams({ limit: 50, offset: 0 });
+      if (category) params.set('category', category);
+      if (withoutAdvisor) params.set('without_advisor', 'true');
+      const res = await apiFetch(`${API_BASE}/prospects?${params}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error('Error al cargar prospectos');
+      setProspectosList(data.items);
+    } catch (error) {
+      addToast(`Error actualizando prospectos: ${error.message}`);
+    } finally {
+      setBgLoadingProspectos(false);
+    }
+  };
+
+  const fetchClicksForAllLoteos = async (loteos) => {
+    if (!loteos || loteos.length === 0) return;
+    try {
+      const newCache = { ...clicksCache };
+      for (const loteo of loteos) {
+        try {
+          const res = await apiFetch(`${API_BASE}/loteos/${loteo.id}/clicks`);
+          const data = await res.json();
+          if (res.ok) {
+            newCache[loteo.id] = [...data].sort((a, b) => b.clicks - a.clicks);
+          }
+        } catch {
+          // Skip individual loteo errors, continue with others
+        }
+      }
+      setClicksCache(newCache);
+    } catch (error) {
+      addToast(`Error actualizando clicks: ${error.message}`);
+    }
+  };
+
+  const fetchVisorDataForAllLoteos = async (loteos) => {
+    if (!loteos || loteos.length === 0) return;
+    try {
+      const newCache = { ...visorDataCache };
+      for (const loteo of loteos) {
+        try {
+          const res = await fetch(`${API_BASE}/loteos/${loteo.id}/visor_data`, {
+            headers: {
+              accept: 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          const data = await res.json();
+          if (res.ok) {
+            newCache[loteo.id] = data;
+          }
+        } catch {
+          // Skip individual loteo errors, continue with others
+        }
+      }
+      setVisorDataCache(newCache);
+    } catch (error) {
+      addToast(`Error actualizando datos de blueprint: ${error.message}`);
     }
   };
 
@@ -275,6 +453,12 @@ function App() {
     setProspectosList([]);
     setProspectosCategoryFilter('');
     setProspectosWithoutAdvisor(false);
+    setToasts([]);
+    setBgLoadingLots(false);
+    setBgLoadingLoteos(false);
+    setBgLoadingProspectos(false);
+    setClicksCache({});
+    setVisorDataCache({});
   };
 
   const apiFetch = async (url, opts = {}) => {
@@ -496,7 +680,7 @@ function App() {
 
                     {inventoryTab === 'loteos' ? (
                       <div className="inventory-table-wrapper">
-                        {inventoryLoteosLoading ? (
+                        {inventoryLoteosLoading && inventoryLoteos.length === 0 ? (
                           <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
                             <span className="loader"></span>
                           </div>
@@ -539,7 +723,8 @@ function App() {
                             </tbody>
                           </table>
                         )}
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
+                          {bgLoadingLoteos && <span className="loader small" title="Actualizando..."></span>}
                           <button
                             className="primary-button btn-fit gold"
                             onClick={() => { setCreateLoteoOpen(true); setCreateLoteoError(null); }}
@@ -580,7 +765,7 @@ function App() {
                           <option>Mayor a 500 m²</option>
                         </select>
                       </div>
-                      {inventoryLoading && <span className="loader small"></span>}
+                      {(inventoryLoading || bgLoadingLots) && <span className="loader small" title={bgLoadingLots ? "Actualizando..." : ""}></span>}
                     </div>
 
                     <div className="inventory-table-wrapper">
@@ -596,7 +781,7 @@ function App() {
                           </tr>
                         </thead>
                         <tbody>
-                          {inventoryLots.length === 0 && !inventoryLoading ? (
+                          {inventoryLots.length === 0 ? (
                             <tr>
                               <td colSpan={6} className="td-empty-row">No se encontraron lotes.</td>
                             </tr>
@@ -659,7 +844,7 @@ function App() {
                         Sin asesor
                       </label>
                     </div>
-                    {prospectosLoading && <span className="loader small"></span>}
+                    {(prospectosLoading || bgLoadingProspectos) && <span className="loader small" title={bgLoadingProspectos ? "Actualizando..." : ""}></span>}
                   </div>
 
                   <div className="inventory-table-wrapper">
@@ -675,7 +860,7 @@ function App() {
                         </tr>
                       </thead>
                       <tbody>
-                        {prospectosList.length === 0 && !prospectosLoading ? (
+                        {prospectosList.length === 0 ? (
                           <tr>
                             <td colSpan={6} className="td-empty-row">No se encontraron prospectos.</td>
                           </tr>
@@ -702,7 +887,7 @@ function App() {
               )}
 
               {ownerSubView === 'analisis' && (
-                <AnalisisView token={token} onSessionExpired={logout} />
+                <AnalisisView token={token} onSessionExpired={logout} prefetchedLoteos={inventoryLoteos} cachedClicks={clicksCache} cachedVisorData={visorDataCache} />
               )}
 
               {ownerSubView !== 'inventario' && ownerSubView !== 'clientes' && ownerSubView !== 'analisis' && ownerSubView !== 'inicio' && (
@@ -759,6 +944,14 @@ function App() {
           </div>
         </div>
       )}
+
+      <div className="toasts-container">
+        {toasts.map(toast => (
+          <div key={toast.id} className="toast" onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}>
+            {toast.message}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
