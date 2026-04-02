@@ -246,15 +246,14 @@ export default function AnalisisView({ token, onSessionExpired, prefetchedLoteos
               const bg      = getHeatColor(item.clicks, maxClicks);
               const fg      = getTextColor(item.clicks, maxClicks);
               const pct     = maxClicks > 0 ? Math.round((item.clicks / maxClicks) * 100) : 0;
-              const shortId = item.lote_uuid.split('-')[0];
               return (
                 <div
                   key={item.lote_uuid}
                   className="heatmap-cell"
                   style={{ background: bg, color: fg }}
-                  title={`${item.lote_uuid}\n${item.clicks} clicks`}
+                  title={`${item.name}\n${item.clicks} clicks`}
                 >
-                  <span className="cell-id">{shortId}</span>
+                  <span className="cell-id">{item.name}</span>
                   <span className="cell-clicks">{item.clicks}</span>
                   <div
                     className="cell-bar"
