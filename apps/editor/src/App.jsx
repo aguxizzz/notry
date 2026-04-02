@@ -705,7 +705,7 @@ function App() {
     <div className="editor-container">
       {pendingDraft && (
         <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1001,
           background: '#3a3a00', color: '#ffeb3b', padding: '10px 16px',
           display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.875rem'
         }}>
@@ -723,7 +723,7 @@ function App() {
 
       {sessionExpiredDuringSave && (
         <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1001,
           background: '#3a0000', color: '#ff8a80', padding: '10px 16px',
           display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.875rem'
         }}>
@@ -792,10 +792,10 @@ function App() {
         <button
           onClick={handleLogout}
           style={{
-            position: 'absolute',
+            position: 'fixed',
             top: '1rem',
             right: '1rem',
-            zIndex: 10,
+            zIndex: 1000,
             background: 'rgba(0,0,0,0.5)',
             color: '#fff',
             border: 'none',
@@ -809,7 +809,7 @@ function App() {
         </button>
 
         {activeTool === 'polygon' && drawingPolygon.length > 0 && (
-          <div style={{ position: 'absolute', bottom: '1rem', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', gap: '1rem' }}>
+          <div style={{ position: 'fixed', bottom: '1rem', left: '50%', transform: 'translateX(-50%)', zIndex: 1000, display: 'flex', gap: '1rem' }}>
             <button className="btn-primary" onClick={finishPolygon} style={{ background: '#28a745', width: 'auto' }}>Finalizar Polígono ({drawingPolygon.length} pts)</button>
             <button className="btn-primary" onClick={cancelPolygon} style={{ background: '#dc3545', width: 'auto' }}>Cancelar</button>
           </div>
