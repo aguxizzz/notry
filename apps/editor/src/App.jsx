@@ -825,6 +825,7 @@ function App() {
               blueprintUrl={blueprintUrl}
               activeTool={activeTool}
               annotations={displayAnnotations}
+              selectedId={selectedId}
               onClick={handleViewerClick}
               onMarkerSelect={(id) => {
                 if (activeTool === 'polygon' && id === 'temp-pt-0') {
