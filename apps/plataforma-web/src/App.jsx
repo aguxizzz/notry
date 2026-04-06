@@ -663,23 +663,118 @@ function App() {
                   </div>
 
                   <div className="inventory-section">
-                    <div className="inventory-tab-bar">
-                      <button
-                        className={`inventory-tab-btn ${inventoryTab === 'lotes' ? 'active' : ''}`}
-                        onClick={() => setInventoryTab('lotes')}
-                      >
-                        Lotes
-                      </button>
-                      <button
-                        className={`inventory-tab-btn ${inventoryTab === 'loteos' ? 'active' : ''}`}
-                        onClick={() => setInventoryTab('loteos')}
-                      >
-                        Loteos
-                      </button>
+                    <div className="inventory-controls">
+                      <div className="inventory-tab-controls">
+                        <SlidersHorizontal size={16} className="filter-icon" />
+                        <span className="inventory-tab-label">Ver tabla de:</span>
+                        <select
+                          className="inventory-tab-select"
+                          value={inventoryTab}
+                          onChange={e => setInventoryTab(e.target.value)}
+                        >
+                          <option value="lotes">Lotes</option>
+                          <option value="loteos">Loteos</option>
+                        </select>
+                      </div>
+
+                      {inventoryTab === 'lotes' ? (
+                        <>
+                          <div className="inventory-search">
+                            <Search size={16} className="search-icon" />
+                            <input
+                              type="text"
+                              placeholder="Buscar por nombre..."
+                              className="search-input"
+                              value={inventorySearch}
+                              onChange={e => setInventorySearch(e.target.value)}
+                            />
+                          </div>
+                          <div className="inventory-filters">
+                            <SlidersHorizontal size={16} className="filter-icon" />
+                            <select
+                              className="filter-select"
+                              value={inventoryStatusFilter}
+                              onChange={e => setInventoryStatusFilter(e.target.value)}
+                            >
+                              <option value="">Estado: Todos</option>
+                              <option value="available">Disponible</option>
+                              <option value="reserved">Reservado</option>
+                              <option value="sold">Vendido</option>
+                            </select>
+                            <select className="filter-select" disabled>
+                              <option>Área: Todas</option>
+                              <option>Menor a 200 m²</option>
+                              <option>200 – 500 m²</option>
+                              <option>Mayor a 500 m²</option>
+                            </select>
+                          </div>
+                          {(inventoryLoading || bgLoadingLots) && <span className="loader small" title={bgLoadingLots ? "Actualizando..." : ""}></span>}
+                        </>
+                      ) : (
+                        <>
+                          <div className="inventory-search" />
+                          <div className="inventory-filters">
+                            <select className="filter-select" disabled>
+                              <option>Estado: Todos</option>
+                            </select>
+                            <select className="filter-select" disabled>
+                              <option>Área: Todas</option>
+                            </select>
+                          </div>
+                          {bgLoadingLoteos && <span className="loader small" title="Actualizando..."></span>}
+                        </>
+                      )}
                     </div>
 
-                    {inventoryTab === 'loteos' ? (
-                      <div className="inventory-table-wrapper">
+                    {inventoryTab === 'lotes' ? (
+                      <div key="lotes" className="inventory-table-wrapper fade-in">
+                        <table className="inventory-table">
+                          <thead>
+                            <tr>
+                              <th>Nombre</th>
+                              <th>Área</th>
+                              <th>Precio</th>
+                              <th>Estado</th>
+                              <th>Loteo</th>
+                              <th>Prospectos</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {inventoryLots.length === 0 ? (
+                              <tr>
+                                <td colSpan={6} className="td-empty-row">No se encontraron lotes.</td>
+                              </tr>
+                            ) : (
+                              inventoryLots.map(lot => (
+                                <tr key={lot.id}>
+                                  <td className="td-name">{lot.name}</td>
+                                  <td>{lot.area_m2 ? `${parseFloat(lot.area_m2).toLocaleString()} m²` : '—'}</td>
+                                  <td className="td-price">{lot.price ? `$${parseFloat(lot.price).toLocaleString()}` : '—'}</td>
+                                  <td>
+                                    <span className={`badge status-${STATUS_DISPLAY[lot.status] ?? lot.status}`}>
+                                      {STATUS_DISPLAY[lot.status] ?? lot.status}
+                                    </span>
+                                  </td>
+                                  <td className="td-loteo">{lot.loteo_name}</td>
+                                  <td>
+                                    {!lot.prospect_names?.length ? (
+                                      <span className="td-empty">—</span>
+                                    ) : (
+                                      <div className="prospectos-list">
+                                        {lot.prospect_names.map((p, i) => (
+                                          <span key={i} className="prospecto-tag">{p}</span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div key="loteos" className="inventory-table-wrapper fade-in">
                         {inventoryLoteosLoading && inventoryLoteos.length === 0 ? (
                           <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
                             <span className="loader"></span>
@@ -724,7 +819,6 @@ function App() {
                           </table>
                         )}
                         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
-                          {bgLoadingLoteos && <span className="loader small" title="Actualizando..."></span>}
                           <button
                             className="primary-button btn-fit gold"
                             onClick={() => { setCreateLoteoOpen(true); setCreateLoteoError(null); }}
@@ -733,88 +827,6 @@ function App() {
                           </button>
                         </div>
                       </div>
-                    ) : (
-                    <>
-                    <div className="inventory-controls">
-                      <div className="inventory-search">
-                        <Search size={16} className="search-icon" />
-                        <input
-                          type="text"
-                          placeholder="Buscar por nombre..."
-                          className="search-input"
-                          value={inventorySearch}
-                          onChange={e => setInventorySearch(e.target.value)}
-                        />
-                      </div>
-                      <div className="inventory-filters">
-                        <SlidersHorizontal size={16} className="filter-icon" />
-                        <select
-                          className="filter-select"
-                          value={inventoryStatusFilter}
-                          onChange={e => setInventoryStatusFilter(e.target.value)}
-                        >
-                          <option value="">Estado: Todos</option>
-                          <option value="available">Disponible</option>
-                          <option value="reserved">Reservado</option>
-                          <option value="sold">Vendido</option>
-                        </select>
-                        <select className="filter-select" disabled>
-                          <option>Área: Todas</option>
-                          <option>Menor a 200 m²</option>
-                          <option>200 – 500 m²</option>
-                          <option>Mayor a 500 m²</option>
-                        </select>
-                      </div>
-                      {(inventoryLoading || bgLoadingLots) && <span className="loader small" title={bgLoadingLots ? "Actualizando..." : ""}></span>}
-                    </div>
-
-                    <div className="inventory-table-wrapper">
-                      <table className="inventory-table">
-                        <thead>
-                          <tr>
-                            <th>Nombre</th>
-                            <th>Área</th>
-                            <th>Precio</th>
-                            <th>Estado</th>
-                            <th>Loteo</th>
-                            <th>Prospectos</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {inventoryLots.length === 0 ? (
-                            <tr>
-                              <td colSpan={6} className="td-empty-row">No se encontraron lotes.</td>
-                            </tr>
-                          ) : (
-                            inventoryLots.map(lot => (
-                              <tr key={lot.id}>
-                                <td className="td-name">{lot.name}</td>
-                                <td>{lot.area_m2 ? `${parseFloat(lot.area_m2).toLocaleString()} m²` : '—'}</td>
-                                <td className="td-price">{lot.price ? `$${parseFloat(lot.price).toLocaleString()}` : '—'}</td>
-                                <td>
-                                  <span className={`badge status-${STATUS_DISPLAY[lot.status] ?? lot.status}`}>
-                                    {STATUS_DISPLAY[lot.status] ?? lot.status}
-                                  </span>
-                                </td>
-                                <td className="td-loteo">{lot.loteo_name}</td>
-                                <td>
-                                  {!lot.prospect_names?.length ? (
-                                    <span className="td-empty">—</span>
-                                  ) : (
-                                    <div className="prospectos-list">
-                                      {lot.prospect_names.map((p, i) => (
-                                        <span key={i} className="prospecto-tag">{p}</span>
-                                      ))}
-                                    </div>
-                                  )}
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                    </>
                     )}
                   </div>
                 </>
