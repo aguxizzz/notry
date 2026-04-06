@@ -326,6 +326,25 @@ html, body {
   transition: border-color var(--t-fast), box-shadow var(--t-fast);
 }
 .info-panel-form input::placeholder { color: var(--text-muted); }
+.info-panel-form select {
+  width: 100%;
+  margin-bottom: 1rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--input-border);
+  border-radius: var(--btn-radius);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.info-panel-form select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.15);
+}
 .info-panel-form input:focus {
   outline: none;
   border-color: var(--accent);
@@ -386,6 +405,106 @@ html, body {
 }
 
 /* =============================================
+   PRECALIFICACIÓN: FEEDBACK DE ENVÍO
+   ============================================= */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes fade-scale-in {
+  from { opacity: 0; transform: scale(0.88); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.info-panel-form {
+  position: relative;
+}
+.precal-form-inner {
+  transition: opacity 0.2s;
+}
+.precal-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.precal-feedback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.875rem;
+  padding: 3rem 2rem;
+  background: rgba(247, 245, 241, 0.96);
+  border-radius: calc(var(--btn-radius) * 1.5);
+  animation: fade-scale-in 0.28s ease;
+  pointer-events: auto;
+  text-align: center;
+}
+.precal-feedback span {
+  font-size: 25px;
+  font-weight: 700;
+}
+.precal-loading svg { color: var(--text-muted); animation: spin 0.9s linear infinite; }
+.precal-loading span { color: var(--text-muted); }
+.precal-success svg { color: #1e6e3e; }
+.precal-success span { color: #1e6e3e; }
+.precal-success-detail {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  color: var(--text-muted) !important;
+  line-height: 1.5;
+  max-width: 260px;
+  text-align: center;
+}
+.precal-error svg { color: #a82828; }
+.precal-error span { color: #a82828; }
+.btn-retry {
+  margin-top: 0.25rem;
+  padding: 0.5rem 1.2rem;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--input-border);
+  border-radius: var(--btn-radius);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+}
+.btn-retry:hover {
+  background: var(--input-bg);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn-cerrar {
+  margin-top: 0.25rem;
+  padding: 0.55rem 1.5rem;
+  background: #1e6e3e;
+  color: #ffffff;
+  border: none;
+  border-radius: var(--btn-radius);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--t-fast), transform var(--t-fast);
+}
+.btn-cerrar:hover {
+  background: #175c33;
+  transform: translateY(-1px);
+}
+.btn-cerrar:active {
+  transform: translateY(0);
+}
+.btn-enviar:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* =============================================
    ACCESIBILIDAD
    ============================================= */
 @media (prefers-reduced-motion: reduce) {
@@ -395,11 +514,16 @@ html, body {
   #info-panel-back,
   #info-actions button,
   .btn-enviar,
-  .info-panel-form input {
+  .precal-form-inner,
+  .info-panel-form input,
+  .info-panel-form select {
     transition: none;
   }
   .info-panel-form,
-  #info-panel-view.anim-from-left {
+  #info-panel-view.anim-from-left,
+  .precal-feedback,
+  .precal-overlay {
     animation: none;
   }
+  .precal-loading svg { animation: none; }
 }
