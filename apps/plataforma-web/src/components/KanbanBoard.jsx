@@ -162,27 +162,31 @@ export default function KanbanBoard({ token, onSessionExpired }) {
             </div>
 
             <div className="kanban-col-body">
-              {prospects.map(p => (
-                <div
-                  key={p.id}
-                  className="kanban-card"
-                  draggable
-                  onDragStart={e => handleDragStart(e, p.id)}
-                >
-                  <div className="kanban-card-top">
-                    <span className="kanban-card-name">{p.name}</span>
-                    {patchingIds.has(p.id) && <span className="loader card-loader" />}
+              {prospects.length === 0 ? (
+                <div className="kanban-empty">Sin prospectos en esta categoría</div>
+              ) : (
+                prospects.map(p => (
+                  <div
+                    key={p.id}
+                    className="kanban-card"
+                    draggable
+                    onDragStart={e => handleDragStart(e, p.id)}
+                  >
+                    <div className="kanban-card-top">
+                      <span className="kanban-card-name">{p.name}</span>
+                      {patchingIds.has(p.id) && <span className="loader card-loader" />}
+                    </div>
+                    {(p.phone || p.email) && (
+                      <span className="kanban-card-sub">{p.phone || p.email}</span>
+                    )}
+                    {p.budget && (
+                      <span className="kanban-card-budget">
+                        ${parseFloat(p.budget).toLocaleString()}
+                      </span>
+                    )}
                   </div>
-                  {(p.phone || p.email) && (
-                    <span className="kanban-card-sub">{p.phone || p.email}</span>
-                  )}
-                  {p.budget && (
-                    <span className="kanban-card-budget">
-                      ${parseFloat(p.budget).toLocaleString()}
-                    </span>
-                  )}
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         );

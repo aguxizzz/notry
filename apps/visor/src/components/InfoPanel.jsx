@@ -163,7 +163,7 @@ function PrecalificacionForm({ lotDetail, onClose }) {
               </svg>
               <span>Solicitud enviada</span>
               <span className="precal-success-detail">Nos contactaremos a través de los datos proporcionados.</span>
-              <button type="button" className="btn-cerrar" onClick={() => { closingRef.current = true; onClose(); }}>Cerrar</button>
+              <button type="button" className="btn-cerrar" onClick={onClose}>Cerrar</button>
             </div>
           )}
           {submitStatus === 'error' && (
@@ -227,6 +227,7 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
 
   const goToForm = () => { setTransDir('forward'); setShowForm(true); };
   const goBack  = () => { setTransDir('back');    setShowForm(false); };
+  const wrappedOnClose = () => { closingRef.current = true; onClose(); };
 
   const estadoKey = display.detail?.estado;
   const estadoCfg = ESTADO_CONFIG[estadoKey] ?? null;
@@ -278,7 +279,7 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
 
         <div id="info-panel-content">
           {showForm ? (
-            <PrecalificacionForm key={display.markerId} lotDetail={lotDetail} onClose={onClose} />
+            <PrecalificacionForm key={display.markerId} lotDetail={lotDetail} onClose={wrappedOnClose} />
           ) : (
             <div
               id="info-panel-view"

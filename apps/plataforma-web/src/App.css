@@ -616,35 +616,70 @@
   color: var(--accent-color);
 }
 
-/* INVENTORY TABLE */
-.inventory-tab-bar {
+.kanban-empty {
   display: flex;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.inventory-tab-btn {
+  align-items: center;
+  justify-content: center;
   flex: 1;
-  padding: 14px 24px;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
+  min-height: 100px;
   color: var(--text-muted);
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  font-size: 0.8rem;
   text-transform: uppercase;
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
-  margin-bottom: -1px;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  text-align: center;
+  padding: 0 12px;
 }
 
-.inventory-tab-btn:hover {
+/* INVENTORY TABLE */
+.inventory-tab-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.inventory-tab-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.inventory-tab-select {
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
   color: var(--text-main);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 10px 32px 10px 14px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  min-width: 140px;
 }
 
-.inventory-tab-btn.active {
-  color: var(--gold, #c5a059);
-  border-bottom-color: var(--gold, #c5a059);
+.inventory-tab-select:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(197, 160, 89, 0.2);
+}
+
+.inventory-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
 }
 
 .inventory-section {
@@ -655,15 +690,6 @@
   border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
-}
-
-.inventory-controls {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border-color);
-  flex-wrap: wrap;
 }
 
 .inventory-search {
@@ -734,6 +760,22 @@
 
 .inventory-table-wrapper {
   overflow-x: auto;
+  padding: 0 20px 20px;
+}
+
+.fade-in {
+  animation: tableFadeIn 250ms ease forwards;
+}
+
+@keyframes tableFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .inventory-table {
