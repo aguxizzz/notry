@@ -39,9 +39,12 @@ function PrecalificacionForm({ lotDetail, onClose }) {
   const [numero, setNumero] = useState('');
   const [presupuesto, setPresupuesto] = useState('');
   const [metodoPago, setMetodoPago] = useState('contado');
+  const [submitStatus, setSubmitStatus] = useState('idle'); // 'idle' | 'loading' | 'success' | 'error'
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (lotDetail.estado === 'sold') { onClose(); return; }
+    setSubmitStatus('loading');
     fetch(PRE_CALIFICACION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -52,85 +55,130 @@ function PrecalificacionForm({ lotDetail, onClose }) {
         budget: Number(presupuesto) || 0,
         payment_method: metodoPago,
       }),
-    }).catch((err) => console.warn('POST pre calificación:', err));
-    onClose();
+    }).then((res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setSubmitStatus('success');
+      setTimeout(() => onClose(), 7000);
+    }).catch(() => {
+      setSubmitStatus('error');
+    });
   };
 
   return (
     <div className="info-panel-form">
-      {(lotDetail.price || lotDetail.area_m2 || lotDetail.estado) && (
-        <div id="precal-detail-summary">
-          <div id="precal-detail-meta">
-            {lotDetail.price && (
-              <div className="precal-meta-item">
-                <span className="precal-meta-label">Precio</span>
-                <span className="precal-meta-value">{formatPrice(lotDetail.price)}</span>
-              </div>
-            )}
-            {lotDetail.area_m2 && (
-              <div className="precal-meta-item">
-                <span className="precal-meta-label">Área</span>
-                <span className="precal-meta-value">{formatArea(lotDetail.area_m2)}</span>
-              </div>
-            )}
-            {lotDetail.estado && ESTADO_CONFIG[lotDetail.estado] && (
-              <div className="precal-meta-item" style={{ gridColumn: lotDetail.price && lotDetail.area_m2 ? '1 / -1' : 'auto' }}>
-                <span className="precal-meta-label">Estado</span>
-                <span className="precal-meta-value" style={{ color: ESTADO_CONFIG[lotDetail.estado].accent }}>
-                  {ESTADO_CONFIG[lotDetail.estado].label}
-                </span>
-              </div>
-            )}
+      <div className="precal-form-inner" style={{ opacity: submitStatus !== 'idle' ? 0.35 : 1, pointerEvents: submitStatus === 'error' ? 'none' : 'auto', transition: 'opacity 0.2s' }}>
+        {(lotDetail.price || lotDetail.area_m2 || lotDetail.estado) && (
+          <div id="precal-detail-summary">
+            <div id="precal-detail-meta">
+              {lotDetail.price && (
+                <div className="precal-meta-item">
+                  <span className="precal-meta-label">Precio</span>
+                  <span className="precal-meta-value">{formatPrice(lotDetail.price)}</span>
+                </div>
+              )}
+              {lotDetail.area_m2 && (
+                <div className="precal-meta-item">
+                  <span className="precal-meta-label">Área</span>
+                  <span className="precal-meta-value">{formatArea(lotDetail.area_m2)}</span>
+                </div>
+              )}
+              {lotDetail.estado && ESTADO_CONFIG[lotDetail.estado] && (
+                <div className="precal-meta-item" style={{ gridColumn: lotDetail.price && lotDetail.area_m2 ? '1 / -1' : 'auto' }}>
+                  <span className="precal-meta-label">Estado</span>
+                  <span className="precal-meta-value" style={{ color: ESTADO_CONFIG[lotDetail.estado].accent }}>
+                    {ESTADO_CONFIG[lotDetail.estado].label}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
+        )}
+        <form onSubmit={handleSubmit} autoComplete="off">
+          <label htmlFor="precal-nombre">Nombre</label>
+          <input
+            type="text"
+            id="precal-nombre"
+            name="nombre"
+            placeholder="Ingrese su nombre"
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            autoComplete="off"
+            required
+            autoFocus
+          />
+          <label htmlFor="precal-numero">Número</label>
+          <input
+            type="text"
+            id="precal-numero"
+            name="numero"
+            placeholder="Ingrese su número"
+            value={numero}
+            onChange={(e) => setNumero(e.target.value)}
+            autoComplete="off"
+            required
+          />
+          <label htmlFor="precal-presupuesto">Presupuesto</label>
+          <input
+            type="number"
+            id="precal-presupuesto"
+            name="presupuesto"
+            placeholder="Ej. 50000000"
+            value={presupuesto}
+            onChange={(e) => setPresupuesto(e.target.value)}
+            autoComplete="off"
+            min="0"
+          />
+          <label htmlFor="precal-metodo-pago">Método de pago</label>
+          <select
+            id="precal-metodo-pago"
+            name="metodoPago"
+            value={metodoPago}
+            onChange={(e) => setMetodoPago(e.target.value)}
+            disabled={submitStatus !== 'idle'}
+          >
+            <option value="contado">Contado</option>
+            <option value="credito">Crédito</option>
+          </select>
+          <button type="submit" className="btn-enviar" disabled={submitStatus !== 'idle'}>
+            {submitStatus === 'loading' ? 'Enviando...' : 'Enviar solicitud'}
+          </button>
+        </form>
+      </div>
+
+      {submitStatus !== 'idle' && (
+        <div className="precal-overlay">
+          {submitStatus === 'loading' && (
+            <div className="precal-feedback precal-loading">
+              <svg className="spinner" xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+              </svg>
+              <span>Enviando...</span>
+            </div>
+          )}
+          {submitStatus === 'success' && (
+            <div className="precal-feedback precal-success">
+              <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+              <span>Solicitud enviada</span>
+              <span className="precal-success-detail">Nos contactaremos a través de los datos proporcionados.</span>
+              <button type="button" className="btn-cerrar" onClick={() => { closingRef.current = true; onClose(); }}>Cerrar</button>
+            </div>
+          )}
+          {submitStatus === 'error' && (
+            <div className="precal-feedback precal-error">
+              <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="15" y1="9" x2="9" y2="15"/>
+                <line x1="9" y1="9" x2="15" y2="15"/>
+              </svg>
+              <span>Error enviando solicitud</span>
+              <button type="button" className="btn-retry" onClick={() => setSubmitStatus('idle')}>Reintentar</button>
+            </div>
+          )}
         </div>
       )}
-      <form onSubmit={handleSubmit} autoComplete="off">
-        <label htmlFor="precal-nombre">Nombre</label>
-        <input
-          type="text"
-          id="precal-nombre"
-          name="nombre"
-          placeholder="Ingrese su nombre"
-          value={nombre}
-          onChange={(e) => setNombre(e.target.value)}
-          autoComplete="off"
-          required
-          autoFocus
-        />
-        <label htmlFor="precal-numero">Número</label>
-        <input
-          type="text"
-          id="precal-numero"
-          name="numero"
-          placeholder="Ingrese su número"
-          value={numero}
-          onChange={(e) => setNumero(e.target.value)}
-          autoComplete="off"
-          required
-        />
-        <label htmlFor="precal-presupuesto">Presupuesto</label>
-        <input
-          type="number"
-          id="precal-presupuesto"
-          name="presupuesto"
-          placeholder="Ej. 50000000"
-          value={presupuesto}
-          onChange={(e) => setPresupuesto(e.target.value)}
-          autoComplete="off"
-          min="0"
-        />
-        <label htmlFor="precal-metodo-pago">Método de pago</label>
-        <select
-          id="precal-metodo-pago"
-          name="metodoPago"
-          value={metodoPago}
-          onChange={(e) => setMetodoPago(e.target.value)}
-        >
-          <option value="contado">Contado</option>
-          <option value="credito">Crédito</option>
-        </select>
-        <button type="submit" className="btn-enviar">Enviar solicitud</button>
-      </form>
     </div>
   );
 }
@@ -141,6 +189,8 @@ const CLOSE_DURATION_MS = 280;
 export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClose }) {
   const [showForm, setShowForm] = useState(false);
   const [transDir, setTransDir] = useState(null);
+  const [isClosing, setIsClosing] = useState(false);
+  const closingRef = useRef(false);
 
   // Freeze displayed content while the panel is closing so the close animation
   // plays with the content still visible, not an empty shell.
@@ -152,8 +202,13 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
 
   useEffect(() => {
     if (!isOpen) {
-      // Delay the form/view reset until the close transition finishes
+      // Signal that the panel is closing — freeze showForm so the form
+      // stays mounted for the entire duration of the CSS close animation.
+      setIsClosing(true);
       const timer = setTimeout(() => {
+        // Animation complete; reset everything.
+        closingRef.current = false;
+        setIsClosing(false);
         setShowForm(false);
         setTransDir(null);
       }, CLOSE_DURATION_MS);
@@ -162,9 +217,13 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
   }, [isOpen]);
 
   useEffect(() => {
-    setShowForm(false);
-    setTransDir(null);
-  }, [markerId]);
+    // Only reset form when marker changes AND panel is open and NOT mid-close-animation.
+    // This prevents resetting showForm while the CSS close animation is playing.
+    if (!isClosing && isOpen) {
+      setShowForm(false);
+      setTransDir(null);
+    }
+  }, [markerId, isClosing, isOpen]);
 
   const goToForm = () => { setTransDir('forward'); setShowForm(true); };
   const goBack  = () => { setTransDir('back');    setShowForm(false); };
@@ -189,7 +248,7 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
       id="info-backdrop"
       className={isOpen ? 'visible' : ''}
       aria-hidden={!isOpen}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => { if (e.target === e.currentTarget) { closingRef.current = true; onClose(); } }}
     >
       <div id="info-panel" role="dialog" aria-modal="true" aria-live="polite" style={panelAccentStyle}>
 
@@ -211,14 +270,16 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
             }
           </div>
           <div id="info-panel-header-right">
-            <button type="button" id="info-panel-close" aria-label="Cerrar" onClick={onClose}>
+            <button type="button" id="info-panel-close" aria-label="Cerrar" onClick={() => { closingRef.current = true; onClose(); }}>
               ×
             </button>
           </div>
         </header>
 
         <div id="info-panel-content">
-          {!showForm ? (
+          {showForm ? (
+            <PrecalificacionForm key={display.markerId} lotDetail={lotDetail} onClose={onClose} />
+          ) : (
             <div
               id="info-panel-view"
               className={transDir === 'back' ? 'anim-from-left' : ''}
@@ -228,7 +289,7 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
                   {estadoCfg.label}
                 </div>
               )}
-              {(display.detail?.price || display.detail?.area_m2) && (
+              {(display.detail?.price || display.detail.area_m2) && (
                 <div className="lote-metrics">
                   {display.detail.price && (
                     <div className="lote-metric-card">
@@ -249,16 +310,14 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
               {display.content && (
                 <div id="info-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(display.content) }} />
               )}
-              {display.markerId && (
+              {display.markerId && display.detail?.estado !== 'sold' && (
                 <div id="info-actions">
                   <button type="button" onClick={goToForm}>
-                    Pre calificación
+                    Quiero este lote
                   </button>
                 </div>
               )}
             </div>
-          ) : (
-            <PrecalificacionForm key={display.markerId} lotDetail={lotDetail} onClose={onClose} />
           )}
         </div>
 
