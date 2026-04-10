@@ -1,0 +1,111 @@
+/**
+ * Design Tokens for Notry Plataforma Web
+ * These tokens should be used instead of hardcoded values throughout the application.
+ */
+
+:root {
+  /* === Colors === */
+  --color-accent: #c5a059;
+  --color-accent-hover: #d9b38c;
+  --color-accent-dark: #8e7343;
+  --color-bg: #faf8f4;
+  --color-surface: #ffffff;
+  --color-text: #1a1a2a;
+  --color-text-muted: #4b5563;
+  --color-border: #e8e2d9;
+
+  /* Status colors */
+  --color-success: #10b981;
+  --color-success-bg: rgba(16, 185, 129, 0.12);
+  --color-warning: #f59e0b;
+  --color-warning-bg: rgba(245, 158, 11, 0.12);
+  --color-danger: #ef4444;
+  --color-danger-bg: rgba(239, 68, 68, 0.12);
+
+  /* Category colors */
+  --color-cat-contacto: #4338ca;
+  --color-cat-contacto-bg: rgba(99, 102, 241, 0.12);
+  --color-cat-seguimiento: #1d4ed8;
+  --color-cat-seguimiento-bg: rgba(59, 130, 246, 0.12);
+  --color-cat-negociacion: #b45309;
+  --color-cat-negociacion-bg: rgba(245, 158, 11, 0.12);
+  --color-cat-vendido: #047857;
+  --color-cat-vendido-bg: rgba(16, 185, 129, 0.12);
+
+  /* === Typography === */
+  --font-primary: 'Space Grotesk', sans-serif;
+  --font-body: 'Outfit', system-ui, sans-serif;
+
+  /* Font sizes */
+  --text-xs: 0.7rem;
+  --text-sm: 0.75rem;
+  --text-base: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.1rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 2rem;
+  --text-3xl: 2.5rem;
+
+  /* Font weights */
+  --weight-regular: 400;
+  --weight-medium: 600;
+  --weight-bold: 700;
+  --weight-black: 800;
+
+  /* === Spacing === */
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 20px;
+  --space-lg: 32px;
+  --space-xl: 48px;
+  --space-2xl: 72px;
+
+  /* === Borders === */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  /* === Shadows === */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.08);
+  --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.1);
+  --shadow-offset: 12px 12px 0px rgba(0, 0, 0, 0.1);
+
+  /* === Transitions === */
+  --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-slow: 300ms;
+
+  /* === Component-specific === */
+  --btn-height: 56px;
+  --btn-height-sm: 32px;
+  --nav-height: 64px;
+  --sidebar-width: 70px;
+  --side-panel-width: 360px;
+
+  /* === Budget palette (for BudgetPieChart) === */
+  --color-budget-1: #4338ca;
+  --color-budget-2: #1d4ed8;
+  --color-budget-3: #047857;
+  --color-budget-4: #b45309;
+  --color-budget-5: #6d28d9;
+  --color-budget-6: #be123c;
+  --color-budget-7: #0f766e;
+  --color-budget-8: #c2410c;
+
+  /* === Semantic aliases (duplicated for compatibility) === */
+  --card-accent: #c5a059;
+  --col-accent: #c5a059;
+  --bg-dark: #faf8f4;
+  --panel-bg: #ffffff;
+  --text-main: #1a1a2a;
+  --border-color: #e8e2d9;
+  --accent-color: #c5a059;
+  --accent-hover: #d9b38c;
+  --accent-dark: #8e7343;
+  --shadow-offset: 12px 12px 0px rgba(0, 0, 0, 0.1);
+}

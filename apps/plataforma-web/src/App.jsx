@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Copy, Search, SlidersHorizontal } from 'lucide-react';
+import { Copy, Search, SlidersHorizontal, Pencil, Trash2, Check, X } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import StatCard from './components/StatCard';
 import LoginBackground from './components/LoginBackground';
 import KanbanBoard from './components/KanbanBoard';
 import AnalisisView from './components/AnalisisView';
+import CategoryPieChart from './components/CategoryPieChart';
+import BudgetPieChart from './components/BudgetPieChart';
 import './App.css';
 
 const API_BASE = 'https://notry-back.onrender.com/api/v1';
@@ -49,6 +51,8 @@ function App() {
   const [inventoryTab, setInventoryTab] = useState('lotes'); // 'lotes' | 'loteos'
   const [inventoryLoteos, setInventoryLoteos] = useState([]);
   const [inventoryLoteosLoading, setInventoryLoteosLoading] = useState(false);
+  const [inventoryEditingId, setInventoryEditingId] = useState(null);
+  const [inventoryEditForm, setInventoryEditForm] = useState({ status: '', price: '', area_m2: '' });
   const [prospectosList, setProspectosList] = useState([]);
   const [prospectosLoading, setProspectosLoading] = useState(false);
   const [prospectosCategoryFilter, setProspectosCategoryFilter] = useState('');
@@ -57,12 +61,14 @@ function App() {
   const [createLoteoForm, setCreateLoteoForm] = useState({ name: '', slug: '', image_url: '' });
   const [createLoteoLoading, setCreateLoteoLoading] = useState(false);
   const [createLoteoError, setCreateLoteoError] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, lot: null, loading: false });
   const [toasts, setToasts] = useState([]);
   const [bgLoadingLots, setBgLoadingLots] = useState(false);
   const [bgLoadingLoteos, setBgLoadingLoteos] = useState(false);
   const [bgLoadingProspectos, setBgLoadingProspectos] = useState(false);
   const [clicksCache, setClicksCache] = useState({}); // { loteoId: clicksData }
   const [visorDataCache, setVisorDataCache] = useState({}); // { loteoId: visorData }
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const addToast = (message) => {
     const id = Date.now();
@@ -389,6 +395,77 @@ function App() {
     }
   };
 
+  const startInventoryEdit = (lot) => {
+    setInventoryEditingId(lot.id);
+    setInventoryEditForm({
+      status: lot.status || 'available',
+      price: lot.price != null ? String(lot.price) : '',
+      area_m2: lot.area_m2 != null ? String(lot.area_m2) : '',
+    });
+  };
+
+  const cancelInventoryEdit = () => {
+    setInventoryEditingId(null);
+    setInventoryEditForm({ status: '', price: '', area_m2: '' });
+  };
+
+  const saveInventoryEdit = async (lot) => {
+    const body = {};
+    body.status = inventoryEditForm.status;
+    if (inventoryEditForm.price !== '') body.price = parseFloat(inventoryEditForm.price);
+    else body.price = null;
+    if (inventoryEditForm.area_m2 !== '') body.area_m2 = parseFloat(inventoryEditForm.area_m2);
+    else body.area_m2 = null;
+
+    // Optimistic update
+    setInventoryLots(prev => prev.map(l =>
+      l.id === lot.id ? { ...l, status: body.status, price: body.price, area_m2: body.area_m2 } : l
+    ));
+    setInventoryEditingId(null);
+    setInventoryEditForm({ status: '', price: '', area_m2: '' });
+
+    try {
+      const res = await apiFetch(`${API_BASE}/lots/${lot.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail || 'Error al actualizar lote');
+      }
+      // success — background refresh will pick up any server-side changes
+      fetchInventoryBg(inventorySearch, inventoryStatusFilter);
+    } catch (err) {
+      addToast(`Error: ${err.message}`);
+      // revert optimistic update
+      fetchInventoryBg(inventorySearch, inventoryStatusFilter);
+    }
+  };
+
+  const openDeleteConfirm = (lot) => {
+    setConfirmDialog({ open: true, lot, loading: false });
+  };
+
+  const handleDeleteConfirm = async () => {
+    const lot = confirmDialog.lot;
+    if (!lot) return;
+    setConfirmDialog(prev => ({ ...prev, loading: true }));
+    try {
+      const res = await apiFetch(`${API_BASE}/lots/${lot.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail || 'Error al eliminar lote');
+      }
+      addToast(`Lote "${lot.name}" eliminado.`);
+      fetchInventoryBg(inventorySearch, inventoryStatusFilter);
+      setConfirmDialog({ open: false, lot: null, loading: false });
+    } catch (err) {
+      addToast(`Error: ${err.message}`);
+      setConfirmDialog(prev => ({ ...prev, loading: false }));
+    }
+  };
+
   const fetchClicksForAllLoteos = async (loteos) => {
     if (!loteos || loteos.length === 0) return;
     try {
@@ -459,6 +536,8 @@ function App() {
     setBgLoadingProspectos(false);
     setClicksCache({});
     setVisorDataCache({});
+    setInventoryEditingId(null);
+    setInventoryEditForm({ status: '', price: '', area_m2: '' });
   };
 
   const apiFetch = async (url, opts = {}) => {
@@ -492,12 +571,12 @@ function App() {
           </div>
           <form onSubmit={handleLogin}>
             <div className="form-group">
-              <label>Correo Electrónico</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <label htmlFor="login-email">Correo Electrónico</label>
+              <input id="login-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
             <div className="form-group">
-              <label>Contraseña</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <label htmlFor="login-password">Contraseña</label>
+              <input id="login-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             </div>
             <button type="submit" className="primary-button" disabled={loading}>
               {loading ? <span className="loader"></span> : 'Iniciar Sesión'}
@@ -522,12 +601,20 @@ function App() {
       )}
 
       {view === 'lote_owner' && (
-        <Sidebar 
-          user={user} 
-          activeItem={ownerSubView} 
-          onItemClick={setOwnerSubView} 
-          onLogout={logout} 
-        />
+        <>
+          <div
+            className={`sidebar-overlay ${sidebarOpen ? 'visible' : ''}`}
+            onClick={() => setSidebarOpen(false)}
+          />
+          <Sidebar
+            user={user}
+            activeItem={ownerSubView}
+            onItemClick={(id) => { setOwnerSubView(id); setSidebarOpen(false); }}
+            onLogout={logout}
+            isOpen={sidebarOpen}
+            onToggle={() => setSidebarOpen(v => !v)}
+          />
+        </>
       )}
 
       <main className="dashboard-content">
@@ -670,7 +757,7 @@ function App() {
                         <select
                           className="inventory-tab-select"
                           value={inventoryTab}
-                          onChange={e => setInventoryTab(e.target.value)}
+                          onChange={e => { setInventoryTab(e.target.value); cancelInventoryEdit(); }}
                         >
                           <option value="lotes">Lotes</option>
                           <option value="loteos">Loteos</option>
@@ -737,23 +824,60 @@ function App() {
                               <th>Estado</th>
                               <th>Loteo</th>
                               <th>Prospectos</th>
+                              <th>Acciones</th>
                             </tr>
                           </thead>
                           <tbody>
                             {inventoryLots.length === 0 ? (
                               <tr>
-                                <td colSpan={6} className="td-empty-row">No se encontraron lotes.</td>
+                                <td colSpan={7} className="td-empty-row">No se encontraron lotes.</td>
                               </tr>
                             ) : (
                               inventoryLots.map(lot => (
                                 <tr key={lot.id}>
                                   <td className="td-name">{lot.name}</td>
-                                  <td>{lot.area_m2 ? `${parseFloat(lot.area_m2).toLocaleString()} m²` : '—'}</td>
-                                  <td className="td-price">{lot.price ? `$${parseFloat(lot.price).toLocaleString()}` : '—'}</td>
                                   <td>
-                                    <span className={`badge status-${STATUS_DISPLAY[lot.status] ?? lot.status}`}>
-                                      {STATUS_DISPLAY[lot.status] ?? lot.status}
-                                    </span>
+                                    {inventoryEditingId === lot.id ? (
+                                      <input
+                                        className="edit-input"
+                                        type="number"
+                                        value={inventoryEditForm.area_m2}
+                                        onChange={e => setInventoryEditForm(f => ({ ...f, area_m2: e.target.value }))}
+                                        placeholder="m²"
+                                      />
+                                    ) : (
+                                      lot.area_m2 ? `${parseFloat(lot.area_m2).toLocaleString()} m²` : '—'
+                                    )}
+                                  </td>
+                                  <td>
+                                    {inventoryEditingId === lot.id ? (
+                                      <input
+                                        className="edit-input"
+                                        type="number"
+                                        value={inventoryEditForm.price}
+                                        onChange={e => setInventoryEditForm(f => ({ ...f, price: e.target.value }))}
+                                        placeholder="Precio"
+                                      />
+                                    ) : (
+                                      lot.price ? `$${parseFloat(lot.price).toLocaleString()}` : '—'
+                                    )}
+                                  </td>
+                                  <td>
+                                    {inventoryEditingId === lot.id ? (
+                                      <select
+                                        className="edit-select"
+                                        value={inventoryEditForm.status}
+                                        onChange={e => setInventoryEditForm(f => ({ ...f, status: e.target.value }))}
+                                      >
+                                        <option value="available">Disponible</option>
+                                        <option value="reserved">Reservado</option>
+                                        <option value="sold">Vendido</option>
+                                      </select>
+                                    ) : (
+                                      <span className={`badge status-${STATUS_DISPLAY[lot.status] ?? lot.status}`}>
+                                        {STATUS_DISPLAY[lot.status] ?? lot.status}
+                                      </span>
+                                    )}
                                   </td>
                                   <td className="td-loteo">{lot.loteo_name}</td>
                                   <td>
@@ -767,6 +891,43 @@ function App() {
                                       </div>
                                     )}
                                   </td>
+                                  <td className="td-actions">
+                                    {inventoryEditingId === lot.id ? (
+                                      <>
+                                        <button
+                                          className="action-btn save"
+                                          onClick={() => saveInventoryEdit(lot)}
+                                          title="Guardar"
+                                        >
+                                          <Check size={15} />
+                                        </button>
+                                        <button
+                                          className="action-btn cancel"
+                                          onClick={cancelInventoryEdit}
+                                          title="Cancelar"
+                                        >
+                                          <X size={15} />
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <button
+                                          className="action-btn edit"
+                                          onClick={() => startInventoryEdit(lot)}
+                                          title="Editar"
+                                        >
+                                          <Pencil size={15} />
+                                        </button>
+                                        <button
+                                          className="action-btn delete"
+                                          onClick={() => openDeleteConfirm(lot)}
+                                          title="Eliminar"
+                                        >
+                                          <Trash2 size={15} />
+                                        </button>
+                                      </>
+                                    )}
+                                  </td>
                                 </tr>
                               ))
                             )}
@@ -776,7 +937,7 @@ function App() {
                     ) : (
                       <div key="loteos" className="inventory-table-wrapper fade-in">
                         {inventoryLoteosLoading && inventoryLoteos.length === 0 ? (
-                          <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+                          <div className="table-cell-center">
                             <span className="loader"></span>
                           </div>
                         ) : (
@@ -798,7 +959,7 @@ function App() {
                                   <tr key={loteo.id}>
                                     <td className="td-name">{loteo.name}</td>
                                     <td className="td-muted">{loteo.id.substring(0, 8)}…</td>
-                                    <td style={{ textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                    <td className="table-cell-right">
                                       <button
                                         className="primary-button btn-fit"
                                         onClick={() => window.open(`${VISOR_URL}/?data=${encodeURIComponent(`${API_BASE}/loteos/${loteo.id}/visor_data`)}`, '_blank')}
@@ -818,7 +979,7 @@ function App() {
                             </tbody>
                           </table>
                         )}
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
+                        <div className="table-footer">
                           <button
                             className="primary-button btn-fit gold"
                             onClick={() => { setCreateLoteoOpen(true); setCreateLoteoError(null); }}
@@ -833,6 +994,11 @@ function App() {
               )}
 
               {ownerSubView === 'clientes' && (
+                <>
+                <div className="charts-row">
+                  <CategoryPieChart prospects={prospectosList} />
+                  <BudgetPieChart prospects={prospectosList} />
+                </div>
                 <div className="inventory-section">
                   <div className="inventory-controls">
                     <div className="inventory-filters">
@@ -847,8 +1013,9 @@ function App() {
                           <option key={val} value={val}>{label}</option>
                         ))}
                       </select>
-                      <label className="filter-toggle">
+                      <label className="filter-toggle" htmlFor="filter-no-advisor">
                         <input
+                          id="filter-no-advisor"
                           type="checkbox"
                           checked={prospectosWithoutAdvisor}
                           onChange={e => setProspectosWithoutAdvisor(e.target.checked)}
@@ -861,6 +1028,7 @@ function App() {
 
                   <div className="inventory-table-wrapper">
                     <table className="inventory-table">
+                      <caption className="sr-only">Lista de prospectos</caption>
                       <thead>
                         <tr>
                           <th>Nombre</th>
@@ -896,6 +1064,7 @@ function App() {
                     </table>
                   </div>
                 </div>
+                </>
               )}
 
               {ownerSubView === 'analisis' && (
@@ -944,7 +1113,7 @@ function App() {
                 />
               </div>
               {createLoteoError && <div className="status-message error">{createLoteoError}</div>}
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '8px' }}>
+              <div className="modal-footer">
                 <button type="button" className="outline-button" onClick={() => setCreateLoteoOpen(false)}>
                   Cancelar
                 </button>
@@ -953,6 +1122,42 @@ function App() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {confirmDialog.open && (
+        <div className="modal-overlay" onClick={() => !confirmDialog.loading && setConfirmDialog({ open: false, lot: null, loading: false })}>
+          <div className="modal-card delete-confirm" onClick={e => e.stopPropagation()}>
+            <div className="confirm-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </div>
+            <h3 className="confirm-title">¿Eliminar lote?</h3>
+            <p className="confirm-message">
+              Estás a punto de eliminar <strong>"{confirmDialog.lot?.name}"</strong>. Esta acción no se puede deshacer.
+            </p>
+            <div className="confirm-actions">
+              <button
+                type="button"
+                className="primary-button btn-fit outline"
+                onClick={() => setConfirmDialog({ open: false, lot: null, loading: false })}
+                disabled={confirmDialog.loading}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="primary-button btn-fit danger"
+                onClick={handleDeleteConfirm}
+                disabled={confirmDialog.loading}
+              >
+                {confirmDialog.loading ? <span className="loader small"></span> : 'Eliminar'}
+              </button>
+            </div>
           </div>
         </div>
       )}

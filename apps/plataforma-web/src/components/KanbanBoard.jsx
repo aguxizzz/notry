@@ -131,14 +131,7 @@ export default function KanbanBoard({ token, onSessionExpired }) {
   return (
     <div className="kanban-board">
       {kanbanError && (
-        <div style={{
-          backgroundColor: '#fee2e2',
-          color: '#991b1b',
-          padding: '12px 16px',
-          borderRadius: '6px',
-          marginBottom: '16px',
-          fontSize: '0.875rem',
-        }}>
+        <div className="kanban-error-banner">
           {kanbanError}
         </div>
       )}
