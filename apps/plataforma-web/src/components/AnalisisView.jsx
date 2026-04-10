@@ -225,7 +225,7 @@ export default function AnalisisView({ token, onSessionExpired, prefetchedLoteos
             <span className="loader"></span>
           </div>
         ) : clicksError ? (
-          <div className="analisis-error" style={{ padding: '40px' }}>
+          <div className="analisis-error">
             <p>{clicksError}</p>
             <button className="outline-button" onClick={() => fetchClicks(selectedLoteo.id)}>
               Reintentar

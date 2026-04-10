@@ -1,13 +1,40 @@
+@import './ui/tokens/index.css';
+
 html, body {
   margin: 0;
   padding: 0;
   height: 100vh;
   width: 100vw;
-  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
-  background-color: #faf8f4;
-  color: #1a1a2a;
+  font-family: var(--font-body);
+  background-color: var(--color-bg);
+  color: var(--color-text);
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: oklch(94% 0.005 65);
+}
+
+::-webkit-scrollbar-thumb {
+  background: oklch(75% 0.03 65);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(65% 0.04 65);
+}
+
+/* Text selection */
+::selection {
+  background: rgba(197, 160, 89, 0.25);
+  color: var(--color-text);
 }

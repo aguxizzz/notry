@@ -1,15 +1,17 @@
 import React from 'react';
-import { 
-  Home, 
-  Package, 
-  Users, 
-  BarChart2, 
+import {
+  Home,
+  Package,
+  Users,
+  BarChart2,
   Settings,
-  LogOut
+  LogOut,
+  Menu,
+  X
 } from 'lucide-react';
 import './Sidebar.css';
 
-const Sidebar = ({ user, activeItem, onItemClick, onLogout }) => {
+const Sidebar = ({ user, activeItem, onItemClick, onLogout, isOpen, onToggle }) => {
   const firstLetter = user?.full_name?.charAt(0).toUpperCase() || '?';
 
   const menuItems = [
@@ -21,8 +23,11 @@ const Sidebar = ({ user, activeItem, onItemClick, onLogout }) => {
   ];
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isOpen ? 'sidebar--open' : ''}`}>
       <div className="sidebar-top">
+        <button className="sidebar-hamburger" onClick={onToggle} aria-label={isOpen ? 'Cerrar menú' : 'Abrir menú'}>
+          {isOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
         <div className="user-avatar">
           {firstLetter}
         </div>
