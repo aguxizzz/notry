@@ -70,6 +70,24 @@ function App() {
   const [visorDataCache, setVisorDataCache] = useState({}); // { loteoId: visorData }
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const filtersRef = React.useRef({
+    inventorySearch,
+    inventoryStatusFilter,
+    prospectosCategoryFilter,
+    prospectosWithoutAdvisor,
+    inventoryLoteos
+  });
+
+  React.useEffect(() => {
+    filtersRef.current = {
+      inventorySearch,
+      inventoryStatusFilter,
+      prospectosCategoryFilter,
+      prospectosWithoutAdvisor,
+      inventoryLoteos
+    };
+  });
+
   const addToast = (message) => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message }]);
@@ -85,30 +103,32 @@ function App() {
     }
   }, [view]);
 
+  // Initial fetch for clicks and visor data
+  React.useEffect(() => {
+    if (view === 'lote_owner' && inventoryLoteos.length > 0) {
+      if (Object.keys(clicksCache).length === 0) fetchClicksForAllLoteos(inventoryLoteos);
+      if (Object.keys(visorDataCache).length === 0) fetchVisorDataForAllLoteos(inventoryLoteos);
+    }
+  }, [inventoryLoteos, view]);
+
   // Background polling for lote_owner
   React.useEffect(() => {
     if (!token || view !== 'lote_owner') return;
 
     // Initial prefetch if not already loaded
     if (inventoryLots.length === 0) {
-      fetchInventoryBg('', '');
+      fetchInventoryBg(filtersRef.current.inventorySearch, filtersRef.current.inventoryStatusFilter);
     }
     if (inventoryLoteos.length === 0) {
       fetchInventoryLoteosBg();
     }
     if (prospectosList.length === 0) {
-      fetchProspectosBg('', false);
-    }
-    if (inventoryLoteos.length > 0 && Object.keys(clicksCache).length === 0) {
-      fetchClicksForAllLoteos(inventoryLoteos);
-    }
-    if (inventoryLoteos.length > 0 && Object.keys(visorDataCache).length === 0) {
-      fetchVisorDataForAllLoteos(inventoryLoteos);
+      fetchProspectosBg(filtersRef.current.prospectosCategoryFilter, filtersRef.current.prospectosWithoutAdvisor);
     }
 
     // Set up polling intervals
     const lotsInterval = setInterval(() => {
-      fetchInventoryBg(inventorySearch, inventoryStatusFilter);
+      fetchInventoryBg(filtersRef.current.inventorySearch, filtersRef.current.inventoryStatusFilter);
     }, 15000); // 15s
 
     const loteosInterval = setInterval(() => {
@@ -116,18 +136,20 @@ function App() {
     }, 30000); // 30s
 
     const prospectosInterval = setInterval(() => {
-      fetchProspectosBg(prospectosCategoryFilter, prospectosWithoutAdvisor);
+      fetchProspectosBg(filtersRef.current.prospectosCategoryFilter, filtersRef.current.prospectosWithoutAdvisor);
     }, 30000); // 30s
 
     const clicksInterval = setInterval(() => {
-      if (inventoryLoteos.length > 0) {
-        fetchClicksForAllLoteos(inventoryLoteos);
+      const currentLoteos = filtersRef.current.inventoryLoteos;
+      if (currentLoteos.length > 0) {
+        fetchClicksForAllLoteos(currentLoteos);
       }
     }, 30000); // 30s
 
     const visorDataInterval = setInterval(() => {
-      if (inventoryLoteos.length > 0) {
-        fetchVisorDataForAllLoteos(inventoryLoteos);
+      const currentLoteos = filtersRef.current.inventoryLoteos;
+      if (currentLoteos.length > 0) {
+        fetchVisorDataForAllLoteos(currentLoteos);
       }
     }, 300000); // 5 minutes
 
@@ -138,7 +160,7 @@ function App() {
       clearInterval(clicksInterval);
       clearInterval(visorDataInterval);
     };
-  }, [token, view, inventoryLoteos]);
+  }, [token, view]);
 
   // Debounced fetch for inventory (triggers on view change, search, or filter)
   React.useEffect(() => {
