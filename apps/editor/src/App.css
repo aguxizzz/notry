@@ -1,10 +1,33 @@
 :root {
+  /* === Colors === */
   --accent:       #c5a059;
   --accent-hover: #b38a3f;
   --panel-bg:     #2a2a30;
   --panel-deep:   #1e1e24;
   --border:       #383840;
   --text-muted:   #888;
+  --color-danger: #ef4444;
+
+  /* === Typography === */
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* Type scale */
+  --text-xs:   0.7rem;
+  --text-sm:   0.75rem;
+  --text-base: 0.8rem;
+  --text-md:   0.875rem;
+  --text-lg:   0.9rem;
+  --text-xl:   1rem;
+  --text-2xl:  1.1rem;
+  --text-3xl:  1.2rem;
+  --text-4xl:  2rem;
+
+  /* Font weights */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-black: 800;
 }
 
 .editor-container {
@@ -16,7 +39,7 @@
 .viewer-pane {
   flex: 1;
   position: relative;
-  background-color: #000;
+  background-color: var(--panel-deep);
 }
 
 .toolbar {
@@ -37,13 +60,17 @@
 .tool-btn {
   background: transparent;
   border: 1px solid transparent;
-  color: #aaa;
+  color: var(--text-muted);
   padding: 0.5rem;
   cursor: pointer;
   border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.tool-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .tool-btn:hover {
   background: rgba(255,255,255,0.1);
@@ -65,8 +92,8 @@
 .inspector-header {
   padding: 1rem;
   border-bottom: 1px solid var(--border);
-  font-weight: 600;
-  font-size: 1.1rem;
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-2xl);
 }
 
 .inspector-body {
@@ -97,8 +124,8 @@
 }
 
 .inspector-section-title {
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--text-muted);
@@ -106,17 +133,17 @@
 }
 
 .inspector-label {
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   color: var(--text-muted);
 }
 
 .inspector-input {
   background: var(--panel-deep);
-  border: 1px solid #444;
+  border: 1px solid var(--border);
   color: #eee;
   padding: 6px;
   border-radius: 4px;
-  font-size: 0.9rem;
+  font-size: var(--text-lg);
   width: 100%;
   box-sizing: border-box;
 }
@@ -124,6 +151,10 @@
 .inspector-input:focus {
   outline: none;
   border-color: var(--accent);
+}
+.inspector-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .btn-primary {
@@ -134,15 +165,81 @@
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  font-weight: 600;
-  font-size: 0.9rem;
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-lg);
 }
 .btn-primary:hover {
   background: var(--accent-hover);
 }
 .btn-primary:disabled {
-  background: #555;
+  background: var(--border);
   cursor: not-allowed;
+}
+
+/* Focus styles for all interactive elements */
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Global button and input focus-visible (overrides inline outline:none) */
+button:focus:not(:focus-visible),
+input:focus:not(:focus-visible) {
+  outline: none;
+}
+
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.btn-primary:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.inspector-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Ensure custom buttons with inline styles also get focus indicators */
+.btn-inline-focus:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+input[type="color"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+input[type="range"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.loteo-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Ensure div-based cards with click handlers are keyboard accessible */
+div[onClick]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* Loteo List Styles */
@@ -151,7 +248,7 @@
   max-width: 1200px;
   margin: 0 auto;
   min-height: 100vh;
-  background: #1a1a20;
+  background: var(--panel-deep);
   color: #fff;
 }
 
@@ -160,15 +257,15 @@
 }
 
 .loteo-title {
-  font-size: 2rem;
-  font-weight: 800;
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-black);
   margin: 0;
   letter-spacing: -0.02em;
 }
 
 .loteo-subtitle {
-  color: #aaa;
-  font-size: 1rem;
+  color: var(--text-muted);
+  font-size: var(--text-xl);
   margin-top: 8px;
 }
 
@@ -179,16 +276,17 @@
 }
 
 .loteo-card {
-  background: #2a2a30;
+  background: var(--panel-bg);
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid #333;
+  border: 1px solid var(--border);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.loteo-card:hover {
-  background: #32323a;
+.loteo-card:hover,
+.loteo-card:focus-visible {
+  background: var(--panel-bg);
   border-color: var(--accent);
   transform: translateX(4px);
 }
@@ -199,14 +297,14 @@
 
 .loteo-card-title {
   margin: 0 0 6px 0;
-  font-size: 1.2rem;
-  font-weight: 600;
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-semibold);
 }
 
 .loteo-card-info {
   margin: 0;
-  color: #aaa;
-  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-size: var(--text-md);
 }
 
 .loteo-card-footer {
@@ -220,8 +318,8 @@
   align-items: center;
   gap: 4px;
   color: var(--accent);
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
 }
 
 .loteo-center {
@@ -230,7 +328,7 @@
   align-items: center;
   justify-content: center;
   height: 100vh;
-  background: #1a1a20;
+  background: var(--panel-deep);
   color: #fff;
   gap: 16px;
 }

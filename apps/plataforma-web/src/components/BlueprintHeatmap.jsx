@@ -1,13 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-
-function getHeatColor(clicks, maxClicks) {
-  if (maxClicks === 0) return 'rgb(245, 240, 232)';
-  const ratio = clicks / maxClicks;
-  const r = Math.round(245 + (197 - 245) * ratio);
-  const g = Math.round(240 + (160 - 240) * ratio);
-  const b = Math.round(232 + (89 - 232) * ratio);
-  return `rgb(${r}, ${g}, ${b})`;
-}
+import { getHeatColor } from '../utils/heatColor';
 
 export default function BlueprintHeatmap({
   blueprintUrl,

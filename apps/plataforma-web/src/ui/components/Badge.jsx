@@ -1,19 +1,19 @@
 import React from 'react';
 
 const STATUS_STYLES = {
-  available: { bg: 'rgba(16, 185, 129, 0.12)', color: '#047857', label: 'disponible' },
-  reserved:  { bg: 'rgba(245, 158, 11, 0.12)', color: '#b45309', label: 'reservado' },
-  sold:      { bg: 'rgba(239, 68, 68, 0.12)', color: '#dc2626', label: 'vendido' },
+  available: { bgVar: '--badge-available-bg', colorVar: '--badge-available', label: 'disponible' },
+  reserved:  { bgVar: '--badge-reserved-bg', colorVar: '--badge-reserved', label: 'reservado' },
+  sold:      { bgVar: '--badge-sold-bg', colorVar: '--badge-sold', label: 'vendido' },
 };
 
 const CATEGORY_STYLES = {
-  primer_contacto: { bg: 'rgba(99, 102, 241, 0.12)', color: '#4338ca', label: 'Primer Contacto' },
-  seguimiento:     { bg: 'rgba(59, 130, 246, 0.12)', color: '#1d4ed8', label: 'Seguimiento' },
-  negociacion:     { bg: 'rgba(245, 158, 11, 0.12)', color: '#b45309', label: 'Negociación' },
-  vendido:         { bg: 'rgba(16, 185, 129, 0.12)', color: '#047857', label: 'Vendido' },
+  primer_contacto: { bgVar: '--color-cat-contacto-bg', colorVar: '--color-cat-contacto', label: 'Primer Contacto' },
+  seguimiento:     { bgVar: '--color-cat-seguimiento-bg', colorVar: '--color-cat-seguimiento', label: 'Seguimiento' },
+  negociacion:     { bgVar: '--color-cat-negociacion-bg', colorVar: '--color-cat-negociacion', label: 'Negociación' },
+  vendido:         { bgVar: '--color-cat-vendido-bg', colorVar: '--color-cat-vendido', label: 'Vendido' },
 };
 
-export default function Badge({ variant = 'status', value, children }) {
+export default function Badge({ variant = 'status', value, children, className = '' }) {
   const style = variant === 'category' && value
     ? CATEGORY_STYLES[value] || CATEGORY_STYLES[value.replace(/_/g, '')]
     : STATUS_STYLES[value] || STATUS_STYLES[value?.replace(/_/g, '')];
@@ -22,8 +22,8 @@ export default function Badge({ variant = 'status', value, children }) {
 
   return (
     <span
-      className="badge"
-      style={style ? { background: style.bg, color: style.color } : undefined}
+      className={`badge ${className}`}
+      style={style ? { background: `var(${style.bgVar})`, color: `var(${style.colorVar})` } : undefined}
     >
       {children || style?.label || value}
     </span>

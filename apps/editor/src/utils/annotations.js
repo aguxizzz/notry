@@ -69,7 +69,7 @@ export function annotationsToMarkers(annotations) {
 
         const textColor = ann.textColor || '#000000';
         const fontSize = ann.fontSize ?? 14;
-        const generatedHtml = `<div style='background:${rgbaBg};padding:5px;border-radius:4px;color:${textColor};white-space:nowrap;text-align:center;font-family:"Oswald",sans-serif;font-weight:600;font-size:${fontSize}px;'>${displayContent}</div>`;
+        const generatedHtml = `<div style='background:${rgbaBg};padding:5px;border-radius:4px;color:${textColor};white-space:nowrap;text-align:center;font-family:var(--font-body),system-ui,sans-serif;font-weight:600;font-size:${fontSize}px;'>${displayContent}</div>`;
         return {
           ...base,
           html: generatedHtml,

@@ -707,11 +707,11 @@ function App() {
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1001,
           background: '#3a3a00', color: '#ffeb3b', padding: '10px 16px',
-          display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.875rem'
+          display: 'flex', alignItems: 'center', gap: '12px', fontSize: 'var(--text-md)'
         }}>
           <span>Hay cambios sin guardar de la sesión anterior ({new Date(pendingDraft.savedAt).toLocaleTimeString()}).</span>
           <button onClick={() => { setAnnotations(pendingDraft.annotations); setPendingDraft(null); }}
-            style={{ background: '#ffeb3b', color: '#1a1a00', border: 'none', borderRadius: 4, padding: '4px 10px', cursor: 'pointer', fontWeight: 600 }}>
+            style={{ background: '#ffeb3b', color: '#1a1a00', border: 'none', borderRadius: 4, padding: '4px 10px', cursor: 'pointer', fontWeight: 'var(--weight-semibold)' }}>
             Restaurar
           </button>
           <button onClick={() => { clearDraft(); setPendingDraft(null); }}
@@ -725,11 +725,11 @@ function App() {
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1001,
           background: '#3a0000', color: '#ff8a80', padding: '10px 16px',
-          display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.875rem'
+          display: 'flex', alignItems: 'center', gap: '12px', fontSize: 'var(--text-md)'
         }}>
           <span>Sesión expirada. Tu trabajo está guardado localmente.</span>
           <button onClick={() => { setSessionExpiredDuringSave(false); handleLogout(); }}
-            style={{ background: '#ff8a80', color: '#1a0000', border: 'none', borderRadius: 4, padding: '4px 10px', cursor: 'pointer', fontWeight: 600 }}>
+            style={{ background: '#ff8a80', color: '#1a0000', border: 'none', borderRadius: 4, padding: '4px 10px', cursor: 'pointer', fontWeight: 'var(--weight-semibold)' }}>
             Iniciar sesión
           </button>
         </div>
@@ -802,7 +802,7 @@ function App() {
             borderRadius: '4px',
             padding: '6px 12px',
             cursor: 'pointer',
-            fontSize: '0.8rem'
+            fontSize: 'var(--text-base)'
           }}
         >
           Cerrar Sesión
@@ -866,21 +866,21 @@ function App() {
       <div className="inspector-pane">
         <div className="inspector-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Inspector</span>
-          <span style={{ fontSize: '0.8rem', color: '#aaa' }}>{annotations.length} capas</span>
+          <span style={{ fontSize: 'var(--text-base)', color: '#aaa' }}>{annotations.length} capas</span>
         </div>
 
         <div className="inspector-body">
           {!selectedMarker ? (
 
-            <div style={{ color: '#888', fontSize: '0.9rem' }}>
+            <div style={{ color: '#888', fontSize: 'var(--text-lg)' }}>
               <p>Ningún marcador seleccionado.</p>
               <p>Selecciona una herramienta y haz clic en la imagen, o selecciona uno existente.</p>
             </div>
           ) : (
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#c5a059', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{selectedMarker.type}</h3>
-                <button onClick={removeSelected} style={{ background: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', padding: '4px 10px', cursor: 'pointer', fontSize: '0.8rem' }}>Borrar</button>
+                <h3 style={{ margin: 0, fontSize: 'var(--text-lg)', fontWeight: 'var(--weight-bold)', color: '#c5a059', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{selectedMarker.type}</h3>
+                <button onClick={removeSelected} style={{ background: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', padding: '4px 10px', cursor: 'pointer', fontSize: 'var(--text-base)' }}>Borrar</button>
               </div>
 
               {selectedMarker.type !== 'polygon' && (
@@ -957,7 +957,7 @@ function App() {
                             <button
                               onClick={() => setPendingMode('create')}
                               style={{
-                                flex: 1, padding: '5px', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem',
+                                flex: 1, padding: '5px', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: 'var(--text-base)',
                                 background: pendingMode === 'create' ? '#ffa500' : '#333', color: pendingMode === 'create' ? '#000' : '#aaa'
                               }}
                             >
@@ -967,7 +967,7 @@ function App() {
                               onClick={() => setPendingMode('assign')}
                               disabled={lotsWithEmptyCoords.length === 0}
                               style={{
-                                flex: 1, padding: '5px', border: 'none', borderRadius: '4px', cursor: lotsWithEmptyCoords.length === 0 ? 'not-allowed' : 'pointer', fontSize: '0.8rem',
+                                flex: 1, padding: '5px', border: 'none', borderRadius: '4px', cursor: lotsWithEmptyCoords.length === 0 ? 'not-allowed' : 'pointer', fontSize: 'var(--text-base)',
                                 background: pendingMode === 'assign' ? '#0d6efd' : '#333',
                                 color: pendingMode === 'assign' ? '#fff' : lotsWithEmptyCoords.length === 0 ? '#555' : '#aaa'
                               }}

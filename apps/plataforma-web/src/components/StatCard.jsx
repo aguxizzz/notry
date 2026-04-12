@@ -8,11 +8,9 @@ const StatCard = ({ label, value, color = '#c5a059' }) => {
           <span className="stat-label">{label}</span>
         </div>
         <div className="stat-right">
-          <span className="stat-watermark" aria-hidden="true">{value}</span>
           <span className="stat-value">{value}</span>
         </div>
       </div>
-      <div className="stat-bar" aria-hidden="true" />
     </div>
   );
 };
