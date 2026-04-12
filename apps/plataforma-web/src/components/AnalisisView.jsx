@@ -1,35 +1,33 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import BlueprintHeatmap from './BlueprintHeatmap';
+import StatCard from './StatCard';
+import { API_BASE } from '../config';
+import { Loader, Button } from '../ui/components';
+import { getHeatColor, getTextColor } from '../utils/heatColor';
 
-const API_BASE = 'https://notry-back.onrender.com/api/v1';
+const TIME_OPTIONS = [1, 5, 10, 20, 30, 60];
 
-function getHeatColor(clicks, maxClicks) {
-  if (maxClicks === 0) return 'rgb(245, 240, 232)';
-  const ratio = clicks / maxClicks;
-  const r = Math.round(245 + (197 - 245) * ratio);
-  const g = Math.round(240 + (160 - 240) * ratio);
-  const b = Math.round(232 + (89  - 232) * ratio);
-  return `rgb(${r}, ${g}, ${b})`;
-}
-
-function getTextColor(clicks, maxClicks) {
-  if (maxClicks === 0) return 'var(--text-muted)';
-  return clicks / maxClicks > 0.55 ? '#1a1a2a' : 'var(--text-main)';
-}
-
-export default function AnalisisView({ token, onSessionExpired, prefetchedLoteos = [], cachedClicks = {}, cachedVisorData = {} }) {
+export default function AnalisisView({
+  token,
+  onSessionExpired,
+  prefetchedLoteos = [],
+  cachedClicks = {},
+  cachedVisorData = {},
+  cachedReports = {},
+  analisisLastDays,
+  onAnalisisLastDaysChange,
+  onRequestClicks,
+  onRequestVisorData,
+}) {
   const [loteos, setLoteos]           = useState(prefetchedLoteos);
   const [loteosLoading, setLoteosLoading] = useState(prefetchedLoteos.length === 0);
   const [loteosError, setLoteosError] = useState(null);
 
   const [selectedLoteo, setSelectedLoteo] = useState(null);
-  const [clicksData, setClicksData]   = useState([]);
-  const [clicksLoading, setClicksLoading] = useState(false);
-  const [clicksError, setClicksError] = useState(null);
 
-  const [visorData, setVisorData]     = useState(null);
-  const [visorLoading, setVisorLoading] = useState(false);
-  const [visorError, setVisorError]   = useState(null);
+  const reportStats = cachedReports[analisisLastDays] ?? null;
+  const clicksData  = cachedClicks[selectedLoteo?.id] ?? [];
+  const visorData   = cachedVisorData[selectedLoteo?.id] ?? null;
 
   // fetch loteos on mount or use prefetched data
   useEffect(() => {
@@ -37,35 +35,22 @@ export default function AnalisisView({ token, onSessionExpired, prefetchedLoteos
     if (prefetchedLoteos.length > 0) {
       setLoteos(prefetchedLoteos);
       setLoteosLoading(false);
-      if (prefetchedLoteos.length > 0) setSelectedLoteo(prefetchedLoteos[0]);
+      if (prefetchedLoteos.length > 0 && !selectedLoteo) setSelectedLoteo(prefetchedLoteos[0]);
     } else {
       fetchLoteos();
     }
   }, [token, prefetchedLoteos]);
 
-  // use cached data or fetch on demand whenever selected loteo changes
+  // when selected loteo changes, trigger a fetch if not in cache
   useEffect(() => {
     if (!selectedLoteo) return;
-    const controller = new AbortController();
-
-    // Use cached clicks if available, otherwise fetch
-    if (cachedClicks[selectedLoteo.id]) {
-      setClicksData(cachedClicks[selectedLoteo.id]);
-      setClicksLoading(false);
-    } else {
-      fetchClicks(selectedLoteo.id, controller.signal);
+    if (!cachedClicks[selectedLoteo.id]) {
+      onRequestClicks?.(selectedLoteo.id);
     }
-
-    // Use cached visor data if available, otherwise fetch
-    if (cachedVisorData[selectedLoteo.id]) {
-      setVisorData(cachedVisorData[selectedLoteo.id]);
-      setVisorLoading(false);
-    } else {
-      fetchVisorData(selectedLoteo.id, controller.signal);
+    if (!cachedVisorData[selectedLoteo.id]) {
+      onRequestVisorData?.(selectedLoteo.id);
     }
-
-    return () => controller.abort();
-  }, [selectedLoteo, cachedClicks, cachedVisorData]);
+  }, [selectedLoteo?.id]);
 
   const fetchLoteos = async () => {
     setLoteosLoading(true);
@@ -80,65 +65,12 @@ export default function AnalisisView({ token, onSessionExpired, prefetchedLoteos
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Error al cargar loteos');
       setLoteos(data.items);
-      if (data.items.length > 0) setSelectedLoteo(data.items[0]);
+      if (data.items.length > 0 && !selectedLoteo) setSelectedLoteo(data.items[0]);
     } catch (err) {
       setLoteosError(err.message);
       console.error(err);
     } finally {
       setLoteosLoading(false);
-    }
-  };
-
-  const fetchClicks = async (loteoId, signal) => {
-    setClicksLoading(true);
-    setClicksError(null);
-    setClicksData([]);
-    try {
-      const res = await fetch(`${API_BASE}/loteos/${loteoId}/clicks`, {
-        headers: {
-          accept: 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        signal,
-      });
-      if (res.status === 401 && onSessionExpired) {
-        onSessionExpired();
-        return;
-      }
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Error al cargar clicks');
-      setClicksData([...data].sort((a, b) => b.clicks - a.clicks));
-    } catch (err) {
-      if (err.name !== 'AbortError') {
-        setClicksError(err.message);
-        console.error(err);
-      }
-    } finally {
-      setClicksLoading(false);
-    }
-  };
-
-  const fetchVisorData = async (loteoId, signal) => {
-    setVisorLoading(true);
-    setVisorError(null);
-    setVisorData(null);
-    try {
-      const res = await fetch(`${API_BASE}/loteos/${loteoId}/visor_data`, { signal });
-      if (res.status === 401 && onSessionExpired) {
-        onSessionExpired();
-        return;
-      }
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Error al cargar datos del blueprint');
-      setVisorData(data);
-    } catch (err) {
-      if (err.name !== 'AbortError') {
-        setVisorError(err.message);
-        console.error(err);
-        setVisorData(null);
-      }
-    } finally {
-      setVisorLoading(false);
     }
   };
 
@@ -159,7 +91,7 @@ export default function AnalisisView({ token, onSessionExpired, prefetchedLoteos
   if (loteosLoading) {
     return (
       <div className="analisis-loading">
-        <span className="loader"></span>
+        <Loader />
       </div>
     );
   }
@@ -176,6 +108,46 @@ export default function AnalisisView({ token, onSessionExpired, prefetchedLoteos
   return (
     <div className="analisis-content">
 
+      {/* Time period selector */}
+      <div className="report-time-selector">
+        {TIME_OPTIONS.map(d => (
+          <Button
+            key={d}
+            variant="outline"
+            size="sm"
+            className={analisisLastDays === d ? 'active' : ''}
+            onClick={() => onAnalisisLastDaysChange?.(d)}
+          >
+            {d}d
+          </Button>
+        ))}
+      </div>
+
+      {/* Stat cards row */}
+      {!reportStats ? (
+        <div className="stats-loading">
+          <Loader size="sm" />
+        </div>
+      ) : (
+        <div className="report-stats-row">
+          <StatCard
+            label="Prospectos en el período"
+            value={reportStats.prospectos}
+            color="#3b82f6"
+          />
+          <StatCard
+            label="Ventas en el período"
+            value={`$${reportStats.ventas.toLocaleString('es-AR')}`}
+            color="#22c55e"
+          />
+          <StatCard
+            label="Lotes vendidos"
+            value={reportStats.lotesVendidos}
+            color="#ef4444"
+          />
+        </div>
+      )}
+
       {/* loteo selector */}
       <div className="loteo-selector">
         {loteos.map((loteo) => (
@@ -190,22 +162,20 @@ export default function AnalisisView({ token, onSessionExpired, prefetchedLoteos
       </div>
 
       {/* summary strip */}
-      {!clicksLoading && !clicksError && (
-        <div className="analisis-summary">
-          <div className="analisis-stat">
-            <span className="analisis-stat-value">{totalClicks}</span>
-            <span className="analisis-stat-label">Clicks totales</span>
-          </div>
-          <div className="analisis-stat">
-            <span className="analisis-stat-value">{clicksData.length}</span>
-            <span className="analisis-stat-label">Lotes con actividad</span>
-          </div>
-          <div className="analisis-stat">
-            <span className="analisis-stat-value">{maxClicks}</span>
-            <span className="analisis-stat-label">Máximo clicks</span>
-          </div>
+      <div className="analisis-summary">
+        <div className="analisis-stat">
+          <span className="analisis-stat-value">{totalClicks}</span>
+          <span className="analisis-stat-label">Clicks totales</span>
         </div>
-      )}
+        <div className="analisis-stat">
+          <span className="analisis-stat-value">{clicksData.length}</span>
+          <span className="analisis-stat-label">Lotes con actividad</span>
+        </div>
+        <div className="analisis-stat">
+          <span className="analisis-stat-value">{maxClicks}</span>
+          <span className="analisis-stat-label">Máximo clicks</span>
+        </div>
+      </div>
 
       {/* heatmap */}
       <div className="heatmap-card">
@@ -220,16 +190,9 @@ export default function AnalisisView({ token, onSessionExpired, prefetchedLoteos
           </div>
         </div>
 
-        {clicksLoading || visorLoading ? (
+        {!visorData && !clicksData.length ? (
           <div className="heatmap-loading">
-            <span className="loader"></span>
-          </div>
-        ) : clicksError ? (
-          <div className="analisis-error">
-            <p>{clicksError}</p>
-            <button className="outline-button" onClick={() => fetchClicks(selectedLoteo.id)}>
-              Reintentar
-            </button>
+            <Loader />
           </div>
         ) : clicksData.length === 0 ? (
           <p className="heatmap-empty">Sin datos de clicks para este loteo.</p>
@@ -243,9 +206,8 @@ export default function AnalisisView({ token, onSessionExpired, prefetchedLoteos
         ) : (
           <div className="heatmap-grid">
             {clicksData.map((item) => {
-              const bg      = getHeatColor(item.clicks, maxClicks);
-              const fg      = getTextColor(item.clicks, maxClicks);
-              const pct     = maxClicks > 0 ? Math.round((item.clicks / maxClicks) * 100) : 0;
+              const bg = getHeatColor(item.clicks, maxClicks);
+              const fg = getTextColor(item.clicks, maxClicks);
               return (
                 <div
                   key={item.lote_uuid}
@@ -255,13 +217,6 @@ export default function AnalisisView({ token, onSessionExpired, prefetchedLoteos
                 >
                   <span className="cell-id">{item.name}</span>
                   <span className="cell-clicks">{item.clicks}</span>
-                  <div
-                    className="cell-bar"
-                    style={{
-                      width: `${pct}%`,
-                      background: fg === '#1a1a2a' ? 'rgba(26,26,42,0.18)' : 'rgba(197,160,89,0.25)',
-                    }}
-                  />
                 </div>
               );
             })}

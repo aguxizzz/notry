@@ -29,7 +29,7 @@ export default function LoteoSelectionScreen({ authToken, onSelect }) {
       </div>
 
       {loading && <p style={styles.status}>Cargando loteos...</p>}
-      {error && <p style={{ ...styles.status, color: '#f66' }}>Error al cargar loteos: {error}</p>}
+      {error && <p style={{ ...styles.status, color: 'var(--color-danger)' }}>Error al cargar loteos: {error}</p>}
       {!loading && !error && loteos.length === 0 && (
         <p style={styles.status}>No hay loteos disponibles.</p>
       )}
@@ -61,7 +61,7 @@ const styles = {
   page: {
     width: '100vw',
     height: '100vh',
-    background: '#1a1a20',
+    background: 'var(--panel-deep)',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
@@ -75,18 +75,18 @@ const styles = {
   },
   title: {
     margin: '0 0 8px 0',
-    fontSize: '2rem',
-    fontWeight: 700,
+    fontSize: 'var(--text-4xl)',
+    fontWeight: 'var(--weight-bold)',
     color: '#fff',
   },
   subtitle: {
     margin: 0,
-    color: '#aaa',
-    fontSize: '1rem',
+    color: 'var(--text-muted)',
+    fontSize: 'var(--text-xl)',
   },
   status: {
-    color: '#aaa',
-    fontSize: '1rem',
+    color: 'var(--text-muted)',
+    fontSize: 'var(--text-xl)',
   },
   grid: {
     display: 'grid',
@@ -96,8 +96,8 @@ const styles = {
     maxWidth: '900px',
   },
   card: {
-    background: '#2a2a30',
-    border: '1px solid #444',
+    background: 'var(--panel-bg)',
+    border: '1px solid var(--border)',
     borderRadius: '10px',
     cursor: 'pointer',
     overflow: 'hidden',
@@ -109,7 +109,7 @@ const styles = {
     width: '100%',
     height: '160px',
     overflow: 'hidden',
-    background: '#1e1e24',
+    background: 'var(--panel-deep)',
   },
   image: {
     width: '100%',
@@ -122,20 +122,20 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: '#aaa',
+    color: 'var(--text-muted)',
   },
   cardBody: {
     padding: '1rem',
   },
   cardName: {
     margin: '0 0 4px 0',
-    fontWeight: 600,
-    fontSize: '1rem',
+    fontWeight: 'var(--weight-semibold)',
+    fontSize: 'var(--text-xl)',
     color: '#fff',
   },
   cardMeta: {
     margin: 0,
-    fontSize: '0.8rem',
-    color: '#aaa',
+    fontSize: 'var(--text-base)',
+    color: 'var(--text-muted)',
   },
 };

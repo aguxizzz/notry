@@ -22,7 +22,15 @@
   --color-danger: #ef4444;
   --color-danger-bg: rgba(239, 68, 68, 0.12);
 
-  /* Category colors */
+  /* Badge Status Colors */
+  --badge-available: #047857;
+  --badge-available-bg: rgba(16, 185, 129, 0.12);
+  --badge-reserved: #b45309;
+  --badge-reserved-bg: rgba(245, 158, 11, 0.12);
+  --badge-sold: #dc2626;
+  --badge-sold-bg: rgba(239, 68, 68, 0.12);
+
+  /* Category colors (for badges) */
   --color-cat-contacto: #4338ca;
   --color-cat-contacto-bg: rgba(99, 102, 241, 0.12);
   --color-cat-seguimiento: #1d4ed8;
@@ -31,6 +39,12 @@
   --color-cat-negociacion-bg: rgba(245, 158, 11, 0.12);
   --color-cat-vendido: #047857;
   --color-cat-vendido-bg: rgba(16, 185, 129, 0.12);
+
+  /* Kanban Column Accents */
+  --kanban-contacto-accent: #818cf8;
+  --kanban-seguimiento-accent: #60a5fa;
+  --kanban-negociacion-accent: #fbbf24;
+  --kanban-vendido-accent: #34d399;
 
   /* === Typography === */
   --font-primary: 'Space Grotesk', sans-serif;
@@ -76,6 +90,7 @@
 
   /* === Transitions === */
   --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
   --duration-fast: 150ms;
   --duration-base: 200ms;
   --duration-slow: 300ms;
@@ -86,6 +101,13 @@
   --nav-height: 64px;
   --sidebar-width: 70px;
   --side-panel-width: 360px;
+
+  /* === Z-index scale === */
+  --z-base: 0;
+  --z-raised: 10;
+  --z-dropdown: 1002;
+  --z-modal: 1000;
+  --z-toast: 1003;
 
   /* === Budget palette (for BudgetPieChart) === */
   --color-budget-1: #4338ca;

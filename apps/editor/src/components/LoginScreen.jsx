@@ -63,9 +63,9 @@ export default function LoginScreen({ onLogin }) {
         <button 
           type="submit" 
           disabled={loading} 
-          style={{ 
-            ...styles.button, 
-            background: loading ? '#444' : '#1a73e8',
+          style={{
+            ...styles.button,
+            background: loading ? 'var(--border)' : 'var(--accent)',
             cursor: loading ? 'not-allowed' : 'pointer',
             opacity: loading ? 0.7 : 1
           }}
@@ -84,14 +84,14 @@ const styles = {
     justifyContent: 'center',
     width: '100vw',
     height: '100vh',
-    background: '#1a1a20',
+    background: 'var(--panel-deep)',
   },
   card: {
     display: 'flex',
     flexDirection: 'column',
     gap: '10px',
-    background: '#2a2a30',
-    border: '1px solid #444',
+    background: 'var(--panel-bg)',
+    border: '1px solid var(--border)',
     borderRadius: '12px',
     padding: '2.5rem',
     width: '100%',
@@ -99,41 +99,41 @@ const styles = {
   },
   title: {
     margin: '0 0 4px 0',
-    fontSize: '1.6rem',
-    fontWeight: 700,
+    fontSize: 'var(--text-4xl)',
+    fontWeight: 'var(--weight-bold)',
     color: '#fff',
   },
   subtitle: {
     margin: '0 0 16px 0',
-    fontSize: '0.9rem',
-    color: '#aaa',
+    fontSize: 'var(--text-lg)',
+    color: 'var(--text-muted)',
   },
   label: {
-    fontSize: '0.85rem',
-    color: '#aaa',
+    fontSize: 'var(--text-md)',
+    color: 'var(--text-muted)',
   },
   input: {
-    background: '#1e1e24',
-    border: '1px solid #444',
+    background: 'var(--panel-deep)',
+    border: '1px solid var(--border)',
     color: '#eee',
     padding: '10px',
     borderRadius: '6px',
-    fontSize: '0.95rem',
+    fontSize: 'var(--text-xl)',
     outline: 'none',
   },
   error: {
     margin: '4px 0 0 0',
-    color: '#f66',
-    fontSize: '0.85rem',
+    color: 'var(--color-danger)',
+    fontSize: 'var(--text-md)',
   },
   button: {
     marginTop: '8px',
     padding: '12px',
-    background: '#1a73e8',
+    background: 'var(--accent)',
     color: '#fff',
     border: 'none',
     borderRadius: '6px',
-    fontWeight: 700,
-    fontSize: '1rem',
+    fontWeight: 'var(--weight-bold)',
+    fontSize: 'var(--text-xl)',
   },
 };
