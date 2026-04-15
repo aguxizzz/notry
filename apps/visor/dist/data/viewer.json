@@ -1,39 +1,82 @@
 {
   "panoramaUrl": "/panorama.jpg",
-  "imageHeight": 400,
   "annotations": [
     {
-      "id": "zone-1",
-      "type": "rectangle",
-      "position": { "textureX": 250, "textureY": 250 },
-      "size": { "width": 120, "height": 60 },
-      "svgStyle": { "fill": "rgba(255,0,0,0.15)", "stroke": "#c00", "strokeWidth": "2" },
-      "tooltip": "Zona A",
-      "content": "<p>Detalle de <strong>Zona A</strong>.</p>"
-    },
-    {
-      "id": "zone-2",
+      "id": "polygon-1774014485266",
       "type": "polygon",
-      "polygonPixels": [[320, 100], [480, 100], [480, 220], [320, 220]],
-      "svgStyle": { "fill": "rgba(0,0,255,0.2)", "stroke": "#06c", "strokeWidth": "2" },
-      "tooltip": "Zona B",
-      "content": "<p>Detalle de <strong>Zona B</strong> (polígono).</p>"
+      "polygonPixels": [
+        [
+          3477,
+          5230
+        ],
+        [
+          3971,
+          5732
+        ],
+        [
+          4601,
+          6182
+        ],
+        [
+          5134,
+          5979
+        ],
+        [
+          5594,
+          5713
+        ],
+        [
+          5624,
+          5633
+        ],
+        [
+          5583,
+          5565
+        ],
+        [
+          5515,
+          5500
+        ],
+        [
+          5443,
+          5458
+        ],
+        [
+          5350,
+          5436
+        ]
+      ],
+      "tooltip": "Lote 01",
+      "svgStyle": {
+        "fill": "rgba(0,100,255,0.3)",
+        "stroke": "#06c",
+        "strokeWidth": "2"
+      },
+      "precio": "20.000.000",
+      "area": "120m2",
+      "fillColor": "#d00b0b",
+      "fillOpacity": 0
     },
     {
-      "id": "label-1",
+      "id": "text-1774014538522",
       "type": "text",
-      "position": { "textureX": 180, "textureY": 150 },
-      "html": "<span style='background:rgba(0,0,0,0.6);color:#fff;padding:4px 8px;border-radius:4px;'>Lote 1</span>",
-      "size": { "width": 100, "height": 28 },
-      "tooltip": "Lote 1"
-    },
-    {
-      "id": "label-2",
-      "type": "text",
-      "position": { "textureX": 380, "textureY": 160 },
-      "html": "<span style='background:rgba(0,0,0,0.6);color:#fff;padding:4px 8px;border-radius:4px;'>Lote 2</span>",
-      "size": { "width": 100, "height": 28 },
-      "tooltip": "Lote 2"
+      "position": {
+        "textureX": 3354,
+        "textureY": 5476
+      },
+      "tooltip": "Lote 01",
+      "svgStyle": {
+        "fill": "rgba(255,0,0,0.3)",
+        "stroke": "#c00",
+        "strokeWidth": "2"
+      },
+      "textColor": "#000000",
+      "bgColor": "#ffffff",
+      "bgOpacity": 0.9,
+      "size": {
+        "width": 80,
+        "height": 30
+      }
     }
   ]
 }

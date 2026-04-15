@@ -43,6 +43,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding-right: 1rem;
 }
 
 .select-trigger__chevron {

@@ -19,13 +19,13 @@ export function useViewer(viewerData, onMarkerSelect, onMarkerUnselect) {
   const viewerInstanceRef = useRef(null);
 
   useEffect(() => {
-    if (!viewerRef.current || !viewerData?.panoramaUrl) return;
-
-    // Destruir instancia previa si existe (hot reload en dev, o re-mount)
+    // Cleanup any existing viewer when switching modes
     if (viewerInstanceRef.current) {
       viewerInstanceRef.current.destroy();
       viewerInstanceRef.current = null;
     }
+
+    if (!viewerRef.current || !viewerData?.panoramaUrl) return;
 
     const markersPlugin = MarkersPlugin.withConfig({
       markers: viewerData.markers ?? [],

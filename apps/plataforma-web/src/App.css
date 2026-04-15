@@ -54,7 +54,7 @@
   border-radius: var(--radius-md);
   padding: var(--space-sm) var(--space-md);
   margin-top: var(--space-sm);
-  color: #ef4444;
+  color: var(--color-danger);
   font-size: 0.875rem;
   font-weight: 500;
   line-height: 1.4;
@@ -72,6 +72,11 @@
   40% { transform: translateX(4px); }
   60% { transform: translateX(-3px); }
   80% { transform: translateX(2px); }
+}
+
+.login-card form .primary-button,
+.login-card form .outline-button {
+  width: 100%;
 }
 
 .form-group {
@@ -155,7 +160,7 @@
 }
 
 .primary-button {
-  width: 100%;
+  width: auto;
   background: var(--accent-color);
   color: var(--color-text);
   border: none;
@@ -165,7 +170,7 @@
   font-weight: var(--weight-bold);
   text-transform: uppercase;
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition: background var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -192,7 +197,6 @@
 }
 
 .primary-button.btn-fit {
-  width: auto;
   min-width: 110px;
   min-height: var(--btn-height-sm);
   padding: var(--space-sm) var(--space-md);
@@ -220,7 +224,7 @@
 
 /* General outline button styles */
 .outline-button {
-  width: 100%;
+  width: auto;
   background: transparent;
   color: var(--color-text-muted);
   border: 1px solid var(--border-color);
@@ -230,7 +234,7 @@
   font-weight: var(--weight-bold);
   text-transform: uppercase;
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -256,7 +260,6 @@
 }
 
 .outline-button.btn-fit {
-  width: auto;
   min-width: 110px;
   min-height: var(--btn-height-sm);
   padding: var(--space-sm) var(--space-md);
@@ -325,6 +328,23 @@
   color: #fff;
   font-weight: var(--weight-bold);
   box-shadow: 0 2px 8px rgba(197, 160, 89, 0.35);
+}
+
+/* ── Time period change animation ── */
+.analisis-fade-fading-out {
+  animation: analisisFadeOut 200ms ease-in both;
+}
+.analisis-fade-fading-in {
+  animation: analisisFadeIn 300ms var(--ease-out-quart) both;
+}
+
+@keyframes analisisFadeOut {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-6px); }
+}
+@keyframes analisisFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ── Loteo pill selector ── */
@@ -536,6 +556,26 @@
   margin: 0;
   color: var(--text-main);
   line-height: 1;
+}
+
+.stat-value-loading {
+  display: flex;
+  align-items: center;
+  height: 2.5rem;
+}
+
+.stat-spinner {
+  display: block;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid color-mix(in srgb, var(--stat-accent) 20%, transparent);
+  border-top-color: var(--stat-accent);
+  border-radius: 50%;
+  animation: statSpin 600ms linear infinite;
+}
+
+@keyframes statSpin {
+  to { transform: rotate(360deg); }
 }
 
 .stat-label {
@@ -1008,7 +1048,7 @@ button.btn-fit .loader {
 .kanban-action-btn.whatsapp {
   background: rgba(37, 211, 102, 0.08);
   border-color: rgba(37, 211, 102, 0.35);
-  color: #25d366;
+  color: var(--color-whatsapp);
 }
 
 .kanban-action-btn.whatsapp:hover {
@@ -1018,7 +1058,7 @@ button.btn-fit .loader {
 .kanban-action-btn.phone {
   background: rgba(59, 130, 246, 0.08);
   border-color: rgba(59, 130, 246, 0.35);
-  color: #3b82f6;
+  color: var(--color-phone);
 }
 
 .kanban-action-btn.phone:hover {
@@ -1135,7 +1175,7 @@ button.btn-fit .loader {
   background: var(--panel-bg);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .inventory-search {
@@ -1178,6 +1218,7 @@ button.btn-fit .loader {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  overflow: visible;
 }
 
 .inventory-filters .form-group {
@@ -1287,6 +1328,22 @@ button.btn-fit .loader {
   font-size: 1.1rem;
 }
 
+.url-link {
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.url-link:hover {
+  text-decoration: underline;
+}
+
 .td-empty-row {
   text-align: center;
   color: var(--text-muted);
@@ -1354,7 +1411,61 @@ button.btn-fit .loader {
   color: var(--accent-color);
 }
 
+.text-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--btn-height-sm);
+  padding: 0 var(--space-sm);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out);
+  flex-shrink: 0;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.text-action-btn:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+.text-action-btn.view {
+  background: rgba(197, 160, 89, 0.08);
+  color: var(--accent-color);
+}
+
+.text-action-btn.view:hover {
+  background: var(--accent-color);
+  color: var(--color-text);
+}
+
+.text-action-btn.edit {
+  background: rgba(197, 160, 89, 0.12);
+  color: var(--accent-color);
+}
+
+.text-action-btn.edit:hover {
+  background: var(--accent-color);
+  color: var(--color-text);
+}
+
 .action-btn.edit:hover {
+  background: var(--accent-color);
+  color: var(--color-text);
+}
+
+.action-btn.view {
+  background: rgba(197, 160, 89, 0.08);
+  color: var(--accent-color);
+}
+
+.action-btn.view:hover {
   background: var(--accent-color);
   color: var(--color-text);
 }
@@ -1702,17 +1813,26 @@ button.btn-fit .loader {
   background: var(--panel-bg);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  padding: var(--space-md) var(--space-lg);
+  padding: var(--space-md) var(--space-lg) var(--space-md);
   width: 100%;
   max-width: 420px;
   box-shadow: var(--shadow-offset);
 }
 
 .modal-title {
-  font-size: 1rem;
-  font-weight: var(--weight-bold);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-black);
   color: var(--text-main);
-  margin-bottom: var(--space-sm);
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 2px solid var(--border-color);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.modal-card--wide .modal-title {
+  font-size: var(--text-2xl);
+  letter-spacing: -0.03em;
 }
 
 .modal-card--wide {
@@ -1836,7 +1956,7 @@ button.btn-fit .loader {
   display: flex;
   align-items: center;
   justify-content: center;
-  max-height: 600px;
+  height: 600px;
 }
 
 .blueprint-image {
@@ -1847,8 +1967,19 @@ button.btn-fit .loader {
   object-fit: contain;
 }
 
+.blueprint-heatmap-wrapper:fullscreen {
+  height: 100vh !important;
+  max-height: none !important;
+  background: var(--bg-dark);
+  border-radius: 0;
+}
+
+.blueprint-heatmap-wrapper:fullscreen .blueprint-image {
+  max-height: none !important;
+}
+
 .blueprint-overlay {
-  position: absolute !important;
+  position: absolute;
   top: 0;
   left: 0;
   width: 100%;
@@ -1984,6 +2115,7 @@ button.btn-fit .loader {
 .modal-footer-actions {
   display: flex;
   gap: var(--space-sm);
+  align-items: center;
 }
 
 .modal-footer-actions .primary-button,
@@ -2156,6 +2288,75 @@ button.btn-fit .loader {
   border-width: 0;
 }
 
+/* ── Mobile top bar ── */
+.mobile-topbar {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: #0d0d0f;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-md);
+  z-index: 999;
+  gap: var(--space-md);
+}
+
+.mobile-topbar-hamburger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  background: transparent;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color 0.2s ease, background 0.2s ease;
+  flex-shrink: 0;
+}
+
+.mobile-topbar-hamburger:hover {
+  color: #fff;
+  background: rgba(197, 160, 89, 0.08);
+}
+
+.mobile-topbar-hamburger:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.mobile-topbar-brand {
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  color: var(--color-accent);
+  font-size: var(--text-sm);
+  flex: 1;
+  text-align: center;
+}
+
+.mobile-topbar-user {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: #888;
+  min-width: 44px;
+  text-align: right;
+}
+
+@media (max-width: 768px) {
+  .mobile-topbar {
+    display: flex;
+  }
+
+  .owner-layout {
+    padding-top: 72px;
+  }
+}
+
 .pie-legend-empty {
   display: flex;
   align-items: center;
@@ -2171,7 +2372,8 @@ button.btn-fit .loader {
   .modal-card,
   .kanban-col,
   .kanban-card,
-  .kanban-error-banner {
+  .kanban-error-banner,
+  .stat-spinner {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

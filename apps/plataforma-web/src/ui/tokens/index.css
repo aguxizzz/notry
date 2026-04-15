@@ -119,6 +119,14 @@
   --color-budget-7: #0f766e;
   --color-budget-8: #c2410c;
 
+  /* === Brand colors for external integrations === */
+  --color-whatsapp: #25d366;
+  --color-phone: #3b82f6;
+
+  /* === Stat card accent colors === */
+  --color-stat-info: #3b82f6;
+  --color-stat-success: #22c55e;
+
   /* === Semantic aliases (duplicated for compatibility) === */
   --card-accent: #c5a059;
   --col-accent: #c5a059;
