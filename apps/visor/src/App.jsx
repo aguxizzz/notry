@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { InfoPanel } from './components/InfoPanel.jsx';
 import { useViewer } from './hooks/useViewer.js';
 import { annotationsToMarkers } from './annotations.js';
+import BlueprintViewer from './components/BlueprintViewer.jsx';
 
 const API_URL = '/api/viewer/current';
 const FALLBACK_DATA_URL = '/data/viewer.json';
@@ -54,6 +55,8 @@ export default function App() {
   const [error, setError] = useState(null);
   const [usingFallback, setUsingFallback] = useState(false);
   const [panel, setPanel] = useState(PANEL_CLOSED);
+  const [viewMode, setViewMode] = useState('panorama');
+  const blueprintUrl = rawData?.blueprintUrl || null;
 
   useEffect(() => {
     fetchViewerData()
@@ -71,10 +74,17 @@ export default function App() {
     [annotations]
   );
 
+  const blueprintAnnotations = useMemo(
+    () => annotations.filter(a => a.type === 'polygon' && a.blueprint_coordinates?.length >= 3),
+    [annotations]
+  );
+
   const markers = useMemo(() => annotationsToMarkers(annotations), [annotations]);
   const viewerData = useMemo(
-    () => rawData ? { panoramaUrl: rawData.panoramaUrl, markers, annotations } : null,
-    [rawData, markers, annotations]
+    () => viewMode === 'blueprint' || !rawData
+      ? null
+      : { panoramaUrl: rawData.panoramaUrl, markers, annotations },
+    [viewMode, rawData, markers, annotations]
   );
 
   const handleMarkerSelect = useCallback((marker, markersPlugin) => {
@@ -98,6 +108,18 @@ export default function App() {
       detail: { price: ann?.price, area_m2: ann?.area_m2, estado: ann?.status ?? ann?.estado },
     });
   }, [annotationsById]);
+
+  const handleBlueprintSelect = useCallback((ann) => {
+    const id = ann.uuid || ann.id;
+    postLoteClick(id);
+    setPanel({
+      isOpen: true,
+      title: ann.tooltip ?? id,
+      content: ann.content ?? '',
+      markerId: id,
+      detail: { price: ann.price, area_m2: ann.area_m2, estado: ann.status ?? ann.estado },
+    });
+  }, []);
 
   const handleMarkerUnselect = useCallback(() => {
     setPanel(PANEL_CLOSED);
@@ -125,7 +147,57 @@ export default function App() {
 
   return (
     <>
-      <div id="viewer-container" ref={viewerRef} />
+      {blueprintUrl && (
+        <button
+          onClick={() => setViewMode(v => v === 'panorama' ? 'blueprint' : 'panorama')}
+          style={{
+            position: 'fixed',
+            top: 16,
+            right: 16,
+            zIndex: 1000,
+            background: viewMode === 'blueprint' ? '#c5a059' : '#333',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 8,
+            padding: '8px 14px',
+            cursor: 'pointer',
+            fontSize: '0.85rem',
+            fontFamily: 'sans-serif',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+          }}
+          title={viewMode === 'blueprint' ? 'Ver panorama' : 'Ver blueprint'}
+        >
+          {viewMode === 'blueprint' ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+              <circle cx="12" cy="13" r="3" />
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="3" width="7" height="7" />
+              <rect x="14" y="3" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" />
+              <rect x="3" y="14" width="7" height="7" />
+            </svg>
+          )}
+        </button>
+      )}
+
+      {viewMode === 'blueprint' ? (
+        <BlueprintViewer
+          blueprintUrl={blueprintUrl}
+          annotations={blueprintAnnotations}
+          selectedId={panel.markerId}
+          onMarkerSelect={handleBlueprintSelect}
+          onMarkerHover={() => {}}
+        />
+      ) : (
+        <div id="viewer-container" ref={viewerRef} />
+      )}
+
       {usingFallback && (
         <div style={{
           position: 'fixed', bottom: 12, left: '50%', transform: 'translateX(-50%)',

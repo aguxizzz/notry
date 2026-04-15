@@ -378,13 +378,21 @@ export default function BlueprintEditor({
               const polyStr = pts.map((p) => `${p.x},${p.y}`).join(' ');
               const isSelected = ann.id === selectedId;
 
+              const statusKey = ann.status ?? ann.estado;
+              const statusStyles = {
+                available: { fill: 'rgba(34,197,94,0.15)',  stroke: 'rgba(22,163,74,0.5)',  strokeWidth: '2' },
+                sold:      { fill: 'rgba(239,68,68,0.25)',   stroke: 'rgba(220,38,38,0.7)',  strokeWidth: '2' },
+                reserved:  { fill: 'rgba(59,130,246,0.22)',  stroke: 'rgba(37,99,235,0.65)', strokeWidth: '2' },
+              };
+              const style = statusKey && statusStyles[statusKey] ? statusStyles[statusKey] : (ann.svgStyle || {});
+
               return (
                 <g key={ann.id}>
                   <polygon
                     points={polyStr}
-                    fill={ann.svgStyle?.fill || 'rgba(0,100,255,0.2)'}
-                    stroke={ann.svgStyle?.stroke || '#06f'}
-                    strokeWidth={ann.svgStyle?.strokeWidth || 2}
+                    fill={style.fill || 'rgba(0,100,255,0.2)'}
+                    stroke={style.stroke || '#06f'}
+                    strokeWidth={style.strokeWidth || 2}
                     data-type="polygon"
                     data-marker-id={ann.id}
                     style={{ cursor: 'pointer' }}

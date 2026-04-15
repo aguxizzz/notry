@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Copy, Search, SlidersHorizontal, Pencil, Trash2, Check, X, AlertCircle } from 'lucide-react';
+import { Copy, Search, SlidersHorizontal, Pencil, Trash2, Check, X, AlertCircle, Menu, Eye } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import StatCard from './components/StatCard';
 import LoginBackground from './components/LoginBackground';
@@ -147,13 +147,20 @@ function App() {
   const [editLotClosing, setEditLotClosing] = useState(false);
   const [editProspectClosing, setEditProspectClosing] = useState(false);
   const [prospectosList, setProspectosList] = useState([]);
+  const [allProspectosList, setAllProspectosList] = useState([]);
   const [prospectosLoading, setProspectosLoading] = useState(false);
   const [prospectosCategoryFilter, setProspectosCategoryFilter] = useState('');
   const [prospectosWithoutAdvisor, setProspectosWithoutAdvisor] = useState(false);
   const [createLoteoOpen, setCreateLoteoOpen] = useState(false);
-  const [createLoteoForm, setCreateLoteoForm] = useState({ name: '', slug: '', image_url: '' });
+  const [createLoteoForm, setCreateLoteoForm] = useState({ name: '', slug: '', image_url: '', blueprint_url: '' });
   const [createLoteoLoading, setCreateLoteoLoading] = useState(false);
   const [createLoteoError, setCreateLoteoError] = useState(null);
+  const [editLoteoOpen, setEditLoteoOpen] = useState(false);
+  const [editLoteoClosing, setEditLoteoClosing] = useState(false);
+  const [editingLoteoId, setEditingLoteoId] = useState(null);
+  const [editLoteoForm, setEditLoteoForm] = useState({ name: '', slug: '', image_url: '', blueprint_url: '' });
+  const [editLoteoLoading, setEditLoteoLoading] = useState(false);
+  const [editLoteoError, setEditLoteoError] = useState(null);
   const [addProspectOpen, setAddProspectOpen] = useState(false);
   const [addProspectForm, setAddProspectForm] = useState({
     name: '', email: '', phone: '', category: 'primer_contacto', budget: '', payment_method: 'contado',
@@ -199,6 +206,7 @@ function App() {
   const deleteProspectButtonRef = useRef(null);
   const previousDeleteProspectFocusRef = useRef(null);
   const createLoteoModalRef = useRef(null);
+  const editLoteoModalRef = useRef(null);
   const addProspectModalRef = useRef(null);
   const deleteProspectModalRef = useRef(null);
 
@@ -207,6 +215,27 @@ function App() {
     previousCreateLoteoFocusRef.current = document.activeElement;
     setCreateLoteoOpen(true);
     setCreateLoteoError(null);
+  };
+
+  const openEditLoteoModal = (loteo) => {
+    previousCreateLoteoFocusRef.current = document.activeElement;
+    setEditingLoteoId(loteo.id);
+    setEditLoteoForm({
+      name: loteo.name || '',
+      slug: loteo.slug || '',
+      image_url: loteo.image_url || '',
+      blueprint_url: loteo.blueprint_url || '',
+    });
+    setEditLoteoOpen(true);
+    setEditLoteoError(null);
+  };
+
+  const closeEditLoteoModal = () => {
+    setEditLoteoClosing(true);
+    setTimeout(() => {
+      setEditLoteoOpen(false);
+      setEditLoteoClosing(false);
+    }, 200);
   };
 
   const openAddProspectModal = () => {
@@ -243,6 +272,20 @@ function App() {
       previousCreateLoteoFocusRef.current.focus();
     }
   }, [createLoteoOpen]);
+
+  // Focus management for editLoteo modal
+  useEffect(() => {
+    if (editLoteoOpen && editLoteoModalRef.current) {
+      const focusableElements = editLoteoModalRef.current.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusableElements.length > 0) {
+        focusableElements[0].focus();
+      }
+    } else if (!editLoteoOpen && previousCreateLoteoFocusRef.current) {
+      previousCreateLoteoFocusRef.current.focus();
+    }
+  }, [editLoteoOpen]);
 
   // Focus management for addProspect modal
   useEffect(() => {
@@ -309,9 +352,16 @@ function App() {
     if (prospectosList.length === 0) {
       fetchProspectosBg(filtersRef.current.prospectosCategoryFilter, filtersRef.current.prospectosWithoutAdvisor);
     }
-    if (!reportsCache[analisisLastDays]) {
-      fetchReportsBg(analisisLastDays);
+    if (allProspectosList.length === 0) {
+      fetchAllProspectos();
     }
+    // Prefetch reports for all time options so switching is instant
+    const TIME_OPTIONS = [1, 5, 10, 20, 30, 60];
+    TIME_OPTIONS.forEach(days => {
+      if (!reportsCache[days]) {
+        fetchReportsBg(days);
+      }
+    });
 
     // Set up polling intervals
     const lotsInterval = setInterval(() => {
@@ -324,6 +374,10 @@ function App() {
 
     const prospectosInterval = setInterval(() => {
       fetchProspectosBg(filtersRef.current.prospectosCategoryFilter, filtersRef.current.prospectosWithoutAdvisor);
+    }, 30000); // 30s
+
+    const allProspectosInterval = setInterval(() => {
+      fetchAllProspectos();
     }, 30000); // 30s
 
     const dashboardInterval = setInterval(() => {
@@ -345,13 +399,14 @@ function App() {
     }, 300000); // 5 minutes
 
     const reportsInterval = setInterval(() => {
-      fetchReportsBg(analisisLastDays);
+      TIME_OPTIONS.forEach(days => fetchReportsBg(days));
     }, 30000); // 30s
 
     return () => {
       clearInterval(lotsInterval);
       clearInterval(loteosInterval);
       clearInterval(prospectosInterval);
+      clearInterval(allProspectosInterval);
       clearInterval(dashboardInterval);
       clearInterval(clicksInterval);
       clearInterval(visorDataInterval);
@@ -381,6 +436,7 @@ function App() {
     if (ownerSubView !== 'clientes' || !token) return;
     const timer = setTimeout(() => {
       fetchProspectosBg(prospectosCategoryFilter, prospectosWithoutAdvisor);
+      fetchAllProspectos();
     }, 300);
     return () => clearTimeout(timer);
   }, [ownerSubView, prospectosCategoryFilter, prospectosWithoutAdvisor]);
@@ -528,19 +584,53 @@ function App() {
           name: createLoteoForm.name,
           slug: createLoteoForm.slug,
           image_url: createLoteoForm.image_url,
+          blueprint_url: createLoteoForm.blueprint_url,
           text_annotations: [],
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Error al crear loteo');
       setCreateLoteoOpen(false);
-      setCreateLoteoForm({ name: '', slug: '', image_url: '' });
+      setCreateLoteoForm({ name: '', slug: '', image_url: '', blueprint_url: '' });
       setInventoryLoteos([]);
       fetchInventoryLoteos();
     } catch (error) {
       setCreateLoteoError(error.message);
     } finally {
       setCreateLoteoLoading(false);
+    }
+  };
+
+  const saveEditLoteo = async (e) => {
+    e.preventDefault();
+    setEditLoteoLoading(true);
+    setEditLoteoError(null);
+    try {
+      const res = await apiFetch(`${API_BASE}/loteos/${editingLoteoId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editLoteoForm.name,
+          slug: editLoteoForm.slug,
+          image_url: editLoteoForm.image_url,
+          blueprint_url: editLoteoForm.blueprint_url,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Error al actualizar loteo');
+      addToast('Loteo actualizado.');
+      setEditLoteoClosing(true);
+      setTimeout(() => {
+        setEditLoteoOpen(false);
+        setEditLoteoClosing(false);
+        setEditingLoteoId(null);
+        setInventoryLoteos([]);
+        fetchInventoryLoteos();
+      }, 200);
+    } catch (error) {
+      setEditLoteoError(error.message);
+    } finally {
+      setEditLoteoLoading(false);
     }
   };
 
@@ -567,6 +657,7 @@ function App() {
       setAddProspectOpen(false);
       setAddProspectForm({ name: '', email: '', phone: '', category: 'primer_contacto', budget: '', payment_method: 'contado' });
       fetchProspectosBg(prospectosCategoryFilter, prospectosWithoutAdvisor);
+      fetchAllProspectos();
     } catch (error) {
       setAddProspectError(error.message);
     } finally {
@@ -633,6 +724,7 @@ function App() {
         setEditProspectClosing(false);
         setEditingProspectId(null);
         fetchProspectosBg(prospectosCategoryFilter, prospectosWithoutAdvisor);
+        fetchAllProspectos();
       }, 200);
     } catch (error) {
       setEditProspectError(error.message);
@@ -662,6 +754,7 @@ function App() {
       if (!res.ok) throw new Error(data.detail || 'Error al actualizar contacto');
       addToast('Último contacto actualizado.');
       fetchProspectosBg(prospectosCategoryFilter, prospectosWithoutAdvisor);
+      fetchAllProspectos();
     } catch (error) {
       addToast(`Error: ${error.message}`);
     } finally {
@@ -686,6 +779,7 @@ function App() {
       addToast(`Prospecto "${prospect.name}" eliminado.`);
       setDeleteProspectDialog({ open: false, prospect: null, loading: false });
       fetchProspectosBg(prospectosCategoryFilter, prospectosWithoutAdvisor);
+      fetchAllProspectos();
     } catch (err) {
       addToast(`Error: ${err.message}`);
       setDeleteProspectDialog(prev => ({ ...prev, loading: false }));
@@ -768,6 +862,17 @@ function App() {
       addToast(`Error actualizando prospectos: ${error.message}`);
     } finally {
       setBgLoadingProspectos(false);
+    }
+  };
+
+  const fetchAllProspectos = async () => {
+    try {
+      const res = await apiFetch(`${API_BASE}/prospects?limit=50&offset=0`);
+      const data = await res.json();
+      if (!res.ok) throw new Error('Error al cargar prospectos');
+      setAllProspectosList(data.items);
+    } catch (error) {
+      console.error(error);
     }
   };
 
@@ -986,6 +1091,7 @@ function App() {
     setInventoryTab('lotes');
     setInventoryLoteos([]);
     setProspectosList([]);
+    setAllProspectosList([]);
     setProspectosCategoryFilter('');
     setProspectosWithoutAdvisor(false);
     setToasts([]);
@@ -1032,11 +1138,11 @@ function App() {
           <form onSubmit={handleLogin}>
             <div className="form-group">
               <label htmlFor="login-email">Correo Electrónico</label>
-              <input id="login-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <input id="login-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
             </div>
             <div className="form-group">
               <label htmlFor="login-password">Contraseña</label>
-              <input id="login-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <input id="login-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
             </div>
             <Button type="submit" disabled={loading}>
               {loading ? <Loader /> : 'Iniciar Sesión'}
@@ -1071,6 +1177,21 @@ function App() {
             className={`sidebar-overlay ${sidebarOpen ? 'visible' : ''}`}
             onClick={() => setSidebarOpen(false)}
           />
+          <div className="mobile-topbar">
+            <button
+              className="mobile-topbar-hamburger"
+              onClick={() => setSidebarOpen(v => !v)}
+              aria-label={sidebarOpen ? 'Cerrar menú' : 'Abrir menú'}
+            >
+              {sidebarOpen ? (
+                <X size={20} />
+              ) : (
+                <Menu size={20} />
+              )}
+            </button>
+            <span className="mobile-topbar-brand">NOTRY</span>
+            <span className="mobile-topbar-user">{user?.full_name?.split(' ')[0]}</span>
+          </div>
           <Sidebar
             user={user}
             activeItem={ownerSubView}
@@ -1202,14 +1323,15 @@ function App() {
               {ownerSubView === 'inicio' && (
                 <>
                   <div className="stats-grid">
-                    <StatCard label="Lotes Disponibles" value={dashboardSummary?.lotes_disponibles ?? '—'} color="#c5a059" />
-                    <StatCard label="Total Prospectos" value={dashboardSummary?.total_prospectos ?? '—'} color="#3b82f6" />
+                    <StatCard label="Lotes Disponibles" value={dashboardSummary?.lotes_disponibles ?? '—'} color="#c5a059" loading={!dashboardSummary} />
+                    <StatCard label="Total Prospectos" value={dashboardSummary?.total_prospectos ?? '—'} color="#3b82f6" loading={!dashboardSummary} />
                     <StatCard
                       label="Tasa de Conversión"
                       value={dashboardSummary && dashboardSummary.total_lotes > 0
                         ? `${((dashboardSummary.total_prospectos / dashboardSummary.total_lotes) * 100).toFixed(1)}%`
                         : '—'}
                       color="#10b981"
+                      loading={!dashboardSummary}
                     />
                   </div>
                   <KanbanBoard token={token} onSessionExpired={logout} prospectosList={prospectosList} loteos={inventoryLoteos} advisorsList={advisorsList} />
@@ -1219,9 +1341,9 @@ function App() {
               {ownerSubView === 'inventario' && (
                 <>
                   <div className="stats-grid">
-                    <StatCard label="Lotes Disponibles" value={dashboardSummary?.lotes_disponibles ?? '—'} color="#c5a059" />
-                    <StatCard label="Reservados" value={dashboardSummary?.lotes_reservados ?? '—'} color="#f59e0b" />
-                    <StatCard label="Vendidos" value={dashboardSummary?.lotes_vendidos ?? '—'} color="#ef4444" />
+                    <StatCard label="Lotes Disponibles" value={dashboardSummary?.lotes_disponibles ?? '—'} color="#c5a059" loading={!dashboardSummary} />
+                    <StatCard label="Reservados" value={dashboardSummary?.lotes_reservados ?? '—'} color="#f59e0b" loading={!dashboardSummary} />
+                    <StatCard label="Vendidos" value={dashboardSummary?.lotes_vendidos ?? '—'} color="#ef4444" loading={!dashboardSummary} />
                   </div>
 
                   <div className="inventory-section">
@@ -1395,33 +1517,79 @@ function App() {
                             <thead>
                               <tr>
                                 <th>Nombre</th>
-                                <th>ID</th>
-                                <th></th>
+                                <th>Imagen</th>
+                                <th>Blueprint</th>
+                                <th>Acciones</th>
+                                <th>Links</th>
                               </tr>
                             </thead>
                             <tbody>
                               {inventoryLoteos.length === 0 ? (
                                 <tr>
-                                  <td colSpan={3} className="td-empty-row">No se encontraron loteos.</td>
+                                  <td colSpan={5} className="td-empty-row">No se encontraron loteos.</td>
                                 </tr>
                               ) : (
                                 inventoryLoteos.map(loteo => (
                                   <tr key={loteo.id}>
                                     <td className="td-name">{loteo.name}</td>
-                                    <td className="td-muted">{loteo.id.substring(0, 8)}…</td>
-                                    <td className="table-cell-right">
-                                      <Button
-                                        size="sm"
-                                        onClick={() => window.open(`${VISOR_URL}/?data=${encodeURIComponent(`${API_BASE}/loteos/${loteo.id}/visor_data`)}`, '_blank')}
+                                    <td>
+                                      {loteo.image_url ? (
+                                        <button
+                                          type="button"
+                                          className="text-action-btn view"
+                                          onClick={() => window.open(loteo.image_url, '_blank')}
+                                          title="Ver imagen"
+                                          aria-label="Ver imagen"
+                                        >
+                                          <Eye size={16} style={{ marginRight: '6px' }} /> Ver
+                                        </button>
+                                      ) : (
+                                        <span className="td-empty">—</span>
+                                      )}
+                                    </td>
+                                    <td>
+                                      {loteo.blueprint_url ? (
+                                        <button
+                                          type="button"
+                                          className="text-action-btn view"
+                                          onClick={() => window.open(loteo.blueprint_url, '_blank')}
+                                          title="Ver blueprint"
+                                          aria-label="Ver blueprint"
+                                        >
+                                          <Eye size={16} style={{ marginRight: '6px' }} /> Ver
+                                        </button>
+                                      ) : (
+                                        <span className="td-empty">—</span>
+                                      )}
+                                    </td>
+                                    <td className="td-actions">
+                                      <button
+                                        type="button"
+                                        className="text-action-btn edit"
+                                        onClick={() => openEditLoteoModal(loteo)}
+                                        title="Editar"
+                                        aria-label={`Editar ${loteo.name}`}
                                       >
-                                        Visor
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        onClick={() => openEditor(loteo.id)}
-                                      >
-                                        Editor
-                                      </Button>
+                                        <Pencil size={16} style={{ marginRight: '6px' }} /> Editar
+                                      </button>
+                                    </td>
+                                    <td className="td-links">
+                                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                        <button
+                                          type="button"
+                                          className="text-action-btn view"
+                                          onClick={() => window.open(`https://notry-visor.vercel.app/?data=${API_BASE}/loteos/${loteo.id}/visor_data`, '_blank')}
+                                        >
+                                          Visor
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="text-action-btn view"
+                                          onClick={() => openEditor(loteo.id)}
+                                        >
+                                          Editor
+                                        </button>
+                                      </div>
                                     </td>
                                   </tr>
                                 ))
@@ -1438,8 +1606,8 @@ function App() {
               {ownerSubView === 'clientes' && (
                 <>
                 <div className="charts-row">
-                  <CategoryPieChart prospects={prospectosList} />
-                  <BudgetPieChart prospects={prospectosList} />
+                  <CategoryPieChart prospects={allProspectosList} />
+                  <BudgetPieChart prospects={allProspectosList} />
                 </div>
                 <div className="inventory-section">
                   <div className="inventory-controls">
@@ -1467,9 +1635,6 @@ function App() {
                         Sin asesor
                       </label>
                     </div>
-                    <div className="loader-container small">
-                      {(prospectosLoading || bgLoadingProspectos) && <Loader size="sm" />}
-                    </div>
                     <Button
                       ref={addProspectButtonRef}
                       size="sm"
@@ -1477,6 +1642,9 @@ function App() {
                     >
                       + Nuevo Prospecto
                     </Button>
+                    {(prospectosLoading || bgLoadingProspectos) && (
+                      <Loader size="sm" />
+                    )}
                   </div>
 
                   <div className="inventory-table-wrapper">
@@ -1576,8 +1744,9 @@ function App() {
             <h3 className="modal-title">Nuevo Loteo</h3>
             <form onSubmit={createLoteo}>
               <div className="form-group">
-                <label>Nombre</label>
+                <label htmlFor="loteo-name">Nombre</label>
                 <input
+                  id="loteo-name"
                   type="text"
                   required
                   value={createLoteoForm.name}
@@ -1585,8 +1754,9 @@ function App() {
                 />
               </div>
               <div className="form-group">
-                <label>Slug</label>
+                <label htmlFor="loteo-slug">Slug</label>
                 <input
+                  id="loteo-slug"
                   type="text"
                   required
                   value={createLoteoForm.slug}
@@ -1594,20 +1764,93 @@ function App() {
                 />
               </div>
               <div className="form-group">
-                <label>URL de Imagen</label>
+                <label htmlFor="loteo-image-url">URL de Imagen</label>
                 <input
+                  id="loteo-image-url"
                   type="text"
                   value={createLoteoForm.image_url}
                   onChange={e => setCreateLoteoForm(f => ({ ...f, image_url: e.target.value }))}
                 />
               </div>
+              <div className="form-group">
+                <label htmlFor="loteo-blueprint-url">URL de Blueprint</label>
+                <input
+                  id="loteo-blueprint-url"
+                  type="text"
+                  value={createLoteoForm.blueprint_url}
+                  onChange={e => setCreateLoteoForm(f => ({ ...f, blueprint_url: e.target.value }))}
+                />
+              </div>
               {createLoteoError && <div className="status-message error">{createLoteoError}</div>}
               <div className="modal-footer">
-                <Button variant="outline" onClick={() => setCreateLoteoOpen(false)}>
+                <Button variant="outline" size="sm" onClick={() => setCreateLoteoOpen(false)}>
                   Cancelar
                 </Button>
                 <Button type="submit" size="sm" loading={createLoteoLoading}>
                   {createLoteoLoading ? <Loader size="sm" /> : 'Crear'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {editLoteoOpen && (
+        <div className="modal-overlay" onClick={closeEditLoteoModal}>
+          <div
+            ref={editLoteoModalRef}
+            className="modal-card"
+            onClick={e => e.stopPropagation()}
+            aria-modal="true"
+            role="dialog"
+          >
+            <h3 className="modal-title">Editar Loteo</h3>
+            <form onSubmit={saveEditLoteo}>
+              <div className="form-group">
+                <label htmlFor="edit-loteo-name">Nombre</label>
+                <input
+                  id="edit-loteo-name"
+                  type="text"
+                  required
+                  value={editLoteoForm.name}
+                  onChange={e => setEditLoteoForm(f => ({ ...f, name: e.target.value }))}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="edit-loteo-slug">Slug</label>
+                <input
+                  id="edit-loteo-slug"
+                  type="text"
+                  required
+                  value={editLoteoForm.slug}
+                  onChange={e => setEditLoteoForm(f => ({ ...f, slug: e.target.value }))}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="edit-loteo-image-url">URL de Imagen</label>
+                <input
+                  id="edit-loteo-image-url"
+                  type="text"
+                  value={editLoteoForm.image_url}
+                  onChange={e => setEditLoteoForm(f => ({ ...f, image_url: e.target.value }))}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="edit-loteo-blueprint-url">URL de Blueprint</label>
+                <input
+                  id="edit-loteo-blueprint-url"
+                  type="text"
+                  value={editLoteoForm.blueprint_url}
+                  onChange={e => setEditLoteoForm(f => ({ ...f, blueprint_url: e.target.value }))}
+                />
+              </div>
+              {editLoteoError && <div className="status-message error">{editLoteoError}</div>}
+              <div className="modal-footer">
+                <Button type="button" variant="outline" size="sm" onClick={closeEditLoteoModal} disabled={editLoteoLoading}>
+                  Cancelar
+                </Button>
+                <Button type="submit" size="sm" loading={editLoteoLoading}>
+                  {editLoteoLoading ? <Loader size="sm" /> : 'Guardar'}
                 </Button>
               </div>
             </form>
@@ -1706,7 +1949,7 @@ function App() {
               </div>
               {addProspectError && <div className="status-message error">{addProspectError}</div>}
               <div className="modal-footer">
-                <Button variant="outline" onClick={() => setAddProspectOpen(false)}>
+                <Button variant="outline" size="sm" onClick={() => setAddProspectOpen(false)}>
                   Cancelar
                 </Button>
                 <Button type="submit" size="sm" loading={addProspectLoading}>

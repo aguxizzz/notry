@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import BlueprintHeatmap from './BlueprintHeatmap';
 import StatCard from './StatCard';
 import { API_BASE } from '../config';
@@ -24,6 +24,22 @@ export default function AnalisisView({
   const [loteosError, setLoteosError] = useState(null);
 
   const [selectedLoteo, setSelectedLoteo] = useState(null);
+  const [fadeState, setFadeState] = useState('visible'); // 'visible' | 'fading-out' | 'fading-in'
+  const prevDaysRef = useRef(analisisLastDays);
+
+  // Animate when time period changes
+  useEffect(() => {
+    if (prevDaysRef.current === analisisLastDays) return;
+    prevDaysRef.current = analisisLastDays;
+
+    // Fade out → swap data → fade in
+    setFadeState('fading-out');
+    const outTimer = setTimeout(() => {
+      setFadeState('fading-in');
+      const inTimer = setTimeout(() => setFadeState('visible'), 300);
+    }, 200);
+    return () => { clearTimeout(outTimer); };
+  }, [analisisLastDays]);
 
   const reportStats = cachedReports[analisisLastDays] ?? null;
   const clicksData  = cachedClicks[selectedLoteo?.id] ?? [];
@@ -129,21 +145,21 @@ export default function AnalisisView({
           <Loader size="sm" />
         </div>
       ) : (
-        <div className="report-stats-row">
+        <div className={`report-stats-row analisis-fade-${fadeState}`}>
           <StatCard
             label="Prospectos en el período"
             value={reportStats.prospectos}
-            color="#3b82f6"
+            color="var(--color-stat-info)"
           />
           <StatCard
             label="Ventas en el período"
             value={`$${reportStats.ventas.toLocaleString('es-AR')}`}
-            color="#22c55e"
+            color="var(--color-stat-success)"
           />
           <StatCard
             label="Lotes vendidos"
             value={reportStats.lotesVendidos}
-            color="#ef4444"
+            color="var(--color-danger)"
           />
         </div>
       )}

@@ -1,0 +1,584 @@
+{
+  "panoramaUrl": "https://notry-back.onrender.com/static/panorama.webp",
+  "blueprintUrl": "https://notry-back.onrender.com/static/plano_loteotest.webp",
+  "annotations": [
+    {
+      "uuid": "b3a10739-2130-46e5-bd08-64f4c12e376f",
+      "type": "polygon",
+      "panorama_coordinates": [
+        [
+          1017,
+          4831
+        ],
+        [
+          1653,
+          4656
+        ],
+        [
+          1932,
+          4834
+        ],
+        [
+          1160,
+          4950
+        ]
+      ],
+      "blueprint_coordinates": [
+        [
+          0.6826248660307134,
+          0.264206439183714
+        ],
+        [
+          0.608673146567099,
+          0.2721152835710499
+        ],
+        [
+          0.6423635612934224,
+          0.3931804514268677
+        ],
+        [
+          0.7149341217345813,
+          0.38391674929629743
+        ]
+      ],
+      "tooltip": "Lote 08",
+      "svgStyle": {
+        "fill": "rgba(0,100,255,0.3)",
+        "stroke": "#06c",
+        "strokeWidth": "2"
+      },
+      "price": "180000.00",
+      "area_m2": "200.00",
+      "status": "available"
+    },
+    {
+      "uuid": "82c93ac8-7770-4f9c-8219-650067a8d0e0",
+      "type": "polygon",
+      "panorama_coordinates": [
+        [
+          0.5333312671819114,
+          0.2842299148162863
+        ],
+        [
+          0.5644203441781838,
+          0.4019512405221342
+        ],
+        [
+          0.6397466517742424,
+          0.39402202737238484
+        ],
+        [
+          0.6072822882775236,
+          0.27609544622598875
+        ]
+      ],
+      "blueprint_coordinates": [
+        [
+          0.5333312671819114,
+          0.2842299148162863
+        ],
+        [
+          0.5644203441781838,
+          0.4019512405221342
+        ],
+        [
+          0.6397466517742424,
+          0.39402202737238484
+        ],
+        [
+          0.6072822882775236,
+          0.27609544622598875
+        ]
+      ],
+      "tooltip": "loteb03",
+      "svgStyle": {
+        "fill": "rgba(0,100,255,0.3)",
+        "stroke": "#06c",
+        "strokeWidth": "2"
+      },
+      "price": "1.00",
+      "area_m2": "1.00",
+      "status": "available"
+    },
+    {
+      "uuid": "2b161ca5-76b8-4ad9-b07b-71ee4bfc04b6",
+      "type": "polygon",
+      "panorama_coordinates": [
+        [
+          2139,
+          5522
+        ],
+        [
+          2452,
+          5108
+        ],
+        [
+          2305,
+          5034
+        ],
+        [
+          1577,
+          5187
+        ]
+      ],
+      "blueprint_coordinates": [
+        [
+          2139,
+          5522
+        ],
+        [
+          2452,
+          5108
+        ],
+        [
+          2305,
+          5034
+        ],
+        [
+          1577,
+          5187
+        ]
+      ],
+      "tooltip": "LoteTest07",
+      "svgStyle": {
+        "fill": "rgba(0,100,255,0.3)",
+        "stroke": "#06c",
+        "strokeWidth": "2"
+      },
+      "price": "150000.00",
+      "area_m2": "100.00",
+      "status": "available"
+    },
+    {
+      "uuid": "57e67ad0-4c38-4753-bbe8-5f4ae49b6f8e",
+      "type": "polygon",
+      "panorama_coordinates": [
+        [
+          2856,
+          5114
+        ],
+        [
+          3374,
+          5092
+        ],
+        [
+          4042,
+          5699
+        ],
+        [
+          3541,
+          5889
+        ],
+        [
+          2942,
+          5782
+        ]
+      ],
+      "blueprint_coordinates": [
+        [
+          2856,
+          5114
+        ],
+        [
+          3374,
+          5092
+        ],
+        [
+          4042,
+          5699
+        ],
+        [
+          3541,
+          5889
+        ],
+        [
+          2942,
+          5782
+        ]
+      ],
+      "tooltip": "test1",
+      "svgStyle": {
+        "fill": "rgba(0,100,255,0.3)",
+        "stroke": "#06c",
+        "strokeWidth": "2"
+      },
+      "price": "2.00",
+      "area_m2": "2.00",
+      "status": "reserved"
+    },
+    {
+      "uuid": "869bdc4d-d28f-44c3-b5ce-44da32130930",
+      "type": "polygon",
+      "panorama_coordinates": [
+        [
+          2850,
+          5112
+        ],
+        [
+          2930,
+          5775
+        ],
+        [
+          2153,
+          5530
+        ],
+        [
+          2459,
+          5105
+        ]
+      ],
+      "blueprint_coordinates": [
+        [
+          2850,
+          5112
+        ],
+        [
+          2930,
+          5775
+        ],
+        [
+          2153,
+          5530
+        ],
+        [
+          2459,
+          5105
+        ]
+      ],
+      "tooltip": "LoteTest04",
+      "svgStyle": {
+        "fill": "rgba(0,100,255,0.3)",
+        "stroke": "#06c",
+        "strokeWidth": "2"
+      },
+      "price": "150000.00",
+      "area_m2": "120.00",
+      "status": "reserved"
+    },
+    {
+      "uuid": "29223004-ab08-4c9f-9b4e-0cb1db627549",
+      "type": "polygon",
+      "panorama_coordinates": [
+        [
+          3089,
+          4744
+        ],
+        [
+          3315,
+          5018
+        ],
+        [
+          2747,
+          5033
+        ],
+        [
+          2768,
+          4671
+        ]
+      ],
+      "blueprint_coordinates": [
+        [
+          3089,
+          4744
+        ],
+        [
+          3315,
+          5018
+        ],
+        [
+          2747,
+          5033
+        ],
+        [
+          2768,
+          4671
+        ]
+      ],
+      "tooltip": "LoteTest06",
+      "svgStyle": {
+        "fill": "rgba(0,100,255,0.3)",
+        "stroke": "#06c",
+        "strokeWidth": "2"
+      },
+      "price": "130000.00",
+      "area_m2": "100.00",
+      "status": "available"
+    },
+    {
+      "uuid": "543d2234-dce0-477d-b665-df695f583045",
+      "type": "polygon",
+      "panorama_coordinates": [
+        [
+          4119,
+          5596
+        ],
+        [
+          5152,
+          5162
+        ],
+        [
+          5049,
+          5032
+        ],
+        [
+          4964,
+          4969
+        ],
+        [
+          4844,
+          4939
+        ],
+        [
+          4231,
+          4901
+        ],
+        [
+          3158,
+          4757
+        ]
+      ],
+      "blueprint_coordinates": [
+        [
+          4119,
+          5596
+        ],
+        [
+          5152,
+          5162
+        ],
+        [
+          5049,
+          5032
+        ],
+        [
+          4964,
+          4969
+        ],
+        [
+          4844,
+          4939
+        ],
+        [
+          4231,
+          4901
+        ],
+        [
+          3158,
+          4757
+        ]
+      ],
+      "tooltip": "LoteTest01",
+      "svgStyle": {
+        "fill": "rgba(0,100,255,0.3)",
+        "stroke": "#06c",
+        "strokeWidth": "2"
+      },
+      "price": "150000.00",
+      "area_m2": "200.00",
+      "status": "available"
+    },
+    {
+      "uuid": "354f1351-1787-471a-bb84-f9dceb785f17",
+      "type": "polygon",
+      "panorama_coordinates": [
+        [
+          2298,
+          5029
+        ],
+        [
+          1935,
+          4839
+        ],
+        [
+          1182,
+          4944
+        ],
+        [
+          1594,
+          5182
+        ]
+      ],
+      "blueprint_coordinates": [
+        [
+          2298,
+          5029
+        ],
+        [
+          1935,
+          4839
+        ],
+        [
+          1182,
+          4944
+        ],
+        [
+          1594,
+          5182
+        ]
+      ],
+      "tooltip": "LoteTest05",
+      "svgStyle": {
+        "fill": "rgba(0,100,255,0.3)",
+        "stroke": "#06c",
+        "strokeWidth": "2"
+      },
+      "price": "130000.00",
+      "area_m2": "100.00",
+      "status": "sold"
+    },
+    {
+      "id": "text-1774525329908",
+      "size": {
+        "width": 100,
+        "height": 30
+      },
+      "type": "text",
+      "bgColor": "#ffffff",
+      "tooltip": "Lote 01",
+      "fontSize": 25,
+      "position": {
+        "textureX": 4197,
+        "textureY": 5049
+      },
+      "svgStyle": {
+        "fill": "rgba(255,0,0,0.3)",
+        "stroke": "#c00",
+        "strokeWidth": "2"
+      },
+      "bgOpacity": 0,
+      "textColor": "#fffafa"
+    },
+    {
+      "id": "text-1774535697535",
+      "size": {
+        "width": 150,
+        "height": 30
+      },
+      "type": "text",
+      "bgColor": "#ffffff",
+      "tooltip": "Lote 04",
+      "fontSize": 25,
+      "position": {
+        "textureX": 2580,
+        "textureY": 5308
+      },
+      "svgStyle": {
+        "fill": "rgba(255,0,0,0.3)",
+        "stroke": "#c00",
+        "strokeWidth": "2"
+      },
+      "bgOpacity": 0,
+      "textColor": "#fafafa"
+    },
+    {
+      "id": "text-1774535712038",
+      "size": {
+        "width": 100,
+        "height": 30
+      },
+      "type": "text",
+      "bgColor": "#ffffff",
+      "tooltip": "LOTE 05",
+      "fontSize": 22,
+      "position": {
+        "textureX": 1777,
+        "textureY": 5003
+      },
+      "svgStyle": {
+        "fill": "rgba(255,0,0,0.3)",
+        "stroke": "#c00",
+        "strokeWidth": "2"
+      },
+      "bgOpacity": 0,
+      "textColor": "#fafafa"
+    },
+    {
+      "id": "text-1774536168475",
+      "size": {
+        "width": 100,
+        "height": 30
+      },
+      "type": "text",
+      "bgColor": "#ffffff",
+      "tooltip": "Lote 06",
+      "fontSize": 22,
+      "position": {
+        "textureX": 2989,
+        "textureY": 4830
+      },
+      "svgStyle": {
+        "fill": "rgba(255,0,0,0.3)",
+        "stroke": "#c00",
+        "strokeWidth": "2"
+      },
+      "bgOpacity": 0,
+      "textColor": "#ffffff"
+    },
+    {
+      "id": "text-1774983992576",
+      "size": {
+        "width": 100,
+        "height": 30
+      },
+      "type": "text",
+      "bgColor": "#ffffff",
+      "tooltip": "Lote 07",
+      "fontSize": 25,
+      "position": {
+        "textureX": 2074,
+        "textureY": 5186
+      },
+      "svgStyle": {
+        "fill": "rgba(255,0,0,0.3)",
+        "stroke": "#c00",
+        "strokeWidth": "2"
+      },
+      "bgOpacity": 0,
+      "textColor": "#ffffff"
+    },
+    {
+      "id": "text-1775420677619",
+      "size": {
+        "width": 100,
+        "height": 30
+      },
+      "type": "text",
+      "bgColor": "#ffffff",
+      "tooltip": "Test 01",
+      "fontSize": 25,
+      "position": {
+        "textureX": 3279,
+        "textureY": 5378
+      },
+      "svgStyle": {
+        "fill": "rgba(255,0,0,0.3)",
+        "stroke": "#c00",
+        "strokeWidth": "2"
+      },
+      "bgOpacity": 0,
+      "textColor": "#ffffff"
+    },
+    {
+      "id": "text-1776092905513",
+      "size": {
+        "width": 100,
+        "height": 30
+      },
+      "type": "text",
+      "bgColor": "#ffffff",
+      "tooltip": "Lote 08",
+      "fontSize": 25,
+      "position": {
+        "textureX": 1501,
+        "textureY": 4790
+      },
+      "svgStyle": {
+        "fill": "rgba(255,0,0,0.3)",
+        "stroke": "#c00",
+        "strokeWidth": "2"
+      },
+      "bgOpacity": 0,
+      "textColor": "#ffffff"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MousePointer2, Pentagon, Type, Download, Image as ImageIcon, ArrowLeft, Grid3x3 } from 'lucide-react';
+import { MousePointer2, Pentagon, Type, Download, Image as ImageIcon, ArrowLeft, Grid3x3, Camera } from 'lucide-react';
 import EditorViewer from './components/EditorViewer';
 import BlueprintEditor from './components/BlueprintEditor';
 import LoginScreen from './components/LoginScreen';
@@ -63,6 +63,7 @@ function App() {
   const [isAssigning, setIsAssigning] = useState(false);
   const [pendingDraft, setPendingDraft] = useState(null);
   const [sessionExpiredDuringSave, setSessionExpiredDuringSave] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   
   // Track blob URLs to revoke and prevent memory leak
   const prevPanoramaUrlRef = useRef(null);
@@ -251,6 +252,7 @@ function App() {
     setAnnotations([...annotations, newAnn]);
     setSelectedId(newId);
     setActiveTool('select');
+    setInspectorOpen(false);
   };
 
   const finishPolygon = () => {
@@ -433,6 +435,10 @@ function App() {
       alert("Por favor, ingresa un UUID");
       return;
     }
+    if (!marker.polygonPixels || marker.polygonPixels.length < 3) {
+      alert("No hay polígono válido para guardar en este modo.");
+      return;
+    }
 
     const payload = {
       uuid: marker.uuid,
@@ -559,7 +565,9 @@ function App() {
           ...(loteForm.price !== '' && { price: parseFloat(loteForm.price) }),
           ...(loteForm.area !== '' && { area_m2: parseFloat(loteForm.area) }),
           loteo_id: loteoId,
-          coordinates_360: selectedMarker.polygonPixels,
+          ...(mode === 'blueprint' 
+            ? { blueprint_coordinates: selectedMarker.polygonPixels }
+            : { coordinates_360: selectedMarker.polygonPixels })
         })
       });
 
@@ -577,7 +585,10 @@ function App() {
           tooltip: lote.name,
           precio: lote.price,
           area: lote.area_m2,
-          estado: lote.status
+          estado: lote.status,
+          ...(mode === 'blueprint'
+            ? { blueprint_coordinates: a.polygonPixels }
+            : { panorama_coordinates: a.polygonPixels })
         } : a
       ));
       setSelectedId(lote.id);
@@ -644,16 +655,24 @@ function App() {
             body: JSON.stringify({ text_annotations: textAnnotations })
           })
           : Promise.resolve(null),
-        ...polygonsWithUuid.map(marker =>
-          fetchWithTimeout(`https://notry-back.onrender.com/api/v1/lots/${mode === 'blueprint' ? 'update-blueprint-coordinates' : 'update-coordinates'}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-            body: JSON.stringify({
-              uuid: marker.uuid,
-              polygonPoints: marker.polygonPixels || []
-            })
-          })
-        )
+        ...polygonsWithUuid.flatMap(marker => {
+          const reqs = [];
+          if (marker.panorama_coordinates && marker.panorama_coordinates.length > 0) {
+            reqs.push(fetchWithTimeout(`https://notry-back.onrender.com/api/v1/lots/update-coordinates`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+              body: JSON.stringify({ uuid: marker.uuid, polygonPoints: marker.panorama_coordinates })
+            }));
+          }
+          if (marker.blueprint_coordinates && marker.blueprint_coordinates.length > 0) {
+            reqs.push(fetchWithTimeout(`https://notry-back.onrender.com/api/v1/lots/update-blueprint-coordinates`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+              body: JSON.stringify({ uuid: marker.uuid, polygonPoints: marker.blueprint_coordinates })
+            }));
+          }
+          return reqs;
+        })
       ]);
 
       if (textRes?.status === 401 || polyResults.some(r => r?.status === 401)) {
@@ -756,7 +775,7 @@ function App() {
             disabled={!panoramaUrl}
             style={{ opacity: !panoramaUrl ? 0.4 : 1 }}
           >
-            📸
+            <Camera size={20} />
           </button>
           {blueprintUrl && (
             <button
@@ -808,6 +827,15 @@ function App() {
           Cerrar Sesión
         </button>
 
+        <button
+          className="inspector-toggle-btn"
+          onClick={() => setInspectorOpen(o => !o)}
+          title="Toggle Inspector"
+          aria-label="Toggle inspector panel"
+        >
+          {inspectorOpen ? '×' : '☰'}
+        </button>
+
         {activeTool === 'polygon' && drawingPolygon.length > 0 && (
           <div style={{ position: 'fixed', bottom: '1rem', left: '50%', transform: 'translateX(-50%)', zIndex: 1000, display: 'flex', gap: '1rem' }}>
             <button className="btn-primary" onClick={finishPolygon} style={{ background: '#28a745', width: 'auto' }}>Finalizar Polígono ({drawingPolygon.length} pts)</button>
@@ -832,6 +860,7 @@ function App() {
                   finishPolygon();
                 } else {
                   setSelectedId(id);
+                  setInspectorOpen(false);
                 }
               }}
               onPolygonUpdate={handlePolygonUpdate}
@@ -848,6 +877,7 @@ function App() {
                   finishPolygon();
                 } else {
                   setSelectedId(id);
+                  setInspectorOpen(false);
                 }
               }}
               onPolygonUpdate={handlePolygonUpdate}
@@ -863,7 +893,7 @@ function App() {
         </div>
       </div>
 
-      <div className="inspector-pane">
+      <div className={`inspector-pane${inspectorOpen ? ' open' : ''}`}>
         <div className="inspector-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Inspector</span>
           <span style={{ fontSize: 'var(--text-base)', color: '#aaa' }}>{annotations.length} capas</span>

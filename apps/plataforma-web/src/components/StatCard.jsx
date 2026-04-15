@@ -1,6 +1,6 @@
 import React from 'react';
 
-const StatCard = ({ label, value, color = '#c5a059' }) => {
+const StatCard = ({ label, value, color = 'var(--accent-color)', loading = false }) => {
   return (
     <div className="stat-card" style={{ '--stat-accent': color }}>
       <div className="stat-inner">
@@ -8,7 +8,13 @@ const StatCard = ({ label, value, color = '#c5a059' }) => {
           <span className="stat-label">{label}</span>
         </div>
         <div className="stat-right">
-          <span className="stat-value">{value}</span>
+          {loading ? (
+            <span className="stat-value-loading" aria-label="Cargando">
+              <span className="stat-spinner"></span>
+            </span>
+          ) : (
+            <span className="stat-value">{value}</span>
+          )}
         </div>
       </div>
     </div>
