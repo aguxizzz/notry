@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import DOMPurify from 'dompurify';
 
 const IconRuler = () => (
@@ -108,7 +108,7 @@ function PrecalificacionForm({ lotDetail, onClose }) {
           />
           <label htmlFor="precal-numero">Número</label>
           <input
-            type="text"
+            type="tel"
             id="precal-numero"
             name="numero"
             placeholder="Ingrese su número"
@@ -192,13 +192,16 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
   const [isClosing, setIsClosing] = useState(false);
   const closingRef = useRef(false);
 
-  // Freeze displayed content while the panel is closing so the close animation
-  // plays with the content still visible, not an empty shell.
+  // Holds the frozen content shown during the close animation.
+  // Updated via useLayoutEffect (not render-time mutation) so the close
+  // animation always completes with the content that was visible when isOpen=false.
   const displayRef = useRef({ title: '', content: '', markerId: null, detail: {} });
-  if (isOpen) {
-    displayRef.current = { title, content, markerId, detail };
-  }
-  const display = displayRef.current;
+
+  useLayoutEffect(() => {
+    if (isOpen) {
+      displayRef.current = { title, content, markerId, detail };
+    }
+  }, [isOpen, title, content, markerId, detail]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -206,7 +209,6 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
       // stays mounted for the entire duration of the CSS close animation.
       setIsClosing(true);
       const timer = setTimeout(() => {
-        // Animation complete; reset everything.
         closingRef.current = false;
         setIsClosing(false);
         setShowForm(false);
@@ -217,8 +219,6 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
   }, [isOpen]);
 
   useEffect(() => {
-    // Only reset form when marker changes AND panel is open and NOT mid-close-animation.
-    // This prevents resetting showForm while the CSS close animation is playing.
     if (!isClosing && isOpen) {
       setShowForm(false);
       setTransDir(null);
@@ -228,6 +228,8 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
   const goToForm = () => { setTransDir('forward'); setShowForm(true); };
   const goBack  = () => { setTransDir('back');    setShowForm(false); };
   const wrappedOnClose = () => { closingRef.current = true; onClose(); };
+
+  const display = displayRef.current;
 
   const estadoKey = display.detail?.estado;
   const estadoCfg = ESTADO_CONFIG[estadoKey] ?? null;
@@ -241,8 +243,13 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
   };
 
   const panelAccentStyle = estadoCfg
-    ? { '--accent': estadoCfg.accent, '--accent-hover': estadoCfg.accentHover, '--panel-header-bg': estadoCfg.accent }
-    : {};
+    ? {
+        '--accent': estadoCfg.accent,
+        '--accent-hover': estadoCfg.accentHover,
+        '--panel-header-bg': estadoCfg.accent,
+        '--panel-header-text': '#ffffff',
+      }
+    : { '--panel-header-text': '#1a1a1a' };
 
   return (
     <div

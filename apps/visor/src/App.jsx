@@ -149,25 +149,9 @@ export default function App() {
     <>
       {blueprintUrl && (
         <button
+          className="view-toggle"
+          style={{ background: viewMode === 'blueprint' ? 'var(--accent)' : '#333' }}
           onClick={() => setViewMode(v => v === 'panorama' ? 'blueprint' : 'panorama')}
-          style={{
-            position: 'fixed',
-            top: 16,
-            right: 16,
-            zIndex: 1000,
-            background: viewMode === 'blueprint' ? '#c5a059' : '#333',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 8,
-            padding: '8px 14px',
-            cursor: 'pointer',
-            fontSize: '0.85rem',
-            fontFamily: 'sans-serif',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-          }}
           title={viewMode === 'blueprint' ? 'Ver panorama' : 'Ver blueprint'}
         >
           {viewMode === 'blueprint' ? (
@@ -199,12 +183,7 @@ export default function App() {
       )}
 
       {usingFallback && (
-        <div style={{
-          position: 'fixed', bottom: 12, left: '50%', transform: 'translateX(-50%)',
-          background: '#333', color: '#aaa', fontSize: '0.75rem',
-          padding: '6px 14px', borderRadius: 20, zIndex: 9999,
-          pointerEvents: 'none'
-        }}>
+        <div className="fallback-banner">
           Modo offline · datos locales
         </div>
       )}

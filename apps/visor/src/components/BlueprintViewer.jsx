@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
-const STATUS_COLORS = {
-  available: { fill: 'rgba(34,197,94,0.3)', stroke: 'rgba(22,163,74,0.7)' },
-  sold: { fill: 'rgba(239,68,68,0.35)', stroke: 'rgba(220,38,38,0.8)' },
-  reserved: { fill: 'rgba(59,130,246,0.32)', stroke: 'rgba(37,99,235,0.75)' },
-  default: { fill: 'rgba(0,100,255,0.2)', stroke: 'rgba(0,102,204,0.7)' },
+const POLY_VAR = {
+  available: { fill: 'var(--poly-available-fill)', stroke: 'var(--poly-available-stroke)' },
+  sold:      { fill: 'var(--poly-sold-fill)',       stroke: 'var(--poly-sold-stroke)'       },
+  reserved:  { fill: 'var(--poly-reserved-fill)',  stroke: 'var(--poly-reserved-stroke)'  },
+  default:   { fill: 'var(--poly-default-fill)',   stroke: 'var(--poly-default-stroke)'   },
 };
 
-function getStatusColors(status) {
-  return STATUS_COLORS[status] || STATUS_COLORS.default;
+function getPolyVar(status) {
+  return POLY_VAR[status] || POLY_VAR.default;
 }
 
 export default function BlueprintViewer({
@@ -135,6 +135,13 @@ export default function BlueprintViewer({
     onMarkerSelect && onMarkerSelect(ann);
   };
 
+  const handlePolygonKeyDown = (e, ann) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onMarkerSelect && onMarkerSelect(ann);
+    }
+  };
+
   const handlePolygonHover = (e, ann) => {
     const id = ann ? ann.uuid || ann.id : null;
     setHoveredId(id);
@@ -150,17 +157,7 @@ export default function BlueprintViewer({
     return (
       <div
         ref={containerRef}
-        style={{
-          width: '100%',
-          height: '100%',
-          background: '#1a1a1a',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#888',
-          fontFamily: 'sans-serif',
-          fontSize: '0.9rem',
-        }}
+        className="viewer-state viewer-state--empty"
       >
         Sin blueprint disponible
       </div>
@@ -171,22 +168,10 @@ export default function BlueprintViewer({
     return (
       <div
         ref={containerRef}
-        style={{
-          width: '100%',
-          height: '100%',
-          background: '#1a1a1a',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#e88',
-          fontFamily: 'sans-serif',
-          fontSize: '0.9rem',
-          gap: 8,
-        }}
+        className="viewer-state viewer-state--error"
       >
         <span>Error al cargar la imagen del blueprint</span>
-        <span style={{ color: '#666', fontSize: '0.8rem' }}>Verifica que la URL sea accesible</span>
+        <span className="viewer-state__sub">Verifica que la URL sea accesible</span>
       </div>
     );
   }
@@ -195,17 +180,7 @@ export default function BlueprintViewer({
     return (
       <div
         ref={containerRef}
-        style={{
-          width: '100%',
-          height: '100%',
-          background: '#1a1a1a',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#888',
-          fontFamily: 'sans-serif',
-          fontSize: '0.9rem',
-        }}
+        className="viewer-state viewer-state--loading"
       >
         Cargando blueprint...
       </div>
@@ -220,41 +195,16 @@ export default function BlueprintViewer({
     return (
       <div
         ref={containerRef}
-        style={{
-          width: '100%',
-          height: '100%',
-          background: '#1a1a1a',
-          position: 'relative',
-        }}
+        className="viewer-canvas"
       >
         <img
           src={blueprintUrl}
           alt="Blueprint"
-          style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            maxWidth: '100%',
-            maxHeight: '100%',
-            objectFit: 'contain',
-          }}
+          className="viewer-canvas__img"
+          loading="lazy"
           draggable={false}
         />
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 12,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: 'rgba(0,0,0,0.6)',
-            color: '#aaa',
-            fontSize: '0.8rem',
-            padding: '6px 14px',
-            borderRadius: 20,
-            fontFamily: 'sans-serif',
-          }}
-        >
+        <div className="viewer-badge viewer-badge--center">
           Sin lotes definidos en blueprint
         </div>
       </div>
@@ -264,83 +214,58 @@ export default function BlueprintViewer({
   return (
     <div
       ref={containerRef}
-      style={{
-        width: '100%',
-        height: '100%',
-        background: '#1a1a1a',
-        overflow: 'hidden',
-        position: 'relative',
-        cursor: 'default',
-      }}
+      className="viewer-canvas viewer-canvas--interactive"
       onMouseDown={handlePanStart}
       onMouseMove={handlePanMove}
     >
       <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          transformOrigin: '0 0',
-          transform: `translate(${panX}px, ${panY}px) scale(${zoom})`,
-          pointerEvents: 'none',
-        }}
+        className="viewer-transform"
+        style={{ transform: `translate(${panX}px, ${panY}px) scale(${zoom})` }}
       >
         <img
           src={blueprintUrl}
           alt="Blueprint"
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: dw,
-            height: dh,
-            display: 'block',
-            pointerEvents: 'none',
-            userSelect: 'none',
-          }}
+          className="viewer-bp-img"
+          style={{ width: dw, height: dh }}
           draggable={false}
         />
 
         <svg
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: dw,
-            height: dh,
-            overflow: 'visible',
-            pointerEvents: 'auto',
-          }}
+          focusable="false"
+          className="viewer-svg"
+          style={{ width: dw, height: dh }}
         >
           {annotations.map((ann) => {
             if (ann.type !== 'polygon' || !ann.blueprint_coordinates || ann.blueprint_coordinates.length < 3) {
               return null;
             }
 
-            const colors = getStatusColors(ann.status || ann.estado);
+            const polyVar = getPolyVar(ann.status || ann.estado);
             const isHovered = hoveredId === (ann.uuid || ann.id);
             const isSelected = selectedId === (ann.uuid || ann.id);
+            const isFocused  = isHovered || isSelected;
 
             const pts = ann.blueprint_coordinates.map(([nx, ny]) => normToSvg(nx, ny));
             if (pts.some(p => !Number.isFinite(p.x) || !Number.isFinite(p.y))) return null;
             const ptsStr = pts.map((p) => `${p.x},${p.y}`).join(' ');
 
             return (
-              <g key={ann.uuid || ann.id}>
+              <g
+                key={ann.uuid || ann.id}
+                role="button"
+                tabIndex={0}
+                aria-label={ann.tooltip ?? (ann.uuid || ann.id)}
+                className={isFocused ? 'bp-poly bp-poly--focused' : 'bp-poly'}
+                onClick={(e) => handlePolygonClick(e, ann)}
+                onKeyDown={(e) => handlePolygonKeyDown(e, ann)}
+                onMouseEnter={(e) => handlePolygonHover(e, ann)}
+                onMouseLeave={(e) => handlePolygonHover(e, null)}
+              >
                 <polygon
                   points={ptsStr}
-                  fill={isHovered || isSelected ? colors.fill.replace(/[\d.]+\)$/, m => `${Math.min(1, parseFloat(m) + 0.3)})`) : colors.fill}
-                  stroke={isHovered || isSelected ? colors.stroke : colors.stroke}
-                  strokeWidth={isHovered || isSelected ? 2.5 / zoom : 1.5 / zoom}
-                  style={{
-                    cursor: 'pointer',
-                    transition: 'fill 0.15s ease',
-                  }}
-                  onClick={(e) => handlePolygonClick(e, ann)}
-                  onMouseEnter={(e) => handlePolygonHover(e, ann)}
-                  onMouseLeave={(e) => handlePolygonHover(e, null)}
+                  fill={polyVar.fill}
+                  stroke={polyVar.stroke}
+                  strokeWidth="2"
                 />
               </g>
             );
@@ -349,20 +274,7 @@ export default function BlueprintViewer({
       </div>
 
       {/* Zoom indicator */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 12,
-          right: 12,
-          background: 'rgba(0,0,0,0.6)',
-          color: '#fff',
-          fontSize: '0.75rem',
-          padding: '4px 8px',
-          borderRadius: 4,
-          pointerEvents: 'none',
-          fontFamily: 'sans-serif',
-        }}
-      >
+      <div className="viewer-badge viewer-badge--zoom">
         {Math.round(zoom * 100)}%
       </div>
     </div>
