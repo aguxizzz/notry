@@ -23,6 +23,22 @@ export default function BlueprintHeatmap({
   const panStartRef = useRef({ x: 0, y: 0 });
   const panXRef = useRef(panX);
   const panYRef = useRef(panY);
+  const rafRef = useRef(null);
+  const pendingZoomRef = useRef(null); // accumulated wheel delta
+
+  // RAF loop: reads refs and commits a single state update per frame.
+  const scheduleUpdate = useCallback(() => {
+    if (rafRef.current !== null) return;
+    rafRef.current = requestAnimationFrame(() => {
+      if (pendingZoomRef.current !== null) {
+        setZoom(pendingZoomRef.current);
+        pendingZoomRef.current = null;
+      }
+      setPanX(panXRef.current);
+      setPanY(panYRef.current);
+      rafRef.current = null;
+    });
+  }, []);
 
   useEffect(() => {
     panXRef.current = panX;
@@ -69,8 +85,12 @@ export default function BlueprintHeatmap({
   const handleWheel = useCallback((e) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setZoom((prev) => Math.max(0.2, Math.min(10, prev * delta)));
-  }, []);
+    if (pendingZoomRef.current === null) {
+      pendingZoomRef.current = zoom;
+    }
+    pendingZoomRef.current = Math.max(0.2, Math.min(10, pendingZoomRef.current * delta));
+    scheduleUpdate();
+  }, [zoom, scheduleUpdate]);
 
   const handlePanStart = (e) => {
     // Both left and middle mouse button triggers pan
@@ -81,8 +101,9 @@ export default function BlueprintHeatmap({
 
   const handlePanMove = (e) => {
     if (!isPanningRef.current) return;
-    setPanX(e.clientX - panStartRef.current.x);
-    setPanY(e.clientY - panStartRef.current.y);
+    panXRef.current = e.clientX - panStartRef.current.x;
+    panYRef.current = e.clientY - panStartRef.current.y;
+    scheduleUpdate();
   };
 
   const handlePanEnd = () => {
@@ -259,20 +280,33 @@ export default function BlueprintHeatmap({
               .map(([x, y]) => `${x * imgDisplayW},${y * imgDisplayH}`)
               .join(' ');
 
+            const loteLabel = renderableAnnotations.find(a => a.uuid === ann.uuid)?.tooltip || 'Lote';
             return (
               <g
                 key={ann.uuid}
+                role="button"
+                tabIndex={0}
+                aria-label={`${loteLabel}, ${clicks} clics. Presiona Enter o Espacio para ${isHovered ? 'deseleccionar' : 'seleccionar'}`}
+                aria-pressed={isHovered}
                 onMouseEnter={() => setHoveredLoteId(ann.uuid)}
                 onMouseLeave={() => setHoveredLoteId(null)}
-                style={{ cursor: 'pointer' }}
+                onFocus={() => setHoveredLoteId(ann.uuid)}
+                onBlur={() => setHoveredLoteId(null)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setHoveredLoteId(isHovered ? null : ann.uuid);
+                  }
+                }}
+                style={{ cursor: 'pointer', outline: 'none' }}
               >
                 <polygon
                   points={pointsString}
                   fill={color}
                   fillOpacity={isHovered ? 0.8 : 0.6}
-                  stroke="#c5a059"
+                  stroke="var(--color-accent)"
                   strokeWidth={isHovered ? 2.5 : 1.5}
-                  style={{ transition: 'all 0.15s ease' }}
+                  style={{ transition: 'fill-opacity 0.15s ease, stroke-width 0.15s ease, fill 0.15s ease' }}
                 />
               </g>
             );
@@ -297,43 +331,32 @@ export default function BlueprintHeatmap({
           </div>
         )}
 
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 16,
-            right: 16,
-            display: 'flex',
-            gap: 8,
-            zIndex: 20,
-          }}
-        >
+        <div className="blueprint-controls">
           <button
-            className="action-btn cancel"
+            className="blueprint-btn"
             onClick={() => setZoom(z => Math.max(0.2, z / 1.2))}
-            title="Alejar"
+            aria-label="Alejar"
           >
             -
           </button>
           <button
-            className="action-btn cancel"
+            className="blueprint-btn"
             onClick={() => setZoom(z => Math.min(10, z * 1.2))}
-            title="Acercar"
+            aria-label="Acercar"
           >
             +
           </button>
           <button
-            className="action-btn cancel"
+            className="blueprint-btn blueprint-btn--wide"
             onClick={() => { setZoom(1); setPanX(0); setPanY(0); }}
-            style={{ width: 'auto', padding: '0 8px', fontSize: '0.75rem', fontWeight: 'bold' }}
-            title="Centrar"
+            aria-label="Centrar vista"
           >
             RESET
           </button>
           <button
-            className="action-btn edit"
+            className="blueprint-btn blueprint-btn--wide"
             onClick={toggleFullscreen}
-            title="Pantalla Completa"
-            style={{ width: 'auto', padding: '0 8px', fontSize: '0.85rem' }}
+            aria-label="Pantalla completa"
           >
             ⛶
           </button>

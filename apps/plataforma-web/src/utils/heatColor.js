@@ -8,6 +8,8 @@ export function getHeatColor(clicks, maxClicks) {
 }
 
 export function getTextColor(clicks, maxClicks) {
-  if (maxClicks === 0) return 'var(--text-muted)';
-  return clicks / maxClicks > 0.55 ? '#1a1a2a' : 'var(--text-main)';
+  // Resolves to hardcoded values because CSS variables in inline SVG styles don't resolve.
+  // --color-text-muted: #4b5563  --text-main: #1a1a2a
+  if (maxClicks === 0) return '#4b5563';
+  return '#1a1a2a';
 }

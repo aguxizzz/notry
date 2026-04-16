@@ -10,6 +10,7 @@
   --text-primary:    #1a1a1a;
   --text-secondary:  #444444;
   --text-muted:      #888888;
+  --text-on-dark:    #cccccc;
   --input-bg:        #f7f5f1;
   --input-border:    #d8d0c0;
   --backdrop-bg:     rgba(0, 0, 0, 0.4);
@@ -18,6 +19,134 @@
   --btn-radius:      8px;
   --t-fast:          0.15s ease;
   --t:               0.28s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── BlueprintViewer ────────────────────────── */
+  --viewer-bg:           #1a1a1a;
+  --viewer-overlay-bg:   rgba(0, 0, 0, 0.6);
+  --viewer-error:         #e88;
+  --viewer-error-sub:     #666666;
+
+  /* Polygon fill/stroke per status */
+  --poly-available-fill:   rgba(34, 197, 94, 0.3);
+  --poly-available-stroke: rgba(22, 163, 74, 0.7);
+  --poly-sold-fill:        rgba(239, 68, 68, 0.35);
+  --poly-sold-stroke:      rgba(220, 38, 38, 0.8);
+  --poly-reserved-fill:    rgba(59, 130, 246, 0.32);
+  --poly-reserved-stroke:  rgba(37, 99, 235, 0.75);
+  --poly-default-fill:     rgba(0, 100, 255, 0.2);
+  --poly-default-stroke:   rgba(0, 102, 204, 0.7);
+}
+
+/* =============================================
+   BLUEPRINT POLYGON MARKERS
+   Matches .psv-marker--poly hover from panorama mode.
+   ============================================= */
+.bp-poly {
+  cursor: pointer;
+  outline: none;
+}
+
+/* Hover + keyboard focus — same brightness effect as panorama markers */
+.bp-poly:hover,
+.bp-poly--focused,
+.bp-poly:focus-visible {
+  filter: brightness(1.5) saturate(1.1);
+  transition: filter var(--t-fast);
+}
+
+/* ── BlueprintViewer — shared layout ─────────── */
+.viewer-transform {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+.viewer-bp-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+
+.viewer-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  pointer-events: auto;
+}
+
+/* =============================================
+   BLUEPRINT VIEWER
+   ============================================= */
+.viewer-state {
+  width: 100%;
+  height: 100%;
+  background: var(--viewer-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-family: 'Raleway', sans-serif;
+  font-size: 0.9rem;
+}
+.viewer-state--error {
+  flex-direction: column;
+  gap: 0.5rem;
+  color: var(--viewer-error);
+}
+.viewer-state__sub {
+  color: var(--viewer-error-sub);
+  font-size: 0.8rem;
+}
+
+.viewer-canvas {
+  width: 100%;
+  height: 100%;
+  background: var(--viewer-bg);
+  position: relative;
+  overflow: hidden;
+}
+.viewer-canvas--interactive {
+  cursor: default;
+}
+.viewer-canvas__img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* Shared badge used in empty state and zoom indicator */
+.viewer-badge {
+  position: absolute;
+  background: var(--viewer-overlay-bg);
+  color: var(--text-on-dark);
+  font-size: 0.8rem;
+  font-family: 'Raleway', sans-serif;
+  padding: 0.35rem 0.85rem;
+  border-radius: 20px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.viewer-badge--center {
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.viewer-badge--zoom {
+  bottom: 12px;
+  right: 12px;
+  font-size: 0.75rem;
 }
 
 /* =============================================
@@ -118,11 +247,11 @@ html, body {
 }
 #info-panel-lot-title {
   font-size: 1.05rem;
-  color: #ffffff;
+  color: var(--panel-header-text, #1a1a1a);
 }
 .info-panel-form-title {
   font-size: 0.88rem;
-  color: #ffffff;
+  color: var(--panel-header-text, #1a1a1a);
 }
 
 /* Botones cerrar / volver */
@@ -133,7 +262,7 @@ html, body {
   padding: 0;
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--panel-header-text, rgba(0, 0, 0, 0.55));
   cursor: pointer;
   border-radius: 6px;
   display: flex;
@@ -143,8 +272,13 @@ html, body {
 }
 #info-panel-close:hover,
 #info-panel-back:hover {
-  color: #ffffff;
+  color: var(--panel-header-text, #1a1a1a);
   background: rgba(0, 0, 0, 0.12);
+}
+#info-panel-close:focus-visible,
+#info-panel-back:focus-visible {
+  outline: 2px solid var(--panel-header-text, #1a1a1a);
+  outline-offset: 2px;
 }
 #info-panel-close {
   font-size: 1.3rem;
@@ -502,6 +636,58 @@ html, body {
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+/* =============================================
+   VIEW TOGGLE BUTTON
+   ============================================= */
+.view-toggle {
+  position: fixed;
+  /* Safe-area insets for iOS notch / home indicator */
+  top: calc(16px + env(safe-area-inset-top));
+  right: calc(16px + env(safe-area-inset-right));
+  z-index: 1000;
+
+  /* 44px min touch target (WCAG AA / Apple HIG) */
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px 14px;
+
+  background: #333;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-family: 'Raleway', sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.view-toggle:active {
+  transform: scale(0.96);
+}
+
+/* =============================================
+   FALLBACK OFFLINE BANNER
+   ============================================= */
+.fallback-banner {
+  position: fixed;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: #aaa;
+  font-size: 0.75rem;
+  font-family: 'Raleway', sans-serif;
+  padding: 6px 14px;
+  border-radius: 20px;
+  z-index: 9999;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 /* =============================================
