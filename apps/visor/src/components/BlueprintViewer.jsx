@@ -19,28 +19,33 @@ export default function BlueprintViewer({
   onMarkerHover,
 }) {
   const containerRef = useRef(null);
+  const transformRef = useRef(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [imgDims, setImgDims] = useState({ w: 1, h: 1 });
   const [displayDims, setDisplayDims] = useState({ w: 1, h: 1 });
   const [zoom, setZoom] = useState(1);
-  const [panX, setPanX] = useState(0);
-  const [panY, setPanY] = useState(0);
   const [hoveredId, setHoveredId] = useState(null);
 
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0 });
   const zoomRef = useRef(zoom);
-  const panXRef = useRef(panX);
-  const panYRef = useRef(panY);
+  const panXRef = useRef(0);
+  const panYRef = useRef(0);
   const displayDimsRef = useRef(displayDims);
 
   useEffect(() => {
     zoomRef.current = zoom;
-    panXRef.current = panX;
-    panYRef.current = panY;
     displayDimsRef.current = displayDims;
-  }, [zoom, panX, panY, displayDims]);
+  }, [zoom, displayDims]);
+
+  // Sync transform to DOM after initial image load
+  useEffect(() => {
+    if (!imageLoaded) return;
+    if (transformRef.current) {
+      transformRef.current.style.transform = `translate(${panXRef.current}px, ${panYRef.current}px) scale(${zoomRef.current})`;
+    }
+  }, [imageLoaded]);
 
   // Load image
   useEffect(() => {
@@ -99,8 +104,11 @@ export default function BlueprintViewer({
 
   const handlePanMove = (e) => {
     if (!isPanningRef.current) return;
-    setPanX(e.clientX - panStartRef.current.x);
-    setPanY(e.clientY - panStartRef.current.y);
+    panXRef.current = e.clientX - panStartRef.current.x;
+    panYRef.current = e.clientY - panStartRef.current.y;
+    if (transformRef.current) {
+      transformRef.current.style.transform = `translate(${panXRef.current}px, ${panYRef.current}px) scale(${zoomRef.current})`;
+    }
   };
 
   const handlePanEnd = () => {
@@ -199,7 +207,7 @@ export default function BlueprintViewer({
       >
         <img
           src={blueprintUrl}
-          alt="Blueprint"
+          alt="Plano del terreno"
           className="viewer-canvas__img"
           loading="lazy"
           draggable={false}
@@ -219,14 +227,17 @@ export default function BlueprintViewer({
       onMouseMove={handlePanMove}
     >
       <div
+        ref={transformRef}
         className="viewer-transform"
-        style={{ transform: `translate(${panX}px, ${panY}px) scale(${zoom})` }}
+        style={{ transform: `translate(${panXRef.current}px, ${panYRef.current}px) scale(${zoom})` }}
       >
         <img
           src={blueprintUrl}
-          alt="Blueprint"
+          alt="Plano de lotes con áreas interactivas"
           className="viewer-bp-img"
           style={{ width: dw, height: dh }}
+          loading="lazy"
+          decoding="async"
           draggable={false}
         />
 

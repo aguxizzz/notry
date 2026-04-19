@@ -17,9 +17,9 @@ const IconDollar = () => (
 const PRE_CALIFICACION_URL = 'https://notry-back.onrender.com/api/v1/public/pre-qualification';
 
 const ESTADO_CONFIG = {
-  available: { accent: '#1e6e3e', accentHover: '#175c33', label: 'Disponible' },
-  sold:      { accent: '#a82828', accentHover: '#8e2020', label: 'Vendido'    },
-  reserved:  { accent: '#1e4d8c', accentHover: '#173f75', label: 'Reservado'  },
+  available: { accent: 'var(--estado-available-accent)', accentHover: 'var(--estado-available-accent-h)', label: 'Disponible' },
+  sold:      { accent: 'var(--estado-sold-accent)',      accentHover: 'var(--estado-sold-accent-h)',      label: 'Vendido'    },
+  reserved:  { accent: 'var(--estado-reserved-accent)',  accentHover: 'var(--estado-reserved-accent-h)',  label: 'Reservado'  },
 };
 
 const formatPrice = (price) => {
@@ -193,11 +193,15 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
   const closingRef = useRef(false);
 
   // Holds the frozen content shown during the close animation.
-  // Updated via useLayoutEffect (not render-time mutation) so the close
-  // animation always completes with the content that was visible when isOpen=false.
-  const displayRef = useRef({ title: '', content: '', markerId: null, detail: {} });
+  // Update synchronously when opening to ensure content shows on first render.
+  const displayRef = useRef({ title, content, markerId, detail });
+  if (isOpen) {
+    displayRef.current = { title, content, markerId, detail };
+  }
 
   useLayoutEffect(() => {
+    // This effect ensures displayRef is updated even if the panel doesn't fully open
+    // (though it should already be updated synchronously above for the first render)
     if (isOpen) {
       displayRef.current = { title, content, markerId, detail };
     }
@@ -255,7 +259,6 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
     <div
       id="info-backdrop"
       className={isOpen ? 'visible' : ''}
-      aria-hidden={!isOpen}
       onClick={(e) => { if (e.target === e.currentTarget) { closingRef.current = true; onClose(); } }}
     >
       <div id="info-panel" role="dialog" aria-modal="true" aria-live="polite" style={panelAccentStyle}>
@@ -279,7 +282,8 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
           </div>
           <div id="info-panel-header-right">
             <button type="button" id="info-panel-close" aria-label="Cerrar" onClick={() => { closingRef.current = true; onClose(); }}>
-              ×
+              <span className="sr-only">Cerrar</span>
+              <span aria-hidden="true">×</span>
             </button>
           </div>
         </header>

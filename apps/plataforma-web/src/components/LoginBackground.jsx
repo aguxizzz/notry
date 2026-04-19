@@ -29,6 +29,13 @@ export default function LoginBackground() {
     const tiltX = 0.35;
     let raf;
 
+    // Read sphere dot color from CSS token
+    const rawColor = getComputedStyle(document.documentElement)
+      .getPropertyValue('--color-sphere-dot')
+      .trim() || 'rgba(197, 160, 89, 1)';
+    // Strip the alpha from the token so we can recompute it per-dot
+    const baseColor = rawColor.replace(/[\d.]+\)$/, '');
+
     const resize = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
@@ -76,7 +83,7 @@ export default function LoginBackground() {
         const alpha = 0.08 + depth * 0.52;
         ctx.beginPath();
         ctx.arc(sx, sy, dotR, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(197, 160, 89, ${alpha.toFixed(2)})`;
+        ctx.fillStyle = `${baseColor}${alpha.toFixed(2)})`;
         ctx.fill();
       });
 

@@ -1,6 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { getHeatColor } from '../utils/heatColor';
 
+const ZOOM_IN_LABEL = 'Acercar';
+const ZOOM_OUT_LABEL = 'Alejar';
+const RESET_VIEW_LABEL = 'Centrar vista';
+const FULLSCREEN_LABEL = 'Pantalla completa';
+
 export default function BlueprintHeatmap({
   blueprintUrl,
   annotations,
@@ -173,6 +178,7 @@ export default function BlueprintHeatmap({
             src={blueprintUrl}
             alt="Blueprint"
             className="blueprint-image"
+            loading="lazy"
             onError={handleImageError}
             style={{ display: 'none' }}
           />
@@ -284,21 +290,8 @@ export default function BlueprintHeatmap({
             return (
               <g
                 key={ann.uuid}
-                role="button"
-                tabIndex={0}
-                aria-label={`${loteLabel}, ${clicks} clics. Presiona Enter o Espacio para ${isHovered ? 'deseleccionar' : 'seleccionar'}`}
-                aria-pressed={isHovered}
                 onMouseEnter={() => setHoveredLoteId(ann.uuid)}
                 onMouseLeave={() => setHoveredLoteId(null)}
-                onFocus={() => setHoveredLoteId(ann.uuid)}
-                onBlur={() => setHoveredLoteId(null)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    setHoveredLoteId(isHovered ? null : ann.uuid);
-                  }
-                }}
-                style={{ cursor: 'pointer', outline: 'none' }}
               >
                 <polygon
                   points={pointsString}
@@ -306,7 +299,19 @@ export default function BlueprintHeatmap({
                   fillOpacity={isHovered ? 0.8 : 0.6}
                   stroke="var(--color-accent)"
                   strokeWidth={isHovered ? 2.5 : 1.5}
-                  style={{ transition: 'fill-opacity 0.15s ease, stroke-width 0.15s ease, fill 0.15s ease' }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${loteLabel}, ${clicks} clics. Presiona Enter o Espacio para ${isHovered ? 'deseleccionar' : 'seleccionar'}`}
+                  aria-pressed={isHovered}
+                  onFocus={() => setHoveredLoteId(ann.uuid)}
+                  onBlur={() => setHoveredLoteId(null)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setHoveredLoteId(isHovered ? null : ann.uuid);
+                    }
+                  }}
+                  style={{ cursor: 'pointer', outline: 'none', transition: 'fill-opacity 0.15s ease, stroke-width 0.15s ease, fill 0.15s ease' }}
                 />
               </g>
             );
@@ -335,28 +340,28 @@ export default function BlueprintHeatmap({
           <button
             className="blueprint-btn"
             onClick={() => setZoom(z => Math.max(0.2, z / 1.2))}
-            aria-label="Alejar"
+            aria-label={ZOOM_IN_LABEL}
           >
             -
           </button>
           <button
             className="blueprint-btn"
             onClick={() => setZoom(z => Math.min(10, z * 1.2))}
-            aria-label="Acercar"
+            aria-label={ZOOM_OUT_LABEL}
           >
             +
           </button>
           <button
             className="blueprint-btn blueprint-btn--wide"
             onClick={() => { setZoom(1); setPanX(0); setPanY(0); }}
-            aria-label="Centrar vista"
+            aria-label={RESET_VIEW_LABEL}
           >
             RESET
           </button>
           <button
             className="blueprint-btn blueprint-btn--wide"
             onClick={toggleFullscreen}
-            aria-label="Pantalla completa"
+            aria-label={FULLSCREEN_LABEL}
           >
             ⛶
           </button>
