@@ -3,14 +3,18 @@ import './Select.css';
 
 export default function Select({ id, label, value, onChange, options, disabled = false, className = '' }) {
   const [open, setOpen] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(-1);
   const wrapperRef = useRef(null);
 
   const selected = options.find(o => o.value === value);
+  const listboxId = `${id}-listbox`;
+  const activeOptionId = activeIdx >= 0 ? `${id}-option-${options[activeIdx]?.value}` : undefined;
 
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
         setOpen(false);
+        setActiveIdx(-1);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -20,6 +24,7 @@ export default function Select({ id, label, value, onChange, options, disabled =
   const handleSelect = (optValue) => {
     onChange({ target: { value: optValue } });
     setOpen(false);
+    setActiveIdx(-1);
   };
 
   const handleKeyDown = (e) => {
@@ -28,16 +33,19 @@ export default function Select({ id, label, value, onChange, options, disabled =
       setOpen(o => !o);
     } else if (e.key === 'Escape') {
       setOpen(false);
+      setActiveIdx(-1);
     } else if (e.key === 'ArrowDown' && open) {
       e.preventDefault();
       const idx = options.findIndex(o => o.value === value);
-      const next = options[Math.min(idx + 1, options.length - 1)];
-      if (next) handleSelect(next.value);
+      const nextIdx = Math.min(idx + 1, options.length - 1);
+      setActiveIdx(nextIdx);
+      handleSelect(options[nextIdx].value);
     } else if (e.key === 'ArrowUp' && open) {
       e.preventDefault();
       const idx = options.findIndex(o => o.value === value);
-      const prev = options[Math.max(idx - 1, 0)];
-      if (prev) handleSelect(prev.value);
+      const prevIdx = Math.max(idx - 1, 0);
+      setActiveIdx(prevIdx);
+      handleSelect(options[prevIdx].value);
     }
   };
 
@@ -54,7 +62,8 @@ export default function Select({ id, label, value, onChange, options, disabled =
           disabled={disabled}
           aria-haspopup="listbox"
           aria-expanded={open}
-          aria-label={label}
+          aria-controls={listboxId}
+          aria-activedescendant={open ? activeOptionId : undefined}
         >
           <span className="select-trigger__label" aria-hidden="true">
             {selected ? selected.label : '—'}
@@ -74,15 +83,22 @@ export default function Select({ id, label, value, onChange, options, disabled =
           </svg>
         </button>
 
-        <div className={`select-dropdown${open ? ' select-dropdown--open' : ''}`} role="listbox">
-          {options.map(opt => (
+        <div
+          id={listboxId}
+          className={`select-dropdown${open ? ' select-dropdown--open' : ''}`}
+          role="listbox"
+          aria-label={label}
+        >
+          {options.map((opt, idx) => (
             <button
               key={opt.value}
+              id={`${id}-option-${opt.value}`}
               type="button"
               role="option"
               aria-selected={opt.value === value}
               className={`select-option${opt.value === value ? ' select-option--selected' : ''}`}
               onClick={() => handleSelect(opt.value)}
+              onMouseEnter={() => setActiveIdx(idx)}
             >
               {opt.label}
             </button>

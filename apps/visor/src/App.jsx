@@ -140,7 +140,6 @@ export default function App() {
     return (
       <div style={{ width: '100%', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#111' }}>
         <div style={{ width: 40, height: 40, border: '4px solid #444', borderTopColor: '#c5a059', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     );
   }
@@ -152,6 +151,7 @@ export default function App() {
           className="view-toggle"
           style={{ background: viewMode === 'blueprint' ? 'var(--accent)' : '#333' }}
           onClick={() => setViewMode(v => v === 'panorama' ? 'blueprint' : 'panorama')}
+          aria-label={viewMode === 'blueprint' ? 'Cambiar a vista panorama' : 'Cambiar a vista blueprint'}
           title={viewMode === 'blueprint' ? 'Ver panorama' : 'Ver blueprint'}
         >
           {viewMode === 'blueprint' ? (

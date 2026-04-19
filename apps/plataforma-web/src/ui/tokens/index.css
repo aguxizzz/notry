@@ -119,6 +119,15 @@
   --color-budget-7: #0f766e;
   --color-budget-8: #c2410c;
 
+  /* === Dark surfaces (mobile topbar, sidebar, overlays) === */
+  --color-dark-surface: #0d0d0f;
+  --color-dark-border: rgba(255, 255, 255, 0.06);
+  --color-toast-bg: rgba(26, 26, 42, 0.95);
+  --color-overlay-bg: rgba(0, 0, 0, 0.5);
+
+  /* === Canvas animation (LoginBackground sphere) === */
+  --color-sphere-dot: rgba(197, 160, 89, 1);
+
   /* === Brand colors for external integrations === */
   --color-whatsapp: #25d366;
   --color-phone: #3b82f6;
@@ -126,6 +135,10 @@
   /* === Stat card accent colors === */
   --color-stat-info: #3b82f6;
   --color-stat-success: #22c55e;
+
+  /* === Success/danger hover variants === */
+  --color-success-hover: #059669;
+  --color-danger-hover: #dc2626;
 
   /* === Semantic aliases (duplicated for compatibility) === */
   --card-accent: #c5a059;

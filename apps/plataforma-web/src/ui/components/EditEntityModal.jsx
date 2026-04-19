@@ -61,8 +61,9 @@ export default function EditEntityModal({
         onClick={e => e.stopPropagation()}
         aria-modal="true"
         role="dialog"
+        aria-labelledby="modal-title"
       >
-        <h3 className="modal-title">{title}</h3>
+        <h3 className="modal-title" id="modal-title">{title}</h3>
         <form onSubmit={onSubmit}>
           {fields.map((field, idx) => {
             if (field.type === 'group') {

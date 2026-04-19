@@ -497,7 +497,7 @@
 .owner-layout {
   min-height: 100vh;
   padding: var(--space-lg);
-  padding-left: calc(70px + var(--space-lg));
+  padding-left: calc(var(--sidebar-width) + var(--space-lg));
   background-color: var(--bg-dark);
   display: flex;
   flex-direction: column;
@@ -537,7 +537,7 @@
 }
 
 .owner-header h2 {
-  font-size: 3rem;
+  font-size: clamp(1.8rem, 5vw, 3rem);
   font-weight: 900;
   color: var(--text-main);
   margin: 0;
@@ -646,7 +646,9 @@
 }
 
 .side-panel {
-  width: 360px;
+  flex: 0 1 360px;
+  min-width: 280px;
+  max-width: 400px;
   background: var(--panel-bg);
   border-right: 1px solid var(--border-color);
   display: flex;
@@ -1462,6 +1464,11 @@ button.btn-fit .loader {
   color: var(--accent-color);
 }
 
+.action-btn.edit:hover {
+  background: var(--accent-color);
+  color: var(--color-text);
+}
+
 .text-action-btn {
   display: inline-flex;
   align-items: center;
@@ -1512,21 +1519,6 @@ button.btn-fit .loader {
   color: var(--color-text);
 }
 
-.action-btn.edit:hover {
-  background: var(--accent-color);
-  color: var(--color-text);
-}
-
-.action-btn.view {
-  background: rgba(197, 160, 89, 0.08);
-  color: var(--accent-color);
-}
-
-.action-btn.view:hover {
-  background: var(--accent-color);
-  color: var(--color-text);
-}
-
 .action-btn.delete {
   background: var(--color-danger-bg);
   color: var(--color-danger);
@@ -1534,21 +1526,21 @@ button.btn-fit .loader {
 
 .action-btn.delete:hover {
   background: var(--color-danger);
-  color: #fff;
+  color: var(--color-surface);
 }
 
 .action-btn.save {
   background: var(--color-success);
-  color: #fff;
+  color: var(--color-surface);
 }
 
 .action-btn.save:hover {
-  background: #059669;
+  background: var(--color-success-hover);
 }
 
 .action-btn.cancel {
-  background: var(--text-muted);
-  color: #fff;
+  background: var(--color-text-muted);
+  color: var(--color-surface);
 }
 
 .action-btn.cancel:hover {
@@ -1718,7 +1710,7 @@ button.btn-fit .loader {
 
 .loteo-pill.active {
   background: var(--accent-color);
-  color: #fff;
+  color: var(--color-surface);
   font-weight: var(--weight-black);
   border-color: var(--accent-color);
   box-shadow:
@@ -2060,13 +2052,13 @@ button.btn-fit .loader {
 }
 
 .heatmap-cell:hover {
-  filter: brightness(0.94);
+  opacity: 0.88;
 }
 
 .heatmap-cell:focus-visible {
   outline: 2px solid var(--accent-color);
   outline-offset: -2px;
-  filter: brightness(0.94);
+  opacity: 0.88;
 }
 
 .cell-id {
@@ -2382,7 +2374,7 @@ button.btn-fit .loader {
 }
 
 .toast {
-  background: rgba(26, 26, 42, 0.95);
+  background: var(--color-toast-bg);
   color: var(--color-accent);
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-md);
@@ -2634,7 +2626,13 @@ button.btn-fit .loader {
   transition: width 0.5s var(--ease-out);
 }
 
-/* Screen-reader only utility */
+.load-more-row {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-md) 0 var(--space-lg);
+}
+
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -2655,8 +2653,8 @@ button.btn-fit .loader {
   left: 0;
   right: 0;
   height: 56px;
-  background: #0d0d0f;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--color-dark-surface);
+  border-bottom: 1px solid var(--color-dark-border);
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--space-md);
@@ -2680,7 +2678,7 @@ button.btn-fit .loader {
 }
 
 .mobile-topbar-hamburger:hover {
-  color: #fff;
+  color: var(--color-surface);
   background: rgba(197, 160, 89, 0.08);
 }
 
@@ -2713,6 +2711,7 @@ button.btn-fit .loader {
 
   .owner-layout {
     padding-top: 72px;
+    padding-left: var(--space-lg);
   }
 }
 
