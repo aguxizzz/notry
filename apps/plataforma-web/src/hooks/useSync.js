@@ -1,0 +1,156 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { API_BASE } from '../config';
+
+const SYNC_INTERVAL = 60000; // 60 seconds
+
+/**
+ * useSync — polls /api/v1/sync and distributes data to state setters.
+ *
+ * Fires immediately on mount, then every SYNC_INTERVAL ms.
+ * Uses AbortController to cancel in-flight requests when token changes.
+ * Gracefully handles per-section errors without failing the whole sync.
+ * Error toasts are deduplicated: only shown on the first failure after a
+ * successful sync, preventing spam from repeated poll failures.
+ *
+ * @param {string|null} token - Auth token (null while logged out)
+ * @param {Function} apiFetch - The app's apiFetch wrapper
+ * @param {Object} setters - Named state setters from App.jsx
+ * @param {Function} addToast - Toast helper from App.jsx (only shows on first failure)
+ */
+export function useSync(token, apiFetch, setters, addToast) {
+  const {
+    setInventoryLots,
+    setInventoryLoteos,
+    setAllProspectosList,
+    setDashboardSummary,
+    setClicksCache,
+    setVisorDataCache,
+    setReportsCache,
+  } = setters;
+
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncError, setSyncError] = useState(null);
+
+  const intervalRef = useRef(null);
+  const abortRef = useRef(null);
+  const lastSyncSuccessRef = useRef(true);
+
+  const doSync = useCallback(async (isInitial = false) => {
+    if (!token) return;
+
+    // Cancel any in-flight request
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
+    abortRef.current = new AbortController();
+
+    if (isInitial) setSyncLoading(true);
+    setSyncError(null);
+
+    try {
+      const res = await apiFetch(`${API_BASE}/sync`, {
+        signal: abortRef.current.signal,
+      });
+
+      // ── Lots ──────────────────────────────────────────────────────────────
+      if (res.lots?.data !== undefined) {
+        const items = res.lots.data ?? [];
+        setInventoryLots(items);
+      }
+
+      // ── Loteos ───────────────────────────────────────────────────────────
+      if (res.loteos?.data !== undefined) {
+        setInventoryLoteos(res.loteos.data ?? []);
+      }
+
+      // ── Prospectos (all, unfiltered — used by kanban) ───────────────────
+      if (res.prospectos?.data !== undefined) {
+        setAllProspectosList(res.prospectos.data ?? []);
+      }
+
+      // ── Dashboard ─────────────────────────────────────────────────────────
+      if (res.dashboard?.data !== undefined) {
+        setDashboardSummary(res.dashboard.data);
+      }
+
+      // ── Clicks per loteo (direct format match) ──────────────────────────
+      if (res.clicks) {
+        setClicksCache(prev => {
+          const next = { ...prev };
+          for (const [loteoId, clicksList] of Object.entries(res.clicks)) {
+            next[loteoId] = Array.isArray(clicksList)
+              ? [...clicksList].sort((a, b) => b.clicks - a.clicks)
+              : prev[loteoId] ?? [];
+          }
+          return next;
+        });
+      }
+
+      // ── Visor data per loteo (direct format match) ──────────────────────
+      if (res.visor_data) {
+        setVisorDataCache(prev => {
+          const next = { ...prev };
+          for (const [loteoId, visorData] of Object.entries(res.visor_data)) {
+            next[loteoId] = visorData ?? null;
+          }
+          return next;
+        });
+      }
+
+      // ── Reports (transform field names: snake_case → camelCase) ──────────
+      if (res.reports) {
+        setReportsCache(prev => {
+          const next = { ...prev };
+          for (const [days, report] of Object.entries(res.reports)) {
+            if (report) {
+              next[days] = {
+                prospectos: report.prospectos_en_periodo ?? 0,
+                ventas: report.ventas_en_periodo ?? '0',
+                lotesVendidos: report.cantidad_vendidos_en_periodo ?? 0,
+              };
+            }
+          }
+          return next;
+        });
+      }
+      lastSyncSuccessRef.current = true;
+    } catch (err) {
+      if (err.name === 'AbortError') return; // Intentional cancel, not an error
+      console.error('[useSync]', err);
+      const errorMessage = err.message || 'Error de conexión';
+      setSyncError(errorMessage);
+      // Deduplicate: only toast on the first failure after a success.
+      // Subsequent polls while sync is broken stay silent until recovery.
+      if (lastSyncSuccessRef.current && typeof addToast === 'function') {
+        addToast(`Error de sincronización: ${errorMessage}`, 'error');
+      }
+      lastSyncSuccessRef.current = false;
+    } finally {
+      setSyncLoading(false);
+    }
+  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!token) {
+      setSyncLoading(false);
+      setSyncError(null);
+      lastSyncSuccessRef.current = true;
+      return;
+    }
+
+    // Initial sync (immediate, not from interval)
+    doSync(true);
+
+    // Polling interval
+    intervalRef.current = setInterval(() => doSync(false), SYNC_INTERVAL);
+
+    return () => {
+      clearInterval(intervalRef.current);
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, [token, doSync]);
+
+  const refresh = useCallback(() => doSync(false), [doSync]);
+
+  return { syncLoading, syncError, refresh };
+}

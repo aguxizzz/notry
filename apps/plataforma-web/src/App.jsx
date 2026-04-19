@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Copy, Search, SlidersHorizontal, Pencil, Trash2, Check, X, AlertCircle, Menu, Eye } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import StatCard from './components/StatCard';
@@ -7,117 +7,24 @@ import KanbanBoard from './components/KanbanBoard';
 import AnalisisView from './components/AnalisisView';
 import CategoryPieChart from './components/CategoryPieChart';
 import BudgetPieChart from './components/BudgetPieChart';
-import { Badge, Button, Loader, Select, EditEntityModal } from './ui/components';
+import ConfirmDialog from './components/ConfirmDialog';
+import DeleteProspectDialog from './components/DeleteProspectDialog';
+import CreateLoteoModal from './components/modals/CreateLoteoModal';
+import EditLoteoModal from './components/modals/EditLoteoModal';
+import AddProspectModal from './components/modals/AddProspectModal';
+import { Badge, Button, ErrorBoundary, Loader, Select, EditEntityModal } from './ui/components';
 import { API_BASE, EDITOR_URL, VISOR_URL } from './config';
+import { useSync } from './hooks/useSync';
+import { useAuth } from './hooks/useAuth';
+import { useInventory } from './hooks/useInventory';
+import { useProspects } from './hooks/useProspects';
+import { PAGE_SIZE, STATUS_DISPLAY, CATEGORY_DISPLAY, formatDate, isValidHttpsUrl, getProspectFields, getLotFields } from './constants';
+import { createApiFetch } from './api';
+import { fetchLots as fetchLotsService, fetchInventory as fetchInventoryService, fetchInventoryBg as fetchInventoryBgService, patchLot, deleteLot } from './api/lots';
+import { fetchLoteos as fetchLoteosService, fetchInventoryLoteos as fetchInventoryLoteosService, fetchInventoryLoteosBg as fetchInventoryLoteosBgService, createLoteo as createLoteoService, saveEditLoteo as saveEditLoteoService } from './api/loteos';
+import { createProspect as createProspectService, fetchAdvisors as fetchAdvisorsService, saveEditProspect as saveEditProspectService, updateLastContact as updateLastContactService, handleDeleteProspectConfirm as handleDeleteProspectConfirmService, fetchProspectos as fetchProspectosService, loadMoreProspectos as loadMoreProspectosService } from './api/prospects';
+import { fetchReportsBg as fetchReportsBgService, buildAnalisisCallbacks } from './api/reports';
 import './App.css';
-
-const STATUS_DISPLAY = {
-  available: 'disponible',
-  reserved: 'reservado',
-  sold: 'vendido',
-};
-
-const CATEGORY_DISPLAY = {
-  primer_contacto: 'Primer Contacto',
-  seguimiento: 'Seguimiento',
-  negociacion: 'Negociación',
-  vendido: 'Vendido',
-};
-
-const formatDate = (iso) => {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
-};
-
-const getProspectFields = (advisorsList, advisorsLoading) => [
-  { name: 'name', label: 'Nombre', required: true },
-  {
-    type: 'group',
-    fields: [
-      { name: 'email', label: 'Correo electrónico', type: 'email', placeholder: 'ej: usuario@correo.com' },
-      { name: 'phone', label: 'Teléfono', type: 'tel', placeholder: 'ej: +52 55 1234 5678' },
-    ],
-  },
-  {
-    type: 'group',
-    fields: [
-      {
-        name: 'category',
-        label: 'Categoría',
-        type: 'select',
-        options: [
-          { value: 'primer_contacto', label: 'Primer Contacto' },
-          { value: 'seguimiento', label: 'Seguimiento' },
-          { value: 'negociacion', label: 'Negociación' },
-          { value: 'vendido', label: 'Vendido' },
-        ],
-      },
-      {
-        name: 'budget',
-        label: 'Presupuesto',
-        type: 'number',
-        step: '0.01',
-        placeholder: 'Ej: 150000',
-      },
-    ],
-  },
-  {
-    type: 'group',
-    fields: [
-      {
-        name: 'payment_method',
-        label: 'Forma de pago',
-        type: 'select',
-        options: [
-          { value: 'contado', label: 'Contado' },
-          { value: 'credito', label: 'Crédito' },
-        ],
-      },
-      {
-        name: 'advisor_id',
-        label: 'Asesor',
-        type: 'select',
-        disabled: advisorsLoading,
-        options: [
-          { value: '', label: 'Sin asignar' },
-          ...advisorsList.map(a => ({ value: a.id, label: a.full_name })),
-        ],
-      },
-    ],
-  },
-];
-
-const getLotFields = () => [
-  {
-    type: 'group',
-    fields: [
-      {
-        name: 'area_m2',
-        label: 'Área (m²)',
-        type: 'number',
-        step: '0.01',
-        placeholder: 'Ej: 500',
-      },
-      {
-        name: 'price',
-        label: 'Precio',
-        type: 'number',
-        step: '0.01',
-        placeholder: 'Ej: 100000',
-      },
-    ],
-  },
-  {
-    name: 'status',
-    label: 'Estado',
-    type: 'select',
-    options: [
-      { value: 'available', label: 'Disponible' },
-      { value: 'reserved', label: 'Reservado' },
-      { value: 'sold', label: 'Vendido' },
-    ],
-  },
-];
 
 function App() {
   const [view, setView] = useState('login'); // 'login' | 'lote_owner' | 'super_admin'
@@ -125,20 +32,34 @@ function App() {
   const [ownerSubView, setOwnerSubView] = useState('inicio');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [token, setToken] = useState(null);
-  const [user, setUser] = useState(null);
+  const { token, user, handleLogin: authLogin, logout: authLogout } = useAuth();
   const [lots, setLots] = useState(null);
   const [loteos, setLoteos] = useState(null);
   const [selectedLot, setSelectedLot] = useState(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
   const [inventoryLots, setInventoryLots] = useState([]);
-  const [inventoryLoading, setInventoryLoading] = useState(false);
-  const [inventorySearch, setInventorySearch] = useState('');
-  const [inventoryStatusFilter, setInventoryStatusFilter] = useState('');
-  const [inventoryTab, setInventoryTab] = useState('lotes'); // 'lotes' | 'loteos'
-  const [inventoryLoteos, setInventoryLoteos] = useState([]);
-  const [inventoryLoteosLoading, setInventoryLoteosLoading] = useState(false);
+  const {
+    inventoryLoading, setInventoryLoading,
+    inventoryLoteosLoading, setInventoryLoteosLoading,
+    inventoryLoteos, setInventoryLoteos,
+    inventorySearch, setInventorySearch,
+    inventoryStatusFilter, setInventoryStatusFilter,
+    inventoryTab, setInventoryTab,
+    inventoryLotsHasMore, setInventoryLotsHasMore,
+    inventoryLotsLoadingMore, setInventoryLotsLoadingMore,
+  } = useInventory();
+
+  const {
+    prospectosLoading, setProspectosLoading,
+    prospectosCategoryFilter, setProspectosCategoryFilter,
+    prospectosWithoutAdvisor, setProspectosWithoutAdvisor,
+    prospectosHasMore, setProspectosHasMore,
+    prospectosLoadingMore, setProspectosLoadingMore,
+    advisorsList, setAdvisorsList,
+    advisorsLoading, setAdvisorsLoading,
+  } = useProspects();
+
   const [editLotModalOpen, setEditLotModalOpen] = useState(false);
   const [editingLotId, setEditingLotId] = useState(null);
   const [editLotForm, setEditLotForm] = useState({ status: '', price: '', area_m2: '' });
@@ -148,9 +69,6 @@ function App() {
   const [editProspectClosing, setEditProspectClosing] = useState(false);
   const [prospectosList, setProspectosList] = useState([]);
   const [allProspectosList, setAllProspectosList] = useState([]);
-  const [prospectosLoading, setProspectosLoading] = useState(false);
-  const [prospectosCategoryFilter, setProspectosCategoryFilter] = useState('');
-  const [prospectosWithoutAdvisor, setProspectosWithoutAdvisor] = useState(false);
   const [createLoteoOpen, setCreateLoteoOpen] = useState(false);
   const [createLoteoForm, setCreateLoteoForm] = useState({ name: '', slug: '', image_url: '', blueprint_url: '' });
   const [createLoteoLoading, setCreateLoteoLoading] = useState(false);
@@ -177,12 +95,7 @@ function App() {
   const [updatingContact, setUpdatingContact] = useState(false);
   const [editProspectError, setEditProspectError] = useState(null);
   const [deleteProspectDialog, setDeleteProspectDialog] = useState({ open: false, prospect: null, loading: false });
-  const [advisorsList, setAdvisorsList] = useState([]);
-  const [advisorsLoading, setAdvisorsLoading] = useState(false);
   const [toasts, setToasts] = useState([]);
-  const [bgLoadingLots, setBgLoadingLots] = useState(false);
-  const [bgLoadingLoteos, setBgLoadingLoteos] = useState(false);
-  const [bgLoadingProspectos, setBgLoadingProspectos] = useState(false);
   const [clicksCache, setClicksCache] = useState({}); // { loteoId: clicksData }
   const [visorDataCache, setVisorDataCache] = useState({}); // { loteoId: visorData }
   const [reportsCache, setReportsCache] = useState({}); // { lastDays: { prospectos, ventas, lotesVendidos } }
@@ -195,20 +108,20 @@ function App() {
     inventoryStatusFilter,
     prospectosCategoryFilter,
     prospectosWithoutAdvisor,
-    inventoryLoteos
+    inventoryLoteos,
+    inventoryLotsCount: 0,
+    prospectosCount: 0,
   });
 
+  // ── Combined sync hook (replaces 8 separate polling intervals) ──────────────
   // Focus management refs for modals
   const createLoteoButtonRef = useRef(null);
   const previousCreateLoteoFocusRef = useRef(null);
   const addProspectButtonRef = useRef(null);
   const previousAddProspectFocusRef = useRef(null);
-  const deleteProspectButtonRef = useRef(null);
-  const previousDeleteProspectFocusRef = useRef(null);
   const createLoteoModalRef = useRef(null);
   const editLoteoModalRef = useRef(null);
   const addProspectModalRef = useRef(null);
-  const deleteProspectModalRef = useRef(null);
 
   // Helper function to store focus and open modal
   const openCreateLoteoModal = () => {
@@ -245,7 +158,6 @@ function App() {
   };
 
   const openDeleteProspectModalForFocus = (prospect) => {
-    previousDeleteProspectFocusRef.current = document.activeElement;
     setDeleteProspectDialog({ open: true, prospect, loading: false });
   };
 
@@ -255,9 +167,11 @@ function App() {
       inventoryStatusFilter,
       prospectosCategoryFilter,
       prospectosWithoutAdvisor,
-      inventoryLoteos
+      inventoryLoteos,
+      inventoryLotsCount: inventoryLots.length,
+      prospectosCount: prospectosList.length,
     };
-  });
+  }, [inventorySearch, inventoryStatusFilter, prospectosCategoryFilter, prospectosWithoutAdvisor, inventoryLoteos, inventoryLots.length, prospectosList.length]);
 
   // Focus management for createLoteo modal
   useEffect(() => {
@@ -301,27 +215,15 @@ function App() {
     }
   }, [addProspectOpen]);
 
-  // Focus management for deleteProspect modal
-  useEffect(() => {
-    if (deleteProspectDialog.open && deleteProspectModalRef.current) {
-      const focusableElements = deleteProspectModalRef.current.querySelectorAll(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      if (focusableElements.length > 0) {
-        focusableElements[0].focus();
-      }
-    } else if (!deleteProspectDialog.open && previousDeleteProspectFocusRef.current) {
-      previousDeleteProspectFocusRef.current.focus();
-    }
-  }, [deleteProspectDialog.open]);
-
-  const addToast = (message) => {
+  const addToast = useCallback((message, type = 'success') => {
     const id = Date.now();
-    setToasts(prev => [...prev, { id, message }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4000);
-  };
+    setToasts(prev => [...prev, { id, message, type }]);
+    if (type === 'success') {
+      setTimeout(() => {
+        setToasts(prev => prev.filter(t => t.id !== id));
+      }, 4000);
+    }
+  }, []);
 
   // Auto-fetch lots when entering super_admin view
   React.useEffect(() => {
@@ -330,99 +232,16 @@ function App() {
     }
   }, [view]);
 
-  // Initial fetch for clicks and visor data
+  // Note: All background polling is now handled by the useSync hook above.
+  // It fires immediately on login and every 60 seconds thereafter.
+
+  // Reset filters when leaving the inventario view.
+  // Filtering is derived client-side from inventoryLots via useMemo — no API call needed.
   React.useEffect(() => {
-    if (view === 'lote_owner' && inventoryLoteos.length > 0) {
-      if (Object.keys(clicksCache).length === 0) fetchClicksForAllLoteos(inventoryLoteos);
-      if (Object.keys(visorDataCache).length === 0) fetchVisorDataForAllLoteos(inventoryLoteos);
-    }
-  }, [inventoryLoteos, view]);
-
-  // Background polling for lote_owner
-  React.useEffect(() => {
-    if (!token || view !== 'lote_owner') return;
-
-    // Initial prefetch if not already loaded
-    if (inventoryLots.length === 0) {
-      fetchInventoryBg(filtersRef.current.inventorySearch, filtersRef.current.inventoryStatusFilter);
-    }
-    if (inventoryLoteos.length === 0) {
-      fetchInventoryLoteosBg();
-    }
-    if (prospectosList.length === 0) {
-      fetchProspectosBg(filtersRef.current.prospectosCategoryFilter, filtersRef.current.prospectosWithoutAdvisor);
-    }
-    if (allProspectosList.length === 0) {
-      fetchAllProspectos();
-    }
-    // Prefetch reports for all time options so switching is instant
-    const TIME_OPTIONS = [1, 5, 10, 20, 30, 60];
-    TIME_OPTIONS.forEach(days => {
-      if (!reportsCache[days]) {
-        fetchReportsBg(days);
-      }
-    });
-
-    // Set up polling intervals
-    const lotsInterval = setInterval(() => {
-      fetchInventoryBg(filtersRef.current.inventorySearch, filtersRef.current.inventoryStatusFilter);
-    }, 15000); // 15s
-
-    const loteosInterval = setInterval(() => {
-      fetchInventoryLoteosBg();
-    }, 30000); // 30s
-
-    const prospectosInterval = setInterval(() => {
-      fetchProspectosBg(filtersRef.current.prospectosCategoryFilter, filtersRef.current.prospectosWithoutAdvisor);
-    }, 30000); // 30s
-
-    const allProspectosInterval = setInterval(() => {
-      fetchAllProspectos();
-    }, 30000); // 30s
-
-    const dashboardInterval = setInterval(() => {
-      fetchDashboardSummary(token);
-    }, 30000); // 30s
-
-    const clicksInterval = setInterval(() => {
-      const currentLoteos = filtersRef.current.inventoryLoteos;
-      if (currentLoteos.length > 0) {
-        fetchClicksForAllLoteos(currentLoteos);
-      }
-    }, 30000); // 30s
-
-    const visorDataInterval = setInterval(() => {
-      const currentLoteos = filtersRef.current.inventoryLoteos;
-      if (currentLoteos.length > 0) {
-        fetchVisorDataForAllLoteos(currentLoteos);
-      }
-    }, 300000); // 5 minutes
-
-    const reportsInterval = setInterval(() => {
-      TIME_OPTIONS.forEach(days => fetchReportsBg(days));
-    }, 30000); // 30s
-
-    return () => {
-      clearInterval(lotsInterval);
-      clearInterval(loteosInterval);
-      clearInterval(prospectosInterval);
-      clearInterval(allProspectosInterval);
-      clearInterval(dashboardInterval);
-      clearInterval(clicksInterval);
-      clearInterval(visorDataInterval);
-      clearInterval(reportsInterval);
-    };
-  }, [token, view, analisisLastDays]);
-
-  // Debounced fetch for inventory (triggers on view change, search, or filter)
-  React.useEffect(() => {
-    if (ownerSubView !== 'inventario' || !token) return;
-    const controller = new AbortController();
-    const timer = setTimeout(() => {
-      fetchInventory(inventorySearch, inventoryStatusFilter, controller.signal);
-    }, 300);
-    return () => { clearTimeout(timer); controller.abort(); };
-  }, [ownerSubView, inventorySearch, inventoryStatusFilter]);
+    if (ownerSubView === 'inventario') return;
+    setInventorySearch('');
+    setInventoryStatusFilter('');
+  }, [ownerSubView]);
 
   // Fetch loteos for inventory editor tab (lazy, only once)
   React.useEffect(() => {
@@ -431,252 +250,82 @@ function App() {
     fetchInventoryLoteos();
   }, [ownerSubView, inventoryTab]);
 
-  // Debounced fetch for clientes — delegates to background fetch
+  // Reset prospectos filters and pagination when leaving the clientes view.
   React.useEffect(() => {
-    if (ownerSubView !== 'clientes' || !token) return;
-    const timer = setTimeout(() => {
-      fetchProspectosBg(prospectosCategoryFilter, prospectosWithoutAdvisor);
-      fetchAllProspectos();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [ownerSubView, prospectosCategoryFilter, prospectosWithoutAdvisor]);
+    if (ownerSubView === 'clientes') return;
+    setProspectosCategoryFilter('');
+    setProspectosWithoutAdvisor(false);
+    setProspectosList(allProspectosList);
+    setProspectosHasMore(false);
+  }, [ownerSubView]);
+
+  // When filters change while on clientes view, reset pagination to stay in sync.
+  // loadMoreProspectos accumulates into prospectosList; resetting it here ensures
+  // load-more offset stays consistent with allProspectosList.
+  React.useEffect(() => {
+    if (ownerSubView !== 'clientes') return;
+    setProspectosList(allProspectosList);
+    setProspectosHasMore(false);
+  }, [ownerSubView, prospectosCategoryFilter, prospectosWithoutAdvisor, allProspectosList]);
+
+  // ── Client-side filtered data (derived from useSync cache, no extra API calls) ──
+  const filteredInventoryLots = useMemo(() => {
+    if (!inventorySearch && !inventoryStatusFilter) return null;
+    const q = inventorySearch.toLowerCase();
+    return inventoryLots.filter(lot => {
+      const matchSearch = !q || lot.name?.toLowerCase().includes(q);
+      const matchStatus = !inventoryStatusFilter || lot.status === inventoryStatusFilter;
+      return matchSearch && matchStatus;
+    });
+  }, [inventoryLots, inventorySearch, inventoryStatusFilter]);
+
+  const filteredProspectos = useMemo(() => {
+    if (!prospectosCategoryFilter && !prospectosWithoutAdvisor) return null;
+    return allProspectosList.filter(p => {
+      const matchCat = !prospectosCategoryFilter || p.category === prospectosCategoryFilter;
+      const matchAdv = !prospectosWithoutAdvisor || !p.advisor_id;
+      return matchCat && matchAdv;
+    });
+  }, [allProspectosList, prospectosCategoryFilter, prospectosWithoutAdvisor]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setStatus(null);
-
-    try {
-      // 1. Login
-      const loginRes = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const loginData = await loginRes.json();
-      if (!loginRes.ok) {
-        let message;
-        if (loginRes.status === 401) {
-          message = 'Credenciales inválidas. Verificá tu email y contraseña.';
-        } else if (loginRes.status === 400 && loginData.detail?.toLowerCase().includes('inactive')) {
-          message = 'Tu cuenta está inactiva. Contactá al administrador para habilitarla.';
-        } else {
-          message = loginData.detail || 'Error al iniciar sesión. Intentá de nuevo.';
-        }
-        throw new Error(message);
-      }
-
-      const accessToken = loginData.access_token;
-      setToken(accessToken);
-
-      // 2. Fetch Me
-      const meRes = await fetch(`${API_BASE}/auth/me`, {
-        method: 'GET',
-        headers: {
-          'accept': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
-        },
-      });
-
-      const meData = await meRes.json();
-      if (!meRes.ok) throw new Error('Error al obtener perfil');
-
-      setUser(meData);
-
-      // 3. Redirect
-      if (meData.role === 'super_admin' || meData.role === 'admin') {
-        setView('super_admin');
-        // Prefetch lots for super_admin
-        setTimeout(() => {
-          fetchLots();
-        }, 0);
-      } else if (meData.role === 'lote_owner') {
-        setView('lote_owner');
-        fetchDashboardSummary(accessToken);
-      } else {
-        setStatus({ type: 'error', message: `Rol no reconocido: ${meData.role}` });
-      }
-
-    } catch (error) {
-      setStatus({ type: 'error', message: error.message });
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
+    await authLogin(email, password, { setLoading, setStatus, setView, fetchLots });
   };
 
   const fetchLots = async () => {
-    setLoading(true);
-    setAdminSubView('lotes');
-    try {
-      const res = await apiFetch(`${API_BASE}/lots?status=available&limit=50&offset=0`);
-      const data = await res.json();
-      if (!res.ok) throw new Error('Error al listar lotes');
-      setLots(data.items);
-      if (data.items.length > 0 && !selectedLot) {
-        setSelectedLot(data.items[0]);
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
+    fetchLotsService({ apiFetch, setLoading, setLots, setSelectedLot, setAdminSubView });
   };
 
   const fetchLoteos = async () => {
-    setLoading(true);
-    setAdminSubView('loteos');
-    try {
-      const res = await apiFetch(`${API_BASE}/loteos?include_lotes=false&limit=50&offset=0`);
-      const data = await res.json();
-      if (!res.ok) throw new Error('Error al listar loteos');
-      setLoteos(data.items);
-    } catch (error) {
-      alert(error.message);
-    } finally {
-      setLoading(false);
-    }
+    fetchLoteosService({ apiFetch, setLoading, setLoteos, setAdminSubView, addToast });
   };
 
   const fetchInventory = async (name, status, signal) => {
-    setInventoryLoading(true);
-    try {
-      const params = new URLSearchParams({ limit: 50, offset: 0 });
-      if (name) params.set('name', name);
-      if (status) params.set('status', status);
-      const res = await apiFetch(`${API_BASE}/lots?${params}`, { signal });
-      const data = await res.json();
-      if (!res.ok) throw new Error('Error al cargar inventario');
-      setInventoryLots(data.items);
-    } catch (error) {
-      if (error.name !== 'AbortError') console.error(error);
-    } finally {
-      setInventoryLoading(false);
-    }
+    fetchInventoryService({ apiFetch, setInventoryLoading, setInventoryLots, setInventoryLotsHasMore, PAGE_SIZE, name, status, signal });
   };
 
   const fetchInventoryLoteos = async () => {
-    setInventoryLoteosLoading(true);
-    try {
-      const res = await apiFetch(`${API_BASE}/loteos?include_lotes=false&limit=50&offset=0`);
-      const data = await res.json();
-      if (!res.ok) throw new Error('Error al cargar loteos');
-      setInventoryLoteos(data.items);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setInventoryLoteosLoading(false);
-    }
+    fetchInventoryLoteosService({ apiFetch, setInventoryLoteosLoading, setInventoryLoteos });
   };
 
   const createLoteo = async (e) => {
     e.preventDefault();
-    setCreateLoteoLoading(true);
-    setCreateLoteoError(null);
-    try {
-      const res = await apiFetch(`${API_BASE}/loteos`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: createLoteoForm.name,
-          slug: createLoteoForm.slug,
-          image_url: createLoteoForm.image_url,
-          blueprint_url: createLoteoForm.blueprint_url,
-          text_annotations: [],
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Error al crear loteo');
-      setCreateLoteoOpen(false);
-      setCreateLoteoForm({ name: '', slug: '', image_url: '', blueprint_url: '' });
-      setInventoryLoteos([]);
-      fetchInventoryLoteos();
-    } catch (error) {
-      setCreateLoteoError(error.message);
-    } finally {
-      setCreateLoteoLoading(false);
-    }
+    await createLoteoService({ apiFetch, createLoteoForm, isValidHttpsUrl, setCreateLoteoLoading, setCreateLoteoError, setCreateLoteoOpen, setCreateLoteoForm, fetchInventoryLoteos });
   };
 
   const saveEditLoteo = async (e) => {
     e.preventDefault();
-    setEditLoteoLoading(true);
-    setEditLoteoError(null);
-    try {
-      const res = await apiFetch(`${API_BASE}/loteos/${editingLoteoId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: editLoteoForm.name,
-          slug: editLoteoForm.slug,
-          image_url: editLoteoForm.image_url,
-          blueprint_url: editLoteoForm.blueprint_url,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Error al actualizar loteo');
-      addToast('Loteo actualizado.');
-      setEditLoteoClosing(true);
-      setTimeout(() => {
-        setEditLoteoOpen(false);
-        setEditLoteoClosing(false);
-        setEditingLoteoId(null);
-        setInventoryLoteos([]);
-        fetchInventoryLoteos();
-      }, 200);
-    } catch (error) {
-      setEditLoteoError(error.message);
-    } finally {
-      setEditLoteoLoading(false);
-    }
+    await saveEditLoteoService({ apiFetch, editingLoteoId, editLoteoForm, isValidHttpsUrl, addToast, setEditLoteoLoading, setEditLoteoError, setEditLoteoClosing, setEditLoteoOpen, setEditingLoteoId, setInventoryLoteos, fetchInventoryLoteos });
   };
 
   const createProspect = async (e) => {
     e.preventDefault();
-    setAddProspectLoading(true);
-    setAddProspectError(null);
-    const body = {
-      name: addProspectForm.name,
-      category: addProspectForm.category,
-    };
-    if (addProspectForm.email) body.email = addProspectForm.email;
-    if (addProspectForm.phone) body.phone = addProspectForm.phone;
-    if (addProspectForm.budget) body.budget = parseFloat(addProspectForm.budget);
-    if (addProspectForm.payment_method) body.payment_method = addProspectForm.payment_method;
-    try {
-      const res = await apiFetch(`${API_BASE}/prospects`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Error al crear prospecto');
-      setAddProspectOpen(false);
-      setAddProspectForm({ name: '', email: '', phone: '', category: 'primer_contacto', budget: '', payment_method: 'contado' });
-      fetchProspectosBg(prospectosCategoryFilter, prospectosWithoutAdvisor);
-      fetchAllProspectos();
-    } catch (error) {
-      setAddProspectError(error.message);
-    } finally {
-      setAddProspectLoading(false);
-    }
+    await createProspectService({ apiFetch, addProspectForm, setAddProspectLoading, setAddProspectError, setAddProspectOpen, setAddProspectForm, refreshSync });
   };
 
   const fetchAdvisors = async () => {
-    setAdvisorsLoading(true);
-    try {
-      const res = await apiFetch(`${API_BASE}/advisors`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Error al cargar asesores');
-      setAdvisorsList(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setAdvisorsLoading(false);
-    }
+    fetchAdvisorsService({ apiFetch, setAdvisorsLoading, setAdvisorsList });
   };
 
   const openEditProspect = (prospect) => {
@@ -697,40 +346,7 @@ function App() {
 
   const saveEditProspect = async (e) => {
     e.preventDefault();
-    setEditProspectLoading(true);
-    setEditProspectError(null);
-    const body = { name: editProspectForm.name, category: editProspectForm.category };
-    if (editProspectForm.email) body.email = editProspectForm.email;
-    else body.email = null;
-    if (editProspectForm.phone) body.phone = editProspectForm.phone;
-    else body.phone = null;
-    if (editProspectForm.budget !== '') body.budget = parseFloat(editProspectForm.budget);
-    else body.budget = null;
-    if (editProspectForm.payment_method) body.payment_method = editProspectForm.payment_method;
-    if (editProspectForm.advisor_id) body.advisor_id = editProspectForm.advisor_id;
-    else body.advisor_id = null;
-    try {
-      const res = await apiFetch(`${API_BASE}/prospects/${editingProspectId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Error al actualizar prospecto');
-      addToast('Prospecto actualizado.');
-      setEditProspectClosing(true);
-      setTimeout(() => {
-        setEditProspectModalOpen(false);
-        setEditProspectClosing(false);
-        setEditingProspectId(null);
-        fetchProspectosBg(prospectosCategoryFilter, prospectosWithoutAdvisor);
-        fetchAllProspectos();
-      }, 200);
-    } catch (error) {
-      setEditProspectError(error.message);
-    } finally {
-      setEditProspectLoading(false);
-    }
+    await saveEditProspectService({ apiFetch, editingProspectId, editProspectForm, addToast, setEditProspectLoading, setEditProspectError, setEditProspectClosing, setEditProspectModalOpen, setEditingProspectId, refreshSync });
   };
 
   const closeEditProspectModal = () => {
@@ -743,23 +359,7 @@ function App() {
   };
 
   const updateLastContact = async (prospectId) => {
-    setUpdatingContact(true);
-    try {
-      const res = await apiFetch(`${API_BASE}/prospects/${prospectId}/last-contact`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Error al actualizar contacto');
-      addToast('Último contacto actualizado.');
-      fetchProspectosBg(prospectosCategoryFilter, prospectosWithoutAdvisor);
-      fetchAllProspectos();
-    } catch (error) {
-      addToast(`Error: ${error.message}`);
-    } finally {
-      setUpdatingContact(false);
-    }
+    await updateLastContactService({ apiFetch, setUpdatingContact, addToast, refreshSync, prospectId });
   };
 
   const openDeleteProspectDialog = (prospect) => {
@@ -767,113 +367,39 @@ function App() {
   };
 
   const handleDeleteProspectConfirm = async () => {
-    const prospect = deleteProspectDialog.prospect;
-    if (!prospect) return;
-    setDeleteProspectDialog(prev => ({ ...prev, loading: true }));
-    try {
-      const res = await apiFetch(`${API_BASE}/prospects/${prospect.id}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || 'Error al eliminar prospecto');
-      }
-      addToast(`Prospecto "${prospect.name}" eliminado.`);
-      setDeleteProspectDialog({ open: false, prospect: null, loading: false });
-      fetchProspectosBg(prospectosCategoryFilter, prospectosWithoutAdvisor);
-      fetchAllProspectos();
-    } catch (err) {
-      addToast(`Error: ${err.message}`);
-      setDeleteProspectDialog(prev => ({ ...prev, loading: false }));
-    }
+    await handleDeleteProspectConfirmService({ apiFetch, deleteProspectDialog, addToast, setDeleteProspectDialog, refreshSync });
   };
 
   const openEditor = (loteoId) => {
     const dataUrl = `${API_BASE}/loteos/${loteoId}/visor_data`;
     window.open(`${EDITOR_URL}/?data=${encodeURIComponent(dataUrl)}&token=${encodeURIComponent(token)}`, '_blank');
 
-    // Refresh data when user returns from editor
+    // Refresh data when user returns from editor.
+    // Reads current filter values at event time via filtersRef to avoid stale closure.
     const onFocus = () => {
       fetchInventoryLoteosBg();
-      fetchInventoryBg(inventorySearch, inventoryStatusFilter);
+      fetchInventoryBg({ apiFetch, setInventoryLots, setInventoryLotsHasMore, PAGE_SIZE, name: filtersRef.current.inventorySearch, status: filtersRef.current.inventoryStatusFilter, addToast });
       document.removeEventListener('visibilitychange', onFocus);
     };
     document.addEventListener('visibilitychange', onFocus);
   };
 
   const fetchProspectos = async (category, withoutAdvisor, signal) => {
-    setProspectosLoading(true);
-    try {
-      const params = new URLSearchParams({ limit: 50, offset: 0 });
-      if (category) params.set('category', category);
-      if (withoutAdvisor) params.set('without_advisor', 'true');
-      const res = await apiFetch(`${API_BASE}/prospects?${params}`, { signal });
-      const data = await res.json();
-      if (!res.ok) throw new Error('Error al cargar prospectos');
-      setProspectosList(data.items);
-    } catch (error) {
-      if (error.name !== 'AbortError') console.error(error);
-    } finally {
-      setProspectosLoading(false);
-    }
+    fetchProspectosService({ apiFetch, setProspectosLoading, setProspectosList, category, withoutAdvisor, signal });
   };
 
-  // Background fetch functions (for polling)
+  // Called by external triggers (openEditor focus, saveLotFromModal, handleDeleteConfirm).
+  // No internal AbortController — callers pass their own if needed.
   const fetchInventoryBg = async (name, status) => {
-    setBgLoadingLots(true);
-    try {
-      const params = new URLSearchParams({ limit: 50, offset: 0 });
-      if (name) params.set('name', name);
-      if (status) params.set('status', status);
-      const res = await apiFetch(`${API_BASE}/lots?${params}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error('Error al cargar inventario');
-      setInventoryLots(data.items);
-    } catch (error) {
-      addToast(`Error actualizando lotes: ${error.message}`);
-    } finally {
-      setBgLoadingLots(false);
-    }
+    fetchInventoryBgService({ apiFetch, setInventoryLots, setInventoryLotsHasMore, PAGE_SIZE, name, status, addToast });
   };
 
   const fetchInventoryLoteosBg = async () => {
-    setBgLoadingLoteos(true);
-    try {
-      const res = await apiFetch(`${API_BASE}/loteos?include_lotes=false&limit=50&offset=0`);
-      const data = await res.json();
-      if (!res.ok) throw new Error('Error al cargar loteos');
-      setInventoryLoteos(data.items);
-    } catch (error) {
-      addToast(`Error actualizando loteos: ${error.message}`);
-    } finally {
-      setBgLoadingLoteos(false);
-    }
+    fetchInventoryLoteosBgService({ apiFetch, setInventoryLoteos, addToast });
   };
 
-  const fetchProspectosBg = async (category, withoutAdvisor) => {
-    setBgLoadingProspectos(true);
-    try {
-      const params = new URLSearchParams({ limit: 50, offset: 0 });
-      if (category) params.set('category', category);
-      if (withoutAdvisor) params.set('without_advisor', 'true');
-      const res = await apiFetch(`${API_BASE}/prospects?${params}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error('Error al cargar prospectos');
-      setProspectosList(data.items);
-    } catch (error) {
-      addToast(`Error actualizando prospectos: ${error.message}`);
-    } finally {
-      setBgLoadingProspectos(false);
-    }
-  };
-
-  const fetchAllProspectos = async () => {
-    try {
-      const res = await apiFetch(`${API_BASE}/prospects?limit=50&offset=0`);
-      const data = await res.json();
-      if (!res.ok) throw new Error('Error al cargar prospectos');
-      setAllProspectosList(data.items);
-    } catch (error) {
-      console.error(error);
-    }
+  const loadMoreProspectos = async () => {
+    await loadMoreProspectosService({ apiFetch, setProspectosLoadingMore, setProspectosList, setProspectosHasMore, prospectosList, prospectosCategoryFilter, prospectosWithoutAdvisor, PAGE_SIZE });
   };
 
   const openEditLotModal = (lot) => {
@@ -901,25 +427,12 @@ function App() {
     e.preventDefault();
     setEditLotLoading(true);
     setEditLotError(null);
-    const body = {};
-    body.status = editLotForm.status;
-    if (editLotForm.price !== '') body.price = parseFloat(editLotForm.price);
-    else body.price = null;
-    if (editLotForm.area_m2 !== '') body.area_m2 = parseFloat(editLotForm.area_m2);
-    else body.area_m2 = null;
     try {
-      const res = await apiFetch(`${API_BASE}/lots/${editingLotId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || 'Error al actualizar lote');
-      }
-      addToast('Lote actualizado.');
+      await patchLot({ apiFetch, editingLotId, editLotForm });
+      addToast('Lote actualizado.', 'success');
+      // Refresh inventory before closing modal to avoid flicker
+      await fetchInventoryBg({ apiFetch, setInventoryLots, setInventoryLotsHasMore, PAGE_SIZE, name: inventorySearch, status: inventoryStatusFilter, addToast });
       closeEditLotModal();
-      fetchInventoryBg(inventorySearch, inventoryStatusFilter);
     } catch (err) {
       setEditLotError(err.message);
     } finally {
@@ -936,194 +449,63 @@ function App() {
     if (!lot) return;
     setConfirmDialog(prev => ({ ...prev, loading: true }));
     try {
-      const res = await apiFetch(`${API_BASE}/lots/${lot.id}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || 'Error al eliminar lote');
-      }
-      addToast(`Lote "${lot.name}" eliminado.`);
-      fetchInventoryBg(inventorySearch, inventoryStatusFilter);
+      await deleteLot({ apiFetch, lotId: lot.id });
+      addToast(`Lote "${lot.name}" eliminado.`, 'success');
+      await fetchInventoryBg({ apiFetch, setInventoryLots, setInventoryLotsHasMore, PAGE_SIZE, name: inventorySearch, status: inventoryStatusFilter, addToast });
       setConfirmDialog({ open: false, lot: null, loading: false });
     } catch (err) {
-      addToast(`Error: ${err.message}`);
+      addToast(`Error: ${err.message}`, 'error');
       setConfirmDialog(prev => ({ ...prev, loading: false }));
     }
   };
 
-  const fetchClicksForAllLoteos = async (loteos) => {
-    if (!loteos || loteos.length === 0) return;
-    try {
-      const newCache = { ...clicksCache };
-      for (const loteo of loteos) {
-        try {
-          const res = await apiFetch(`${API_BASE}/loteos/${loteo.id}/clicks`);
-          const data = await res.json();
-          if (res.ok) {
-            newCache[loteo.id] = [...data].sort((a, b) => b.clicks - a.clicks);
-          }
-        } catch {
-          // Skip individual loteo errors, continue with others
-        }
-      }
-      setClicksCache(newCache);
-    } catch (error) {
-      addToast(`Error actualizando clicks: ${error.message}`);
-    }
-  };
-
-  const fetchDashboardSummary = async (authToken) => {
-    try {
-      const res = await fetch(`${API_BASE}/dashboard/summary`, {
-        headers: {
-          accept: 'application/json',
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-      if (res.status === 401) {
-        logout();
-        return;
-      }
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Error al cargar resumen');
-      setDashboardSummary(data);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const fetchVisorDataForAllLoteos = async (loteos) => {
-    if (!loteos || loteos.length === 0) return;
-    try {
-      const newCache = { ...visorDataCache };
-      for (const loteo of loteos) {
-        try {
-          const res = await fetch(`${API_BASE}/loteos/${loteo.id}/visor_data`, {
-            headers: {
-              accept: 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-          });
-          const data = await res.json();
-          if (res.ok) {
-            newCache[loteo.id] = data;
-          }
-        } catch {
-          // Skip individual loteo errors, continue with others
-        }
-      }
-      setVisorDataCache(newCache);
-    } catch (error) {
-      addToast(`Error actualizando datos de blueprint: ${error.message}`);
-    }
-  };
-
   const fetchReportsBg = async (days) => {
-    if (!token) return;
-    try {
-      const [genRes, finRes] = await Promise.all([
-        apiFetch(`${API_BASE}/reports/general?last_days=${days}`),
-        apiFetch(`${API_BASE}/reports/finances?last_days=${days}`),
-      ]);
-
-      if (genRes.status === 401 || finRes.status === 401) {
-        logout();
-        return;
-      }
-
-      const [genData, finData] = await Promise.all([genRes.json(), finRes.json()]);
-
-      setReportsCache(prev => ({
-        ...prev,
-        [days]: {
-          prospectos: genData.prospectos_en_periodo ?? 0,
-          ventas: finData.ventas_en_periodo ?? 0,
-          lotesVendidos: finData.cantidad_vendidos_en_periodo ?? 0,
-        },
-      }));
-    } catch (error) {
-      console.error(error);
-    }
+    await fetchReportsBgService({ apiFetch, token, setReportsCache, days });
   };
+
+  // Wrapped logout for child components that call it with no arguments.
+  // Defined before apiFetch so it can be passed as the logout callback.
+  const logout = () => authLogout({
+    setView, setLots, setLoteos, setSelectedLot, setStatus,
+    setAdminSubView, setInventoryLots, setInventoryLotsHasMore, setInventorySearch,
+    setInventoryStatusFilter, setInventoryTab, setInventoryLoteos, setProspectosList,
+    setProspectosHasMore, setAllProspectosList, setProspectosCategoryFilter,
+    setProspectosWithoutAdvisor, setToasts, setClicksCache, setVisorDataCache,
+    setReportsCache, setDashboardSummary,
+  });
+
+  // apiFetch uses logout (no-arg) as the 401 handler
+  const apiFetch = useMemo(() => createApiFetch(token, logout), [token, logout]);
 
   // Callbacks passed to AnalisisView so it can request data through the shared cache
-  const handleAnalisisRequestClicks = useCallback((loteoId, signal) => {
-    fetch(`${API_BASE}/loteos/${loteoId}/clicks`, {
-      headers: { accept: 'application/json', Authorization: `Bearer ${token}` },
-      signal,
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (!Array.isArray(data)) return;
-        setClicksCache(prev => ({
-          ...prev,
-          [loteoId]: [...data].sort((a, b) => b.clicks - a.clicks),
-        }));
-      })
-      .catch(err => { if (err.name !== 'AbortError') console.error(err); });
-  }, [token]);
+  const { handleAnalisisRequestClicks, handleAnalisisRequestVisorData } = buildAnalisisCallbacks({ apiFetch, setClicksCache, setVisorDataCache });
 
-  const handleAnalisisRequestVisorData = useCallback((loteoId, signal) => {
-    fetch(`${API_BASE}/loteos/${loteoId}/visor_data`, {
-      headers: { accept: 'application/json', Authorization: `Bearer ${token}` },
-      signal,
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.blueprintUrl || data.annotations) {
-          setVisorDataCache(prev => ({ ...prev, [loteoId]: data }));
-        }
-      })
-      .catch(err => { if (err.name !== 'AbortError') console.error(err); });
-  }, [token]);
-
-  const logout = () => {
-    setView('login');
-    setToken(null);
-    setUser(null);
-    setLots(null);
-    setLoteos(null);
-    setSelectedLot(null);
-    setStatus(null);
-    setAdminSubView('lotes');
-    setInventoryLots([]);
-    setInventorySearch('');
-    setInventoryStatusFilter('');
-    setInventoryTab('lotes');
-    setInventoryLoteos([]);
-    setProspectosList([]);
-    setAllProspectosList([]);
-    setProspectosCategoryFilter('');
-    setProspectosWithoutAdvisor(false);
-    setToasts([]);
-    setBgLoadingLots(false);
-    setBgLoadingLoteos(false);
-    setBgLoadingProspectos(false);
-    setClicksCache({});
-    setVisorDataCache({});
-    setReportsCache({});
-    setDashboardSummary(null);
-    setInventoryEditingId(null);
-    setInventoryEditForm({ status: '', price: '', area_m2: '' });
-  };
-
-  const apiFetch = async (url, opts = {}) => {
-    const res = await fetch(url, {
-      ...opts,
-      headers: {
-        accept: 'application/json',
-        Authorization: `Bearer ${token}`,
-        ...opts.headers,
-      },
-    });
-    if (res.status === 401) {
-      logout();
-      throw new Error('Sesión expirada. Inicia sesión nuevamente.');
-    }
-    return res;
-  };
+  // ── Combined sync hook (must be after apiFetch and addToast) ─────────────────
+  const { syncLoading, syncError, refresh: refreshSync } = useSync(token, apiFetch, {
+    setInventoryLots,
+    setInventoryLoteos,
+    setAllProspectosList,
+    setDashboardSummary,
+    setClicksCache,
+    setVisorDataCache,
+    setReportsCache,
+  }, addToast);
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
+  };
+
+  // TODO: Replace regex check with URL constructor for stricter validation:
+  //   const parsed = new URL(url);
+  //   if (parsed.protocol !== 'https:') return;
+  // This also prevents trick URLs like 'http://evil.com#https://legit.com'
+  const safeOpen = (url) => {
+    if (!url) return;
+    if (!/^https:\/\//i.test(url)) {
+      console.warn(`[safeOpen] Blocked non-HTTPS URL: ${url}`);
+      return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   if (view === 'login') {
@@ -1260,8 +642,8 @@ function App() {
                           <h4>{loteo.name}</h4>
                           <span>{loteo.id.substring(0, 8)}...</span>
                         </div>
-                        <a 
-                          href={`https://notry-visor.vercel.app/?data=${API_BASE}/loteos/${loteo.id}/visor_data`}
+                        <a
+                          href={`${VISOR_URL}/?data=${API_BASE}/loteos/${loteo.id}/visor_data`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="visor-link"
@@ -1334,7 +716,9 @@ function App() {
                       loading={!dashboardSummary}
                     />
                   </div>
-                  <KanbanBoard token={token} onSessionExpired={logout} prospectosList={prospectosList} loteos={inventoryLoteos} advisorsList={advisorsList} />
+                  <ErrorBoundary label="Error en el tablero Kanban">
+                    <KanbanBoard token={token} onSessionExpired={logout} prospectosList={allProspectosList} loteos={inventoryLoteos} advisorsList={advisorsList} />
+                  </ErrorBoundary>
                 </>
               )}
 
@@ -1386,48 +770,16 @@ function App() {
                                 { value: 'sold', label: 'Vendido' },
                               ]}
                             />
-                            <Select
-                              id="inventory-area-filter"
-                              disabled={true}
-                              value=""
-                              onChange={() => {}}
-                              options={[
-                                { value: '', label: 'Área: Todas' },
-                                { value: '0-200', label: 'Menor a 200 m²' },
-                                { value: '200-500', label: '200 – 500 m²' },
-                                { value: '500+', label: 'Mayor a 500 m²' },
-                              ]}
-                            />
                           </div>
                           <div className="loader-container small">
-                            {(inventoryLoading || bgLoadingLots) && <Loader size="sm" />}
+                            {(inventoryLoading || syncLoading) && <Loader size="sm" />}
                           </div>
                         </>
                       ) : (
                         <>
                           <div className="inventory-search" />
-                          <div className="inventory-filters">
-                            <Select
-                              id="loteos-status-filter"
-                              disabled={true}
-                              value=""
-                              onChange={() => {}}
-                              options={[
-                                { value: '', label: 'Estado: Todos' },
-                              ]}
-                            />
-                            <Select
-                              id="loteos-area-filter"
-                              disabled={true}
-                              value=""
-                              onChange={() => {}}
-                              options={[
-                                { value: '', label: 'Área: Todas' },
-                              ]}
-                            />
-                          </div>
                           <div className="loader-container small">
-                            {bgLoadingLoteos && <Loader size="sm" />}
+                            {(syncLoading || inventoryLoteosLoading) && <Loader size="sm" />}
                           </div>
                             <Button
                               ref={createLoteoButtonRef}
@@ -1440,27 +792,28 @@ function App() {
                       )}
                     </div>
 
+                    <ErrorBoundary label="Error al cargar inventario">
                     {inventoryTab === 'lotes' ? (
                       <div key="lotes" className="inventory-table-wrapper fade-in">
                         <table className="inventory-table">
                           <thead>
                             <tr>
-                              <th>Nombre</th>
-                              <th>Área</th>
-                              <th>Precio</th>
-                              <th>Estado</th>
-                              <th>Loteo</th>
-                              <th>Prospectos</th>
-                              <th>Acciones</th>
+                              <th scope="col">Nombre</th>
+                              <th scope="col">Área</th>
+                              <th scope="col">Precio</th>
+                              <th scope="col">Estado</th>
+                              <th scope="col">Loteo</th>
+                              <th scope="col">Prospectos</th>
+                              <th scope="col">Acciones</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {inventoryLots.length === 0 ? (
+                            {(filteredInventoryLots ?? inventoryLots).length === 0 ? (
                               <tr>
                                 <td colSpan={7} className="td-empty-row">No se encontraron lotes.</td>
                               </tr>
                             ) : (
-                              inventoryLots.map(lot => (
+                              (filteredInventoryLots ?? inventoryLots).map(lot => (
                                 <tr key={lot.id}>
                                   <td className="td-name">{lot.name}</td>
                                   <td>{lot.area_m2 ? `${parseFloat(lot.area_m2).toLocaleString()} m²` : '—'}</td>
@@ -1516,11 +869,11 @@ function App() {
                           <table className="inventory-table">
                             <thead>
                               <tr>
-                                <th>Nombre</th>
-                                <th>Imagen</th>
-                                <th>Blueprint</th>
-                                <th>Acciones</th>
-                                <th>Links</th>
+                                <th scope="col">Nombre</th>
+                                <th scope="col">Imagen</th>
+                                <th scope="col">Blueprint</th>
+                                <th scope="col">Acciones</th>
+                                <th scope="col">Links</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -1537,7 +890,7 @@ function App() {
                                         <button
                                           type="button"
                                           className="text-action-btn view"
-                                          onClick={() => window.open(loteo.image_url, '_blank')}
+                                          onClick={() => safeOpen(loteo.image_url)}
                                           title="Ver imagen"
                                           aria-label="Ver imagen"
                                         >
@@ -1552,7 +905,7 @@ function App() {
                                         <button
                                           type="button"
                                           className="text-action-btn view"
-                                          onClick={() => window.open(loteo.blueprint_url, '_blank')}
+                                          onClick={() => safeOpen(loteo.blueprint_url)}
                                           title="Ver blueprint"
                                           aria-label="Ver blueprint"
                                         >
@@ -1578,7 +931,7 @@ function App() {
                                         <button
                                           type="button"
                                           className="text-action-btn view"
-                                          onClick={() => window.open(`https://notry-visor.vercel.app/?data=${API_BASE}/loteos/${loteo.id}/visor_data`, '_blank')}
+                                          onClick={() => window.open(`${VISOR_URL}/?data=${API_BASE}/loteos/${loteo.id}/visor_data`, '_blank', 'noopener,noreferrer')}
                                         >
                                           Visor
                                         </button>
@@ -1599,12 +952,13 @@ function App() {
                         )}
                       </div>
                     )}
+                  </ErrorBoundary>
                   </div>
                 </>
               )}
 
               {ownerSubView === 'clientes' && (
-                <>
+                <ErrorBoundary label="Error al cargar prospectos">
                 <div className="charts-row">
                   <CategoryPieChart prospects={allProspectosList} />
                   <BudgetPieChart prospects={allProspectosList} />
@@ -1642,7 +996,7 @@ function App() {
                     >
                       + Nuevo Prospecto
                     </Button>
-                    {(prospectosLoading || bgLoadingProspectos) && (
+                    {prospectosLoading && (
                       <Loader size="sm" />
                     )}
                   </div>
@@ -1652,22 +1006,22 @@ function App() {
                       <caption className="sr-only">Lista de prospectos</caption>
                       <thead>
                         <tr>
-                          <th>Nombre</th>
-                          <th>Email</th>
-                          <th>Teléfono</th>
-                          <th>Categoría</th>
-                          <th>Presupuesto</th>
-                          <th>Último Contacto</th>
-                          <th>Acciones</th>
+                          <th scope="col">Nombre</th>
+                          <th scope="col">Email</th>
+                          <th scope="col">Teléfono</th>
+                          <th scope="col">Categoría</th>
+                          <th scope="col">Presupuesto</th>
+                          <th scope="col">Último Contacto</th>
+                          <th scope="col">Acciones</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {prospectosList.length === 0 ? (
+                        {(filteredProspectos ?? prospectosList).length === 0 ? (
                           <tr>
                             <td colSpan={7} className="td-empty-row">No se encontraron prospectos.</td>
                           </tr>
                         ) : (
-                          prospectosList.map(p => (
+                          (filteredProspectos ?? prospectosList).map(p => (
                             <tr key={p.id}>
                               <td className="td-name">{p.name}</td>
                               <td className="td-muted">{p.email || '—'}</td>
@@ -1702,24 +1056,33 @@ function App() {
                         )}
                       </tbody>
                     </table>
+                    {prospectosHasMore && (
+                      <div className="load-more-row">
+                        <Button variant="outline" size="sm" onClick={loadMoreProspectos} disabled={prospectosLoadingMore}>
+                          {prospectosLoadingMore ? <Loader size="sm" /> : 'Cargar más prospectos'}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
-                </>
+                </ErrorBoundary>
               )}
 
               {ownerSubView === 'analisis' && (
-                <AnalisisView
-                  token={token}
-                  onSessionExpired={logout}
-                  prefetchedLoteos={inventoryLoteos}
-                  cachedClicks={clicksCache}
-                  cachedVisorData={visorDataCache}
-                  cachedReports={reportsCache}
-                  analisisLastDays={analisisLastDays}
-                  onAnalisisLastDaysChange={setAnalisisLastDays}
-                  onRequestClicks={handleAnalisisRequestClicks}
-                  onRequestVisorData={handleAnalisisRequestVisorData}
-                />
+                <ErrorBoundary label="Error en la vista de análisis">
+                  <AnalisisView
+                    token={token}
+                    onSessionExpired={logout}
+                    prefetchedLoteos={inventoryLoteos}
+                    cachedClicks={clicksCache}
+                    cachedVisorData={visorDataCache}
+                    cachedReports={reportsCache}
+                    analisisLastDays={analisisLastDays}
+                    onAnalisisLastDaysChange={setAnalisisLastDays}
+                    onRequestClicks={handleAnalisisRequestClicks}
+                    onRequestVisorData={handleAnalisisRequestVisorData}
+                  />
+                </ErrorBoundary>
               )}
 
               {ownerSubView !== 'inventario' && ownerSubView !== 'clientes' && ownerSubView !== 'analisis' && ownerSubView !== 'inicio' && (
@@ -1732,234 +1095,38 @@ function App() {
         )}
       </main>
 
-      {createLoteoOpen && (
-        <div className="modal-overlay" onClick={() => setCreateLoteoOpen(false)}>
-          <div
-            ref={createLoteoModalRef}
-            className="modal-card"
-            onClick={e => e.stopPropagation()}
-            aria-modal="true"
-            role="dialog"
-          >
-            <h3 className="modal-title">Nuevo Loteo</h3>
-            <form onSubmit={createLoteo}>
-              <div className="form-group">
-                <label htmlFor="loteo-name">Nombre</label>
-                <input
-                  id="loteo-name"
-                  type="text"
-                  required
-                  value={createLoteoForm.name}
-                  onChange={e => setCreateLoteoForm(f => ({ ...f, name: e.target.value }))}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="loteo-slug">Slug</label>
-                <input
-                  id="loteo-slug"
-                  type="text"
-                  required
-                  value={createLoteoForm.slug}
-                  onChange={e => setCreateLoteoForm(f => ({ ...f, slug: e.target.value }))}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="loteo-image-url">URL de Imagen</label>
-                <input
-                  id="loteo-image-url"
-                  type="text"
-                  value={createLoteoForm.image_url}
-                  onChange={e => setCreateLoteoForm(f => ({ ...f, image_url: e.target.value }))}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="loteo-blueprint-url">URL de Blueprint</label>
-                <input
-                  id="loteo-blueprint-url"
-                  type="text"
-                  value={createLoteoForm.blueprint_url}
-                  onChange={e => setCreateLoteoForm(f => ({ ...f, blueprint_url: e.target.value }))}
-                />
-              </div>
-              {createLoteoError && <div className="status-message error">{createLoteoError}</div>}
-              <div className="modal-footer">
-                <Button variant="outline" size="sm" onClick={() => setCreateLoteoOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit" size="sm" loading={createLoteoLoading}>
-                  {createLoteoLoading ? <Loader size="sm" /> : 'Crear'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <CreateLoteoModal
+        isOpen={createLoteoOpen}
+        onClose={() => setCreateLoteoOpen(false)}
+        formData={createLoteoForm}
+        onFieldChange={(field, value) => setCreateLoteoForm(f => ({ ...f, [field]: value }))}
+        onSubmit={createLoteo}
+        loading={createLoteoLoading}
+        error={createLoteoError}
+        isValidHttpsUrl={isValidHttpsUrl}
+      />
 
-      {editLoteoOpen && (
-        <div className="modal-overlay" onClick={closeEditLoteoModal}>
-          <div
-            ref={editLoteoModalRef}
-            className="modal-card"
-            onClick={e => e.stopPropagation()}
-            aria-modal="true"
-            role="dialog"
-          >
-            <h3 className="modal-title">Editar Loteo</h3>
-            <form onSubmit={saveEditLoteo}>
-              <div className="form-group">
-                <label htmlFor="edit-loteo-name">Nombre</label>
-                <input
-                  id="edit-loteo-name"
-                  type="text"
-                  required
-                  value={editLoteoForm.name}
-                  onChange={e => setEditLoteoForm(f => ({ ...f, name: e.target.value }))}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="edit-loteo-slug">Slug</label>
-                <input
-                  id="edit-loteo-slug"
-                  type="text"
-                  required
-                  value={editLoteoForm.slug}
-                  onChange={e => setEditLoteoForm(f => ({ ...f, slug: e.target.value }))}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="edit-loteo-image-url">URL de Imagen</label>
-                <input
-                  id="edit-loteo-image-url"
-                  type="text"
-                  value={editLoteoForm.image_url}
-                  onChange={e => setEditLoteoForm(f => ({ ...f, image_url: e.target.value }))}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="edit-loteo-blueprint-url">URL de Blueprint</label>
-                <input
-                  id="edit-loteo-blueprint-url"
-                  type="text"
-                  value={editLoteoForm.blueprint_url}
-                  onChange={e => setEditLoteoForm(f => ({ ...f, blueprint_url: e.target.value }))}
-                />
-              </div>
-              {editLoteoError && <div className="status-message error">{editLoteoError}</div>}
-              <div className="modal-footer">
-                <Button type="button" variant="outline" size="sm" onClick={closeEditLoteoModal} disabled={editLoteoLoading}>
-                  Cancelar
-                </Button>
-                <Button type="submit" size="sm" loading={editLoteoLoading}>
-                  {editLoteoLoading ? <Loader size="sm" /> : 'Guardar'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <EditLoteoModal
+        isOpen={editLoteoOpen}
+        isClosing={editLoteoClosing}
+        onClose={closeEditLoteoModal}
+        formData={editLoteoForm}
+        onFieldChange={(field, value) => setEditLoteoForm(f => ({ ...f, [field]: value }))}
+        onSubmit={saveEditLoteo}
+        loading={editLoteoLoading}
+        error={editLoteoError}
+      />
 
-      {addProspectOpen && (
-        <div className="modal-overlay" onClick={() => setAddProspectOpen(false)}>
-          <div
-            ref={addProspectModalRef}
-            className="modal-card"
-            onClick={e => e.stopPropagation()}
-            aria-modal="true"
-            role="dialog"
-          >
-            <h3 className="modal-title">Nuevo Prospecto</h3>
-            <form onSubmit={createProspect}>
-              <div className="form-group">
-                <label htmlFor="prospect-name">Nombre *</label>
-                <input
-                  id="prospect-name"
-                  type="text"
-                  required
-                  maxLength={200}
-                  value={addProspectForm.name}
-                  onChange={e => setAddProspectForm(f => ({ ...f, name: e.target.value }))}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="prospect-email">Correo electrónico</label>
-                <input
-                  id="prospect-email"
-                  type="email"
-                  maxLength={254}
-                  placeholder="ej: usuario@correo.com"
-                  aria-describedby="prospect-email-hint"
-                  value={addProspectForm.email}
-                  onChange={e => setAddProspectForm(f => ({ ...f, email: e.target.value }))}
-                />
-                <span id="prospect-email-hint" className="sr-only">Dirección de correo electrónico válida</span>
-              </div>
-              <div className="form-group">
-                <label htmlFor="prospect-phone">Teléfono</label>
-                <input
-                  id="prospect-phone"
-                  type="tel"
-                  maxLength={20}
-                  placeholder="ej: +52 55 1234 5678"
-                  aria-describedby="prospect-phone-hint"
-                  value={addProspectForm.phone}
-                  onChange={e => setAddProspectForm(f => ({ ...f, phone: e.target.value }))}
-                />
-                <span id="prospect-phone-hint" className="sr-only">Número de teléfono de contacto</span>
-              </div>
-              <div className="form-row-2">
-                <div className="form-group">
-                  <label htmlFor="prospect-category">Categoría</label>
-                  <select
-                    id="prospect-category"
-                    aria-label="Categoría"
-                    value={addProspectForm.category}
-                    onChange={e => setAddProspectForm(f => ({ ...f, category: e.target.value }))}
-                  >
-                    <option value="primer_contacto">Primer Contacto</option>
-                    <option value="seguimiento">Seguimiento</option>
-                    <option value="negociacion">Negociación</option>
-                    <option value="vendido">Vendido</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="prospect-budget">Presupuesto</label>
-                  <input
-                    id="prospect-budget"
-                    type="number"
-                    step="0.01"
-                    placeholder="Ej: 150000"
-                    aria-describedby="prospect-budget-hint"
-                    value={addProspectForm.budget}
-                    onChange={e => setAddProspectForm(f => ({ ...f, budget: e.target.value }))}
-                  />
-                  <span id="prospect-budget-hint" className="sr-only">Cantidad en pesos, use números</span>
-                </div>
-              </div>
-              <div className="form-group">
-                <label htmlFor="prospect-payment">Forma de pago</label>
-                <select
-                  id="prospect-payment"
-                  aria-label="Forma de pago"
-                  value={addProspectForm.payment_method}
-                  onChange={e => setAddProspectForm(f => ({ ...f, payment_method: e.target.value }))}
-                >
-                  <option value="contado">Contado</option>
-                  <option value="credito">Crédito</option>
-                </select>
-              </div>
-              {addProspectError && <div className="status-message error">{addProspectError}</div>}
-              <div className="modal-footer">
-                <Button variant="outline" size="sm" onClick={() => setAddProspectOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit" size="sm" loading={addProspectLoading}>
-                  {addProspectLoading ? <Loader size="sm" /> : 'Crear'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <AddProspectModal
+        isOpen={addProspectOpen}
+        onClose={() => setAddProspectOpen(false)}
+        onSubmit={async (formData) => {
+          await createProspectService({ apiFetch, addProspectForm: formData, setAddProspectLoading: setAddProspectLoading, setAddProspectError: setAddProspectError, setAddProspectOpen: setAddProspectOpen, setAddProspectForm: setAddProspectForm, refreshSync });
+        }}
+        loading={addProspectLoading}
+        error={addProspectError}
+        addToast={addToast}
+      />
 
       <EditEntityModal
         isOpen={editProspectModalOpen}
@@ -1985,88 +1152,21 @@ function App() {
         ]}
       />
 
-      {deleteProspectDialog.open && (
-        <div className="modal-overlay" onClick={() => !deleteProspectDialog.loading && setDeleteProspectDialog({ open: false, prospect: null, loading: false })}>
-          <div
-            ref={deleteProspectModalRef}
-            className="modal-card delete-confirm"
-            onClick={e => e.stopPropagation()}
-            aria-modal="true"
-            role="dialog"
-          >
-            <div className="confirm-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                <line x1="12" y1="9" x2="12" y2="13"/>
-                <line x1="12" y1="17" x2="12.01" y2="17"/>
-              </svg>
-            </div>
-            <h3 className="confirm-title">¿Eliminar prospecto?</h3>
-            <p className="confirm-message">
-              Estás a punto de eliminar <strong>"{deleteProspectDialog.prospect?.name}"</strong>. Esta acción no se puede deshacer.
-            </p>
-            <div className="confirm-actions">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDeleteProspectDialog({ open: false, prospect: null, loading: false })}
-                disabled={deleteProspectDialog.loading}
-              >
-                Cancelar
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleDeleteProspectConfirm}
-                disabled={deleteProspectDialog.loading}
-                loading={deleteProspectDialog.loading}
-              >
-                Eliminar
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteProspectDialog
+        isOpen={deleteProspectDialog.open}
+        prospect={deleteProspectDialog.prospect}
+        loading={deleteProspectDialog.loading}
+        onConfirm={handleDeleteProspectConfirm}
+        onCancel={() => setDeleteProspectDialog({ open: false, prospect: null, loading: false })}
+      />
 
-      {confirmDialog.open && (
-        <div className="modal-overlay" onClick={() => !confirmDialog.loading && setConfirmDialog({ open: false, lot: null, loading: false })}>
-          <div
-            className="modal-card delete-confirm"
-            onClick={e => e.stopPropagation()}
-            aria-modal="true"
-            role="dialog"
-          >
-            <div className="confirm-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                <line x1="12" y1="9" x2="12" y2="13"/>
-                <line x1="12" y1="17" x2="12.01" y2="17"/>
-              </svg>
-            </div>
-            <h3 className="confirm-title">¿Eliminar lote?</h3>
-            <p className="confirm-message">
-              Estás a punto de eliminar <strong>"{confirmDialog.lot?.name}"</strong>. Esta acción no se puede deshacer.
-            </p>
-            <div className="confirm-actions">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setConfirmDialog({ open: false, lot: null, loading: false })}
-                disabled={confirmDialog.loading}
-              >
-                Cancelar
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleDeleteConfirm}
-                disabled={confirmDialog.loading}
-                loading={confirmDialog.loading}
-              >
-                Eliminar
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={confirmDialog.open}
+        lot={confirmDialog.lot}
+        loading={confirmDialog.loading}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setConfirmDialog({ open: false, lot: null, loading: false })}
+      />
 
       <EditEntityModal
         isOpen={editLotModalOpen}
@@ -2084,8 +1184,21 @@ function App() {
       />
 
       <div className="toasts-container">
+        {syncError && (
+          <div
+            key="sync-error"
+            className="toast toast--error"
+            onClick={() => {}}
+          >
+            Error de sincronización: {syncError}
+          </div>
+        )}
         {toasts.map(toast => (
-          <div key={toast.id} className="toast" onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}>
+          <div
+            key={toast.id}
+            className={`toast toast--${toast.type ?? 'success'}`}
+            onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+          >
             {toast.message}
           </div>
         ))}
