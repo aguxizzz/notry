@@ -71,7 +71,7 @@ export function useAuth() {
    */
   function logout(setters) {
     const {
-      setView, setLots, setLoteos, setSelectedLot, setStatus,
+      setView, setLots, setLoteos, setSelectedLot,
       setAdminSubView, setInventoryLots, setInventoryLotsHasMore, setInventorySearch,
       setInventoryStatusFilter, setInventoryTab, setInventoryLoteos, setProspectosList,
       setProspectosHasMore, setAllProspectosList, setProspectosCategoryFilter,
@@ -86,7 +86,6 @@ export function useAuth() {
     setLots(null);
     setLoteos(null);
     setSelectedLot(null);
-    setStatus(null);
     setAdminSubView('lotes');
     setInventoryLots([]);
     setInventoryLotsHasMore(false);

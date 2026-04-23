@@ -1,12 +1,13 @@
 import { API_BASE } from '../config';
 
-export async function createProspect({ apiFetch, addProspectForm, setAddProspectLoading, setAddProspectError, setAddProspectOpen, setAddProspectForm, refreshSync }) {
+export async function createProspect({ apiFetch, addProspectForm, setAddProspectLoading, setAddProspectError, setAddProspectOpen, setAddProspectForm, refreshSync, addToast }) {
   setAddProspectLoading(true);
   setAddProspectError(null);
   const body = {
     name: addProspectForm.name,
     category: addProspectForm.category,
   };
+  if (addProspectForm.lote_id) body.lote_id = addProspectForm.lote_id;
   if (addProspectForm.email) body.email = addProspectForm.email;
   if (addProspectForm.phone) body.phone = addProspectForm.phone;
   if (addProspectForm.budget) body.budget = parseFloat(addProspectForm.budget);
@@ -18,10 +19,12 @@ export async function createProspect({ apiFetch, addProspectForm, setAddProspect
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
+    addToast('Prospecto creado.', 'success');
     setAddProspectOpen(false);
-    setAddProspectForm({ name: '', email: '', phone: '', category: 'primer_contacto', budget: '', payment_method: 'contado' });
+    setAddProspectForm({ name: '', email: '', phone: '', category: 'primer_contacto', budget: '', payment_method: 'contado', lote_id: '' });
     refreshSync();
   } catch (error) {
+    addToast(`Error: ${error.message}`, 'error');
     setAddProspectError(error.message);
   } finally {
     setAddProspectLoading(false);
@@ -75,7 +78,7 @@ export async function saveEditProspect({ apiFetch, editingProspectId, editProspe
   }
 }
 
-export async function updateLastContact({ apiFetch, setUpdatingContact, addToast, refreshSync, prospectId }) {
+export async function updateLastContact({ apiFetch, setUpdatingContact, addToast, refreshSync, prospectId, onUpdate }) {
   setUpdatingContact(true);
   try {
     await apiFetch(`${API_BASE}/prospects/${prospectId}/last-contact`, {
@@ -83,6 +86,7 @@ export async function updateLastContact({ apiFetch, setUpdatingContact, addToast
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
     });
+    onUpdate?.(prospectId);
     addToast('Último contacto actualizado.', 'success');
     refreshSync();
   } catch (error) {

@@ -11,6 +11,7 @@ import { Button, Loader } from '../../ui/components';
  * @param {boolean} props.loading
  * @param {string|null} props.error
  * @param {Function} props.addToast
+ * @param {Array}  props.loteosList    - list of lots to display in the selector (from sync inventoryLots)
  */
 export default function AddProspectModal({
   isOpen,
@@ -19,6 +20,7 @@ export default function AddProspectModal({
   loading,
   error,
   addToast,
+  loteosList = [],
 }) {
   const modalRef = useRef(null);
   const [formData, setFormData] = useState({
@@ -28,6 +30,7 @@ export default function AddProspectModal({
     category: 'primer_contacto',
     budget: '',
     payment_method: 'contado',
+    lote_id: '',
   });
 
   useEffect(() => {
@@ -39,6 +42,7 @@ export default function AddProspectModal({
         category: 'primer_contacto',
         budget: '',
         payment_method: 'contado',
+        lote_id: '',
       });
     }
   }, [isOpen]);
@@ -83,6 +87,21 @@ export default function AddProspectModal({
               value={formData.name}
               onChange={e => handleFieldChange('name', e.target.value)}
             />
+          </div>
+          <div className="form-group">
+            <label htmlFor="prospect-lote">Lote</label>
+            <select
+              id="prospect-lote"
+              value={formData.lote_id}
+              onChange={e => handleFieldChange('lote_id', e.target.value)}
+            >
+              <option value="">Sin asignar</option>
+              {loteosList.map(lot => (
+                <option key={lot.id} value={lot.id}>
+                  {lot.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="form-group">
             <label htmlFor="prospect-email">Correo electrónico</label>

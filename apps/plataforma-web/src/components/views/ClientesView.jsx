@@ -1,0 +1,162 @@
+import React from 'react';
+import { SlidersHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { Button, Loader, Select, ErrorBoundary } from '../../ui/components';
+import CategoryPieChart from '../CategoryPieChart';
+import BudgetPieChart from '../BudgetPieChart';
+import { CATEGORY_DISPLAY, formatDate } from '../../constants';
+
+function ProspectosFilters({
+  categoryFilter,
+  onCategoryChange,
+  withoutAdvisor,
+  onWithoutAdvisorChange,
+  onOpenAddProspect,
+  loading,
+}) {
+  return (
+    <div className="inventory-controls">
+      <div className="inventory-filters">
+        <SlidersHorizontal size={16} className="filter-icon" />
+        <Select
+          id="prospects-category-filter"
+          value={categoryFilter}
+          onChange={e => onCategoryChange(e.target.value)}
+          options={[
+            { value: '', label: 'Categoría: Todas' },
+            ...Object.entries(CATEGORY_DISPLAY).map(([val, label]) => ({
+              value: val,
+              label,
+            })),
+          ]}
+        />
+        <label className="filter-toggle" htmlFor="filter-no-advisor">
+          <input
+            id="filter-no-advisor"
+            type="checkbox"
+            checked={withoutAdvisor}
+            onChange={e => onWithoutAdvisorChange(e.target.checked)}
+          />
+          Sin asesor
+        </label>
+      </div>
+      <Button size="sm" onClick={onOpenAddProspect}>
+        + Nuevo Prospecto
+      </Button>
+      {loading && <Loader size="sm" />}
+    </div>
+  );
+}
+
+function ProspectosTable({ prospectos, filteredProspectos, loadingMore, hasMore, onLoadMore, onEditProspect, onDeleteProspect }) {
+  const data = filteredProspectos ?? prospectos;
+  return (
+    <div className="inventory-table-wrapper">
+      <table className="inventory-table">
+        <caption className="sr-only">Lista de prospectos</caption>
+        <thead>
+          <tr>
+            <th scope="col">Nombre</th>
+            <th scope="col">Email</th>
+            <th scope="col">Teléfono</th>
+            <th scope="col">Categoría</th>
+            <th scope="col">Presupuesto</th>
+            <th scope="col">Último Contacto</th>
+            <th scope="col">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.length === 0 ? (
+            <tr>
+              <td colSpan={7} className="td-empty-row">No se encontraron prospectos.</td>
+            </tr>
+          ) : (
+            data.map(p => (
+              <tr key={p.id}>
+                <td className="td-name">{p.name}</td>
+                <td className="td-muted">{p.email || '—'}</td>
+                <td className="td-muted">{p.phone || '—'}</td>
+                <td>
+                  <span className={`badge category-${p.category}`}>
+                    {CATEGORY_DISPLAY[p.category] ?? p.category?.replace(/_/g, ' ')}
+                  </span>
+                </td>
+                <td className="td-price">{p.budget ? `$${parseFloat(p.budget).toLocaleString()}` : '—'}</td>
+                <td className="td-muted">{formatDate(p.last_contact)}</td>
+                <td className="td-actions">
+                  <button
+                    className="action-btn edit"
+                    onClick={() => onEditProspect(p)}
+                    title="Editar"
+                    aria-label={`Editar ${p.name}`}
+                  >
+                    <Pencil size={16} />
+                  </button>
+                  <button
+                    className="action-btn delete"
+                    onClick={() => onDeleteProspect(p)}
+                    title="Eliminar"
+                    aria-label={`Eliminar ${p.name}`}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+      {hasMore && (
+        <div className="load-more-row">
+          <Button variant="outline" size="sm" onClick={onLoadMore} disabled={loadingMore}>
+            {loadingMore ? <Loader size="sm" /> : 'Cargar más prospectos'}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function ClientesView({
+  allProspectosList,
+  prospectosList,
+  filteredProspectos,
+  prospectosLoading,
+  prospectosLoadingMore,
+  prospectosHasMore,
+  prospectosCategoryFilter,
+  onCategoryChange,
+  prospectosWithoutAdvisor,
+  onWithoutAdvisorChange,
+  onOpenAddProspect,
+  onEditProspect,
+  onDeleteProspect,
+  onLoadMore,
+}) {
+  return (
+    <ErrorBoundary label="Error al cargar prospectos">
+      <div className="charts-row">
+        <CategoryPieChart prospects={allProspectosList} />
+        <BudgetPieChart prospects={allProspectosList} />
+      </div>
+      <div className="inventory-section">
+        <ProspectosFilters
+          categoryFilter={prospectosCategoryFilter}
+          onCategoryChange={onCategoryChange}
+          withoutAdvisor={prospectosWithoutAdvisor}
+          onWithoutAdvisorChange={onWithoutAdvisorChange}
+          onOpenAddProspect={onOpenAddProspect}
+          loading={prospectosLoading}
+        />
+        <ProspectosTable
+          prospectos={prospectosList}
+          filteredProspectos={filteredProspectos}
+          loadingMore={prospectosLoadingMore}
+          hasMore={prospectosHasMore}
+          onLoadMore={onLoadMore}
+          onEditProspect={onEditProspect}
+          onDeleteProspect={onDeleteProspect}
+        />
+      </div>
+    </ErrorBoundary>
+  );
+}
