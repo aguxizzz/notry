@@ -46,8 +46,24 @@ export async function fetchInventoryBg({ apiFetch, setInventoryLots, setInventor
   }
 }
 
+export async function createLot({ apiFetch, createLotForm }) {
+  const body = {};
+  if (createLotForm.name) body.name = createLotForm.name;
+  if (createLotForm.price !== '') body.price = parseFloat(createLotForm.price);
+  if (createLotForm.area_m2 !== '') body.area_m2 = parseFloat(createLotForm.area_m2);
+  if (createLotForm.loteo_id) body.loteo_id = createLotForm.loteo_id;
+  if (createLotForm.status) body.status = createLotForm.status;
+  return apiFetch(`${API_BASE}/lots`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
 export async function patchLot({ apiFetch, editingLotId, editLotForm }) {
   const body = { status: editLotForm.status };
+  if (editLotForm.name) body.name = editLotForm.name;
+  if (editLotForm.loteo_id) body.loteo_id = editLotForm.loteo_id;
   if (editLotForm.price !== '') body.price = parseFloat(editLotForm.price);
   else body.price = null;
   if (editLotForm.area_m2 !== '') body.area_m2 = parseFloat(editLotForm.area_m2);
@@ -62,3 +78,4 @@ export async function patchLot({ apiFetch, editingLotId, editLotForm }) {
 export async function deleteLot({ apiFetch, lotId }) {
   return apiFetch(`${API_BASE}/lots/${lotId}`, { method: 'DELETE' });
 }
+

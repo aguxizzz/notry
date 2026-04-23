@@ -1,4 +1,5 @@
 import { API_BASE } from '../config';
+import { isValidHttpsUrl } from '../utils/validation';
 
 export async function fetchLoteos({ apiFetch, setLoading, setLoteos, setAdminSubView, addToast }) {
   setLoading(true);
@@ -34,7 +35,7 @@ export async function fetchInventoryLoteosBg({ apiFetch, setInventoryLoteos, add
   }
 }
 
-export async function createLoteo({ apiFetch, createLoteoForm, isValidHttpsUrl, setCreateLoteoLoading, setCreateLoteoError, setCreateLoteoOpen, setCreateLoteoForm, fetchInventoryLoteos }) {
+export async function createLoteo({ apiFetch, createLoteoForm, setCreateLoteoLoading, setCreateLoteoError, setCreateLoteoOpen, setCreateLoteoForm, onSuccess, onAddLoteo }) {
   setCreateLoteoLoading(true);
   setCreateLoteoError(null);
 
@@ -50,7 +51,7 @@ export async function createLoteo({ apiFetch, createLoteoForm, isValidHttpsUrl, 
   }
 
   try {
-    await apiFetch(`${API_BASE}/loteos`, {
+    const res = await apiFetch(`${API_BASE}/loteos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -61,9 +62,10 @@ export async function createLoteo({ apiFetch, createLoteoForm, isValidHttpsUrl, 
         text_annotations: [],
       }),
     });
+    onAddLoteo?.(res);
     setCreateLoteoOpen(false);
     setCreateLoteoForm({ name: '', slug: '', image_url: '', blueprint_url: '' });
-    fetchInventoryLoteos();
+    onSuccess?.();
   } catch (error) {
     setCreateLoteoError(error.message);
   } finally {
@@ -71,7 +73,11 @@ export async function createLoteo({ apiFetch, createLoteoForm, isValidHttpsUrl, 
   }
 }
 
-export async function saveEditLoteo({ apiFetch, editingLoteoId, editLoteoForm, isValidHttpsUrl, addToast, setEditLoteoLoading, setEditLoteoError, setEditLoteoClosing, setEditLoteoOpen, setEditingLoteoId, setInventoryLoteos, fetchInventoryLoteos }) {
+export async function deleteLoteo({ apiFetch, loteoId }) {
+  return apiFetch(`${API_BASE}/loteos/${loteoId}`, { method: 'DELETE' });
+}
+
+export async function saveEditLoteo({ apiFetch, editingLoteoId, editLoteoForm, addToast, setEditLoteoLoading, setEditLoteoError, setEditLoteoClosing, setEditLoteoOpen, setEditingLoteoId, setInventoryLoteos, fetchInventoryLoteos, onUpdateLoteo }) {
   setEditLoteoLoading(true);
   setEditLoteoError(null);
 
@@ -97,13 +103,13 @@ export async function saveEditLoteo({ apiFetch, editingLoteoId, editLoteoForm, i
         blueprint_url: editLoteoForm.blueprint_url,
       }),
     });
+    onUpdateLoteo?.(editingLoteoId, editLoteoForm);
     addToast('Loteo actualizado.', 'success');
     setEditLoteoClosing(true);
     setTimeout(() => {
       setEditLoteoOpen(false);
       setEditLoteoClosing(false);
       setEditingLoteoId(null);
-      setInventoryLoteos([]);
       fetchInventoryLoteos();
     }, 200);
   } catch (error) {
