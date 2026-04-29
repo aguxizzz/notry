@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { deleteLot } from '../api/lots';
 import { handleDeleteProspectConfirm as handleDeleteProspectConfirmService } from '../api/prospects';
 
-export function useConfirmDialogs({ apiFetch, addToast, onSuccess }) {
+export function useConfirmDialogs({ apiFetch, addToast, onSuccess, onRemoveProspect, loteOwnerId, setActivities }) {
   const [confirmDialog, setConfirmDialog] = useState({ open: false, lot: null, loading: false });
   const [deleteProspectDialog, setDeleteProspectDialog] = useState({ open: false, prospect: null, loading: false });
 
@@ -37,6 +37,9 @@ export function useConfirmDialogs({ apiFetch, addToast, onSuccess }) {
       addToast,
       setDeleteProspectDialog,
       refreshSync: onSuccess,
+      onRemoveProspect,
+      loteOwnerId,
+      setActivities,
     });
   };
 

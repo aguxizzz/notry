@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import DOMPurify from 'dompurify';
 
 const IconRuler = () => (
@@ -40,6 +40,13 @@ function PrecalificacionForm({ lotDetail, onClose }) {
   const [presupuesto, setPresupuesto] = useState('');
   const [metodoPago, setMetodoPago] = useState('contado');
   const [submitStatus, setSubmitStatus] = useState('idle'); // 'idle' | 'loading' | 'success' | 'error'
+  const timeoutRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -58,7 +65,8 @@ function PrecalificacionForm({ lotDetail, onClose }) {
     }).then((res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setSubmitStatus('success');
-      setTimeout(() => onClose(), 7000);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => onClose(), 7000);
     }).catch(() => {
       setSubmitStatus('error');
     });

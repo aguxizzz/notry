@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { API_BASE } from '../config';
 import { saveEditProspect as saveEditProspectService, updateLastContact as updateLastContactService } from '../api/prospects';
 
-export function useEditProspectModal({ apiFetch, advisorsList, setAdvisorsList, addToast, onSuccess, onUpdateLastContact }) {
+export function useEditProspectModal({ apiFetch, advisorsList, setAdvisorsList, addToast, onSuccess, onUpdateLastContact, loteOwnerId, setActivities }) {
   const [editProspectModalOpen, setEditProspectModalOpen] = useState(false);
   const [editingProspectId, setEditingProspectId] = useState(null);
   const [editProspectForm, setEditProspectForm] = useState({
-    name: '', email: '', phone: '', category: '', budget: '', payment_method: '', advisor_id: '',
+    name: '', email: '', phone: '', category: '', budget: '', payment_method: '', advisor_id: '', lote_id: '',
   });
   const [editProspectLoading, setEditProspectLoading] = useState(false);
   const [updatingContact, setUpdatingContact] = useState(false);
@@ -22,6 +22,7 @@ export function useEditProspectModal({ apiFetch, advisorsList, setAdvisorsList, 
       budget: prospect.budget != null ? String(prospect.budget) : '',
       payment_method: prospect.payment_method || 'contado',
       advisor_id: prospect.advisor_id || '',
+      lote_id: prospect.lote_id || '',
     });
     setEditProspectError(null);
     setEditingProspectId(prospect.id);
@@ -58,6 +59,8 @@ export function useEditProspectModal({ apiFetch, advisorsList, setAdvisorsList, 
         setEditProspectModalOpen,
         setEditingProspectId,
         refreshSync: onSuccess,
+        loteOwnerId,
+        setActivities,
       });
       onSuccess?.();
     } catch (err) {
@@ -75,6 +78,8 @@ export function useEditProspectModal({ apiFetch, advisorsList, setAdvisorsList, 
       refreshSync: onSuccess,
       prospectId: editingProspectId,
       onUpdate: onUpdateLastContact,
+      loteOwnerId,
+      setActivities,
     });
     onSuccess?.();
   };

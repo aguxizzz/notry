@@ -200,7 +200,8 @@
 
 .sidebar:hover .sidebar-label,
 .sidebar-item:focus-visible .sidebar-label,
-.sidebar-item.active .sidebar-label {
+.sidebar-item.active .sidebar-label,
+.sidebar:has(.sidebar-item:focus-visible) .sidebar-label {
   opacity: 1;
   transform: translateX(0);
 }

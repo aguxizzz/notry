@@ -31,7 +31,7 @@ export default function KanbanColumn({
 
       <div className="kanban-col-body">
         {prospects.length === 0 ? (
-          <div className="kanban-empty">Sin prospectos en esta categoría</div>
+          <div className="kanban-empty">sin clientes en esta categoria</div>
         ) : (
           prospects.map((p) => (
             <KanbanCard
