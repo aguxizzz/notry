@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { createProspect as createProspectService } from '../api/prospects';
 
-export function useAddProspectModal({ apiFetch, onSuccess, addToast }) {
+export function useAddProspectModal({ apiFetch, onSuccess, addToast, onAddProspect, loteOwnerId, setActivities }) {
   const [addProspectOpen, setAddProspectOpen] = useState(false);
   const [addProspectForm, setAddProspectForm] = useState({
     name: '', email: '', phone: '', category: 'primer_contacto', budget: '', payment_method: 'contado', lote_id: '',
@@ -32,6 +32,9 @@ export function useAddProspectModal({ apiFetch, onSuccess, addToast }) {
         setAddProspectForm,
         refreshSync: onSuccess,
         addToast,
+        onAddProspect,
+        loteOwnerId,
+        setActivities,
       });
     } catch (err) {
       setAddProspectError(err.message);

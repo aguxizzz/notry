@@ -26,6 +26,7 @@ export function useSync(token, apiFetch, setters, addToast) {
     setClicksCache,
     setVisorDataCache,
     setReportsCache,
+    setRawActivities,
   } = setters;
 
   const [syncLoading, setSyncLoading] = useState(false);
@@ -112,6 +113,11 @@ export function useSync(token, apiFetch, setters, addToast) {
           }
           return next;
         });
+      }
+
+      // ── Activity Logs ─────────────────────────────────────────────────────
+      if (res.activity_logs?.data !== undefined && setRawActivities) {
+        setRawActivities(res.activity_logs.data ?? []);
       }
       lastSyncSuccessRef.current = true;
     } catch (err) {

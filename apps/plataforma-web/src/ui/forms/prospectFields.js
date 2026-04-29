@@ -1,4 +1,4 @@
-export const getProspectFields = (advisorsList, advisorsLoading) => [
+export const getProspectFields = (advisorsList, advisorsLoading, lotsList = [], lotsLoading = false) => [
   { name: 'name', label: 'Nombre', required: true },
   {
     type: 'group',
@@ -34,6 +34,16 @@ export const getProspectFields = (advisorsList, advisorsLoading) => [
     type: 'group',
     fields: [
       {
+        name: 'lote_id',
+        label: 'Lote',
+        type: 'select',
+        disabled: lotsLoading,
+        options: [
+          { value: '', label: 'Sin asignar' },
+          ...lotsList.map(l => ({ value: l.id, label: l.name })),
+        ],
+      },
+      {
         name: 'payment_method',
         label: 'Forma de pago',
         type: 'select',
@@ -42,6 +52,11 @@ export const getProspectFields = (advisorsList, advisorsLoading) => [
           { value: 'credito', label: 'Crédito' },
         ],
       },
+    ],
+  },
+  {
+    type: 'group',
+    fields: [
       {
         name: 'advisor_id',
         label: 'Asesor',

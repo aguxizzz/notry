@@ -58,7 +58,6 @@ export default function KanbanBoard({ token, onSessionExpired, prospectosList = 
   }, [prospectosList, loteos, advisorsList]);
 
   useEffect(() => {
-    if (enrichedProspects.length === 0) return;
     const grouped = { primer_contacto: [], seguimiento: [], negociacion: [], vendido: [] };
     enrichedProspects.forEach(p => {
       if (grouped[p.category] !== undefined) grouped[p.category].push(p);

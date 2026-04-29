@@ -16,9 +16,11 @@ import DeleteProspectDialog from './components/DeleteProspectDialog';
 import DeleteLoteoDialog from './components/DeleteLoteoDialog';
 import LoteoFormModal from './components/modals/LoteoFormModal';
 import AddProspectModal from './components/modals/AddProspectModal';
+import UpdateContactModal from './components/modals/UpdateContactModal';
 import { Badge, Button, ErrorBoundary, Loader, Select, EditEntityModal } from './ui/components';
 import { API_BASE, EDITOR_URL, VISOR_URL } from './config';
 import { useSync } from './hooks/useSync';
+import { useActivityFeed } from './hooks/useActivityFeed';
 import { useAuth } from './hooks/useAuth';
 import { useToast } from './hooks/useToast';
 import { useEditLotModal } from './hooks/useEditLotModal';
@@ -27,6 +29,7 @@ import { useEditLoteoModal } from './hooks/useEditLoteoModal';
 import { useCreateLoteoModal } from './hooks/useCreateLoteoModal';
 import { useAddProspectModal } from './hooks/useAddProspectModal';
 import { useEditProspectModal } from './hooks/useEditProspectModal';
+import { useUpdateContactModal } from './hooks/useUpdateContactModal';
 import { useConfirmDialogs } from './hooks/useConfirmDialogs';
 import { useInventory } from './hooks/useInventory';
 import { useProspects } from './hooks/useProspects';
@@ -273,6 +276,14 @@ function App() {
     setInventoryLots(prev => [...prev, newLot]);
   };
 
+  const addProspect = (newProspect) => {
+    setAllProspectosList(prev => [...prev, newProspect]);
+  };
+
+  const removeProspect = (prospectId) => {
+    setAllProspectosList(prev => prev.filter(p => p.id !== prospectId));
+  };
+
   const openDeleteConfirm = (lot) => {
     confirmDialogs.openDeleteConfirm(lot);
   };
@@ -311,14 +322,15 @@ function App() {
 
   // Wrapped logout for child components that call it with no arguments.
   // Defined before apiFetch so it can be passed as the logout callback.
-  const logout = () => authLogout({
+  // Wrapped in useCallback to prevent unnecessary recreations that would cause apiFetch to be recreated.
+  const logout = useCallback(() => authLogout({
     setView, setLots, setLoteos, setSelectedLot,
     setAdminSubView, setInventoryLots, setInventoryLotsHasMore, setInventorySearch,
     setInventoryStatusFilter, setInventoryTab, setInventoryLoteos, setProspectosList,
     setProspectosHasMore, setAllProspectosList, setProspectosCategoryFilter,
     setProspectosWithoutAdvisor, setClicksCache, setVisorDataCache,
     setReportsCache, setDashboardSummary,
-  });
+  }), []);
 
   // apiFetch uses logout (no-arg) as the 401 handler
   const apiFetch = useMemo(() => createApiFetch(token, logout), [token, logout]);
@@ -369,6 +381,9 @@ function App() {
   const { handleAnalisisRequestClicks, handleAnalisisRequestVisorData } = buildAnalisisCallbacks({ apiFetch, setClicksCache, setVisorDataCache });
 
   // ── Combined sync hook (must be after apiFetch and addToast) ─────────────────
+  // ── Activity Feed Hook (called first to get setActivities needed by mutations) ──
+  const { activities, handleRawActivities, setActivities } = useActivityFeed({});
+
   const { syncLoading, syncError, refresh: refreshSync } = useSync(token, apiFetch, {
     setInventoryLots,
     setInventoryLoteos,
@@ -377,6 +392,7 @@ function App() {
     setClicksCache,
     setVisorDataCache,
     setReportsCache,
+    setRawActivities: handleRawActivities,
   }, addToast);
 
   // ── Add Prospect Modal ────────────────────────────────────────────────────────
@@ -384,6 +400,9 @@ function App() {
     apiFetch,
     onSuccess: refreshSync,
     addToast,
+    onAddProspect: addProspect,
+    loteOwnerId: user?.lote_owner_id,
+    setActivities: setActivities,
   });
 
   // ── Edit Prospect Modal ──────────────────────────────────────────────────────
@@ -394,6 +413,16 @@ function App() {
     addToast,
     onSuccess: refreshSync,
     onUpdateLastContact: updateProspectLastContact,
+    loteOwnerId: user?.lote_owner_id,
+    setActivities: setActivities,
+  });
+
+  const updateContactModal = useUpdateContactModal({
+    apiFetch,
+    addToast,
+    onSuccess: refreshSync,
+    loteOwnerId: user?.lote_owner_id,
+    setActivities: setActivities,
   });
 
   // ── Confirm Dialogs ─────────────────────────────────────────────────────────
@@ -401,6 +430,9 @@ function App() {
     apiFetch,
     addToast,
     onSuccess: refreshSync,
+    onRemoveProspect: removeProspect,
+    loteOwnerId: user?.lote_owner_id,
+    setActivities: setActivities,
   });
 
   const copyToClipboard = (text) => {
@@ -494,10 +526,12 @@ function App() {
                   dashboardSummary={dashboardSummary}
                   allProspectosList={allProspectosList}
                   inventoryLoteos={inventoryLoteos}
+                  inventoryLots={inventoryLots}
                   advisorsList={advisorsList}
                   token={token}
                   onSessionExpired={logout}
                   onUpdateProspectCategory={updateProspectCategory}
+                  activities={activities}
                 />
               )}
 
@@ -543,6 +577,7 @@ function App() {
                   onEditProspect={editProspectModal.openEditProspectModal}
                   onDeleteProspect={openDeleteProspectDialog}
                   onLoadMore={loadMoreProspectos}
+                  onUpdateContact={updateContactModal.openUpdateContactModal}
                 />
               )}
 
@@ -610,7 +645,7 @@ function App() {
         isOpen={editProspectModal.editProspectModalOpen}
         isClosing={editProspectModal.editProspectClosing}
         title="Editar Prospecto"
-        fields={getProspectFields(advisorsList, advisorsLoading)}
+        fields={getProspectFields(advisorsList, advisorsLoading, inventoryLots, inventoryLoading)}
         formData={editProspectModal.editProspectForm}
         onFormChange={(field, value) =>
           editProspectModal.setEditProspectForm(f => ({ ...f, [field]: value }))
@@ -620,14 +655,6 @@ function App() {
         loading={editProspectModal.editProspectLoading}
         error={editProspectModal.editProspectError}
         wide={true}
-        secondaryActions={[
-          {
-            label: 'Actualizar Contacto',
-            onClick: editProspectModal.updateLastContact,
-            disabled: editProspectModal.editProspectLoading || editProspectModal.updatingContact,
-            loading: editProspectModal.updatingContact,
-          },
-        ]}
       />
 
       <DeleteProspectDialog
@@ -636,6 +663,14 @@ function App() {
         loading={confirmDialogs.deleteProspectDialog.loading}
         onConfirm={confirmDialogs.handleDeleteProspectConfirm}
         onCancel={confirmDialogs.closeDeleteProspectDialog}
+      />
+
+      <UpdateContactModal
+        isOpen={updateContactModal.updateContactModalOpen}
+        isClosing={updateContactModal.updateContactClosing}
+        loading={updateContactModal.updateContactLoading}
+        onConfirm={updateContactModal.handleUpdateContact}
+        onCancel={updateContactModal.closeUpdateContactModal}
       />
 
       <DeleteLoteoDialog

@@ -1,5 +1,5 @@
-import React from 'react';
-import { SlidersHorizontal, Pencil, Trash2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { SlidersHorizontal, Pencil, Trash2, RotateCw, MessageCircle, X } from 'lucide-react';
 import { Button, Loader, Select, ErrorBoundary } from '../../ui/components';
 import CategoryPieChart from '../CategoryPieChart';
 import BudgetPieChart from '../BudgetPieChart';
@@ -47,7 +47,68 @@ function ProspectosFilters({
   );
 }
 
-function ProspectosTable({ prospectos, filteredProspectos, loadingMore, hasMore, onLoadMore, onEditProspect, onDeleteProspect }) {
+function CommentTooltip({ observation, prospectName }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const tooltipRef = useRef(null);
+  const triggerRef = useRef(null);
+  const hasObservation = observation && observation.trim().length > 0;
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (tooltipRef.current && !tooltipRef.current.contains(e.target) &&
+          triggerRef.current && !triggerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOpen]);
+
+  return (
+    <div className="comment-tooltip-wrapper">
+      <button
+        ref={triggerRef}
+        className={`comment-tooltip-trigger ${hasObservation ? 'has-comment' : 'empty'}`}
+        onClick={() => setIsOpen(!isOpen)}
+        title={hasObservation ? `Ver observaciones de ${prospectName}` : 'Sin observaciones'}
+        aria-label={hasObservation ? `Ver observaciones de ${prospectName}` : 'Sin observaciones'}
+        aria-expanded={isOpen}
+        disabled={!hasObservation}
+      >
+        <MessageCircle size={16} />
+      </button>
+      {isOpen && hasObservation && (
+        <div ref={tooltipRef} className="comment-tooltip-content">
+          <div className="comment-tooltip-header">
+            <span className="comment-tooltip-title">Observaciones</span>
+            <button
+              className="comment-tooltip-close"
+              onClick={() => setIsOpen(false)}
+              aria-label="Cerrar"
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <p className="comment-tooltip-text">{observation}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProspectosTable({ prospectos, filteredProspectos, loadingMore, hasMore, onLoadMore, onEditProspect, onDeleteProspect, onUpdateContact }) {
   const data = filteredProspectos ?? prospectos;
   return (
     <div className="inventory-table-wrapper">
@@ -81,8 +142,21 @@ function ProspectosTable({ prospectos, filteredProspectos, loadingMore, hasMore,
                   </span>
                 </td>
                 <td className="td-price">{p.budget ? `$${parseFloat(p.budget).toLocaleString()}` : '—'}</td>
-                <td className="td-muted">{formatDate(p.last_contact)}</td>
+                <td className="td-muted">
+                  <div className="last-contact-cell">
+                    <span>{formatDate(p.last_contact)}</span>
+                    <CommentTooltip observation={p.observation_notes} prospectName={p.name} />
+                  </div>
+                </td>
                 <td className="td-actions">
+                  <button
+                    className="action-btn update"
+                    onClick={() => onUpdateContact(p.id)}
+                    title="Actualizar Contacto"
+                    aria-label={`Actualizar contacto ${p.name}`}
+                  >
+                    <RotateCw size={16} />
+                  </button>
                   <button
                     className="action-btn edit"
                     onClick={() => onEditProspect(p)}
@@ -131,6 +205,7 @@ export default function ClientesView({
   onEditProspect,
   onDeleteProspect,
   onLoadMore,
+  onUpdateContact,
 }) {
   return (
     <ErrorBoundary label="Error al cargar prospectos">
@@ -155,6 +230,7 @@ export default function ClientesView({
           onLoadMore={onLoadMore}
           onEditProspect={onEditProspect}
           onDeleteProspect={onDeleteProspect}
+          onUpdateContact={onUpdateContact}
         />
       </div>
     </ErrorBoundary>
