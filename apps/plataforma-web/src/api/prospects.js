@@ -11,9 +11,6 @@ export async function createProspect({ apiFetch, addProspectForm, setAddProspect
   if (addProspectForm.lote_id) body.lote_id = addProspectForm.lote_id;
   if (addProspectForm.email) body.email = addProspectForm.email;
   if (addProspectForm.phone) body.phone = addProspectForm.phone;
-  if (addProspectForm.budget) body.budget = parseFloat(addProspectForm.budget);
-  if (addProspectForm.payment_method) body.payment_method = addProspectForm.payment_method;
-
   try {
     const res = await apiFetch(`${API_BASE}/prospects`, {
       method: 'POST',
@@ -23,7 +20,7 @@ export async function createProspect({ apiFetch, addProspectForm, setAddProspect
     onAddProspect?.(res);
     addToast('Prospecto creado.', 'success');
     setAddProspectOpen(false);
-    setAddProspectForm({ name: '', email: '', phone: '', category: 'primer_contacto', budget: '', payment_method: 'contado', lote_id: '' });
+    setAddProspectForm({ name: '', email: '', phone: '', category: 'primer_contacto', lote_id: '' });
     postActivityLog({ apiFetch, activityType: 'other', entityType: 'prospect', entityId: res.id, loteOwnerId, description: `Prospecto "${res.name}" creado`, extraData: { prospect_name: res.name } });
     // Optimistically add to activity feed (no sync call needed)
     setActivities?.([{
@@ -61,9 +58,6 @@ export async function saveEditProspect({ apiFetch, editingProspectId, editProspe
   else body.email = null;
   if (editProspectForm.phone) body.phone = editProspectForm.phone;
   else body.phone = null;
-  if (editProspectForm.budget !== '') body.budget = parseFloat(editProspectForm.budget);
-  else body.budget = null;
-  if (editProspectForm.payment_method) body.payment_method = editProspectForm.payment_method;
   if (editProspectForm.advisor_id) body.advisor_id = editProspectForm.advisor_id;
   else body.advisor_id = null;
 

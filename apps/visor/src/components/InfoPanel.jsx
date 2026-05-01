@@ -37,8 +37,6 @@ const formatArea = (area) => {
 function PrecalificacionForm({ lotDetail, onClose }) {
   const [nombre, setNombre] = useState('');
   const [numero, setNumero] = useState('');
-  const [presupuesto, setPresupuesto] = useState('');
-  const [metodoPago, setMetodoPago] = useState('contado');
   const [submitStatus, setSubmitStatus] = useState('idle'); // 'idle' | 'loading' | 'success' | 'error'
   const timeoutRef = useRef(null);
 
@@ -59,8 +57,6 @@ function PrecalificacionForm({ lotDetail, onClose }) {
         lote_id: lotDetail.markerId,
         name: nombre,
         phone: numero,
-        budget: Number(presupuesto) || 0,
-        payment_method: metodoPago,
       }),
     }).then((res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -125,28 +121,6 @@ function PrecalificacionForm({ lotDetail, onClose }) {
             autoComplete="off"
             required
           />
-          <label htmlFor="precal-presupuesto">Presupuesto</label>
-          <input
-            type="number"
-            id="precal-presupuesto"
-            name="presupuesto"
-            placeholder="Ej. 50000000"
-            value={presupuesto}
-            onChange={(e) => setPresupuesto(e.target.value)}
-            autoComplete="off"
-            min="0"
-          />
-          <label htmlFor="precal-metodo-pago">Método de pago</label>
-          <select
-            id="precal-metodo-pago"
-            name="metodoPago"
-            value={metodoPago}
-            onChange={(e) => setMetodoPago(e.target.value)}
-            disabled={submitStatus !== 'idle'}
-          >
-            <option value="contado">Contado</option>
-            <option value="credito">Crédito</option>
-          </select>
           <button type="submit" className="btn-enviar" disabled={submitStatus !== 'idle'}>
             {submitStatus === 'loading' ? 'Enviando...' : 'Enviar solicitud'}
           </button>

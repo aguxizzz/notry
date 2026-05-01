@@ -39,12 +39,12 @@ export default function InicioView({
           <StatCard
             label="Tasa de Conversión"
             value={
-              dashboardSummary && dashboardSummary.total_lotes > 0
-                ? `${((dashboardSummary.total_prospectos / dashboardSummary.total_lotes) * 100).toFixed(1)}%`
+              allProspectosList && allProspectosList.length > 0
+                ? `${((allProspectosList.filter(p => ['negociacion', 'vendido'].includes(p.category)).length / allProspectosList.length) * 100).toFixed(1)}%`
                 : '—'
             }
             color="#10b981"
-            loading={!dashboardSummary}
+            loading={!allProspectosList || allProspectosList.length === 0}
           />
         </div>
       </div>

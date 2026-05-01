@@ -6,7 +6,7 @@ export function useEditProspectModal({ apiFetch, advisorsList, setAdvisorsList, 
   const [editProspectModalOpen, setEditProspectModalOpen] = useState(false);
   const [editingProspectId, setEditingProspectId] = useState(null);
   const [editProspectForm, setEditProspectForm] = useState({
-    name: '', email: '', phone: '', category: '', budget: '', payment_method: '', advisor_id: '', lote_id: '',
+    name: '', email: '', phone: '', category: '', advisor_id: '', lote_id: '',
   });
   const [editProspectLoading, setEditProspectLoading] = useState(false);
   const [updatingContact, setUpdatingContact] = useState(false);
@@ -19,8 +19,6 @@ export function useEditProspectModal({ apiFetch, advisorsList, setAdvisorsList, 
       email: prospect.email || '',
       phone: prospect.phone || '',
       category: prospect.category || 'primer_contacto',
-      budget: prospect.budget != null ? String(prospect.budget) : '',
-      payment_method: prospect.payment_method || 'contado',
       advisor_id: prospect.advisor_id || '',
       lote_id: prospect.lote_id || '',
     });

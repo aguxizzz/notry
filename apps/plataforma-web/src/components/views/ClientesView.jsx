@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { SlidersHorizontal, Pencil, Trash2, RotateCw, MessageCircle, X } from 'lucide-react';
 import { Button, Loader, Select, ErrorBoundary } from '../../ui/components';
 import CategoryPieChart from '../CategoryPieChart';
-import BudgetPieChart from '../BudgetPieChart';
 import { CATEGORY_DISPLAY, formatDate } from '../../constants';
 
 function ProspectosFilters({
@@ -120,7 +119,6 @@ function ProspectosTable({ prospectos, filteredProspectos, loadingMore, hasMore,
             <th scope="col">Email</th>
             <th scope="col">Teléfono</th>
             <th scope="col">Categoría</th>
-            <th scope="col">Presupuesto</th>
             <th scope="col">Último Contacto</th>
             <th scope="col">Acciones</th>
           </tr>
@@ -128,7 +126,7 @@ function ProspectosTable({ prospectos, filteredProspectos, loadingMore, hasMore,
         <tbody>
           {data.length === 0 ? (
             <tr>
-              <td colSpan={7} className="td-empty-row">No se encontraron prospectos.</td>
+              <td colSpan={6} className="td-empty-row">No se encontraron prospectos.</td>
             </tr>
           ) : (
             data.map(p => (
@@ -141,7 +139,6 @@ function ProspectosTable({ prospectos, filteredProspectos, loadingMore, hasMore,
                     {CATEGORY_DISPLAY[p.category] ?? p.category?.replace(/_/g, ' ')}
                   </span>
                 </td>
-                <td className="td-price">{p.budget ? `$${parseFloat(p.budget).toLocaleString()}` : '—'}</td>
                 <td className="td-muted">
                   <div className="last-contact-cell">
                     <span>{formatDate(p.last_contact)}</span>
@@ -211,7 +208,6 @@ export default function ClientesView({
     <ErrorBoundary label="Error al cargar prospectos">
       <div className="charts-row">
         <CategoryPieChart prospects={allProspectosList} />
-        <BudgetPieChart prospects={allProspectosList} />
       </div>
       <div className="inventory-section">
         <ProspectosFilters

@@ -109,16 +109,6 @@
   --z-modal: 1000;
   --z-toast: 1003;
 
-  /* === Budget palette (for BudgetPieChart) === */
-  --color-budget-1: #4338ca;
-  --color-budget-2: #1d4ed8;
-  --color-budget-3: #047857;
-  --color-budget-4: #b45309;
-  --color-budget-5: #6d28d9;
-  --color-budget-6: #be123c;
-  --color-budget-7: #0f766e;
-  --color-budget-8: #c2410c;
-
   /* === Dark surfaces (mobile topbar, sidebar, overlays) === */
   --color-dark-surface: #0d0d0f;
   --color-dark-border: rgba(255, 255, 255, 0.06);
@@ -135,6 +125,9 @@
   /* === Stat card accent colors === */
   --color-stat-info: #3b82f6;
   --color-stat-success: #22c55e;
+  --color-stat-available: #16a34a;
+  --color-stat-reserved: #2563eb;
+  --color-stat-sold: #dc2626;
 
   /* === Success/danger hover variants === */
   --color-success-hover: #059669;

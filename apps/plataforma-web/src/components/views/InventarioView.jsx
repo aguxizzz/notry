@@ -1,7 +1,7 @@
 import React from 'react';
 import { Search, SlidersHorizontal, Pencil, Trash2, Eye } from 'lucide-react';
 import { Button, Loader, Select, ErrorBoundary } from '../../ui/components';
-import StatCard from '../StatCard';
+import LotDistributionBar from '../LotDistributionBar';
 import { API_BASE, VISOR_URL } from '../../config';
 import { STATUS_DISPLAY } from '../../constants';
 
@@ -286,10 +286,8 @@ export default function InventarioView({
 }) {
   return (
     <>
-      <div className="stats-grid">
-        <StatCard label="Lotes Disponibles" value={dashboardSummary?.lotes_disponibles ?? '—'} color="#c5a059" loading={!dashboardSummary} />
-        <StatCard label="Reservados" value={dashboardSummary?.lotes_reservados ?? '—'} color="#f59e0b" loading={!dashboardSummary} />
-        <StatCard label="Vendidos" value={dashboardSummary?.lotes_vendidos ?? '—'} color="#ef4444" loading={!dashboardSummary} />
+      <div className="inventory-distribution-wrapper">
+        <LotDistributionBar summary={dashboardSummary} loading={!dashboardSummary} />
       </div>
 
       <div className="inventory-section">
