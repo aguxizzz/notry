@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { SlidersHorizontal, Pencil, Trash2, RotateCw, MessageCircle, X } from 'lucide-react';
 import { Button, Loader, Select, ErrorBoundary } from '../../ui/components';
 import CategoryPieChart from '../CategoryPieChart';
@@ -48,9 +49,52 @@ function ProspectosFilters({
 
 function CommentTooltip({ observation, prospectName }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [positionBottom, setPositionBottom] = useState(false);
+  const [coords, setCoords] = useState({});
   const tooltipRef = useRef(null);
   const triggerRef = useRef(null);
   const hasObservation = observation && observation.trim().length > 0;
+
+  useEffect(() => {
+    if (!isOpen || !triggerRef.current) return;
+
+    const checkPosition = () => {
+      const triggerRect = triggerRef.current.getBoundingClientRect();
+      const tooltipHeight = tooltipRef.current ? tooltipRef.current.offsetHeight : 150;
+      const spaceAbove = triggerRect.top;
+      const spaceBelow = window.innerHeight - triggerRect.bottom;
+      const threshold = 16;
+
+      const isBottom = spaceAbove < tooltipHeight + threshold && spaceBelow > tooltipHeight + threshold;
+      setPositionBottom(isBottom);
+
+      if (isBottom) {
+        setCoords({
+          top: triggerRect.bottom + 8,
+          right: window.innerWidth - triggerRect.right,
+          bottom: 'auto'
+        });
+      } else {
+        setCoords({
+          bottom: window.innerHeight - triggerRect.top + 8,
+          right: window.innerWidth - triggerRect.right,
+          top: 'auto'
+        });
+      }
+    };
+
+    checkPosition();
+    const timeout = setTimeout(checkPosition, 0);
+
+    window.addEventListener('scroll', checkPosition, true);
+    window.addEventListener('resize', checkPosition);
+
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener('scroll', checkPosition, true);
+      window.removeEventListener('resize', checkPosition);
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -75,6 +119,30 @@ function CommentTooltip({ observation, prospectName }) {
     };
   }, [isOpen]);
 
+  const tooltipElement = isOpen && hasObservation ? (
+    <div 
+      ref={tooltipRef} 
+      className={`comment-tooltip-content ${positionBottom ? 'bottom' : ''}`}
+      style={{
+        position: 'fixed',
+        margin: 0,
+        ...coords
+      }}
+    >
+      <div className="comment-tooltip-header">
+        <span className="comment-tooltip-title">Observaciones</span>
+        <button
+          className="comment-tooltip-close"
+          onClick={() => setIsOpen(false)}
+          aria-label="Cerrar"
+        >
+          <X size={14} />
+        </button>
+      </div>
+      <p className="comment-tooltip-text">{observation}</p>
+    </div>
+  ) : null;
+
   return (
     <div className="comment-tooltip-wrapper">
       <button
@@ -88,21 +156,7 @@ function CommentTooltip({ observation, prospectName }) {
       >
         <MessageCircle size={16} />
       </button>
-      {isOpen && hasObservation && (
-        <div ref={tooltipRef} className="comment-tooltip-content">
-          <div className="comment-tooltip-header">
-            <span className="comment-tooltip-title">Observaciones</span>
-            <button
-              className="comment-tooltip-close"
-              onClick={() => setIsOpen(false)}
-              aria-label="Cerrar"
-            >
-              <X size={14} />
-            </button>
-          </div>
-          <p className="comment-tooltip-text">{observation}</p>
-        </div>
-      )}
+      {tooltipElement && createPortal(tooltipElement, document.body)}
     </div>
   );
 }

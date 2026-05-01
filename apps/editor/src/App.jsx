@@ -54,9 +54,9 @@ function App() {
     return localStorage.getItem('notry_token');
   });
   const [selectedLoteo, setSelectedLoteo] = useState(null);
-  const [loteForm, setLoteForm] = useState({ name: '', slug: '', status: 'available', price: '', area: '' });
+  const [loteForm, setLoteForm] = useState({ name: '', slug: '', status: 'available', price: '', area: '', comments: '' });
   const [isCreatingLote, setIsCreatingLote] = useState(false);
-  const [loteUpdateForm, setLoteUpdateForm] = useState({ name: '', slug: '', status: 'available', price: '', area: '' });
+  const [loteUpdateForm, setLoteUpdateForm] = useState({ name: '', slug: '', status: 'available', price: '', area: '', comments: '' });
   const [isUpdatingLote, setIsUpdatingLote] = useState(false);
   const [pendingMode, setPendingMode] = useState('create'); // 'create' | 'assign'
   const [assignTargetId, setAssignTargetId] = useState('');
@@ -210,6 +210,7 @@ function App() {
         status: marker.status || marker.estado || 'available',
         price: marker.price !== undefined && marker.price !== null ? String(marker.price) : (marker.precio !== undefined && marker.precio !== null ? String(marker.precio) : ''),
         area: marker.area_m2 !== undefined && marker.area_m2 !== null ? String(marker.area_m2) : (marker.area !== undefined && marker.area !== null ? String(marker.area) : ''),
+        comments: marker.comments || '',
       });
     }
   }, [selectedId]);
@@ -477,6 +478,8 @@ function App() {
     body.status = loteUpdateForm.status;
     if (loteUpdateForm.price !== '') body.price = parseFloat(loteUpdateForm.price);
     if (loteUpdateForm.area !== '') body.area_m2 = loteUpdateForm.area;
+    if (loteUpdateForm.comments.trim()) body.comments = loteUpdateForm.comments.trim();
+    else body.comments = null;
 
     setIsUpdatingLote(true);
     try {
@@ -498,6 +501,7 @@ function App() {
           status: updated.status ?? a.status,
           price: updated.price ?? a.price,
           area_m2: updated.area_m2 ?? a.area_m2,
+          comments: updated.comments ?? a.comments,
         } : a
       ));
       alert('¡Datos del lote actualizados correctamente!');
@@ -564,6 +568,7 @@ function App() {
           status: loteForm.status,
           ...(loteForm.price !== '' && { price: parseFloat(loteForm.price) }),
           ...(loteForm.area !== '' && { area_m2: parseFloat(loteForm.area) }),
+          ...(loteForm.comments?.trim() && { comments: loteForm.comments.trim() }),
           loteo_id: loteoId,
           ...(mode === 'blueprint' 
             ? { blueprint_coordinates: selectedMarker.polygonPixels }
@@ -592,7 +597,7 @@ function App() {
         } : a
       ));
       setSelectedId(lote.id);
-      setLoteForm({ name: '', slug: '', status: 'available', price: '', area: '' });
+      setLoteForm({ name: '', slug: '', status: 'available', price: '', area: '', comments: '' });
       clearDraft();
     } catch (err) {
       console.error('Error al crear lote:', err);
@@ -1023,6 +1028,15 @@ function App() {
                               <input className="inspector-input" type="number" value={loteForm.price} onChange={e => setLoteForm(f => ({ ...f, price: e.target.value }))} placeholder="Ej: 150000" />
                               <span className="inspector-label">Área (m²)</span>
                               <input className="inspector-input" type="number" value={loteForm.area} onChange={e => setLoteForm(f => ({ ...f, area: e.target.value }))} placeholder="Ej: 150" />
+                              <span className="inspector-label">Observaciones</span>
+                              <textarea
+                                className="inspector-input"
+                                value={loteForm.comments}
+                                onChange={e => setLoteForm(f => ({ ...f, comments: e.target.value }))}
+                                placeholder="Notas u observaciones..."
+                                rows={3}
+                                style={{ resize: 'vertical' }}
+                              />
                               <button
                                 onClick={handleCreateLote}
                                 disabled={isCreatingLote}
@@ -1087,6 +1101,15 @@ function App() {
                       <input className="inspector-input" type="number" value={loteUpdateForm.price} onChange={e => setLoteUpdateForm(f => ({ ...f, price: e.target.value }))} placeholder="Ej: 150000" />
                       <span className="inspector-label">Área (m²)</span>
                       <input className="inspector-input" type="text" value={loteUpdateForm.area} onChange={e => setLoteUpdateForm(f => ({ ...f, area: e.target.value }))} placeholder="Ej: 200m2" />
+                      <span className="inspector-label">Observaciones</span>
+                      <textarea
+                        className="inspector-input"
+                        value={loteUpdateForm.comments}
+                        onChange={e => setLoteUpdateForm(f => ({ ...f, comments: e.target.value }))}
+                        placeholder="Notas u observaciones..."
+                        rows={3}
+                        style={{ resize: 'vertical' }}
+                      />
                       <button
                         onClick={handleUpdateLote}
                         disabled={isUpdatingLote}
