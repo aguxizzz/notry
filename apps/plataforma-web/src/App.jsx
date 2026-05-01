@@ -10,7 +10,6 @@ import ClientesView from './components/views/ClientesView';
 import KanbanBoard from './components/KanbanBoard';
 import AnalisisView from './components/AnalisisView';
 import CategoryPieChart from './components/CategoryPieChart';
-import BudgetPieChart from './components/BudgetPieChart';
 import ConfirmDialog from './components/ConfirmDialog';
 import DeleteProspectDialog from './components/DeleteProspectDialog';
 import DeleteLoteoDialog from './components/DeleteLoteoDialog';

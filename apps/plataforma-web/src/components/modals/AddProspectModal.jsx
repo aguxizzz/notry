@@ -28,8 +28,6 @@ export default function AddProspectModal({
     email: '',
     phone: '',
     category: 'primer_contacto',
-    budget: '',
-    payment_method: 'contado',
     lote_id: '',
   });
 
@@ -40,8 +38,6 @@ export default function AddProspectModal({
         email: '',
         phone: '',
         category: 'primer_contacto',
-        budget: '',
-        payment_method: 'contado',
         lote_id: '',
       });
     }
@@ -125,41 +121,17 @@ export default function AddProspectModal({
               onChange={e => handleFieldChange('phone', e.target.value)}
             />
           </div>
-          <div className="form-row-2">
-            <div className="form-group">
-              <label htmlFor="prospect-category">Categoría</label>
-              <select
-                id="prospect-category"
-                value={formData.category}
-                onChange={e => handleFieldChange('category', e.target.value)}
-              >
-                <option value="primer_contacto">Primer Contacto</option>
-                <option value="seguimiento">Seguimiento</option>
-                <option value="negociacion">Negociación</option>
-                <option value="vendido">Vendido</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label htmlFor="prospect-budget">Presupuesto</label>
-              <input
-                id="prospect-budget"
-                type="number"
-                step="0.01"
-                placeholder="Ej: 150000"
-                value={formData.budget}
-                onChange={e => handleFieldChange('budget', e.target.value)}
-              />
-            </div>
-          </div>
           <div className="form-group">
-            <label htmlFor="prospect-payment">Forma de pago</label>
+            <label htmlFor="prospect-category">Categoría</label>
             <select
-              id="prospect-payment"
-              value={formData.payment_method}
-              onChange={e => handleFieldChange('payment_method', e.target.value)}
+              id="prospect-category"
+              value={formData.category}
+              onChange={e => handleFieldChange('category', e.target.value)}
             >
-              <option value="contado">Contado</option>
-              <option value="credito">Crédito</option>
+              <option value="primer_contacto">Primer Contacto</option>
+              <option value="seguimiento">Seguimiento</option>
+              <option value="negociacion">Negociación</option>
+              <option value="vendido">Vendido</option>
             </select>
           </div>
           {error && <div className="status-message error">{error}</div>}

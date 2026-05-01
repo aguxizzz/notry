@@ -5,7 +5,10 @@ const StatCard = ({ label, value, color = 'var(--accent-color)', loading = false
     <div className="stat-card" style={{ '--stat-accent': color }}>
       <div className="stat-inner">
         <div className="stat-left">
-          <span className="stat-label">{label}</span>
+          <div className="stat-dot-wrapper">
+            <span className="stat-dot" />
+            <span className="stat-label">{label}</span>
+          </div>
         </div>
         <div className="stat-right">
           {loading ? (
