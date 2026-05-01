@@ -105,7 +105,7 @@ export default function App() {
       title,
       content,
       markerId: marker.id,
-      detail: { price: ann?.price, area_m2: ann?.area_m2, estado: ann?.status ?? ann?.estado },
+      detail: { price: ann?.price, area_m2: ann?.area_m2, estado: ann?.status ?? ann?.estado, comments: ann?.comments ?? null },
     });
   }, [annotationsById]);
 
@@ -117,7 +117,7 @@ export default function App() {
       title: ann.tooltip ?? id,
       content: ann.content ?? '',
       markerId: id,
-      detail: { price: ann.price, area_m2: ann.area_m2, estado: ann.status ?? ann.estado },
+      detail: { price: ann.price, area_m2: ann.area_m2, estado: ann.status ?? ann.estado, comments: ann.comments ?? null },
     });
   }, []);
 

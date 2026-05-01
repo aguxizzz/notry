@@ -348,6 +348,28 @@ html, body {
   color: var(--text-primary);
   line-height: 1.1;
 }
+.lote-comments {
+  margin-top: 0.75rem;
+  padding: 0.75rem 0.875rem;
+  background: var(--input-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.lote-comments-label {
+  font-size: clamp(0.62rem, 1vw, 0.7rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+.lote-comments-text {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
 
 /* Estado badge */
 .estado-badge {

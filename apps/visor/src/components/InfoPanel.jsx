@@ -226,6 +226,7 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
     price: display.detail?.price != null ? String(display.detail.price).trim() : '',
     area_m2: display.detail?.area_m2 != null ? String(display.detail.area_m2).trim() : '',
     estado: estadoKey ?? '',
+    comments: display.detail?.comments ?? null,
   };
 
   const panelAccentStyle = estadoCfg
@@ -299,6 +300,12 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
                       <span className="lote-metric-value">{formatArea(display.detail.area_m2)}</span>
                     </div>
                   )}
+                </div>
+              )}
+              {display.detail?.comments && (
+                <div className="lote-comments">
+                  <span className="lote-comments-label">Observaciones</span>
+                  <span className="lote-comments-text">{display.detail.comments}</span>
                 </div>
               )}
               {display.content && (

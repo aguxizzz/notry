@@ -67,6 +67,9 @@ export default function EditEntityModal({
         <form onSubmit={onSubmit}>
           {fields.map((field, idx) => {
             if (field.type === 'group') {
+              if (field.fields.length === 1) {
+                return renderField(field.fields[0], formData, onFormChange);
+              }
               return (
                 <div key={idx} className="form-row-2">
                   {field.fields.map(f => renderField(f, formData, onFormChange))}
@@ -137,6 +140,22 @@ function renderField(field, formData, onFormChange, idx) {
         options={options}
         disabled={disabled}
       />
+    );
+  }
+
+  if (type === 'textarea') {
+    return (
+      <div key={name} className="form-group">
+        <label htmlFor={`field-${name}`}>{label}{required && ' *'}</label>
+        <textarea
+          id={`field-${name}`}
+          required={required}
+          value={value}
+          onChange={e => onFormChange(name, e.target.value)}
+          placeholder={placeholder}
+          disabled={disabled}
+        />
+      </div>
     );
   }
 

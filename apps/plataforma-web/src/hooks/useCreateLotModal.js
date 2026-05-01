@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { createLot } from '../api/lots';
 
 export function useCreateLotModal({ apiFetch, onSuccess, onAddLot }) {
-  const initialForm = { name: '', price: '', area_m2: '', loteo_id: '', status: 'available' };
+  const initialForm = { name: '', price: '', area_m2: '', loteo_id: '', status: 'available', comments: '' };
   const [createLotOpen, setCreateLotOpen] = useState(false);
   const [createLotForm, setCreateLotForm] = useState(initialForm);
   const [createLotLoading, setCreateLotLoading] = useState(false);

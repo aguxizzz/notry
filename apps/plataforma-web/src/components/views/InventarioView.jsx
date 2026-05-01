@@ -96,13 +96,14 @@ function LotesTable({ lots, filteredLots, onEditLot, onDeleteLot }) {
             <th scope="col">Estado</th>
             <th scope="col">Loteo</th>
             <th scope="col">Prospectos</th>
+            <th scope="col">Notas</th>
             <th scope="col">Acciones</th>
           </tr>
         </thead>
         <tbody>
           {data.length === 0 ? (
             <tr>
-              <td colSpan={7} className="td-empty-row">No se encontraron lotes.</td>
+              <td colSpan={8} className="td-empty-row">No se encontraron lotes.</td>
             </tr>
           ) : (
             data.map(lot => (
@@ -125,6 +126,17 @@ function LotesTable({ lots, filteredLots, onEditLot, onDeleteLot }) {
                         <span key={i} className="prospecto-tag">{p}</span>
                       ))}
                     </div>
+                  )}
+                </td>
+                <td>
+                  {lot.comments ? (
+                    <span className="td-comments-indicator" title={lot.comments}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                      </svg>
+                    </span>
+                  ) : (
+                    <span className="td-empty">—</span>
                   )}
                 </td>
                 <td className="td-actions">

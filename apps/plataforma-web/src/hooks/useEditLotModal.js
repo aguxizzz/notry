@@ -4,7 +4,7 @@ import { patchLot } from '../api/lots';
 export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot }) {
   const [editLotModalOpen, setEditLotModalOpen] = useState(false);
   const [editingLotId, setEditingLotId] = useState(null);
-  const [editLotForm, setEditLotForm] = useState({ status: '', price: '', area_m2: '' });
+  const [editLotForm, setEditLotForm] = useState({ status: '', price: '', area_m2: '', comments: '' });
   const [editLotLoading, setEditLotLoading] = useState(false);
   const [editLotError, setEditLotError] = useState(null);
   const [editLotClosing, setEditLotClosing] = useState(false);
@@ -16,6 +16,7 @@ export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot }) {
       status: lot.status || 'available',
       price: lot.price != null ? String(lot.price) : '',
       area_m2: lot.area_m2 != null ? String(lot.area_m2) : '',
+      comments: lot.comments || '',
     });
     setEditLotError(null);
     setEditingLotId(lot.id);
@@ -28,7 +29,7 @@ export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot }) {
       setEditLotModalOpen(false);
       setEditLotClosing(false);
       setEditingLotId(null);
-      setEditLotForm({ status: '', price: '', area_m2: '' });
+      setEditLotForm({ status: '', price: '', area_m2: '', comments: '' });
     }, 200);
   };
 
@@ -69,6 +70,8 @@ export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot }) {
       if (editLotForm.loteo_id) updates.loteo_id = editLotForm.loteo_id;
       if (editLotForm.price !== '') updates.price = parseFloat(editLotForm.price);
       if (editLotForm.area_m2 !== '') updates.area_m2 = parseFloat(editLotForm.area_m2);
+      if (editLotForm.comments?.trim()) updates.comments = editLotForm.comments.trim();
+      else updates.comments = null;
       onUpdateLot?.(editingLotId, updates);
       onSuccess?.();
       closeEditLotModal();

@@ -53,6 +53,7 @@ export async function createLot({ apiFetch, createLotForm }) {
   if (createLotForm.area_m2 !== '') body.area_m2 = parseFloat(createLotForm.area_m2);
   if (createLotForm.loteo_id) body.loteo_id = createLotForm.loteo_id;
   if (createLotForm.status) body.status = createLotForm.status;
+  if (createLotForm.comments?.trim()) body.comments = createLotForm.comments.trim();
   return apiFetch(`${API_BASE}/lots`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -68,6 +69,8 @@ export async function patchLot({ apiFetch, editingLotId, editLotForm }) {
   else body.price = null;
   if (editLotForm.area_m2 !== '') body.area_m2 = parseFloat(editLotForm.area_m2);
   else body.area_m2 = null;
+  if (editLotForm.comments?.trim()) body.comments = editLotForm.comments.trim();
+  else body.comments = null;
   return apiFetch(`${API_BASE}/lots/${editingLotId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },

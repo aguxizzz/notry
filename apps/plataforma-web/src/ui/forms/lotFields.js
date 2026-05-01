@@ -43,4 +43,10 @@ export const getLotFields = (loteos = []) => [
       { value: 'sold', label: 'Vendido' },
     ],
   },
+  {
+    name: 'comments',
+    label: 'Observaciones',
+    type: 'textarea',
+    placeholder: 'Notas u observaciones sobre el lote...',
+  },
 ];
