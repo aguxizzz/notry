@@ -304,7 +304,7 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
               )}
               {display.detail?.comments && (
                 <div className="lote-comments">
-                  <span className="lote-comments-label">Observaciones</span>
+                  <span className="lote-comments-label">Detalles del lote</span>
                   <span className="lote-comments-text">{display.detail.comments}</span>
                 </div>
               )}
