@@ -1,5 +1,6 @@
 {
   "panoramaUrl": "/panorama.jpg",
+  "snapThreshold": 5,
   "annotations": [
     {
       "id": "polygon-1774014485266",

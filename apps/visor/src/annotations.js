@@ -6,9 +6,10 @@ import { buildNormalizedBorders } from './normalizeLotBorders.js';
  * Para polígonos de lotes, normaliza bordes compartidos para evitar duplicación visual.
  *
  * @param {BackendAnnotation[]} annotations - Lista de anotaciones del API
+ * @param {number} [snapThreshold=5] - Threshold en píxeles para snapping de vértices
  * @returns {import('@photo-sphere-viewer/markers-plugin').MarkerConfig[]}
  */
-export function annotationsToMarkers(annotations) {
+export function annotationsToMarkers(annotations, snapThreshold = 5) {
   if (!Array.isArray(annotations)) return [];
 
   // Pre-compute border normalization for all polygon annotations
@@ -17,7 +18,7 @@ export function annotationsToMarkers(annotations) {
       a.type === 'polygon' &&
       (a.panorama_coordinates ?? a.polygonPixels ?? a.polygon)?.length >= 3
   );
-  const borderData = buildNormalizedBorders(polygonAnns);
+  const borderData = buildNormalizedBorders(polygonAnns, snapThreshold);
 
   return annotations.flatMap((ann) => {
     // No pasamos content al plugin para que no abra su propio panel; el contenido se muestra en nuestro panel lateral.

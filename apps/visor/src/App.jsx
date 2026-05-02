@@ -79,7 +79,7 @@ export default function App() {
     [annotations]
   );
 
-  const markers = useMemo(() => annotationsToMarkers(annotations), [annotations]);
+  const markers = useMemo(() => annotationsToMarkers(annotations, rawData?.snapThreshold), [annotations, rawData?.snapThreshold]);
   const viewerData = useMemo(
     () => viewMode === 'blueprint' || !rawData
       ? null

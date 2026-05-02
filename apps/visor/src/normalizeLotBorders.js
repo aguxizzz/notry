@@ -11,7 +11,7 @@
  *    (consecutive edges merged into one multi-point polyline)
  */
 
-const SNAP_THRESHOLD_PX = 100;
+const SNAP_THRESHOLD_PX = 5;
 
 // ─── Geometry helpers ──────────────────────────────────────────────────────
 
