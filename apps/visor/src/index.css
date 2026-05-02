@@ -27,14 +27,14 @@
   --viewer-error-sub:     #666666;
 
   /* Polygon fill/stroke per status */
-  --poly-available-fill:   rgba(34, 197, 94, 0.3);
-  --poly-available-stroke: rgba(22, 163, 74, 0.7);
-  --poly-sold-fill:        rgba(239, 68, 68, 0.35);
-  --poly-sold-stroke:      rgba(220, 38, 38, 0.8);
-  --poly-reserved-fill:    rgba(59, 130, 246, 0.32);
-  --poly-reserved-stroke:  rgba(37, 99, 235, 0.75);
-  --poly-default-fill:     rgba(0, 100, 255, 0.2);
-  --poly-default-stroke:   rgba(0, 102, 204, 0.7);
+  --poly-available-fill:   rgba(34, 197, 94, 0.08);
+  --poly-available-stroke: rgba(255, 255, 255, 0.9);
+  --poly-sold-fill:        rgba(239, 68, 68, 0.08);
+  --poly-sold-stroke:      rgba(255, 255, 255, 0.9);
+  --poly-reserved-fill:    rgba(59, 130, 246, 0.08);
+  --poly-reserved-stroke:  rgba(255, 255, 255, 0.9);
+  --poly-default-fill:     rgba(0, 100, 255, 0.08);
+  --poly-default-stroke:   rgba(255, 255, 255, 0.9);
 
   /* ── Status colors (used in InfoPanel & estado badges) ─── */
   --estado-available-accent:     #1e6e3e;
@@ -366,7 +366,7 @@ html, body {
   color: var(--text-muted);
 }
 .lote-comments-text {
-  font-size: 0.875rem;
+  font-size: 1rem;
   color: var(--text-secondary);
   line-height: 1.4;
 }

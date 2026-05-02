@@ -1,6 +1,9 @@
+import { buildNormalizedBorders } from './normalizeLotBorders.js';
+
 /**
  * Convierte anotaciones del contrato del backend al formato MarkerConfig del MarkersPlugin.
  * Soporta coordenadas en píxeles (textureX, textureY, polygonPixels, polylinePixels).
+ * Para polígonos de lotes, normaliza bordes compartidos para evitar duplicación visual.
  *
  * @param {BackendAnnotation[]} annotations - Lista de anotaciones del API
  * @returns {import('@photo-sphere-viewer/markers-plugin').MarkerConfig[]}
@@ -8,7 +11,15 @@
 export function annotationsToMarkers(annotations) {
   if (!Array.isArray(annotations)) return [];
 
-  return annotations.map((ann) => {
+  // Pre-compute border normalization for all polygon annotations
+  const polygonAnns = annotations.filter(
+    (a) =>
+      a.type === 'polygon' &&
+      (a.panorama_coordinates ?? a.polygonPixels ?? a.polygon)?.length >= 3
+  );
+  const borderData = buildNormalizedBorders(polygonAnns);
+
+  return annotations.flatMap((ann) => {
     // No pasamos content al plugin para que no abra su propio panel; el contenido se muestra en nuestro panel lateral.
     const base = {
       id: ann.uuid ?? ann.id,
@@ -33,21 +44,51 @@ export function annotationsToMarkers(annotations) {
 
       case 'polygon': {
         const points = ann.panorama_coordinates ?? ann.polygonPixels ?? ann.polygon ?? [];
+        if (points.length < 3) return []; // Skip invalid polygons
+
         const statusKey = ann.status ?? ann.estado;
         const statusStyles = {
-          available: { fill: 'rgba(34,197,94,0.15)',  stroke: 'rgba(22,163,74,0.5)',  strokeWidth: '2' },
-          sold:      { fill: 'rgba(239,68,68,0.25)',   stroke: 'rgba(220,38,38,0.7)',  strokeWidth: '2' },
-          reserved:  { fill: 'rgba(59,130,246,0.22)',  stroke: 'rgba(37,99,235,0.65)', strokeWidth: '2' },
+          available: { fill: 'rgba(34,197,94,0.08)',  stroke: 'rgba(255,255,255,0.9)', strokeWidth: '1.5', strokeDasharray: '12 6', strokeLinecap: 'round' },
+          sold:      { fill: 'rgba(239,68,68,0.08)',   stroke: 'rgba(255,255,255,0.9)', strokeWidth: '1.5', strokeDasharray: '12 6', strokeLinecap: 'round' },
+          reserved:  { fill: 'rgba(59,130,246,0.08)',  stroke: 'rgba(255,255,255,0.9)', strokeWidth: '1.5', strokeDasharray: '12 6', strokeLinecap: 'round' },
         };
-        const svgStyle = statusKey && statusStyles[statusKey]
+        const fillStyle = statusKey && statusStyles[statusKey]
           ? statusStyles[statusKey]
-          : (ann.svgStyle ?? {});
-        return {
+          : { fill: 'rgba(0,100,255,0.08)', stroke: 'rgba(255,255,255,0.9)', strokeWidth: '1.5', strokeDasharray: '12 6', strokeLinecap: 'round' };
+
+        const annId = ann.uuid ?? ann.id;
+        const polyData = borderData.get(annId);
+
+        // Fill marker uses snapped coordinates so it aligns with the border
+        const fillMarker = {
           ...base,
-          svgStyle,
+          polygonPixels: polyData?.snappedPoints ?? points,
+          svgStyle: {
+            fill: fillStyle.fill,
+            stroke: 'none',
+            pointerEvents: 'fill',
+          },
           tooltip: null,
-          polygonPixels: points,
         };
+
+        // Border markers: one multi-point polyline per chain of consecutive edges
+        const borderMarkers = (polyData?.chains ?? []).map((chain, i) => ({
+          id: `${annId}__border__${i}`,
+          visible: ann.visible !== false,
+          polylinePixels: chain,
+          svgStyle: {
+            stroke: fillStyle.stroke,
+            strokeWidth: fillStyle.strokeWidth ?? '1.5',
+            strokeDasharray: fillStyle.strokeDasharray,
+            strokeLinecap: fillStyle.strokeLinecap,
+            strokeLinejoin: 'round',
+            fill: 'none',
+            pointerEvents: 'none',
+          },
+          tooltip: null,
+        }));
+
+        return [fillMarker, ...borderMarkers];
       }
 
       case 'polyline': {

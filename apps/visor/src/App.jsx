@@ -88,6 +88,9 @@ export default function App() {
   );
 
   const handleMarkerSelect = useCallback((marker, markersPlugin) => {
+    // Ignore synthetic border polyline markers
+    if (marker.id.includes('__border__')) return;
+
     const ann = annotationsById[marker.id];
 
     if (ann?.type === 'text') {
