@@ -228,78 +228,109 @@ html, body {
    HEADER
    ============================================= */
 #info-panel-header {
+  position: relative;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 0.5rem;
-  padding: 0 1rem;
-  height: 3rem;
+  padding: 1.1rem 0.75rem 1rem;
   flex-shrink: 0;
-  background: var(--panel-header-bg);
+  background: var(--panel-bg);
   border-bottom: 1px solid var(--panel-border);
 }
+/* Generous gold band — the defining visual anchor */
+#info-panel-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: linear-gradient(
+    90deg,
+    var(--accent) 0%,
+    var(--accent-hover) 50%,
+    var(--accent) 100%
+  );
+  border-radius: var(--panel-radius) var(--panel-radius) 0 0;
+  box-shadow: 0 0 16px rgba(197, 160, 89, 0.35);
+}
+
 #info-panel-header-left,
 #info-panel-header-right {
-  flex: 0 0 28px;
+  flex: 0 0 40px;
 }
 #info-panel-header-right {
   display: flex;
   justify-content: flex-end;
 }
+/* Lot title — the dominant visual element of the header */
 #info-panel-header-center {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
   text-align: center;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  padding-top: 0.15rem;
 }
 #info-panel-lot-title {
-  font-size: clamp(0.95rem, 2.5vw, 1.05rem);
-  color: var(--panel-header-text, #1a1a1a);
+  font-size: clamp(1.15rem, 3.5vw, 1.4rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
-.info-panel-form-title {
-  font-size: clamp(0.8rem, 2vw, 0.88rem);
-  color: var(--panel-header-text, #1a1a1a);
+#info-panel-form-title-header {
+  font-size: clamp(0.9rem, 2.2vw, 1.05rem);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
 }
 
 /* Botones cerrar / volver */
-#info-panel-close,
-#info-panel-back {
-  width: 28px;
-  height: 28px;
+#info-panel-back,
+#info-panel-close {
+  width: 40px;
+  height: 40px;
   padding: 0;
   border: none;
   background: transparent;
-  color: var(--panel-header-text, rgba(0, 0, 0, 0.55));
+  color: var(--text-muted);
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: color var(--t-fast), background var(--t-fast);
 }
+#info-panel-back {
+  margin-top: -4px; /* optical alignment with title */
+}
 #info-panel-close:hover,
 #info-panel-back:hover {
-  color: var(--panel-header-text, #1a1a1a);
-  background: rgba(0, 0, 0, 0.12);
+  color: var(--text-primary);
+  background: var(--input-bg);
 }
 #info-panel-close:focus-visible,
 #info-panel-back:focus-visible {
-  outline: 2px solid rgba(0, 0, 0, 0.4);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-#info-panel-close {
-  font-size: 1.3rem;
-  line-height: 1;
+/* Refined X icon using SVG lines — no "×" character */
+#info-panel-close svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 2.2;
 }
-#info-panel-back::before {
-  content: '';
-  width: 0;
-  height: 0;
-  border-top: 5px solid transparent;
-  border-bottom: 5px solid transparent;
-  border-right: 8px solid currentColor;
-  margin-left: -2px;
+#info-panel-back svg {
+  width: 18px;
+  height: 18px;
 }
 
 /* =============================================
@@ -318,36 +349,138 @@ html, body {
   border-radius: 4px;
 }
 
-/* Lote metric cards (precio / área) */
-.lote-metrics {
+/* Lote specs (Superficie / Valor) — two-column card with icons */
+.lote-specs {
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 0.6rem;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
 }
-.lote-metric-card {
+.lote-spec-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  background: var(--input-bg);
+  border-radius: 10px;
+}
+.lote-spec-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: rgba(197, 160, 89, 0.12);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.lote-spec-icon svg {
+  width: 20px;
+  height: 20px;
+  color: var(--accent);
+}
+.lote-spec-text {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 0.75rem 0.875rem;
-  background: var(--input-bg);
-  border: 1px solid var(--panel-border);
-  border-radius: 8px;
-  border-left: 3px solid var(--accent);
-  gap: 0.2rem;
+  gap: 0.1rem;
+  min-width: 0;
 }
-.lote-metric-label {
-  font-size: clamp(0.62rem, 1vw, 0.7rem);
+.lote-spec-label {
+  font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.08em;
   color: var(--text-muted);
 }
-.lote-metric-value {
-  font-size: clamp(1rem, 2.5vw, 1.25rem);
-  font-weight: 700;
+.lote-spec-value {
+  font-size: clamp(1rem, 2.5vw, 1.15rem);
+  font-weight: 800;
   color: var(--text-primary);
+  letter-spacing: -0.01em;
   line-height: 1.1;
 }
+
+/* Status message — available (green italic) */
+.lote-status-available {
+  font-size: clamp(0.85rem, 1.5vw, 0.9rem);
+  font-style: italic;
+  color: var(--estado-available-accent);
+  font-weight: 500;
+  text-align: center;
+  padding: 0.25rem 0 0.5rem;
+}
+
+/* Status message — sold/reserved */
+.lote-status-unavailable {
+  font-size: clamp(0.85rem, 1.5vw, 0.9rem);
+  font-style: italic;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 0.25rem 0 0.5rem;
+}
+
+/* WhatsApp CTA button */
+.btn-whatsapp {
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  background: #4CAF50;
+  color: #ffffff;
+  border: none;
+  border-radius: 50px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  transition: background var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
+}
+.btn-whatsapp:hover {
+  background: #43a047;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(76, 175, 80, 0.35);
+}
+.btn-whatsapp:active { transform: translateY(0); box-shadow: none; }
+
+/* Financing text */
+.lote-financing {
+  text-align: center;
+  font-size: clamp(0.78rem, 1.3vw, 0.85rem);
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 0.5rem 0;
+  letter-spacing: 0.02em;
+}
+
+/* Amenities grid */
+.lote-amenities {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--panel-border);
+  border-bottom: 1px solid var(--panel-border);
+  margin: 0.25rem 0;
+}
+.amenity-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  color: #BDBDBD;
+}
+.amenity-item span {
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #757575;
+  text-align: center;
+  line-height: 1.2;
+}
+
 .lote-comments {
   margin-top: 0.75rem;
   padding: 0.75rem 0.875rem;
@@ -371,17 +504,29 @@ html, body {
   line-height: 1.4;
 }
 
-/* Estado badge */
+/* Estado label — positioned in the header, text + dot, colored by data-estado */
 .estado-badge {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  border-radius: 999px;
-  color: #ffffff;
-  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
 }
+.estado-badge::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+/* Colored dot — green / red / blue by estado */
+.estado-badge[data-estado="available"] { color: var(--estado-available-accent); }
+.estado-badge[data-estado="sold"]      { color: var(--estado-sold-accent); }
+.estado-badge[data-estado="reserved"]  { color: var(--estado-reserved-accent); }
 
 /* Vista detalle */
 #info-panel-view {
@@ -425,10 +570,13 @@ html, body {
   display: flex;
   flex-direction: column;
 }
+.precal-form-inner form {
+  display: flex;
+  flex-direction: column;
+}
 #precal-detail-summary {
-  text-align: center;
-  padding-bottom: 1rem;
-  margin-bottom: 1rem;
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.25rem;
   border-bottom: 1px solid var(--panel-border);
 }
 #precal-detail-title {
@@ -440,54 +588,59 @@ html, body {
 #precal-detail-meta {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
+  gap: 0.75rem;
   margin-top: 0.5rem;
 }
 .precal-meta-item {
   background: var(--input-bg);
   border: 1px solid var(--panel-border);
-  border-radius: var(--btn-radius);
-  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  padding: 0.75rem 0.75rem;
   text-align: center;
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+.precal-meta-item:last-child {
+  grid-column: 1 / -1;
 }
 .precal-meta-label {
   display: block;
   font-size: clamp(0.65rem, 1vw, 0.72rem);
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   color: var(--text-muted);
-  margin-bottom: 0.2rem;
+  margin-bottom: 0.35rem;
 }
 .precal-meta-value {
   display: block;
-  font-size: clamp(0.82rem, 1.5vw, 0.9rem);
-  font-weight: 700;
+  font-size: clamp(0.9rem, 2vw, 1.1rem);
+  font-weight: 800;
   color: var(--text-primary);
+  line-height: 1.1;
 }
 .info-panel-form label {
   display: block;
-  margin-bottom: 0.3rem;
+  margin-bottom: 0.45rem;
   color: var(--text-muted);
-  font-size: clamp(0.75rem, 1.2vw, 0.83rem);
-  font-weight: 600;
-  letter-spacing: 0.03em;
+  font-size: clamp(0.72rem, 1.2vw, 0.8rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 .info-panel-form input {
   width: 100%;
-  margin-bottom: 1rem;
-  padding: 0.55rem 0.75rem;
+  margin-bottom: 1.2rem;
+  padding: 0.7rem 0.9rem;
   border: 1px solid var(--input-border);
-  border-radius: var(--btn-radius);
+  border-radius: 10px;
   background: var(--input-bg);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 15px;
   font-family: inherit;
   box-sizing: border-box;
-  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+  transition: border-color var(--t-fast), box-shadow var(--t-fast), background var(--t-fast);
 }
-.info-panel-form input::placeholder { color: var(--text-muted); }
+.info-panel-form input::placeholder { color: var(--text-muted); opacity: 0.7; }
 .info-panel-form select {
   width: 100%;
   margin-bottom: 1rem;
@@ -511,26 +664,27 @@ html, body {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.15);
+  background: #fafaf8;
 }
 .btn-enviar {
   width: 100%;
-  margin-top: 0.25rem;
-  padding: 0.65rem 1rem;
+  margin-top: 0.5rem;
+  padding: 0.8rem 1.25rem;
   background: var(--accent);
   color: #ffffff;
   border: none;
-  border-radius: var(--btn-radius);
-  font-size: 14px;
+  border-radius: 10px;
+  font-size: 15px;
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   transition: background var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
 }
 .btn-enviar:hover {
   background: var(--accent-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(197, 160, 89, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(197, 160, 89, 0.28);
 }
 .btn-enviar:active { transform: translateY(0); box-shadow: none; }
 

@@ -1,4 +1,5 @@
 import KanbanCard from './KanbanCard';
+import './KanbanColumn.css';
 
 export default function KanbanColumn({
   category,

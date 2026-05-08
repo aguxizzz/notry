@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import './TopLotsPanel.css';
 
 export default function TopLotsPanel({ topLots, maxClicks, topLotsFocusedIdx, onFocusChange }) {
   const handleKeyDown = useCallback((e, index) => {

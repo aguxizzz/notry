@@ -1,25 +1,18 @@
-import React from 'react';
+import { Loader } from '../ui/components';
+import './StatCard.css';
 
-const StatCard = ({ label, value, color = 'var(--accent-color)', loading = false }) => {
+const StatCard = ({ label, value, color = 'var(--accent-color)', loading = false, subtitle }) => {
   return (
     <div className="stat-card" style={{ '--stat-accent': color }}>
-      <div className="stat-inner">
-        <div className="stat-left">
-          <div className="stat-dot-wrapper">
-            <span className="stat-dot" />
-            <span className="stat-label">{label}</span>
-          </div>
-        </div>
-        <div className="stat-right">
-          {loading ? (
-            <span className="stat-value-loading" aria-label="Cargando">
-              <span className="stat-spinner"></span>
-            </span>
-          ) : (
-            <span className="stat-value">{value}</span>
-          )}
-        </div>
-      </div>
+      <span className="stat-label">{label}</span>
+      {loading ? (
+        <span className="stat-value-loading" aria-label="Cargando">
+          <span className="stat-spinner"></span>
+        </span>
+      ) : (
+        <span className="stat-value">{value}</span>
+      )}
+      {subtitle && !loading && <span className="stat-subtitle">{subtitle}</span>}
     </div>
   );
 };

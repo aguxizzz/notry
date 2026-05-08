@@ -1,4 +1,5 @@
 import React from 'react';
+import './Badge.css';
 
 const STATUS_STYLES = {
   available: { bgVar: '--badge-available-bg', colorVar: '--badge-available', label: 'disponible' },

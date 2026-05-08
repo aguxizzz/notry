@@ -1,3 +1,5 @@
+import './LoteoSelector.css';
+
 export default function LoteoSelector({ loteos, selectedLoteo, onSelect }) {
   return (
     <div

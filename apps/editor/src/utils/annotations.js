@@ -45,6 +45,19 @@ export function annotationsToMarkers(annotations) {
           : (ann.svgStyle ?? {});
         return { ...base, svgStyle, polygonPixels: points };
       }
+      case 'poi': {
+        const points = (ann.polygonPixels ?? ann.polygon ?? []).filter(
+          pt => Array.isArray(pt) && pt.length === 2 && typeof pt[0] === 'number' && typeof pt[1] === 'number'
+        );
+        // POIs use a custom color field; fall back to a teal default
+        const poiColor = ann.color ?? '#14b8a6';
+        const svgStyle = {
+          fill: `${poiColor}33`,
+          stroke: poiColor,
+          strokeWidth: '2',
+        };
+        return { ...base, svgStyle, polygonPixels: points };
+      }
       case 'polyline': {
         const points = (ann.polylinePixels ?? ann.polyline ?? []).filter(
           pt => Array.isArray(pt) && pt.length === 2 && typeof pt[0] === 'number' && typeof pt[1] === 'number'

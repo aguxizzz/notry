@@ -1,9 +1,11 @@
 import React from 'react';
-import { Search, SlidersHorizontal, Pencil, Trash2, Eye } from 'lucide-react';
-import { Button, Loader, Select, ErrorBoundary } from '../../ui/components';
+import { Search, SlidersHorizontal, Pencil, Trash2, Eye, TrendingUp, LayoutGrid } from 'lucide-react';
+import { Button, Loader, Select, ErrorBoundary, CommentTooltip } from '../../ui/components';
 import LotDistributionBar from '../LotDistributionBar';
 import { API_BASE, VISOR_URL } from '../../config';
 import { STATUS_DISPLAY } from '../../constants';
+import '../../ui/components/ActionBtn.css';
+import './InventarioView.css';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -129,15 +131,7 @@ function LotesTable({ lots, filteredLots, onEditLot, onDeleteLot }) {
                   )}
                 </td>
                 <td>
-                  {lot.comments ? (
-                    <span className="td-comments-indicator" title={lot.comments}>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                      </svg>
-                    </span>
-                  ) : (
-                    <span className="td-empty">—</span>
-                  )}
+                  <CommentTooltip content={lot.comments} label="Notas" entityName={lot.name} />
                 </td>
                 <td className="td-actions">
                   <button
@@ -225,30 +219,30 @@ function LoteosTable({ loteos, loading, onEditLoteo, onDeleteLoteo, onSafeOpen, 
                   </td>
                   <td className="td-actions">
                     <button
-                      type="button"
-                      className="text-action-btn edit"
+                      className="action-btn edit"
                       onClick={() => onEditLoteo(loteo)}
                       title="Editar"
                       aria-label={`Editar ${loteo.name}`}
                     >
-                      <Pencil size={16} style={{ marginRight: '6px' }} /> Editar
+                      <Pencil size={16} />
                     </button>
                     <button
-                      type="button"
-                      className="text-action-btn delete"
+                      className="action-btn delete"
                       onClick={() => onDeleteLoteo(loteo)}
                       title="Eliminar"
                       aria-label={`Eliminar ${loteo.name}`}
                     >
-                      <Trash2 size={16} style={{ marginRight: '6px' }} /> Eliminar
+                      <Trash2 size={16} />
                     </button>
                   </td>
                   <td className="td-links">
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <div className="loteo-link-actions">
                       <button
                         type="button"
                         className="text-action-btn view"
                         onClick={() => window.open(`${VISOR_URL}/?data=${API_BASE}/loteos/${loteo.id}/visor_data`, '_blank', 'noopener,noreferrer')}
+                        title="Abrir visor"
+                        aria-label={`Abrir visor de ${loteo.name}`}
                       >
                         Visor
                       </button>
@@ -256,6 +250,8 @@ function LoteosTable({ loteos, loading, onEditLoteo, onDeleteLoteo, onSafeOpen, 
                         type="button"
                         className="text-action-btn view"
                         onClick={() => onOpenEditor(loteo.id)}
+                        title="Abrir editor"
+                        aria-label={`Abrir editor de ${loteo.name}`}
                       >
                         Editor
                       </button>
@@ -298,11 +294,23 @@ export default function InventarioView({
 }) {
   return (
     <>
-      <div className="inventory-distribution-wrapper">
+      <div className="stats-section">
+        <div className="stats-header has-deco-icon">
+          <TrendingUp className="section-deco-icon" size={72} />
+          <div className="stats-header-eyebrow">Inventario</div>
+          <h2>Distribución de Lotes</h2>
+          <p className="stats-header-sub">Estado actual del inventario disponible</p>
+        </div>
         <LotDistributionBar summary={dashboardSummary} loading={!dashboardSummary} />
       </div>
 
-      <div className="inventory-section">
+      <div className="kanban-section">
+        <div className="kanban-header has-deco-icon">
+          <LayoutGrid className="section-deco-icon" size={80} />
+          <div className="stats-header-eyebrow">Lotes</div>
+          <h2>Gestión de Inventario</h2>
+          <p className="kanban-header-sub">Administra lotes y loteos</p>
+        </div>
         <InventarioControls
           inventoryTab={inventoryTab}
           onTabChange={onTabChange}

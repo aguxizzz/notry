@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Button, Loader } from '../../ui/components';
+import '../../ui/components/Modal.css';
 
 /**
  * AddProspectModal — modal form for adding a new prospect.

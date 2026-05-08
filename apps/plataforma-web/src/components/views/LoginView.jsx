@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { Button, Loader } from '../../ui/components';
 import LoginBackground from '../LoginBackground';
+import './LoginView.css';
 
 export default function LoginView({ onLogin }) {
   const [email, setEmail] = useState('');

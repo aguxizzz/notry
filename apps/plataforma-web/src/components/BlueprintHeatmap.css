@@ -1,0 +1,86 @@
+/* ── Blueprint Heatmap ── */
+.blueprint-heatmap-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  flex: 1;
+  min-height: 0;
+}
+
+.blueprint-warning {
+  background: var(--color-warning-bg);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--text-base);
+  color: #b8860b;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.blueprint-heatmap-wrapper {
+  position: relative;
+  width: 100%;
+  background: var(--bg-dark);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: clamp(280px, 50vh, 700px);
+  flex: 1;
+}
+
+.blueprint-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+.blueprint-heatmap-wrapper:fullscreen {
+  height: 100vh !important;
+  max-height: none !important;
+  background: var(--bg-dark);
+  border-radius: 0;
+}
+
+.blueprint-heatmap-wrapper:fullscreen .blueprint-image {
+  max-height: none !important;
+}
+
+.blueprint-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.blueprint-overlay polygon {
+  cursor: pointer;
+  transition: fill-opacity 0.15s ease, stroke-width 0.15s ease;
+}
+
+.blueprint-overlay polygon:hover {
+  fill-opacity: 0.8 !important;
+  stroke-width: 2.5 !important;
+}
+
+.blueprint-tooltip {
+  position: absolute;
+  background: rgba(26, 26, 42, 0.95);
+  color: #ffffff;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  z-index: 10;
+  pointer-events: none;
+  box-shadow: var(--shadow-md);
+  white-space: nowrap;
+}
+
+/* Blueprint heatmap controls styles moved to blueprint/BlueprintControls.css */

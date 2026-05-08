@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { Button } from '../ui/components';
+import '../ui/components/Modal.css';
 
 export default function DeleteLoteoDialog({ isOpen, loteo, loading, onConfirm, onCancel }) {
   const modalRef = useRef(null);

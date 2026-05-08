@@ -1,0 +1,161 @@
+/* ── Login ── */
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-dark);
+  padding: var(--space-md);
+  position: relative;
+  overflow: hidden;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--panel-bg);
+  padding: var(--space-xl) var(--space-xl) var(--space-xl);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-offset);
+  position: relative;
+  z-index: 1;
+  transition: box-shadow var(--duration-base) var(--ease-out);
+}
+
+.login-card:hover {
+  box-shadow: 16px 16px 0px rgba(197, 160, 89, 0.15);
+}
+
+.login-header {
+  margin-bottom: var(--space-lg);
+}
+
+.login-header h1 {
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-black);
+  color: var(--accent-color);
+  margin-bottom: var(--space-xs);
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.login-header p {
+  color: var(--text-muted);
+  font-size: var(--text-base);
+}
+
+.login-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  border-left: 3px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  margin-top: var(--space-sm);
+  color: var(--color-danger);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.4;
+  animation: loginErrorShake 0.4s ease;
+}
+
+.login-error svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+@keyframes loginErrorShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+
+.login-card form .primary-button,
+.login-card form .outline-button {
+  width: 100%;
+}
+
+.form-group {
+  margin-bottom: var(--space-sm);
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  letter-spacing: 0.05em;
+}
+
+.form-group input {
+  width: 100%;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  padding: calc(var(--space-xs) + 2px) var(--space-sm);
+  color: var(--text-main);
+  font-size: 0.875rem;
+  font-family: inherit;
+  border-radius: var(--radius-md);
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.15);
+}
+
+.form-group input[type="number"],
+.form-group input[type="email"],
+.form-group input[type="tel"],
+.form-group select {
+  width: 100%;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  padding: calc(var(--space-xs) + 2px) var(--space-sm);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-family: inherit;
+  border-radius: var(--radius-md);
+  appearance: none;
+}
+
+.form-group input[type="number"]:focus,
+.form-group input[type="email"]:focus,
+.form-group input[type="tel"]:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.15);
+}
+
+.form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+}
+
+.form-row-2 .form-group {
+  margin-bottom: 0;
+}
+
+/* Stacked form-row-2 sections need more breathing room between logical groups */
+.form-row-2 + .form-row-2 {
+  margin-top: var(--space-xs);
+}
+
+/* Single form-group after a form-row-2 (e.g. lote edit: area/price row + status field) */
+.form-row-2 + .form-group {
+  margin-top: var(--space-sm);
+}
+
+/* In wide modals (e.g. prospect edit with 3+ rows), give even more rhythm */
+.modal-card--wide .form-row-2 + .form-row-2 {
+  margin-top: var(--space-sm);
+}

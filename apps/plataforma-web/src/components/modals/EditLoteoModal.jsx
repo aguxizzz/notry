@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { Button, Loader } from '../../ui/components';
+import '../../ui/components/Modal.css';
 
 /**
  * EditLoteoModal — modal form for editing an existing loteo.

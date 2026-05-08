@@ -5,6 +5,7 @@ import PeriodSelector from './analisis/PeriodSelector';
 import LoteoSelector from './analisis/LoteoSelector';
 import TopLotsPanel from './analisis/TopLotsPanel';
 import HeatmapCard from './analisis/HeatmapCard';
+import './views/AnalisisView.css';
 
 export default function AnalisisView({
   token,

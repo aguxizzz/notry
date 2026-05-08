@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import './CategoryPieChart.css';
 
 const CATEGORY_META = {
   primer_contacto: { label: 'Primer Contacto', colorVar: '--color-cat-contacto' },
@@ -8,14 +9,14 @@ const CATEGORY_META = {
 };
 
 export default function CategoryPieChart({ prospects = [] }) {
-  const { segments, total } = useMemo(() => {
+  const { segments, total, topSegment } = useMemo(() => {
     const counts = {};
     prospects.forEach(p => {
       if (p.category) counts[p.category] = (counts[p.category] || 0) + 1;
     });
 
     const total = prospects.length;
-    if (total === 0) return { segments: [], total: 0 };
+    if (total === 0) return { segments: [], total: 0, topSegment: null };
 
     const order = ['primer_contacto', 'seguimiento', 'negociacion', 'vendido'];
     const segs = order
@@ -27,7 +28,11 @@ export default function CategoryPieChart({ prospects = [] }) {
         ...CATEGORY_META[cat],
       }));
 
-    return { segments: segs, total };
+    return {
+      segments: segs,
+      total,
+      topSegment: [...segs].sort((a, b) => b.count - a.count)[0] ?? null,
+    };
   }, [prospects]);
 
   const isEmpty = total === 0;
@@ -35,7 +40,11 @@ export default function CategoryPieChart({ prospects = [] }) {
   return (
     <div className="category-chart">
       <div className="chart-header">
-        <span className="chart-title">Prospectos por Etapa</span>
+        <div className="chart-heading">
+          <div className="stats-header-eyebrow">Pipeline</div>
+          <h3 className="chart-title">Prospectos por Etapa</h3>
+          <p className="chart-subtitle">Distribución actual de prospectos</p>
+        </div>
         <span className="chart-total">{total} total</span>
       </div>
 
@@ -45,6 +54,13 @@ export default function CategoryPieChart({ prospects = [] }) {
         </div>
       ) : (
         <div className="chart-body">
+          <div className="chart-summary">
+            <div>
+              <span className="chart-summary-label">Etapa principal</span>
+              <strong>{topSegment.label}</strong>
+            </div>
+            <span>{topSegment.pct}%</span>
+          </div>
           {segments.map((seg) => (
             <div key={seg.category} className="chart-row">
               <div className="chart-row-header">

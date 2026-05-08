@@ -1,0 +1,132 @@
+/* ── Admin View ── */
+.admin-layout {
+  display: flex;
+  height: calc(100vh - 64px);
+}
+
+.side-panel {
+  flex: 0 1 360px;
+  min-width: 280px;
+  max-width: 400px;
+  background: var(--panel-bg);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-lg);
+  gap: var(--space-lg);
+}
+
+.list-panel {
+  flex: 1;
+  background: var(--bg-dark);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-lg);
+  gap: var(--space-lg);
+}
+
+.side-nav-footer {
+  margin-top: auto;
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--border-color);
+}
+
+/* List Panel */
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-lg);
+}
+
+.panel-header h2 {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-black);
+  letter-spacing: -1px;
+}
+
+.scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: var(--space-xs);
+}
+
+.selectable-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.list-item {
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-lg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all var(--duration-base) var(--ease-out);
+}
+
+.list-item:hover {
+  border-color: var(--accent-color);
+  transform: translateX(4px);
+}
+
+.list-item.selected {
+  border-color: var(--accent-color);
+  background: rgba(197, 160, 89, 0.05);
+  box-shadow: inset 4px 0 0 var(--accent-color);
+}
+
+.item-main {
+  display: flex;
+  flex-direction: column;
+}
+
+.item-name {
+  font-weight: var(--weight-bold);
+  font-size: var(--text-lg);
+  color: var(--text-main);
+}
+
+.item-slug {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+}
+
+/* Details Card */
+.details-card h3,
+.loteos-view h3 {
+  color: var(--accent-color);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-black);
+  margin-bottom: var(--space-md);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.detail-row {
+  margin-bottom: var(--space-md);
+}
+
+.detail-row label {
+  display: block;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  font-weight: var(--weight-bold);
+}
+
+.detail-row p {
+  font-size: var(--text-md);
+  color: var(--text-main);
+}
+
+.price-tag {
+  font-size: var(--text-xl) !important;
+  font-weight: var(--weight-black);
+  color: var(--accent-color) !important;
+}

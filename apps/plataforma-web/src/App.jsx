@@ -39,6 +39,30 @@ import { fetchLoteos as fetchLoteosService, fetchInventoryLoteos as fetchInvento
 import { createProspect as createProspectService, fetchAdvisors as fetchAdvisorsService, saveEditProspect as saveEditProspectService, updateLastContact as updateLastContactService, fetchProspectos as fetchProspectosService, loadMoreProspectos as loadMoreProspectosService } from './api/prospects';
 import { fetchReportsBg as fetchReportsBgService, buildAnalisisCallbacks } from './api/reports';
 import './App.css';
+import './components/Layout.css';
+
+const OWNER_VIEW_HEADERS = {
+  inicio: {
+    title: 'Inicio',
+    subtitle: (firstName) => `Hola ${firstName}, este es el pulso general de tu operación.`,
+  },
+  inventario: {
+    title: 'Inventario',
+    subtitle: 'Controlá disponibilidad, reservas y ventas de tus lotes.',
+  },
+  clientes: {
+    title: 'Clientes',
+    subtitle: 'Seguimiento claro para prospectos, asesores y próximos contactos.',
+  },
+  analisis: {
+    title: 'Análisis',
+    subtitle: 'Medí la actividad comercial y detectá oportunidades con datos reales.',
+  },
+  configuracion: {
+    title: 'Configuración',
+    subtitle: 'Ajustá preferencias y detalles de tu espacio de trabajo.',
+  },
+};
 
 function App() {
   const [view, setView] = useState('login'); // 'login' | 'lote_owner' | 'super_admin'
@@ -359,7 +383,7 @@ function App() {
     apiFetch,
     onSuccess: () => {
       addToast('Loteo creado.', 'success');
-      fetchInventoryLoteos();
+      fetchInventoryLoteosBg();
     },
     onAddLoteo: addLoteo,
   });
@@ -455,6 +479,15 @@ function App() {
     return <LoginView onLogin={handleLogin} />;
   }
 
+  const ownerFirstName = user?.full_name?.split(' ')[0] || 'equipo';
+  const ownerViewHeader = OWNER_VIEW_HEADERS[ownerSubView] || {
+    title: ownerSubView,
+    subtitle: 'Esta sección está siendo preparada.',
+  };
+  const ownerViewSubtitle = typeof ownerViewHeader.subtitle === 'function'
+    ? ownerViewHeader.subtitle(ownerFirstName)
+    : ownerViewHeader.subtitle;
+
   return (
     <div className={`dashboard-container ${view === 'lote_owner' ? 'with-sidebar' : ''}`}>
       {view !== 'lote_owner' && (
@@ -516,8 +549,8 @@ function App() {
           <div className="owner-layout">
             <div key={ownerSubView} className="view-content">
               <header className="owner-header">
-                <h1 className="view-title">{ownerSubView.toUpperCase()}</h1>
-                <h2>Bienvenido, {user?.full_name?.split(' ')[0]}</h2>
+                <h1 className="view-title">{ownerViewHeader.title}</h1>
+                <h2>{ownerViewSubtitle}</h2>
               </header>
 
               {ownerSubView === 'inicio' && (

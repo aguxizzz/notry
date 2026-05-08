@@ -1,0 +1,186 @@
+/* ── Kanban Card ─────────────────────────────────────────── */
+.kanban-card {
+  background: color-mix(in srgb, var(--accent-color) 3%, var(--panel-bg));
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  cursor: grab;
+  display: flex;
+  flex-direction: column;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    opacity var(--duration-fast) var(--ease-out);
+  user-select: none;
+  opacity: 0;
+  animation: kanban-card-enter 350ms var(--ease-out-quart) forwards;
+}
+
+@keyframes kanban-card-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.kanban-card:hover {
+  border-color: color-mix(in srgb, var(--accent-color) 30%, var(--border-color));
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.kanban-card:active { cursor: grabbing; }
+
+.kanban-card.dragging {
+  opacity: 0.45;
+  transform: rotate(1.5deg) scale(1.02);
+  box-shadow: var(--shadow-lg);
+  cursor: grabbing;
+}
+
+/* Prospect name */
+.kanban-card-name-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  margin-bottom: 6px;
+}
+
+.kanban-card-name {
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  color: var(--text-main);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.kanban-card-loader {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Lote / loteo info */
+.kanban-card-lote {
+  margin-bottom: 6px;
+}
+
+.kanban-card-lote-inner {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border-color);
+  opacity: 0.8;
+}
+
+.kanban-card-lote-sep {
+  opacity: 0.5;
+  margin: 0 1px;
+}
+
+/* Meta row: last contact dot + label + WhatsApp */
+.kanban-card-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 6px 0;
+  min-height: 28px;
+}
+
+.kanban-card-contact {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.kanban-card-contact svg {
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+
+.kanban-card-contact--empty {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  opacity: 0.45;
+}
+
+/* WhatsApp square icon button */
+.kanban-action-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid rgba(37, 211, 102, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  flex-shrink: 0;
+}
+
+.kanban-action-btn.whatsapp {
+  background: rgba(37, 211, 102, 0.10);
+  border-color: rgba(37, 211, 102, 0.4);
+  color: color-mix(in srgb, var(--color-whatsapp) 60%, var(--color-text-muted));
+}
+
+.kanban-action-btn.whatsapp:hover {
+  background: rgba(37, 211, 102, 0.16);
+  border-color: rgba(37, 211, 102, 0.6);
+}
+
+.kanban-action-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Advisor footer */
+.kanban-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 6px;
+  margin-top: auto;
+  border-top: 1px solid var(--border-color);
+}
+
+.kanban-advisor-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--accent-color) 12%, var(--bg-dark));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--accent-color) 25%, transparent);
+}
+
+.kanban-advisor-avatar[data-has-advisor="false"] {
+  background: color-mix(in srgb, var(--color-text-muted) 8%, var(--panel-bg));
+  border-color: color-mix(in srgb, var(--color-text-muted) 15%, transparent);
+}
+
+.kanban-advisor-initials {
+  font-size: 9px;
+  font-weight: var(--weight-bold);
+  color: var(--color-text-muted);
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.kanban-card-advisor-name {
+  font-size: 0.68rem;
+  font-weight: var(--weight-medium);
+  color: var(--color-text-muted);
+  line-height: 1;
+  letter-spacing: 0.01em;
+}

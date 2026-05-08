@@ -1,15 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
-import { MousePointer2, Pentagon, Type, Download, Image as ImageIcon, ArrowLeft, Grid3x3, Camera } from 'lucide-react';
+import { MousePointer2, Pentagon, Type, Download, Image as ImageIcon, ArrowLeft, Grid3x3, Camera, MapPin } from 'lucide-react';
 import EditorViewer from './components/EditorViewer';
 import BlueprintEditor from './components/BlueprintEditor';
 import LoginScreen from './components/LoginScreen';
 import LoteoList from './components/LoteoList';
+import POIInspector from './components/POIInspector';
+import { createPoi, updatePoi, deletePoi, updatePoiCoordinates, updatePoiBlueprintCoordinates } from './services/poiService';
 import './App.css';
 
 // Map annotations to the right coordinate system based on mode
 const getAnnotationsForMode = (annotations, currentMode) => {
   return annotations.map(ann => {
-    if (ann.type === 'polygon' && (ann.panorama_coordinates || ann.blueprint_coordinates)) {
+    if ((ann.type === 'polygon' || ann.type === 'poi') && (ann.panorama_coordinates || ann.blueprint_coordinates)) {
       const coords = currentMode === 'blueprint'
         ? ann.blueprint_coordinates
         : ann.panorama_coordinates;
@@ -58,6 +60,10 @@ function App() {
   const [isCreatingLote, setIsCreatingLote] = useState(false);
   const [loteUpdateForm, setLoteUpdateForm] = useState({ name: '', slug: '', status: 'available', price: '', area: '', comments: '' });
   const [isUpdatingLote, setIsUpdatingLote] = useState(false);
+  // POI state
+  const [poiForm, setPoiForm] = useState({ title: '', icon_type: '', description: '', link_url: '', color: '#14b8a6' });
+  const [isCreatingPoi, setIsCreatingPoi] = useState(false);
+  const [isUpdatingPoi, setIsUpdatingPoi] = useState(false);
   const [pendingMode, setPendingMode] = useState('create'); // 'create' | 'assign'
   const [assignTargetId, setAssignTargetId] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
@@ -129,9 +135,9 @@ function App() {
               // Keep both coordinate systems for mode switching
               // Store panorama_coordinates/blueprint_coordinates as-is for later retrieval
               // For initial display, use panorama mode as default
-              if (ann.type === 'polygon' && ann.panorama_coordinates) {
+              if ((ann.type === 'polygon' || ann.type === 'poi') && ann.panorama_coordinates) {
                 ann.polygonPixels = ann.panorama_coordinates;
-              } else if (ann.type === 'polygon' && ann.blueprint_coordinates) {
+              } else if ((ann.type === 'polygon' || ann.type === 'poi') && ann.blueprint_coordinates) {
                 ann.polygonPixels = ann.blueprint_coordinates;
               }
               return ann;
@@ -154,6 +160,7 @@ function App() {
               }
             }
           }
+
           if (data.panoramaUrl && typeof data.panoramaUrl === 'string') {
             try {
               const imgRes = await fetch(data.panoramaUrl);
@@ -217,7 +224,8 @@ function App() {
 
   const tools = [
     { id: 'select', icon: MousePointer2, title: 'Seleccionar' },
-    { id: 'polygon', icon: Pentagon, title: 'Polígono' },
+    { id: 'polygon', icon: Pentagon, title: 'Lote' },
+    { id: 'poi', icon: MapPin, title: 'POI' },
     { id: 'text', icon: Type, title: 'Texto' },
   ];
 
@@ -227,7 +235,7 @@ function App() {
       return;
     }
 
-    if (activeTool === 'polygon') {
+    if (activeTool === 'polygon' || activeTool === 'poi') {
       setDrawingPolygon([...drawingPolygon, [textureX, textureY]]);
       return;
     }
@@ -261,14 +269,18 @@ function App() {
       alert("El polígono necesita al menos 3 puntos");
       return;
     }
-    const newId = `polygon-${Date.now()}`;
+    const newId = `${activeTool}-${Date.now()}`;
+    const isPoi = activeTool === 'poi';
     const newAnn = {
       id: newId,
-      type: 'polygon',
+      type: activeTool,
       pending: true,
       polygonPixels: drawingPolygon,
-      tooltip: 'Nuevo lote (sin guardar)',
-      svgStyle: { fill: 'rgba(255,165,0,0.15)', stroke: '#ffa500', strokeWidth: '2', strokeDasharray: '8,4' }
+      tooltip: isPoi ? 'Nuevo POI (sin guardar)' : 'Nuevo lote (sin guardar)',
+      svgStyle: isPoi
+        ? { fill: 'rgba(20,184,166,0.15)', stroke: '#14b8a6', strokeWidth: '2', strokeDasharray: '8,4' }
+        : { fill: 'rgba(255,165,0,0.15)', stroke: '#ffa500', strokeWidth: '2', strokeDasharray: '8,4' },
+      color: isPoi ? '#14b8a6' : undefined,
     };
     setAnnotations([...annotations, newAnn]);
     setDrawingPolygon([]);
@@ -283,7 +295,7 @@ function App() {
 
   const handleModeChange = (nextMode) => {
     if (nextMode === mode) return;
-    const polygons = annotations.filter(a => a.type === 'polygon' && !a.pending);
+    const polygons = annotations.filter(a => (a.type === 'polygon' || a.type === 'poi') && !a.pending);
     const coordKey = nextMode === 'blueprint' ? 'blueprint_coordinates' : 'panorama_coordinates';
     const missing = polygons.filter(a => !a[coordKey] || a[coordKey].length === 0);
     if (missing.length > 0) {
@@ -309,7 +321,7 @@ function App() {
 
   // Apply mode-based coordinate mapping
   const modeAdjustedAnnotations = annotations.map(ann => {
-    if (ann.type === 'polygon' && (ann.panorama_coordinates || ann.blueprint_coordinates)) {
+    if ((ann.type === 'polygon' || ann.type === 'poi') && (ann.panorama_coordinates || ann.blueprint_coordinates)) {
       const coords = mode === 'blueprint'
         ? (ann.blueprint_coordinates || [])
         : (ann.panorama_coordinates || []);
@@ -376,6 +388,43 @@ function App() {
     });
   }
 
+  if (selectedMarker && selectedMarker.type === 'poi' && selectedMarker.polygonPixels) {
+    const poiColor = selectedMarker.color ?? '#14b8a6';
+    selectedMarker.polygonPixels.forEach((pt, i) => {
+      displayAnnotations.push({
+        id: `edit-corner-${selectedMarker.id}-${i}`,
+        type: 'point',
+        position: { textureX: pt[0], textureY: pt[1] },
+        radius: 4,
+        svgStyle: {
+          fill: '#fff',
+          stroke: poiColor,
+          strokeWidth: '2',
+          cursor: 'grab'
+        },
+        tooltip: 'Arrastra para mover esquina'
+      });
+
+      const nextPt = selectedMarker.polygonPixels[(i + 1) % selectedMarker.polygonPixels.length];
+      let midX = (pt[0] + nextPt[0]) / 2;
+      let midY = (pt[1] + nextPt[1]) / 2;
+
+      if (Math.abs(pt[0] - nextPt[0]) > 0.5) {
+        midX = (pt[0] + nextPt[0] + 1) / 2;
+        if (midX > 1) midX -= 1;
+      }
+
+      displayAnnotations.push({
+        id: `edit-midpoint-${selectedMarker.id}-${i}`,
+        type: 'point',
+        position: { textureX: midX, textureY: midY },
+        radius: 3,
+        svgStyle: { fill: '#fff', stroke: poiColor, strokeWidth: '2', opacity: 0.8, cursor: 'copy' },
+        tooltip: 'Arrastra para añadir punto'
+      });
+    });
+  }
+
   const handlePolygonUpdate = (markerId, newPolygonPixels) => {
     setAnnotations(prevAnnotations => prevAnnotations.map(a => {
       if (a.id === markerId) {
@@ -423,6 +472,16 @@ function App() {
         if (!res.ok) { alert(`Error al eliminar el lote: ${res.status}`); return; }
       } catch (err) {
         alert('Error de conexión al intentar eliminar el lote.');
+        return;
+      }
+    }
+
+    if (selectedMarker.type === 'poi' && selectedMarker.uuid) {
+      if (!confirm(`¿Eliminar el POI "${selectedMarker.tooltip || selectedMarker.uuid}" de la base de datos? Esta acción no se puede deshacer.`)) return;
+      try {
+        await deletePoi(accessToken, selectedMarker.uuid);
+      } catch (err) {
+        alert('Error de conexión al intentar eliminar el POI.');
         return;
       }
     }
@@ -607,6 +666,114 @@ function App() {
     }
   };
 
+  const handleCreatePoi = async (form, polygonPixels) => {
+    if (!form.title.trim()) { alert('El título es requerido.'); return; }
+    if (!loteoId) { alert('No se encontró el loteo_id.'); return; }
+    if (!polygonPixels || polygonPixels.length < 3) { alert('Por favor, dibuja un polígono antes de crear el POI.'); return; }
+
+    setIsCreatingPoi(true);
+    try {
+      const payload = {
+        loteo_id: loteoId,
+        title: form.title.trim(),
+        icon_type: form.icon_type.trim() || null,
+        description: form.description.trim() || null,
+        link_url: form.link_url.trim() || null,
+        color: form.color || '#14b8a6',
+        ...(mode === 'blueprint'
+          ? { blueprint_coordinates: polygonPixels }
+          : { coordinates_360: polygonPixels }),
+      };
+      const res = await createPoi(accessToken, payload);
+
+      if (res?.id) {
+        setAnnotations(prev => prev.map(a =>
+          a.id === selectedId
+            ? {
+                ...a,
+                id: res.id,
+                uuid: res.id,
+                pending: false,
+                tooltip: res.title,
+                icon_type: res.icon_type,
+                description: res.description,
+                link_url: res.link_url,
+                color: res.color,
+                ...(mode === 'blueprint'
+                  ? { blueprint_coordinates: polygonPixels }
+                  : { panorama_coordinates: polygonPixels }),
+              }
+            : a
+        ));
+        setSelectedId(res.id);
+        clearDraft();
+      }
+    } catch (err) {
+      console.error('Error al crear POI:', err);
+      alert('Error de conexión al crear el POI.');
+    } finally {
+      setIsCreatingPoi(false);
+    }
+  };
+
+  const handleUpdatePoi = async (poiId, form) => {
+    if (!form.title.trim()) { alert('El título es requerido.'); return; }
+    const poiUuid = poiId; // poiId passed from inspector is always the uuid field value
+    setIsUpdatingPoi(true);
+    try {
+      const res = await updatePoi(accessToken, poiUuid, {
+        title: form.title.trim(),
+        icon_type: form.icon_type.trim() || null,
+        description: form.description.trim() || null,
+        link_url: form.link_url.trim() || null,
+        color: form.color || '#14b8a6',
+      });
+      if (res?.id) {
+        setAnnotations(prev => prev.map(a =>
+          (a.uuid === poiUuid || a.id === poiUuid)
+            ? {
+                ...a,
+                tooltip: res.title,
+                title: res.title,
+                icon_type: res.icon_type,
+                description: res.description,
+                link_url: res.link_url,
+                color: res.color,
+              }
+            : a
+        ));
+      }
+      alert('¡POI actualizado correctamente!');
+    } catch (err) {
+      console.error('Error al actualizar POI:', err);
+      alert('Error al actualizar el POI.');
+    } finally {
+      setIsUpdatingPoi(false);
+    }
+  };
+
+  const handleDeletePoi = async (poiId) => {
+    try {
+      if (poiId) await deletePoi(accessToken, poiId);
+      setAnnotations(prev => prev.filter(a => a.uuid !== poiId && a.id !== poiId && a.id !== selectedId));
+      setSelectedId(null);
+    } catch (err) {
+      console.error('Error al eliminar POI:', err);
+      alert('Error de conexión al eliminar el POI.');
+    }
+  };
+
+  const handleUpdatePoiCoordinates = async (poiId, polygonPixels) => {
+    try {
+      const fn = mode === 'blueprint' ? updatePoiBlueprintCoordinates : updatePoiCoordinates;
+      await fn(accessToken, poiId, polygonPixels);
+      alert('¡Coordenadas del POI actualizadas!');
+    } catch (err) {
+      console.error('Error al actualizar coordenadas del POI:', err);
+      alert('Error al actualizar las coordenadas del POI.');
+    }
+  };
+
   const handleSaveTextAnnotations = async () => {
     if (!loteoId) {
       alert("No se encontró loteo_id en la URL. Agrega ?loteo_id=... al abrir el editor.");
@@ -645,22 +812,15 @@ function App() {
 
   const handleSaveAll = async () => {
     setIsSavingAll(true);
-    const summary = { textOk: false, polyOk: 0, polyFailed: 0, polySkipped: 0 };
+    const summary = { textOk: false, polyOk: 0, polyFailed: 0, polySkipped: 0, poiOk: 0, poiFailed: 0 };
 
     try {
       const textAnnotations = annotations.filter(a => a.type === 'text');
-      const polygonsWithUuid = annotations.filter(a => a.type === 'polygon' && a.uuid);
+      const polygonsWithUuid = annotations.filter(a => a.type === 'polygon' && (a.uuid || a.id));
+      const poisWithUuid = annotations.filter(a => a.type === 'poi' && (a.uuid || a.id));
       summary.polySkipped = annotations.filter(a => a.type === 'polygon' && !a.uuid).length;
 
-      const [textRes, ...polyResults] = await Promise.all([
-        loteoId && textAnnotations.length > 0
-          ? fetchWithTimeout(`https://notry-back.onrender.com/api/v1/loteos/${loteoId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-            body: JSON.stringify({ text_annotations: textAnnotations })
-          })
-          : Promise.resolve(null),
-        ...polygonsWithUuid.flatMap(marker => {
+      const polyRequests = polygonsWithUuid.flatMap(marker => {
           const reqs = [];
           if (marker.panorama_coordinates && marker.panorama_coordinates.length > 0) {
             reqs.push(fetchWithTimeout(`https://notry-back.onrender.com/api/v1/lots/update-coordinates`, {
@@ -677,22 +837,83 @@ function App() {
             }));
           }
           return reqs;
-        })
+        });
+
+      const poiRequests = poisWithUuid.flatMap(poi => {
+          const poiId = poi.uuid || poi.id;
+          const reqs = [];
+          if (poi.panorama_coordinates && poi.panorama_coordinates.length > 0) {
+            reqs.push(fetchWithTimeout(`https://notry-back.onrender.com/api/v1/pois/update-coordinates`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+              body: JSON.stringify({ uuid: poiId, polygonPoints: poi.panorama_coordinates })
+            }));
+          }
+          if (poi.blueprint_coordinates && poi.blueprint_coordinates.length > 0) {
+            reqs.push(fetchWithTimeout(`https://notry-back.onrender.com/api/v1/pois/update-blueprint-coordinates`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+              body: JSON.stringify({ uuid: poiId, polygonPoints: poi.blueprint_coordinates })
+            }));
+          }
+          // Also save POI metadata (title, icon_type, description, link_url, color)
+          // title lives in tooltip field for POIs loaded from visor_data, title field is only set after individual save
+          const poiTitle = poi.title ?? poi.tooltip;
+          console.log('[handleSaveAll] POI metadata PATCH being queued:', { poiId, poiTitle, uuid: poi.uuid || poi.id });
+          if (poiTitle && (poi.uuid || poi.id)) {
+            reqs.push(fetchWithTimeout(`https://notry-back.onrender.com/api/v1/pois/${poiId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+              body: JSON.stringify({
+                title: poiTitle,
+                icon_type: poi.icon_type || null,
+                description: poi.description || null,
+                link_url: poi.link_url || null,
+                color: poi.color || '#14b8a6',
+              })
+            }));
+          }
+          return reqs;
+        });
+
+      console.log('[handleSaveAll] Total requests to queue:', { poiRequests: poiRequests.length, polyRequests: polyRequests.length });
+      const allResults = await Promise.all([
+        loteoId && textAnnotations.length > 0
+          ? fetchWithTimeout(`https://notry-back.onrender.com/api/v1/loteos/${loteoId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+            body: JSON.stringify({ text_annotations: textAnnotations })
+          })
+          : Promise.resolve(null),
+        ...polyRequests,
+        ...poiRequests,
       ]);
 
-      if (textRes?.status === 401 || polyResults.some(r => r?.status === 401)) {
+      const [textRes, ...restResults] = allResults;
+      const polyResults = restResults.slice(0, polyRequests.length);
+      const poiResults = restResults.slice(polyRequests.length);
+
+      if (textRes?.status === 401 || [...polyResults, ...poiResults].some(r => r?.status === 401)) {
         setSessionExpiredDuringSave(true);
         return;
       }
 
       summary.textOk = textRes?.ok ?? false;
+      const polyCount = polyResults.length;
+      const poiCount = poiResults.length;
       polyResults.forEach(r => { if (r.ok) summary.polyOk++; else summary.polyFailed++; });
+      poiResults.forEach((r, i) => {
+        console.log(`[handleSaveAll] POI result ${i}: status=${r?.status}, ok=${r?.ok}, url=${r?.url}`);
+        if (r.ok) summary.poiOk++; else summary.poiFailed++;
+      });
 
       const parts = [];
       if (summary.textOk) parts.push(`${textAnnotations.length} texto(s) guardados`);
-      if (summary.polyOk > 0) parts.push(`${summary.polyOk} polígono(s) actualizados`);
-      if (summary.polyFailed > 0) parts.push(`${summary.polyFailed} polígono(s) fallaron`);
-      if (summary.polySkipped > 0) parts.push(`${summary.polySkipped} polígono(s) sin UUID omitidos`);
+      if (summary.polyOk > 0) parts.push(`${summary.polyOk} lote(s) actualizados`);
+      if (summary.polyFailed > 0) parts.push(`${summary.polyFailed} lote(s) fallaron`);
+      if (summary.poiOk > 0) parts.push(`${summary.poiOk} POI(s) actualizados`);
+      if (summary.poiFailed > 0) parts.push(`${summary.poiFailed} POI(s) fallaron`);
+      if (summary.polySkipped > 0) parts.push(`${summary.polySkipped} lote(s) sin UUID omitidos`);
 
       clearDraft();
       alert(parts.length ? parts.join(' · ') : 'Nada que guardar.');
@@ -802,7 +1023,7 @@ function App() {
                 className={`tool-btn ${activeTool === tool.id ? 'active' : ''}`}
                 onClick={() => {
                   setActiveTool(tool.id);
-                  if (tool.id !== 'polygon') setDrawingPolygon([]);
+                  if (tool.id !== 'polygon' && tool.id !== 'poi') setDrawingPolygon([]);
                 }}
                 title={tool.title}
                 disabled={!panoramaUrl}
@@ -841,7 +1062,7 @@ function App() {
           {inspectorOpen ? '×' : '☰'}
         </button>
 
-        {activeTool === 'polygon' && drawingPolygon.length > 0 && (
+        {(activeTool === 'polygon' || activeTool === 'poi') && drawingPolygon.length > 0 && (
           <div style={{ position: 'fixed', bottom: '1rem', left: '50%', transform: 'translateX(-50%)', zIndex: 1000, display: 'flex', gap: '1rem' }}>
             <button className="btn-primary" onClick={finishPolygon} style={{ background: '#28a745', width: 'auto' }}>Finalizar Polígono ({drawingPolygon.length} pts)</button>
             <button className="btn-primary" onClick={cancelPolygon} style={{ background: '#dc3545', width: 'auto' }}>Cancelar</button>
@@ -861,7 +1082,7 @@ function App() {
               selectedId={selectedId}
               onClick={handleViewerClick}
               onMarkerSelect={(id) => {
-                if (activeTool === 'polygon' && id === 'temp-pt-0') {
+                if ((activeTool === 'polygon' || activeTool === 'poi') && id === 'temp-pt-0') {
                   finishPolygon();
                 } else {
                   setSelectedId(id);
@@ -878,7 +1099,7 @@ function App() {
               annotations={displayAnnotations}
               onClick={handleViewerClick}
               onMarkerSelect={(id) => {
-                if (activeTool === 'polygon' && id === 'temp-pt-0') {
+                if ((activeTool === 'polygon' || activeTool === 'poi') && id === 'temp-pt-0') {
                   finishPolygon();
                 } else {
                   setSelectedId(id);
@@ -926,7 +1147,7 @@ function App() {
                 </div>
               )}
 
-              {selectedMarker.type !== 'text' && selectedMarker.type !== 'polygon' && (
+              {selectedMarker.type !== 'text' && selectedMarker.type !== 'polygon' && selectedMarker.type !== 'poi' && (
                 <div className="inspector-section">
                   <span className="inspector-section-title">Datos</span>
                   <span className="inspector-label">Tooltip</span>
@@ -965,7 +1186,7 @@ function App() {
                 </>
               )}
 
-              {selectedMarker.type !== 'polygon' && (
+              {selectedMarker.type !== 'polygon' && selectedMarker.type !== 'poi' && (
                 <div className="inspector-section">
                   <span className="inspector-section-title">Estilos SVG</span>
                   <span className="inspector-label">Relleno (fill)</span>
@@ -1121,6 +1342,30 @@ function App() {
                     </>
                   )}
                 </div>
+              )}
+
+              {selectedMarker.type === 'poi' && (
+                <POIInspector
+                  poi={selectedMarker}
+                  onCreatePoi={handleCreatePoi}
+                  onUpdatePoi={handleUpdatePoi}
+                  onDeletePoi={handleDeletePoi}
+                  onUpdatePoiCoordinates={handleUpdatePoiCoordinates}
+                  onDeselect={() => { setSelectedId(null); setInspectorOpen(false); }}
+                  onFieldChange={(field, value) => {
+                    if (field === 'title') {
+                      setAnnotations(annotations.map(a =>
+                        a.id === selectedId ? { ...a, title: value, tooltip: value } : a
+                      ));
+                    } else {
+                      setAnnotations(annotations.map(a =>
+                        a.id === selectedId ? { ...a, [field]: value } : a
+                      ));
+                    }
+                  }}
+                  mode={mode}
+                  isSaving={isCreatingPoi || isUpdatingPoi}
+                />
               )}
             </>
           )}

@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { Button, Loader } from '../../ui/components';
+import '../../ui/components/Modal.css';
 
 export default function UpdateContactModal({ isOpen, isClosing, loading, onConfirm, onCancel }) {
   const modalRef = useRef(null);

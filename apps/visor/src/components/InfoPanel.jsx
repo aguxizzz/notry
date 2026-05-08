@@ -1,16 +1,71 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import DOMPurify from 'dompurify';
 
+const IconClose = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
+const IconBack = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="15 18 9 12 15 6" />
+  </svg>
+);
+
 const IconRuler = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M21.3 8.7 8.7 21.3c-1 1-2.5 1-3.4 0l-2.6-2.6c-1-1-1-2.5 0-3.4L15.3 2.7c1-1 2.5-1 3.4 0l2.6 2.6c1 1 1 2.5 0 3.4Z"/>
     <path d="m7.5 10.5 2 2"/><path d="m10.5 7.5 2 2"/><path d="m13.5 4.5 2 2"/><path d="m4.5 13.5 2 2"/>
   </svg>
 );
 
 const IconDollar = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+  </svg>
+);
+
+const IconWhatsApp = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+  </svg>
+);
+
+const IconWater = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+  </svg>
+);
+
+const IconGas = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2v10"/><path d="M8 6v4"/><path d="M16 6v4"/><path d="M12 12c-3 0-6 2-6 6v2h12v-2c0-4-3-6-6-6Z"/>
+  </svg>
+);
+
+const IconElectricity = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>
+  </svg>
+);
+
+const IconSecurity = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+  </svg>
+);
+
+const IconLighting = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.23A4.485 4.485 0 0 0 18 8 4.5 4.5 0 0 0 13.5 2a4.5 4.5 0 0 0-4 6c0 1.89 1.16 3.31 2.91 4.04"/>
+  </svg>
+);
+
+const IconWaste = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/>
   </svg>
 );
 
@@ -74,16 +129,16 @@ function PrecalificacionForm({ lotDetail, onClose }) {
         {(lotDetail.price || lotDetail.area_m2 || lotDetail.estado) && (
           <div id="precal-detail-summary">
             <div id="precal-detail-meta">
-              {lotDetail.price && (
-                <div className="precal-meta-item">
-                  <span className="precal-meta-label">Precio</span>
-                  <span className="precal-meta-value">{formatPrice(lotDetail.price)}</span>
-                </div>
-              )}
               {lotDetail.area_m2 && (
                 <div className="precal-meta-item">
                   <span className="precal-meta-label">Área</span>
                   <span className="precal-meta-value">{formatArea(lotDetail.area_m2)}</span>
+                </div>
+              )}
+              {lotDetail.price && (
+                <div className="precal-meta-item">
+                  <span className="precal-meta-label">Precio</span>
+                  <span className="precal-meta-value">{formatPrice(lotDetail.price)}</span>
                 </div>
               )}
               {lotDetail.estado && ESTADO_CONFIG[lotDetail.estado] && (
@@ -98,24 +153,24 @@ function PrecalificacionForm({ lotDetail, onClose }) {
           </div>
         )}
         <form onSubmit={handleSubmit} autoComplete="off">
-          <label htmlFor="precal-nombre">Nombre</label>
+          <label htmlFor="precal-nombre">Nombre completo</label>
           <input
             type="text"
             id="precal-nombre"
             name="nombre"
-            placeholder="Ingrese su nombre"
+            placeholder="Ingrese su nombre completo"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             autoComplete="off"
             required
             autoFocus
           />
-          <label htmlFor="precal-numero">Número</label>
+          <label htmlFor="precal-numero">Número de teléfono</label>
           <input
             type="tel"
             id="precal-numero"
             name="numero"
-            placeholder="Ingrese su número"
+            placeholder="Ingrese su número de teléfono"
             value={numero}
             onChange={(e) => setNumero(e.target.value)}
             autoComplete="off"
@@ -219,6 +274,7 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
 
   const estadoKey = display.detail?.estado;
   const estadoCfg = ESTADO_CONFIG[estadoKey] ?? null;
+  const isPoi = display.detail?.type === 'poi';
 
   const lotDetail = {
     title: display.title ?? '',
@@ -229,14 +285,18 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
     comments: display.detail?.comments ?? null,
   };
 
-  const panelAccentStyle = estadoCfg
-    ? {
-        '--accent': estadoCfg.accent,
-        '--accent-hover': estadoCfg.accentHover,
-        '--panel-header-bg': estadoCfg.accent,
-        '--panel-header-text': '#ffffff',
-      }
-    : { '--panel-header-text': '#1a1a1a' };
+  const poiDetail = {
+    title: display.title ?? '',
+    markerId: display.markerId,
+    icon_type: display.detail?.icon_type ?? null,
+    link_url: display.detail?.link_url ?? null,
+    color: display.detail?.color ?? '#14b8a6',
+    content: display.content ?? '',
+  };
+
+  // panelAccentStyle kept minimal — header is always white with gold top-bar;
+  // metric card borders use the global --accent (gold), not estado colors.
+  const panelAccentStyle = {};
 
   return (
     <div
@@ -254,19 +314,26 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
                 id="info-panel-back"
                 aria-label="Volver al detalle"
                 onClick={goBack}
-              />
+              >
+                <IconBack />
+              </button>
             )}
           </div>
           <div id="info-panel-header-center">
-            {showForm
-              ? <span className="info-panel-form-title">Solicitud: {display.title}</span>
-              : <span id="info-panel-lot-title">{display.title}</span>
-            }
+            <span id="info-panel-lot-title">{display.title}</span>
+            {!showForm && estadoCfg && (
+              <span className="estado-badge" data-estado={estadoKey}>
+                {estadoCfg.label}
+              </span>
+            )}
+            {showForm && (
+              <span id="info-panel-form-title-header">Solicitud</span>
+            )}
           </div>
           <div id="info-panel-header-right">
             <button type="button" id="info-panel-close" aria-label="Cerrar" onClick={() => { closingRef.current = true; onClose(); }}>
               <span className="sr-only">Cerrar</span>
-              <span aria-hidden="true">×</span>
+              <IconClose />
             </button>
           </div>
         </header>
@@ -274,50 +341,125 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
         <div id="info-panel-content">
           {showForm ? (
             <PrecalificacionForm key={display.markerId} lotDetail={lotDetail} onClose={wrappedOnClose} />
+          ) : isPoi ? (
+            <div id="info-panel-view">
+              <div className="poi-badge" style={{ background: poiDetail.color }}>
+                Punto de interés
+              </div>
+              {poiDetail.icon_type && (
+                <div className="lote-metrics">
+                  <div className="lote-metric-card">
+                    <span className="lote-metric-label">Tipo</span>
+                    <span className="lote-metric-value">{poiDetail.icon_type}</span>
+                  </div>
+                </div>
+              )}
+              {poiDetail.content && (
+                <div id="info-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(poiDetail.content) }} />
+              )}
+              {poiDetail.link_url && (
+                <div id="info-actions">
+                  <a
+                    type="button"
+                    href={poiDetail.link_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-enviar"
+                    style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}
+                  >
+                    Visitar enlace
+                  </a>
+                </div>
+              )}
+            </div>
           ) : (
             <div
               id="info-panel-view"
               className={transDir === 'back' ? 'anim-from-left' : ''}
             >
-              {estadoCfg && (
-                <div className="estado-badge" style={{ background: estadoCfg.accent }}>
-                  {estadoCfg.label}
-                </div>
-              )}
               {(display.detail?.price || display.detail.area_m2) && (
-                <div className="lote-metrics">
-                  {display.detail.price && (
-                    <div className="lote-metric-card">
-                      <span className="lote-metric-icon"><IconDollar /></span>
-                      <span className="lote-metric-label">Precio</span>
-                      <span className="lote-metric-value">{formatPrice(display.detail.price)}</span>
+                <div className="lote-specs">
+                  {display.detail.area_m2 && (
+                    <div className="lote-spec-item">
+                      <span className="lote-spec-icon"><IconRuler /></span>
+                      <div className="lote-spec-text">
+                        <span className="lote-spec-label">Superficie</span>
+                        <span className="lote-spec-value">{formatArea(display.detail.area_m2)}</span>
+                      </div>
                     </div>
                   )}
-                  {display.detail.area_m2 && (
-                    <div className="lote-metric-card">
-                      <span className="lote-metric-icon"><IconRuler /></span>
-                      <span className="lote-metric-label">Área</span>
-                      <span className="lote-metric-value">{formatArea(display.detail.area_m2)}</span>
+                  {display.detail.price && (
+                    <div className="lote-spec-item">
+                      <span className="lote-spec-icon"><IconDollar /></span>
+                      <div className="lote-spec-text">
+                        <span className="lote-spec-label">Precio</span>
+                        <span className="lote-spec-value">{formatPrice(display.detail.price)}</span>
+                      </div>
                     </div>
                   )}
                 </div>
               )}
+
+              {display.detail?.estado === 'available' && display.markerId && display.detail?.estado !== 'sold' && display.detail?.estado !== 'reserved' && (
+                <>
+                  <div className="lote-status-available">
+                    ¡Este lote está disponible! Solicita más información y te contactamos pronto.
+                  </div>
+                  <div id="info-actions">
+                    <button type="button" onClick={goToForm} className="btn-whatsapp">
+                      <IconWhatsApp />
+                      <span>Quiero más info</span>
+                    </button>
+                  </div>
+                  {/*
+                  <div className="lote-financing">
+                    Excelente financiación
+                  </div>
+                  */}
+                </>
+              )}
+
+              {/*
+              <div className="lote-amenities">
+                <div className="amenity-item">
+                  <IconWater />
+                  <span>Red de agua</span>
+                </div>
+                <div className="amenity-item">
+                  <IconGas />
+                  <span>Red de gas</span>
+                </div>
+                <div className="amenity-item">
+                  <IconElectricity />
+                  <span>Energía eléctrica</span>
+                </div>
+                <div className="amenity-item">
+                  <IconSecurity />
+                  <span>Seguridad 24hs</span>
+                </div>
+                <div className="amenity-item">
+                  <IconLighting />
+                  <span>Iluminación LED</span>
+                </div>
+                <div className="amenity-item">
+                  <IconWaste />
+                  <span>Recolección</span>
+                </div>
+              </div>
+              */}
+
               {display.detail?.comments && (
                 <div className="lote-comments">
                   <span className="lote-comments-label">Detalles del lote</span>
                   <span className="lote-comments-text">{display.detail.comments}</span>
                 </div>
               )}
-              {display.content && (
-                <div id="info-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(display.content) }} />
-              )}
-              {display.markerId && display.detail?.estado !== 'sold' && (
-                <div id="info-actions">
-                  <button type="button" onClick={goToForm}>
-                    Quiero este lote
-                  </button>
+
+              {display.detail?.estado === 'sold' || display.detail?.estado === 'reserved' ? (
+                <div className="lote-status-unavailable">
+                  {display.detail?.estado === 'sold' ? 'Este lote ya fue vendido' : 'Este lote está reservado'}
                 </div>
-              )}
+              ) : null}
             </div>
           )}
         </div>

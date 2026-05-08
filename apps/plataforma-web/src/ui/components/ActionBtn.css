@@ -1,0 +1,148 @@
+/* ── Action Buttons ── */
+/* Actions column */
+.td-actions {
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--btn-height-sm);
+  height: var(--btn-height-sm);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out);
+  flex-shrink: 0;
+}
+
+.action-btn:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+.action-btn.edit {
+  background: rgba(197, 160, 89, 0.12);
+  color: var(--accent-color);
+}
+
+.action-btn.edit:hover {
+  background: var(--accent-color);
+  color: var(--color-text);
+}
+
+.action-btn.update {
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
+}
+
+.action-btn.update:hover {
+  background: #3b82f6;
+  color: var(--color-text);
+}
+
+.action-btn.delete {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.action-btn.delete:hover {
+  background: var(--color-danger);
+  color: var(--color-surface);
+}
+
+.action-btn.save {
+  background: var(--color-success);
+  color: var(--color-surface);
+}
+
+.action-btn.save:hover {
+  background: var(--color-success-hover);
+}
+
+.action-btn.cancel {
+  background: var(--color-text-muted);
+  color: var(--color-surface);
+}
+
+.action-btn.cancel:hover {
+  background: #4b5563;
+}
+
+.text-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--btn-height-sm);
+  padding: 0 var(--space-sm);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out);
+  flex-shrink: 0;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.text-action-btn:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+.text-action-btn.view {
+  background: rgba(197, 160, 89, 0.08);
+  color: var(--accent-color);
+}
+
+.text-action-btn.view:hover {
+  background: var(--accent-color);
+  color: var(--color-text);
+}
+
+.text-action-btn.edit {
+  background: rgba(197, 160, 89, 0.12);
+  color: var(--accent-color);
+}
+
+.text-action-btn.edit:hover {
+  background: var(--accent-color);
+  color: var(--color-text);
+}
+
+/* Emphasized inline text */
+.text-emphasis {
+  font-weight: var(--weight-bold);
+  color: var(--color-text);
+}
+
+/* Inline edit inputs — only used as fallback; prefer modal forms */
+.edit-input,
+.edit-select {
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-dark);
+  border: 1px solid var(--accent-color);
+  border-radius: var(--radius-md);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  transition: border-color var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.edit-input:focus,
+.edit-select:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.15);
+}

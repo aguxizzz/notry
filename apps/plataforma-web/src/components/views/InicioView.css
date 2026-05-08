@@ -1,0 +1,54 @@
+/* ── Inicio View ── */
+.view-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  animation: viewFadeIn 600ms ease forwards;
+}
+
+@keyframes viewFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.owner-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.owner-header h1.view-title {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--accent-color);
+  font-weight: 700;
+}
+
+.owner-header h2 {
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  font-weight: 900;
+  color: var(--text-main);
+  margin: 0;
+  line-height: 1;
+  letter-spacing: -1.5px;
+}
+
+/* Charts Row */
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+}
+
+@media (max-width: 640px) {
+  .charts-row {
+    grid-template-columns: 1fr;
+  }
+}

@@ -3,6 +3,8 @@ import StatCard from '../StatCard';
 import KanbanBoard from '../KanbanBoard';
 import ActivityFeed from '../ActivityFeed';
 import { ErrorBoundary } from '../../ui/components';
+import { BarChart3, LayoutGrid, TrendingUp, Columns } from 'lucide-react';
+import './InicioView.css';
 
 export default function InicioView({
   dashboardSummary,
@@ -19,20 +21,24 @@ export default function InicioView({
   return (
     <>
       <div className="stats-section">
-        <div className="stats-header">
+        <div className="stats-header has-deco-icon">
+          <BarChart3 className="section-deco-icon" size={72} />
+          <div className="stats-header-eyebrow">Dashboard</div>
           <h2>Métricas Clave</h2>
-          <p>Resumen de tu desempeño</p>
+          <p className="stats-header-sub">Resumen de tu desempeño</p>
         </div>
         <div className="stats-grid">
           <StatCard
             label="Lotes Disponibles"
             value={dashboardSummary?.lotes_disponibles ?? '—'}
+            subtitle="Lotes listos para venta"
             color="#c5a059"
             loading={!dashboardSummary}
           />
           <StatCard
             label="Total Prospectos"
             value={dashboardSummary?.total_prospectos ?? '—'}
+            subtitle="Clientes en seguimiento"
             color="#3b82f6"
             loading={!dashboardSummary}
           />
@@ -43,15 +49,18 @@ export default function InicioView({
                 ? `${((allProspectosList.filter(p => ['negociacion', 'vendido'].includes(p.category)).length / allProspectosList.length) * 100).toFixed(1)}%`
                 : '—'
             }
+            subtitle="Negociados + Vendidos"
             color="#10b981"
             loading={!allProspectosList || allProspectosList.length === 0}
           />
         </div>
       </div>
       <div className="kanban-section">
-        <div className="kanban-header">
+        <div className="kanban-header has-deco-icon">
+          <Columns className="section-deco-icon" size={72} />
+          <div className="stats-header-eyebrow">Pipeline</div>
           <h2>Gestión de Prospectos</h2>
-          <p>Arrastra prospectos entre etapas</p>
+          <p className="kanban-header-sub">Arrastra prospectos entre etapas</p>
         </div>
         <ErrorBoundary label="Error en el tablero Kanban">
           <KanbanBoard
@@ -64,7 +73,7 @@ export default function InicioView({
           />
         </ErrorBoundary>
       </div>
-      <ActivityFeed activities={activities} />
+      <ActivityFeed activities={activities} sectionTitle="Actividad Reciente" sectionEyebrow="Feed" sectionSubtitle="Últimas acciones del equipo" />
     </>
   );
 }

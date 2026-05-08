@@ -2,6 +2,7 @@ const ZOOM_IN_LABEL = 'Acercar';
 const ZOOM_OUT_LABEL = 'Alejar';
 const RESET_VIEW_LABEL = 'Centrar vista';
 const FULLSCREEN_LABEL = 'Pantalla completa';
+import './BlueprintControls.css';
 
 export default function BlueprintControls({ onZoomIn, onZoomOut, onReset, onFullscreen }) {
   const handleFullscreen = (e) => {

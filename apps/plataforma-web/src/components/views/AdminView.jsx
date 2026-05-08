@@ -2,6 +2,7 @@ import React from 'react';
 import { Button, Loader } from '../../ui/components';
 import { Badge } from '../../ui/components';
 import { API_BASE, VISOR_URL } from '../../config';
+import './AdminView.css';
 
 export default function AdminView({
   lots,
