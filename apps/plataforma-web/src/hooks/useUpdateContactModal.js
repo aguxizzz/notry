@@ -4,11 +4,13 @@ import { updateLastContact as updateLastContactService } from '../api/prospects'
 export function useUpdateContactModal({ apiFetch, addToast, onSuccess, loteOwnerId, setActivities }) {
   const [updateContactModalOpen, setUpdateContactModalOpen] = useState(false);
   const [selectedProspectId, setSelectedProspectId] = useState(null);
+  const [selectedProspectName, setSelectedProspectName] = useState(null);
   const [updateContactLoading, setUpdateContactLoading] = useState(false);
   const [updateContactClosing, setUpdateContactClosing] = useState(false);
 
-  const openUpdateContactModal = (prospectId) => {
+  const openUpdateContactModal = (prospectId, prospectName) => {
     setSelectedProspectId(prospectId);
+    setSelectedProspectName(prospectName);
     setUpdateContactModalOpen(true);
   };
 
@@ -18,6 +20,7 @@ export function useUpdateContactModal({ apiFetch, addToast, onSuccess, loteOwner
       setUpdateContactModalOpen(false);
       setUpdateContactClosing(false);
       setSelectedProspectId(null);
+      setSelectedProspectName(null);
     }, 200);
   };
 
@@ -29,6 +32,7 @@ export function useUpdateContactModal({ apiFetch, addToast, onSuccess, loteOwner
       addToast,
       refreshSync: onSuccess,
       prospectId: selectedProspectId,
+      prospectName: selectedProspectName,
       observationNotes,
       onUpdate: closeUpdateContactModal,
       loteOwnerId,

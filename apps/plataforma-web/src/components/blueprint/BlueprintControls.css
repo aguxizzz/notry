@@ -1,0 +1,50 @@
+/* ── Blueprint Controls ── */
+.blueprint-controls {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  gap: 6px;
+  z-index: 20;
+  background: rgba(26, 26, 42, 0.82);
+  border: 1px solid rgba(197, 160, 89, 0.35);
+  border-radius: var(--radius-md);
+  padding: 6px;
+  backdrop-filter: blur(4px);
+}
+
+.blueprint-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(197, 160, 89, 0.4);
+  border-radius: var(--radius-sm);
+  background: rgba(197, 160, 89, 0.15);
+  color: var(--accent-color);
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 700;
+  transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+  flex-shrink: 0;
+}
+
+.blueprint-btn:hover {
+  background: var(--accent-color);
+  color: var(--color-text);
+  border-color: var(--accent-color);
+}
+
+.blueprint-btn--wide {
+  width: auto;
+  padding: 0 8px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.blueprint-btn:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}

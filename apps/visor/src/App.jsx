@@ -75,7 +75,7 @@ export default function App() {
   );
 
   const blueprintAnnotations = useMemo(
-    () => annotations.filter(a => a.type === 'polygon' && a.blueprint_coordinates?.length >= 3),
+    () => annotations.filter(a => (a.type === 'polygon' || a.type === 'poi') && a.blueprint_coordinates?.length >= 3),
     [annotations]
   );
 
@@ -88,13 +88,30 @@ export default function App() {
   );
 
   const handleMarkerSelect = useCallback((marker, markersPlugin) => {
-    // Ignore synthetic border polyline markers
-    if (marker.id.includes('__border__')) return;
+    // Ignore synthetic markers (border polylines and icon overlays)
+    if (marker.id.includes('__border__') || marker.id.includes('__icon')) return;
 
     const ann = annotationsById[marker.id];
 
     if (ann?.type === 'text') {
       markersPlugin.hideMarkerPanel?.();
+      return;
+    }
+
+    if (ann?.type === 'poi') {
+      postLoteClick(marker.id);
+      setPanel({
+        isOpen: true,
+        title: ann.tooltip ?? marker.id,
+        content: ann.description ?? '',
+        markerId: marker.id,
+        detail: {
+          type: 'poi',
+          icon_type: ann.icon_type ?? null,
+          link_url: ann.link_url ?? null,
+          color: ann.color ?? '#14b8a6',
+        },
+      });
       return;
     }
 
@@ -115,6 +132,23 @@ export default function App() {
   const handleBlueprintSelect = useCallback((ann) => {
     const id = ann.uuid || ann.id;
     postLoteClick(id);
+
+    if (ann.type === 'poi') {
+      setPanel({
+        isOpen: true,
+        title: ann.tooltip ?? id,
+        content: ann.description ?? '',
+        markerId: id,
+        detail: {
+          type: 'poi',
+          icon_type: ann.icon_type ?? null,
+          link_url: ann.link_url ?? null,
+          color: ann.color ?? '#14b8a6',
+        },
+      });
+      return;
+    }
+
     setPanel({
       isOpen: true,
       title: ann.tooltip ?? id,

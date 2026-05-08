@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { UserPlus, ArrowRight, Phone, UserMinus, Home, Calendar, FileText, Mail, Activity, ChevronDown } from 'lucide-react';
+import { UserPlus, ArrowRight, Phone, UserMinus, Home, Calendar, FileText, Mail, Activity as ActivityIcon, ChevronDown } from 'lucide-react';
 import './ActivityFeed.css';
 
 const ICONS = {
@@ -14,7 +14,7 @@ const ICONS = {
   note_added:         { Icon: FileText,  color: '#8b5cf6' },
   prospect_contacted: { Icon: Phone,     color: '#14b8a6' },
   email_sent:         { Icon: Mail,      color: '#3b82f6' },
-  other:              { Icon: Activity,  color: 'var(--color-text-muted)' },
+  other:              { Icon: ActivityIcon,  color: 'var(--color-text-muted)' },
 };
 
 const DESCRIPTIONS = {
@@ -43,7 +43,7 @@ function relativeTime(ts) {
 
 const ITEMS_TO_SHOW = 4;
 
-export default function ActivityFeed({ activities = [] }) {
+export default function ActivityFeed({ activities = [], sectionTitle = 'Actividad Reciente', sectionEyebrow, sectionSubtitle }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const enriched = useMemo(
@@ -62,9 +62,11 @@ export default function ActivityFeed({ activities = [] }) {
 
   return (
     <div className="activity-feed">
-      <div className="activity-feed-header">
-        <h3 className="activity-feed-title">Actividad Reciente</h3>
-        <p className="activity-feed-description">Actualizaciones en tiempo real</p>
+      <div className="activity-feed-header has-deco-icon">
+        <ActivityIcon className="section-deco-icon" size={72} />
+        {sectionEyebrow && <div className="stats-header-eyebrow">{sectionEyebrow}</div>}
+        <h3 className="activity-feed-title">{sectionTitle}</h3>
+        {sectionSubtitle && <p className="activity-feed-subtitle">{sectionSubtitle}</p>}
       </div>
       {activities.length === 0 ? (
         <div className="activity-feed-empty">
@@ -76,8 +78,12 @@ export default function ActivityFeed({ activities = [] }) {
             {visibleItems.map((event, idx) => {
               const { Icon, color } = event.iconMeta;
               return (
-                <li key={`${event.type}-${event.id}-${event.ts}`} className="activity-item" style={{ animationDelay: `${idx * 40}ms` }}>
-                  <span className="activity-item-icon" style={{ color }}>
+                <li
+                  key={`${event.type}-${event.id}-${event.ts}`}
+                  className="activity-item"
+                  style={{ '--item-accent': color }}
+                >
+                  <span className="activity-item-icon">
                     <Icon size={16} />
                   </span>
                   <span className="activity-item-body">

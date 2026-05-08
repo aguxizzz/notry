@@ -1,4 +1,23 @@
 import { buildNormalizedBorders } from './normalizeLotBorders.js';
+import { POI_ICON_MARKERS } from './icons/poiIcons.js';
+
+/**
+ * Builds an HTML string for a POI icon overlay marker.
+ * Renders a colored circle with the icon path centered inside.
+ */
+function getPoiIconSvg(iconType, iconColor, bgColor) {
+  const path = POI_ICON_MARKERS[iconType];
+  if (!path) return '';
+  return `<svg viewBox="0 0 72 72" style="overflow:visible" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="36" cy="36" r="32" fill="${bgColor}" opacity="0.95"/>
+    <circle cx="36" cy="36" r="32" fill="none" stroke="white" stroke-width="3"/>
+    <g transform="translate(20, 20)" style="color:${iconColor}">
+      <svg viewBox="0 0 24 24" width="32" height="32" style="display:block">
+        <path d="${path}" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </g>
+  </svg>`;
+}
 
 /**
  * Convierte anotaciones del contrato del backend al formato MarkerConfig del MarkersPlugin.
@@ -41,6 +60,51 @@ export function annotationsToMarkers(annotations, snapThreshold = 5) {
           rect: Array.isArray(size) ? size : [size.width, size.height],
           position,
         };
+      }
+
+      case 'poi': {
+        const points = ann.panorama_coordinates ?? ann.polygonPixels ?? ann.polygon ?? [];
+        if (points.length < 3) return [];
+
+        const poiColor = ann.color ?? '#14b8a6';
+        const fillStyle = {
+          fill: `${poiColor}22`,
+          stroke: poiColor,
+          strokeWidth: '1.5',
+          strokeDasharray: '8 4',
+          strokeLinecap: 'round',
+        };
+
+        const polygonMarker = {
+          ...base,
+          polygonPixels: points,
+          svgStyle: fillStyle,
+          tooltip: ann.tooltip ?? null,
+        };
+
+        // Icon overlay at centroid — only if icon_type is present
+        if (ann.icon_type) {
+          const cx = points.reduce((s, [x]) => s + x, 0) / points.length;
+          const cy = points.reduce((s, [, y]) => s + y, 0) / points.length;
+          const iconSize = 72;
+          const r = iconSize / 2;
+          const iconSvg = getPoiIconSvg(ann.icon_type, '#ffffff', poiColor);
+          return [
+            polygonMarker,
+            {
+              id: `${ann.uuid ?? ann.id}__icon`,
+              visible: ann.visible !== false,
+              html: iconSvg,
+              position: { textureX: cx, textureY: cy },
+              size: { width: iconSize, height: iconSize },
+              anchor: 'center',
+              tooltip: null,
+              scale: [0.5, 1.5],
+            },
+          ];
+        }
+
+        return [polygonMarker];
       }
 
       case 'polygon': {

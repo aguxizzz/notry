@@ -1,4 +1,5 @@
 import { Button } from '../ui/components';
+import '../ui/components/Modal.css';
 
 export default function ConfirmDialog({ isOpen, lot, loading, onConfirm, onCancel }) {
   if (!isOpen) return null;

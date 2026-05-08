@@ -6,6 +6,7 @@ import BlueprintControls from './blueprint/BlueprintControls';
 import BlueprintPolygonLayer from './blueprint/BlueprintPolygonLayer';
 import BlueprintTooltip from './blueprint/BlueprintTooltip';
 import BlueprintWarningBanner from './blueprint/BlueprintWarningBanner';
+import './BlueprintHeatmap.css';
 
 export default function BlueprintHeatmap({
   blueprintUrl,

@@ -90,7 +90,7 @@ export async function saveEditProspect({ apiFetch, editingProspectId, editProspe
   }
 }
 
-export async function updateLastContact({ apiFetch, setUpdatingContact, addToast, refreshSync, prospectId, observationNotes, onUpdate, loteOwnerId, setActivities }) {
+export async function updateLastContact({ apiFetch, setUpdatingContact, addToast, refreshSync, prospectId, prospectName, observationNotes, onUpdate, loteOwnerId, setActivities }) {
   setUpdatingContact(true);
   try {
     const body = {};
@@ -103,14 +103,7 @@ export async function updateLastContact({ apiFetch, setUpdatingContact, addToast
     });
     onUpdate?.(prospectId);
     addToast('Último contacto actualizado.', 'success');
-    postActivityLog({ apiFetch, activityType: 'prospect_contacted', entityType: 'prospect', entityId: prospectId, loteOwnerId, description: observationNotes || 'Contacto registrado' });
-    setActivities?.([{
-      id: crypto.randomUUID(),
-      type: 'prospect_contacted',
-      name: '—',
-      description: observationNotes || 'Contacto registrado',
-      ts: Date.now(),
-    }]);
+    postActivityLog({ apiFetch, activityType: 'prospect_contacted', entityType: 'prospect', entityId: prospectId, loteOwnerId, description: observationNotes || 'Contacto registrado', extraData: { prospect_name: prospectName } });
     refreshSync();
   } catch (error) {
     addToast(`Error: ${error.message}`, 'error');

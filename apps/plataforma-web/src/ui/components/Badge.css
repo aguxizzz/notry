@@ -1,0 +1,31 @@
+/* ── Badges ── */
+.badge {
+  background: rgba(197, 160, 89, 0.1);
+  color: var(--accent-color);
+  padding: 4px var(--space-xs);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge.status-disponible {
+  background: rgba(22, 163, 74, 0.12);
+  color: var(--color-stat-available);
+}
+
+.badge.status-reservado {
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--color-stat-reserved);
+}
+
+.badge.status-vendido {
+  background: rgba(220, 38, 38, 0.12);
+  color: var(--color-stat-sold);
+}
+
+.badge.category-primer_contacto { background: var(--color-cat-contacto-bg); color: var(--color-cat-contacto); }
+.badge.category-seguimiento     { background: var(--color-cat-seguimiento-bg); color: var(--color-cat-seguimiento); }
+.badge.category-negociacion     { background: var(--color-cat-negociacion-bg); color: var(--color-cat-negociacion); }
+.badge.category-vendido         { background: var(--color-cat-vendido-bg); color: var(--color-cat-vendido); }

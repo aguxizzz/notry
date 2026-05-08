@@ -11,6 +11,16 @@ function getPolyVar(status) {
   return POLY_VAR[status] || POLY_VAR.default;
 }
 
+function getPoiVar(color) {
+  const c = color ?? '#14b8a6';
+  return {
+    fill: `${c}22`,
+    stroke: c,
+    strokeDasharray: '8 4',
+    strokeLinecap: 'round',
+  };
+}
+
 export default function BlueprintViewer({
   blueprintUrl,
   annotations,
@@ -158,7 +168,7 @@ export default function BlueprintViewer({
 
   // Empty state: no annotations with valid blueprint_coordinates
   const hasAnnotations = annotations.some(
-    a => a.type === 'polygon' && a.blueprint_coordinates?.length >= 3
+    a => (a.type === 'polygon' || a.type === 'poi') && a.blueprint_coordinates?.length >= 3
   );
 
   if (!blueprintUrl) {
@@ -247,11 +257,15 @@ export default function BlueprintViewer({
           style={{ width: dw, height: dh }}
         >
           {annotations.map((ann) => {
-            if (ann.type !== 'polygon' || !ann.blueprint_coordinates || ann.blueprint_coordinates.length < 3) {
+            const isPolygon = ann.type === 'polygon';
+            const isPoi = ann.type === 'poi';
+            if ((!isPolygon && !isPoi) || !ann.blueprint_coordinates || ann.blueprint_coordinates.length < 3) {
               return null;
             }
 
-            const polyVar = getPolyVar(ann.status || ann.estado);
+            const polyVar = isPoi
+              ? getPoiVar(ann.color)
+              : getPolyVar(ann.status || ann.estado);
             const isHovered = hoveredId === (ann.uuid || ann.id);
             const isSelected = selectedId === (ann.uuid || ann.id);
             const isFocused  = isHovered || isSelected;

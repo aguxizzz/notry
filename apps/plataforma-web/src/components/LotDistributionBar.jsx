@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './LotDistributionBar.css';
 
 const LotDistributionBar = ({ summary, loading = false }) => {
   const [activeSegment, setActiveSegment] = useState(null);

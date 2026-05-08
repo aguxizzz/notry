@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import BlueprintHeatmap from '../BlueprintHeatmap';
 import { Loader } from '../../ui/components';
 import { getHeatColor, getTextColor } from '../../utils/heatColor';
+import './HeatmapCard.css';
 
 export default function HeatmapCard({
   selectedLoteo,

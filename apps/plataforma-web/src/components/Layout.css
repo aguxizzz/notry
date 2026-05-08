@@ -1,0 +1,145 @@
+/* ── Dashboard Layout ── */
+.dashboard-container {
+  min-height: 100vh;
+  background-color: var(--bg-dark);
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-nav {
+  height: var(--nav-height);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-lg);
+  background: var(--panel-bg);
+}
+
+.nav-brand {
+  font-weight: var(--weight-black);
+  letter-spacing: 0.1em;
+  color: var(--accent-color);
+  font-size: var(--text-sm);
+}
+
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.dashboard-content {
+  flex: 1;
+  padding: 0;
+}
+
+.dashboard-container.with-sidebar .dashboard-content {
+  margin-left: 0;
+}
+
+.owner-layout {
+  min-height: 100vh;
+  padding: var(--space-lg);
+  padding-left: calc(var(--sidebar-width) + var(--space-lg));
+  background-color: var(--bg-dark);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+/* ── Mobile top bar ── */
+.mobile-topbar {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: var(--color-dark-surface);
+  border-bottom: 1px solid var(--color-dark-border);
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-md);
+  z-index: 999;
+  gap: var(--space-md);
+}
+
+.mobile-topbar-hamburger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  background: transparent;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color 0.2s ease, background 0.2s ease;
+  flex-shrink: 0;
+}
+
+.mobile-topbar-hamburger:hover {
+  color: var(--color-surface);
+  background: rgba(197, 160, 89, 0.08);
+}
+
+.mobile-topbar-hamburger:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.mobile-topbar-brand {
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  color: var(--color-accent);
+  font-size: var(--text-sm);
+  flex: 1;
+  text-align: center;
+}
+
+.mobile-topbar-user {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: #888;
+  min-width: 44px;
+  text-align: right;
+}
+
+@media (max-width: 768px) {
+  .mobile-topbar {
+    display: flex;
+  }
+
+  .owner-layout {
+    padding-top: 72px;
+    padding-left: var(--space-lg);
+  }
+}
+
+/* ── Global Utilities ── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay,
+  .modal-card,
+  .kanban-col,
+  .kanban-card,
+  .kanban-error-banner,
+  .stat-spinner {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

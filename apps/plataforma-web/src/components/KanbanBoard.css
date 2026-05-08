@@ -1,0 +1,63 @@
+/* ── Kanban Board ── */
+.kanban-section {
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 0;
+  overflow: hidden;
+}
+
+.kanban-header {
+  padding: var(--space-lg) var(--space-lg) var(--space-md);
+  position: relative;
+}
+
+.kanban-header h2 {
+  font-family: var(--font-primary);
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: var(--weight-black);
+  color: var(--text-main);
+  margin: 0 0 2px 0;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  position: relative;
+  z-index: 1;
+}
+
+.kanban-header-sub {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-weight: 400;
+  letter-spacing: 0;
+  margin: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.kanban-board-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0 var(--space-lg) var(--space-lg);
+  overflow-x: auto;
+}
+
+.kanban-board {
+  display: flex;
+  gap: 0;
+  min-height: 0;
+  flex: 1;
+}
+
+.kanban-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 300px;
+}
+
+/* Column styles moved to kanban/KanbanColumn.css */

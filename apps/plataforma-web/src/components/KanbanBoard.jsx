@@ -3,6 +3,7 @@ import { Loader } from '../ui/components';
 import { usePatchProspect } from '../hooks/usePatchProspect';
 import KanbanColumn from './kanban/KanbanColumn';
 import AdvisorAvatar from '../ui/components/AdvisorAvatar';
+import './KanbanBoard.css';
 
 const CATEGORIES = ['primer_contacto', 'seguimiento', 'negociacion', 'vendido'];
 
@@ -116,36 +117,40 @@ export default function KanbanBoard({ token, onSessionExpired, prospectosList = 
 
   if (loading) {
     return (
-      <div className="kanban-loading">
-        <Loader />
+      <div className="kanban-board-wrapper">
+        <div className="kanban-loading">
+          <Loader />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="kanban-board">
-      {kanbanError && (
-        <div className="kanban-error-banner">
-          {kanbanError}
-        </div>
-      )}
-      {CATEGORIES.map(cat => (
-        <KanbanColumn
-          key={cat}
-          category={cat}
-          meta={COL_META[cat]}
-          prospects={columns[cat]}
-          isDragOver={dragOverCol === cat}
-          patchingIds={patchingIds}
-          draggingId={draggingId}
-          onDragOver={(e) => handleDragOver(e, cat)}
-          onDragLeave={() => setDragOverCol(null)}
-          onDrop={(e) => handleDrop(e, cat)}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-          AdvisorAvatarComponent={AdvisorAvatar}
-        />
-      ))}
+    <div className="kanban-board-wrapper">
+      <div className="kanban-board">
+        {kanbanError && (
+          <div className="kanban-error-banner">
+            {kanbanError}
+          </div>
+        )}
+        {CATEGORIES.map(cat => (
+          <KanbanColumn
+            key={cat}
+            category={cat}
+            meta={COL_META[cat]}
+            prospects={columns[cat]}
+            isDragOver={dragOverCol === cat}
+            patchingIds={patchingIds}
+            draggingId={draggingId}
+            onDragOver={(e) => handleDragOver(e, cat)}
+            onDragLeave={() => setDragOverCol(null)}
+            onDrop={(e) => handleDrop(e, cat)}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            AdvisorAvatarComponent={AdvisorAvatar}
+          />
+        ))}
+      </div>
     </div>
   );
 }

@@ -147,7 +147,7 @@ export default function BlueprintEditor({
     if (e.button !== 0) return;
 
     // Check if snapped to first point (closes polygon)
-    if (isSnappedRef.current && activeToolRef.current === 'polygon') {
+    if (isSnappedRef.current && (activeToolRef.current === 'polygon' || activeToolRef.current === 'poi')) {
       e.stopPropagation();
       isSnappedRef.current = false;
       onMarkerSelectRef.current && onMarkerSelectRef.current('temp-pt-0');
@@ -365,14 +365,14 @@ export default function BlueprintEditor({
             left: 0,
             width: dw,
             height: dh,
-            cursor: activeTool === 'polygon' ? 'crosshair' : 'default',
+            cursor: activeTool === 'polygon' || activeTool === 'poi' ? 'crosshair' : 'default',
             userSelect: 'none',
             pointerEvents: 'auto',
             overflow: 'visible'
           }}
         >
           {annotations.map(ann => {
-            // Finished polygons
+            // Finished polygons (lots)
             if (ann.type === 'polygon' && ann.polygonPixels && ann.polygonPixels.length >= 3) {
               const pts = ann.polygonPixels.map(([nx, ny]) => normToSvg(nx, ny));
               const polyStr = pts.map((p) => `${p.x},${p.y}`).join(' ');
@@ -423,6 +423,68 @@ export default function BlueprintEditor({
                         r={Math.max(1.5, 5 / zoom)}
                         fill="#fff"
                         stroke="#0f0"
+                        strokeWidth={Math.max(1, 2 / zoom)}
+                        opacity={0.8}
+                        data-type="midpoint"
+                        data-marker-id={ann.id}
+                        data-index={i}
+                        style={{ cursor: 'copy' }}
+                      />
+                    );
+                  })}
+                </g>
+              );
+            }
+
+            // Finished POI polygons
+            if (ann.type === 'poi' && ann.polygonPixels && ann.polygonPixels.length >= 3) {
+              const pts = ann.polygonPixels.map(([nx, ny]) => normToSvg(nx, ny));
+              const polyStr = pts.map((p) => `${p.x},${p.y}`).join(' ');
+              const isSelected = ann.id === selectedId;
+              const poiColor = ann.color ?? '#14b8a6';
+              const style = {
+                fill: `${poiColor}33`,
+                stroke: poiColor,
+                strokeWidth: '2',
+              };
+
+              return (
+                <g key={ann.id}>
+                  <polygon
+                    points={polyStr}
+                    fill={style.fill}
+                    stroke={style.stroke}
+                    strokeWidth={style.strokeWidth}
+                    data-type="polygon"
+                    data-marker-id={ann.id}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  {isSelected && pts.map((p, i) => (
+                    <circle
+                      key={`${ann.id}-corner-${i}`}
+                      cx={p.x}
+                      cy={p.y}
+                      r={Math.max(2, 6 / zoom)}
+                      fill="#fff"
+                      stroke={poiColor}
+                      strokeWidth={Math.max(1, 2 / zoom)}
+                      data-type="corner"
+                      data-marker-id={ann.id}
+                      data-index={i}
+                      style={{ cursor: 'grab' }}
+                    />
+                  ))}
+                  {isSelected && pts.map((p, i) => {
+                    const next = pts[(i + 1) % pts.length];
+                    const mid = { x: (p.x + next.x) / 2, y: (p.y + next.y) / 2 };
+                    return (
+                      <circle
+                        key={`${ann.id}-mid-${i}`}
+                        cx={mid.x}
+                        cy={mid.y}
+                        r={Math.max(1.5, 5 / zoom)}
+                        fill="#fff"
+                        stroke={poiColor}
                         strokeWidth={Math.max(1, 2 / zoom)}
                         opacity={0.8}
                         data-type="midpoint"
