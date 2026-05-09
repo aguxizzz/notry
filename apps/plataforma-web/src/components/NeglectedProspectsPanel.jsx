@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Clock } from 'lucide-react';
+import { Clock, AlertCircle } from 'lucide-react';
 import { CATEGORY_DISPLAY } from '../constants';
 import './NeglectedProspectsPanel.css';
 
@@ -18,6 +18,12 @@ function formatDaysAgo(isoDate) {
   if (!isoDate) return Infinity;
   const ms = Date.now() - new Date(isoDate).getTime();
   return Math.floor(ms / (1000 * 60 * 60 * 24));
+}
+
+function formatDaysText(days) {
+  if (days === Infinity) return 'Nunca contactado';
+  if (days === 1) return 'Ultimo contacto hace: 1 día';
+  return `Ultimo contacto hace: ${days} días`;
 }
 
 export default function NeglectedProspectsPanel({ prospects = [] }) {
@@ -39,7 +45,7 @@ export default function NeglectedProspectsPanel({ prospects = [] }) {
           <h3 className="chart-title">Requieren Atención</h3>
           <p className="chart-subtitle">Contactos con más tiempo sin actividad</p>
         </div>
-        <span className="chart-total">{isEmpty ? 'Todo al día' : `${staleProspects.length} pendientes`}</span>
+        {!isEmpty && <AlertCircle size={20} className="chart-total-icon" title={`${staleProspects.length} pendientes`} />}
       </div>
 
       {isEmpty ? (
@@ -74,7 +80,7 @@ export default function NeglectedProspectsPanel({ prospects = [] }) {
                 <div className="neglected-row-right">
                   <div className="neglected-days">
                     <Clock size={11} />
-                    <span>{p.days === Infinity ? 'Nunca' : `${p.days}d`}</span>
+                    <span>{formatDaysText(p.days)}</span>
                   </div>
                 </div>
               </div>

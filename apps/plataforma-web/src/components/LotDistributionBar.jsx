@@ -65,14 +65,6 @@ const LotDistributionBar = ({ summary, loading = false }) => {
 
   return (
     <div className="lot-distribution-bar">
-      <div className="distribution-header">
-        <h3 className="distribution-title">Distribución de Lotes</h3>
-        <div className="distribution-occupied">
-          <span className="occupied-percent">{occupiedPercent.toFixed(0)}%</span>
-          <span className="occupied-label">Ocupado</span>
-        </div>
-      </div>
-
       <div className="distribution-bar-container">
         <div className="distribution-bar">
           {segments.map(seg => (

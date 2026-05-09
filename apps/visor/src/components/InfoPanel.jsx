@@ -89,7 +89,7 @@ const formatArea = (area) => {
   return `${area} m²`;
 };
 
-function PrecalificacionForm({ lotDetail, onClose }) {
+function PrecalificacionForm({ lotDetail, onClose, origin }) {
   const [nombre, setNombre] = useState('');
   const [numero, setNumero] = useState('');
   const [submitStatus, setSubmitStatus] = useState('idle'); // 'idle' | 'loading' | 'success' | 'error'
@@ -112,6 +112,7 @@ function PrecalificacionForm({ lotDetail, onClose }) {
         lote_id: lotDetail.markerId,
         name: nombre,
         phone: numero,
+        origin,
       }),
     }).then((res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -223,7 +224,7 @@ function PrecalificacionForm({ lotDetail, onClose }) {
 // Duration must match --t in index.css (0.28s)
 const CLOSE_DURATION_MS = 280;
 
-export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClose }) {
+export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origin, onClose }) {
   const [showForm, setShowForm] = useState(false);
   const [transDir, setTransDir] = useState(null);
   const [isClosing, setIsClosing] = useState(false);
@@ -340,7 +341,7 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, onClo
 
         <div id="info-panel-content">
           {showForm ? (
-            <PrecalificacionForm key={display.markerId} lotDetail={lotDetail} onClose={wrappedOnClose} />
+            <PrecalificacionForm key={display.markerId} lotDetail={lotDetail} origin={origin} onClose={wrappedOnClose} />
           ) : isPoi ? (
             <div id="info-panel-view">
               <div className="poi-badge" style={{ background: poiDetail.color }}>

@@ -10,3 +10,13 @@ export const CATEGORY_DISPLAY = {
   negociacion: 'Negociación',
   vendido: 'Vendido',
 };
+
+export const ORIGIN_DISPLAY = {
+  web_platform:   'Plataforma Web',
+  visor_direct:   'Visor · Directo',
+  visor_whatsapp: 'Visor · WhatsApp',
+  visor_google:   'Visor · Google',
+  visor_tiktok:   'Visor · TikTok',
+  visor_facebook: 'Visor · Facebook',
+  visor_youtube:  'Visor · YouTube',
+};
