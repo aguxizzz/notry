@@ -1,47 +1,83 @@
 import React, { useState } from 'react';
-import { Check, MessageCircle, Search, Music, Facebook, Youtube, Link, ExternalLink } from 'lucide-react';
+import { Check, Link, ExternalLink } from 'lucide-react';
+import { SiWhatsapp, SiTelegram, SiFacebook, SiMessenger, SiGmail, SiInstagram, SiTiktok, SiYoutube, SiGoogle } from 'react-icons/si';
 import { Button } from '../../ui/components';
 import '../../ui/components/Modal.css';
 
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const isAndroid = /Android/i.test(navigator.userAgent);
 const supportsWebShare = Boolean(navigator.share);
 
 const VISOR_ORIGINS = [
   {
     value: 'whatsapp',
     label: 'WhatsApp',
-    icon: MessageCircle,
+    icon: SiWhatsapp,
     webUrl: (url) => `https://web.whatsapp.com/send?text=${encodeURIComponent(url)}`,
+    androidIntent: (url) => `intent://send?text=${encodeURIComponent(url)}#Intent;scheme=whatsapp;package=com.whatsapp;S.browser_fallback_url=${encodeURIComponent(`https://web.whatsapp.com/send?text=${encodeURIComponent(url)}`)};end`,
   },
   {
-    value: 'google',
-    label: 'Google',
-    icon: Search,
-    webUrl: null,
-  },
-  {
-    value: 'tiktok',
-    label: 'TikTok',
-    icon: Music,
-    webUrl: null,
+    value: 'telegram',
+    label: 'Telegram',
+    icon: SiTelegram,
+    webUrl: (url) => `https://t.me/share/url?url=${encodeURIComponent(url)}`,
+    androidIntent: (url) => `intent://msg_url?url=${encodeURIComponent(url)}#Intent;scheme=tg;package=org.telegram.messenger;S.browser_fallback_url=${encodeURIComponent(`https://t.me/share/url?url=${encodeURIComponent(url)}`)};end`,
   },
   {
     value: 'facebook',
     label: 'Facebook',
-    icon: Facebook,
+    icon: SiFacebook,
     webUrl: (url) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+    androidIntent: (url) => `intent://share#Intent;scheme=fb;package=com.facebook.katana;S.android.intent.extra.TEXT=${encodeURIComponent(url)};S.browser_fallback_url=${encodeURIComponent(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`)};end`,
+  },
+  {
+    value: 'messenger',
+    label: 'Messenger',
+    icon: SiMessenger,
+    webUrl: null,
+    androidIntent: (url) => `intent://send?text=${encodeURIComponent(url)}#Intent;scheme=fb-messenger;package=com.facebook.orca;S.browser_fallback_url=${encodeURIComponent(`https://www.facebook.com/messages/new`)};end`,
+  },
+  {
+    value: 'gmail',
+    label: 'Gmail',
+    icon: SiGmail,
+    webUrl: (url) => `https://mail.google.com/mail/?view=cm&fs=1&body=${encodeURIComponent(url)}`,
+    androidIntent: (url) => `intent://send#Intent;scheme=mailto;package=com.google.android.gm;S.android.intent.extra.TEXT=${encodeURIComponent(url)};end`,
+  },
+  {
+    value: 'instagram',
+    label: 'Instagram',
+    icon: SiInstagram,
+    webUrl: null,
+    androidIntent: null,
+  },
+  {
+    value: 'tiktok',
+    label: 'TikTok',
+    icon: SiTiktok,
+    webUrl: null,
+    androidIntent: null,
   },
   {
     value: 'youtube',
     label: 'YouTube',
-    icon: Youtube,
+    icon: SiYoutube,
     webUrl: null,
+    androidIntent: null,
+  },
+  {
+    value: 'google',
+    label: 'Google',
+    icon: SiGoogle,
+    webUrl: null,
+    androidIntent: null,
   },
   {
     value: '',
     label: 'Link Directo',
     icon: Link,
     webUrl: null,
+    androidIntent: null,
   },
 ];
 
@@ -66,7 +102,15 @@ export default function ShareLoteoModal({
   const handleShare = async (origin) => {
     const link = generateLink(origin.value);
 
-    // Mobile path: delegate to native OS share sheet
+    // Android path: use intent URLs to open apps directly
+    if (isAndroid && origin.androidIntent) {
+      const intentUrl = origin.androidIntent(link);
+      // eslint-disable-next-line react-hooks/immutability
+      window.location.href = intentUrl;
+      return;
+    }
+
+    // iOS/desktop with Web Share API: delegate to native OS share sheet
     if (isMobile && supportsWebShare) {
       try {
         await navigator.share({ url: link, title: 'Visor de Loteo' });
@@ -123,7 +167,7 @@ export default function ShareLoteoModal({
             </p>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-md)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
             {VISOR_ORIGINS.map(origin => {
               const Icon = origin.icon;
               const isCopied = copiedOrigin === origin.value;
@@ -134,18 +178,18 @@ export default function ShareLoteoModal({
                   onClick={() => handleShare(origin)}
                   style={{
                     display: 'flex',
-                    flexDirection: 'column',
                     alignItems: 'center',
-                    gap: 'var(--space-sm)',
-                    padding: 'var(--space-md)',
+                    gap: 'var(--space-md)',
+                    padding: 'var(--space-sm) var(--space-md)',
                     background: isCopied ? 'var(--color-success-bg)' : 'var(--bg-dark)',
                     border: isCopied ? '2px solid var(--color-success)' : '1px solid var(--border-color)',
                     borderRadius: 'var(--radius-md)',
                     cursor: 'pointer',
                     transition: 'all var(--duration-fast) var(--ease-out)',
                     color: isCopied ? 'var(--color-success)' : 'var(--text-muted)',
-                    textAlign: 'center',
+                    textAlign: 'left',
                     position: 'relative',
+                    justifyContent: 'space-between',
                   }}
                   onMouseEnter={(e) => {
                     if (!isCopied) {
@@ -164,25 +208,27 @@ export default function ShareLoteoModal({
                       ? 'Copiado'
                       : isMobile && supportsWebShare
                       ? `Compartir con ?ref=${origin.value || 'directo'}`
-                      : origin.webUrl
+                      : origin.webUrl || origin.androidIntent
                       ? `Abrir ${origin.label}`
                       : `Copiar enlace para ${origin.label}`
                   }
                 >
-                  {!isMobile && origin.webUrl && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', flex: 1 }}>
+                    {isCopied ? (
+                      <Check size={20} />
+                    ) : (
+                      <Icon size={20} />
+                    )}
+                    <span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-bold)' }}>
+                      {isCopied ? 'Copiado' : origin.label}
+                    </span>
+                  </div>
+                  {!isMobile && (origin.webUrl || origin.androidIntent) && (
                     <ExternalLink
-                      size={10}
-                      style={{ position: 'absolute', top: 6, right: 6, opacity: 0.4 }}
+                      size={14}
+                      style={{ opacity: 0.4, flexShrink: 0 }}
                     />
                   )}
-                  {isCopied ? (
-                    <Check size={24} />
-                  ) : (
-                    <Icon size={24} />
-                  )}
-                  <span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-bold)' }}>
-                    {isCopied ? 'Copiado' : origin.label}
-                  </span>
                 </button>
               );
             })}
