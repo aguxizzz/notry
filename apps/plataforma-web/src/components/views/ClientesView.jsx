@@ -3,7 +3,7 @@ import { SlidersHorizontal, Pencil, Trash2, RotateCw, BookUser } from 'lucide-re
 import { Button, Loader, Select, ErrorBoundary, CommentTooltip } from '../../ui/components';
 import CategoryPieChart from '../CategoryPieChart';
 import NeglectedProspectsPanel from '../NeglectedProspectsPanel';
-import { CATEGORY_DISPLAY, formatDate } from '../../constants';
+import { CATEGORY_DISPLAY, ORIGIN_DISPLAY, formatDate } from '../../constants';
 import './ClientesView.css';
 
 function ProspectosFilters({
@@ -60,6 +60,7 @@ function ProspectosTable({ prospectos, filteredProspectos, loadingMore, hasMore,
             <th scope="col">Email</th>
             <th scope="col">Teléfono</th>
             <th scope="col">Categoría</th>
+            <th scope="col">Origen</th>
             <th scope="col">Último Contacto</th>
             <th scope="col">Acciones</th>
           </tr>
@@ -67,7 +68,7 @@ function ProspectosTable({ prospectos, filteredProspectos, loadingMore, hasMore,
         <tbody>
           {data.length === 0 ? (
             <tr>
-              <td colSpan={6} className="td-empty-row">No se encontraron prospectos.</td>
+              <td colSpan={7} className="td-empty-row">No se encontraron prospectos.</td>
             </tr>
           ) : (
             data.map(p => (
@@ -79,6 +80,9 @@ function ProspectosTable({ prospectos, filteredProspectos, loadingMore, hasMore,
                   <span className={`badge category-${p.category}`}>
                     {CATEGORY_DISPLAY[p.category] ?? p.category?.replace(/_/g, ' ')}
                   </span>
+                </td>
+                <td className="td-muted">
+                  {ORIGIN_DISPLAY[p.origin] ?? '—'}
                 </td>
                 <td className="td-muted">
                   <div className="last-contact-cell">

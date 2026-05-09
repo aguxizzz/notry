@@ -7,6 +7,7 @@ export async function createProspect({ apiFetch, addProspectForm, setAddProspect
   const body = {
     name: addProspectForm.name,
     category: addProspectForm.category,
+    origin: 'web_platform',
   };
   if (addProspectForm.lote_id) body.lote_id = addProspectForm.lote_id;
   if (addProspectForm.email) body.email = addProspectForm.email;
@@ -60,6 +61,8 @@ export async function saveEditProspect({ apiFetch, editingProspectId, editProspe
   else body.phone = null;
   if (editProspectForm.advisor_id) body.advisor_id = editProspectForm.advisor_id;
   else body.advisor_id = null;
+  if (editProspectForm.origin) body.origin = editProspectForm.origin;
+  else body.origin = null;
 
   try {
     await apiFetch(`${API_BASE}/prospects/${editingProspectId}`, {

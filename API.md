@@ -435,12 +435,15 @@ Lists prospects with pagination and filters.
 | `lote_id` | UUID | Filter by lot |
 | `loteo_id` | UUID | Filter by loteo |
 | `category` | string | Filter by category |
+| `origin` | string | Filter by origin |
 | `asesor_id` | UUID | Filter by advisor |
 | `without_advisor` | boolean | True = only prospects without advisor |
 | `limit` | integer | Items per page (max 100, default 50) |
 | `offset` | integer | Pagination offset |
 
 **Category values:** `primer_contacto`, `seguimiento`, `negociacion`, `vendido`
+
+**Origin values:** `web_platform`, `visor_whatsapp`, `visor_direct`, `visor_google`, `visor_tiktok`, `visor_facebook`, `visor_youtube`
 
 **Response `200`:**
 ```json
@@ -454,8 +457,7 @@ Lists prospects with pagination and filters.
       "email": "juan@example.com",
       "phone": "+5491112345678",
       "category": "primer_contacto",
-      "budget": 150000.00,
-      "payment_method": "contado",
+      "origin": "visor_whatsapp",
       "last_contact": "2024-01-15T10:30:00Z",
       "observation_notes": "Interested, following up next week"
     }
@@ -482,8 +484,7 @@ Requires `lote_owner` role.
   "email": "juan@example.com", // required if no phone
   "phone": "+5491112345678",   // required if no email
   "category": "primer_contacto",
-  "budget": 150000.00,        // optional
-  "payment_method": "contado", // optional: "contado" | "credito"
+  "origin": "web_platform",    // optional: see ProspectOrigin enum
   "last_contact": "2024-01-15T10:30:00Z",  // optional
   "observation_notes": "Interested, following up next week"  // optional (max 500 chars)
 }
@@ -521,8 +522,7 @@ Requires `lote_owner` role.
   "email": "new@example.com", // optional
   "phone": "+549...",         // optional
   "category": "seguimiento",  // optional
-  "budget": 200000.00,        // optional
-  "payment_method": "credito", // optional
+  "origin": "visor_direct",   // optional: see ProspectOrigin enum
   "last_contact": "2024-01-20T10:30:00Z",  // optional
   "observation_notes": "Updated notes"  // optional (max 500 chars)
 }
@@ -1139,6 +1139,17 @@ Creates a new activity log entry.
 | `seguimiento` | Follow-up |
 | `negociacion` | Negotiation |
 | `vendido` | Sold |
+
+### ProspectOrigin
+| Value | Description |
+|-------|-------------|
+| `web_platform` | Created from web platform (CRM) |
+| `visor_whatsapp` | Created via 360° visor - WhatsApp |
+| `visor_direct` | Created via 360° visor - Direct contact |
+| `visor_google` | Created via 360° visor - Google |
+| `visor_tiktok` | Created via 360° visor - TikTok |
+| `visor_facebook` | Created via 360° visor - Facebook |
+| `visor_youtube` | Created via 360° visor - YouTube |
 
 ### PaymentMethod
 | Value | Description |

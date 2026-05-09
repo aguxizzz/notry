@@ -135,6 +135,16 @@ export default function AddProspectModal({
               <option value="vendido">Vendido</option>
             </select>
           </div>
+          <div className="form-group">
+            <label htmlFor="prospect-origin">Origen</label>
+            <input
+              id="prospect-origin"
+              type="text"
+              value="Plataforma Web"
+              disabled
+              readOnly
+            />
+          </div>
           {error && <div className="status-message error">{error}</div>}
           <div className="modal-footer">
             <Button variant="outline" size="sm" type="button" onClick={onClose}>

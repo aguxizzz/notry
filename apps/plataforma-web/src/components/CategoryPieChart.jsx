@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Users } from 'lucide-react';
 import './CategoryPieChart.css';
 
 const CATEGORY_META = {
@@ -45,7 +46,7 @@ export default function CategoryPieChart({ prospects = [] }) {
           <h3 className="chart-title">Prospectos por Etapa</h3>
           <p className="chart-subtitle">Distribución actual de prospectos</p>
         </div>
-        <span className="chart-total">{total} total</span>
+        <Users size={20} className="chart-total-icon" title={`${total} prospectos totales`} />
       </div>
 
       {isEmpty ? (
@@ -66,8 +67,7 @@ export default function CategoryPieChart({ prospects = [] }) {
               <div className="chart-row-header">
                 <span className="chart-row-label">{seg.label}</span>
                 <div className="chart-row-meta">
-                  <span className="chart-row-count">{seg.count}</span>
-                  <span className="chart-row-pct">{seg.pct}%</span>
+                  <span className="chart-row-count">{seg.count} {seg.count === 1 ? 'cliente' : 'clientes'} ({seg.pct}%)</span>
                 </div>
               </div>
               <div className="chart-bar-track">

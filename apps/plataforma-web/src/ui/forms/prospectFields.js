@@ -1,3 +1,5 @@
+import { ORIGIN_DISPLAY } from '../../constants/display';
+
 export const getProspectFields = (advisorsList, advisorsLoading, lotsList = [], lotsLoading = false) => [
   { name: 'name', label: 'Nombre', required: true },
   {
@@ -49,6 +51,20 @@ export const getProspectFields = (advisorsList, advisorsLoading, lotsList = [], 
         options: [
           { value: '', label: 'Sin asignar' },
           ...advisorsList.map(a => ({ value: a.id, label: a.full_name })),
+        ],
+      },
+    ],
+  },
+  {
+    type: 'group',
+    fields: [
+      {
+        name: 'origin',
+        label: 'Origen',
+        type: 'select',
+        options: [
+          { value: '', label: 'Sin especificar' },
+          ...Object.entries(ORIGIN_DISPLAY).map(([value, label]) => ({ value, label })),
         ],
       },
     ],

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Search, SlidersHorizontal, Pencil, Trash2, Eye, TrendingUp, LayoutGrid } from 'lucide-react';
 import { Button, Loader, Select, ErrorBoundary, CommentTooltip } from '../../ui/components';
 import LotDistributionBar from '../LotDistributionBar';
+import ShareLoteoModal from '../modals/ShareLoteoModal';
 import { API_BASE, VISOR_URL } from '../../config';
 import { STATUS_DISPLAY } from '../../constants';
 import '../../ui/components/ActionBtn.css';
@@ -160,7 +161,7 @@ function LotesTable({ lots, filteredLots, onEditLot, onDeleteLot }) {
   );
 }
 
-function LoteosTable({ loteos, loading, onEditLoteo, onDeleteLoteo, onSafeOpen, onOpenEditor }) {
+function LoteosTable({ loteos, loading, onEditLoteo, onDeleteLoteo, onSafeOpen, onOpenEditor, onOpenShareLoteo }) {
   return (
     <div key="loteos" className="inventory-table-wrapper fade-in">
       {loading && loteos.length === 0 ? (
@@ -249,6 +250,15 @@ function LoteosTable({ loteos, loading, onEditLoteo, onDeleteLoteo, onSafeOpen, 
                       <button
                         type="button"
                         className="text-action-btn view"
+                        onClick={() => onOpenShareLoteo(loteo.id)}
+                        title="Copiar enlace compartible"
+                        aria-label={`Copiar enlace de ${loteo.name}`}
+                      >
+                        Compartir
+                      </button>
+                      <button
+                        type="button"
+                        className="text-action-btn view"
                         onClick={() => onOpenEditor(loteo.id)}
                         title="Abrir editor"
                         aria-label={`Abrir editor de ${loteo.name}`}
@@ -292,6 +302,19 @@ export default function InventarioView({
   onOpenEditor,
   safeOpen,
 }) {
+  const [shareLoteoOpen, setShareLoteoOpen] = useState(false);
+  const [selectedLoteoId, setSelectedLoteoId] = useState(null);
+
+  const handleOpenShareLoteo = (loteoId) => {
+    setSelectedLoteoId(loteoId);
+    setShareLoteoOpen(true);
+  };
+
+  const handleCloseShareLoteo = () => {
+    setShareLoteoOpen(false);
+    setSelectedLoteoId(null);
+  };
+
   return (
     <>
       <div className="stats-section">
@@ -341,10 +364,19 @@ export default function InventarioView({
               onDeleteLoteo={onOpenDeleteLoteoDialog}
               onSafeOpen={safeOpen}
               onOpenEditor={onOpenEditor}
+              onOpenShareLoteo={handleOpenShareLoteo}
             />
           )}
         </ErrorBoundary>
       </div>
+
+      <ShareLoteoModal
+        isOpen={shareLoteoOpen}
+        onClose={handleCloseShareLoteo}
+        visorBaseUrl={VISOR_URL}
+        apiBaseUrl={API_BASE}
+        loteoId={selectedLoteoId}
+      />
     </>
   );
 }
