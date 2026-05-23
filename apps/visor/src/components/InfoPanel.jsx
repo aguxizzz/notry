@@ -77,6 +77,9 @@ const ESTADO_CONFIG = {
   reserved:  { accent: 'var(--estado-reserved-accent)',  accentHover: 'var(--estado-reserved-accent-h)',  label: 'Reservado'  },
 };
 
+// Set to true to re-enable price display
+const SHOW_PRICE = false;
+
 const formatPrice = (price) => {
   if (!price) return '';
   const num = parseFloat(price);
@@ -136,14 +139,14 @@ function PrecalificacionForm({ lotDetail, onClose, origin }) {
                   <span className="precal-meta-value">{formatArea(lotDetail.area_m2)}</span>
                 </div>
               )}
-              {lotDetail.price && (
+              {SHOW_PRICE && lotDetail.price && (
                 <div className="precal-meta-item">
                   <span className="precal-meta-label">Precio</span>
                   <span className="precal-meta-value">{formatPrice(lotDetail.price)}</span>
                 </div>
               )}
               {lotDetail.estado && ESTADO_CONFIG[lotDetail.estado] && (
-                <div className="precal-meta-item" style={{ gridColumn: lotDetail.price && lotDetail.area_m2 ? '1 / -1' : 'auto' }}>
+                <div className="precal-meta-item" style={{ gridColumn: (SHOW_PRICE && lotDetail.price) && lotDetail.area_m2 ? '1 / -1' : 'auto' }}>
                   <span className="precal-meta-label">Estado</span>
                   <span className="precal-meta-value" style={{ color: ESTADO_CONFIG[lotDetail.estado].accent }}>
                     {ESTADO_CONFIG[lotDetail.estado].label}
@@ -378,10 +381,10 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origi
               id="info-panel-view"
               className={transDir === 'back' ? 'anim-from-left' : ''}
             >
-              {(display.detail?.price || display.detail.area_m2) && (
+              {((SHOW_PRICE && display.detail?.price) || display.detail.area_m2) && (
                 <div className="lote-specs">
                   {display.detail.area_m2 && (
-                    <div className="lote-spec-item">
+                    <div className="lote-spec-item" style={!SHOW_PRICE ? { gridColumn: '1 / -1' } : undefined}>
                       <span className="lote-spec-icon"><IconRuler /></span>
                       <div className="lote-spec-text">
                         <span className="lote-spec-label">Superficie</span>
@@ -389,7 +392,7 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origi
                       </div>
                     </div>
                   )}
-                  {display.detail.price && (
+                  {SHOW_PRICE && display.detail.price && (
                     <div className="lote-spec-item">
                       <span className="lote-spec-icon"><IconDollar /></span>
                       <div className="lote-spec-text">
