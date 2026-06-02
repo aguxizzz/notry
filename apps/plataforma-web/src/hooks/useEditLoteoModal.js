@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { saveEditLoteo } from '../api/loteos';
 
-export function useEditLoteoModal({ apiFetch, setInventoryLoteos, addToast, onSuccess, onUpdateLoteo }) {
+export function useEditLoteoModal({ apiFetch, setInventoryLoteos, addToast, onSuccess, onUpdateLoteo, loteOwnerId, setActivities }) {
   const [editLoteoOpen, setEditLoteoOpen] = useState(false);
   const [editLoteoClosing, setEditLoteoClosing] = useState(false);
   const [editingLoteoId, setEditingLoteoId] = useState(null);
-  const [editLoteoForm, setEditLoteoForm] = useState({ name: '', slug: '', image_url: '', blueprint_url: '' });
+  const [editLoteoForm, setEditLoteoForm] = useState({ name: '', slug: '', image_url: '', thumbnail_url: '', blueprint_url: '' });
   const [editLoteoLoading, setEditLoteoLoading] = useState(false);
   const [editLoteoError, setEditLoteoError] = useState(null);
 
@@ -15,6 +15,7 @@ export function useEditLoteoModal({ apiFetch, setInventoryLoteos, addToast, onSu
       name: loteo.name || '',
       slug: loteo.slug || '',
       image_url: loteo.image_url || '',
+      thumbnail_url: loteo.thumbnail_url || '',
       blueprint_url: loteo.blueprint_url || '',
     });
     setEditLoteoOpen(true);
@@ -29,10 +30,25 @@ export function useEditLoteoModal({ apiFetch, setInventoryLoteos, addToast, onSu
     }, 200);
   };
 
+  const validateForm = (formData) => {
+    if (!formData.name || formData.name.trim() === '') {
+      return 'El nombre del loteo es requerido';
+    }
+    return null;
+  };
+
   const submitEditLoteo = async (e) => {
     e.preventDefault();
     setEditLoteoLoading(true);
     setEditLoteoError(null);
+
+    const validationError = validateForm(editLoteoForm);
+    if (validationError) {
+      setEditLoteoError(validationError);
+      setEditLoteoLoading(false);
+      return;
+    }
+
     try {
       await saveEditLoteo({
         apiFetch,
@@ -47,6 +63,8 @@ export function useEditLoteoModal({ apiFetch, setInventoryLoteos, addToast, onSu
         setInventoryLoteos,
         fetchInventoryLoteos: onSuccess,
         onUpdateLoteo,
+        loteOwnerId,
+        setActivities,
       });
     } catch (err) {
       setEditLoteoError(err.message);

@@ -32,6 +32,7 @@ import { useUpdateContactModal } from './hooks/useUpdateContactModal';
 import { useConfirmDialogs } from './hooks/useConfirmDialogs';
 import { useInventory } from './hooks/useInventory';
 import { useProspects } from './hooks/useProspects';
+import ShareLoteoModal from './components/modals/ShareLoteoModal';
 import { PAGE_SIZE, STATUS_DISPLAY, CATEGORY_DISPLAY, formatDate, getProspectFields, getLotFields } from './constants';
 import { createApiFetch } from './api';
 import { fetchLots as fetchLotsService, fetchInventory as fetchInventoryService, fetchInventoryBg as fetchInventoryBgService, createLot, patchLot, deleteLot } from './api/lots';
@@ -79,6 +80,7 @@ function App() {
     inventoryLoteosLoading, setInventoryLoteosLoading,
     inventoryLoteos, setInventoryLoteos,
     inventorySearch, setInventorySearch,
+    inventoryLoteosSearch, setInventoryLoteosSearch,
     inventoryStatusFilter, setInventoryStatusFilter,
     inventoryTab, setInventoryTab,
     inventoryLotsHasMore, setInventoryLotsHasMore,
@@ -87,6 +89,7 @@ function App() {
 
   const {
     prospectosLoading, setProspectosLoading,
+    prospectosSearch, setProspectosSearch,
     prospectosCategoryFilter, setProspectosCategoryFilter,
     prospectosWithoutAdvisor, setProspectosWithoutAdvisor,
     prospectosHasMore, setProspectosHasMore,
@@ -98,16 +101,22 @@ function App() {
   const [prospectosList, setProspectosList] = useState([]);
   const [allProspectosList, setAllProspectosList] = useState([]);
   const [clicksCache, setClicksCache] = useState({});
+  const [clicksLoadingIds, setClicksLoadingIds] = useState(new Set()); // Track which loteos are loading clicks
   const [visorDataCache, setVisorDataCache] = useState({}); // { loteoId: visorData }
+  const [visorDataLoadingIds, setVisorDataLoadingIds] = useState(new Set()); // Track which loteos are loading visor data
   const [reportsCache, setReportsCache] = useState({}); // { lastDays: { prospectos, ventas, lotesVendidos } }
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dashboardSummary, setDashboardSummary] = useState(null);
   const [analisisLastDays, setAnalisisLastDays] = useState(30);
   const [deleteLoteoDialog, setDeleteLoteoDialog] = useState({ open: false, loteo: null, loading: false });
+  const [shareLoteoOpen, setShareLoteoOpen] = useState(false);
+  const [selectedLoteoId, setSelectedLoteoId] = useState(null);
 
   const filtersRef = React.useRef({
     inventorySearch,
+    inventoryLoteosSearch,
     inventoryStatusFilter,
+    prospectosSearch,
     prospectosCategoryFilter,
     prospectosWithoutAdvisor,
     inventoryLoteos,
@@ -120,17 +129,22 @@ function App() {
   React.useEffect(() => {
     filtersRef.current = {
       inventorySearch,
+      inventoryLoteosSearch,
       inventoryStatusFilter,
+      prospectosSearch,
       prospectosCategoryFilter,
       prospectosWithoutAdvisor,
       inventoryLoteos,
       inventoryLotsCount: inventoryLots.length,
       prospectosCount: prospectosList.length,
     };
-  }, [inventorySearch, inventoryStatusFilter, prospectosCategoryFilter, prospectosWithoutAdvisor, inventoryLoteos, inventoryLots.length, prospectosList.length]);
+  }, [inventorySearch, inventoryLoteosSearch, inventoryStatusFilter, prospectosSearch, prospectosCategoryFilter, prospectosWithoutAdvisor, inventoryLoteos, inventoryLots.length, prospectosList.length]);
 
   // ── Toast notifications ────────────────────────────────────────────────────────
   const { toasts, addToast, removeToast } = useToast();
+
+  // ── Activity Feed Hook (called early so setActivities is available for modal hooks) ──
+  const { activities, handleRawActivities, setActivities } = useActivityFeed({});
 
   // Auto-fetch lots when entering super_admin view
   React.useEffect(() => {
@@ -186,14 +200,22 @@ function App() {
     });
   }, [inventoryLots, inventorySearch, inventoryStatusFilter]);
 
+  const filteredInventoryLoteos = useMemo(() => {
+    if (!inventoryLoteosSearch) return null;
+    const q = inventoryLoteosSearch.toLowerCase();
+    return inventoryLoteos.filter(loteo => loteo.name?.toLowerCase().includes(q));
+  }, [inventoryLoteos, inventoryLoteosSearch]);
+
   const filteredProspectos = useMemo(() => {
-    if (!prospectosCategoryFilter && !prospectosWithoutAdvisor) return null;
+    if (!prospectosSearch && !prospectosCategoryFilter && !prospectosWithoutAdvisor) return null;
+    const q = prospectosSearch.toLowerCase();
     return allProspectosList.filter(p => {
+      const matchSearch = !q || p.name?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q);
       const matchCat = !prospectosCategoryFilter || p.category === prospectosCategoryFilter;
       const matchAdv = !prospectosWithoutAdvisor || !p.advisor_id;
-      return matchCat && matchAdv;
+      return matchSearch && matchCat && matchAdv;
     });
-  }, [allProspectosList, prospectosCategoryFilter, prospectosWithoutAdvisor]);
+  }, [allProspectosList, prospectosSearch, prospectosCategoryFilter, prospectosWithoutAdvisor]);
 
   const handleLogin = async (email, password, { setLoading, setStatus }) => {
     try {
@@ -262,10 +284,19 @@ function App() {
     await loadMoreProspectosService({ apiFetch, setProspectosLoadingMore, setProspectosList, setProspectosHasMore, prospectosList, prospectosCategoryFilter, prospectosWithoutAdvisor, PAGE_SIZE });
   };
 
+  // Helper: Update dashboard cache based on current prospects list
+  // Avoids backend call; calculates derived metrics locally
+  const updateDashboardFromProspects = (prospectos) => {
+    setDashboardSummary(prev => prev ? { ...prev, total_prospectos: prospectos.length } : null);
+  };
+
   const updateProspectCategory = (prospectId, newCategory) => {
-    setAllProspectosList(prev =>
-      prev.map(p => p.id === prospectId ? { ...p, category: newCategory } : p)
-    );
+    setAllProspectosList(prev => {
+      const updated = prev.map(p => p.id === prospectId ? { ...p, category: newCategory } : p);
+      // Update dashboard cache locally (no API call)
+      updateDashboardFromProspects(updated);
+      return updated;
+    });
   };
 
   const updateProspectLastContact = (prospectId) => {
@@ -300,11 +331,19 @@ function App() {
   };
 
   const addProspect = (newProspect) => {
-    setAllProspectosList(prev => [...prev, newProspect]);
+    setAllProspectosList(prev => {
+      const updated = [...prev, newProspect];
+      updateDashboardFromProspects(updated);
+      return updated;
+    });
   };
 
   const removeProspect = (prospectId) => {
-    setAllProspectosList(prev => prev.filter(p => p.id !== prospectId));
+    setAllProspectosList(prev => {
+      const updated = prev.filter(p => p.id !== prospectId);
+      updateDashboardFromProspects(updated);
+      return updated;
+    });
   };
 
   const openDeleteConfirm = (lot) => {
@@ -323,12 +362,22 @@ function App() {
     setDeleteLoteoDialog({ open: false, loteo: null, loading: false });
   };
 
+  const handleOpenShareLoteo = (loteoId) => {
+    setSelectedLoteoId(loteoId);
+    setShareLoteoOpen(true);
+  };
+
+  const handleCloseShareLoteo = () => {
+    setShareLoteoOpen(false);
+    setSelectedLoteoId(null);
+  };
+
   const handleDeleteLoteoConfirm = async () => {
     const loteo = deleteLoteoDialog.loteo;
     if (!loteo) return;
     setDeleteLoteoDialog(prev => ({ ...prev, loading: true }));
     try {
-      await deleteLoteo({ apiFetch, loteoId: loteo.id });
+      await deleteLoteo({ apiFetch, loteoId: loteo.id, loteoName: loteo.name, loteOwnerId: user?.lote_owner_id, setActivities });
       addToast(`Loteo "${loteo.name}" eliminado.`, 'success');
       setDeleteLoteoDialog({ open: false, loteo: null, loading: false });
       removeLoteoFromList(loteo.id);
@@ -366,6 +415,8 @@ function App() {
       fetchInventoryBg(inventorySearch, inventoryStatusFilter);
     },
     onUpdateLot: updateLot,
+    loteOwnerId: user?.lote_owner_id,
+    setActivities,
   });
 
   // ── Create Lot Modal ─────────────────────────────────────────────────────────
@@ -376,6 +427,8 @@ function App() {
       fetchInventoryBg(inventorySearch, inventoryStatusFilter);
     },
     onAddLot: addLot,
+    loteOwnerId: user?.lote_owner_id,
+    setActivities,
   });
 
   // ── Create Loteo Modal ─────────────────────────────────────────────────────
@@ -386,6 +439,8 @@ function App() {
       fetchInventoryLoteosBg();
     },
     onAddLoteo: addLoteo,
+    loteOwnerId: user?.lote_owner_id,
+    setActivities,
   });
 
   // ── Edit Loteo Modal ──────────────────────────────────────────────────────────
@@ -397,16 +452,15 @@ function App() {
       addToast('Loteo actualizado.', 'success');
       fetchInventoryLoteos();
     },
+    setActivities,
     onUpdateLoteo: updateLoteo,
+    loteOwnerId: user?.lote_owner_id,
   });
 
   // Callbacks passed to AnalisisView so it can request data through the shared cache
-  const { handleAnalisisRequestClicks, handleAnalisisRequestVisorData } = buildAnalisisCallbacks({ apiFetch, setClicksCache, setVisorDataCache });
+  const { handleAnalisisRequestClicks, handleAnalisisRequestVisorData } = buildAnalisisCallbacks({ apiFetch, setClicksCache, setVisorDataCache, setClicksLoadingIds, setVisorDataLoadingIds });
 
   // ── Combined sync hook (must be after apiFetch and addToast) ─────────────────
-  // ── Activity Feed Hook (called first to get setActivities needed by mutations) ──
-  const { activities, handleRawActivities, setActivities } = useActivityFeed({});
-
   const { syncLoading, syncError, refresh: refreshSync } = useSync(token, apiFetch, {
     setInventoryLots,
     setInventoryLoteos,
@@ -564,6 +618,11 @@ function App() {
                   onSessionExpired={logout}
                   onUpdateProspectCategory={updateProspectCategory}
                   activities={activities}
+                  loteos={inventoryLoteos}
+                  onOpenShareLoteo={handleOpenShareLoteo}
+                  apiFetch={apiFetch}
+                  loteOwnerId={user?.lote_owner_id}
+                  setActivities={setActivities}
                 />
               )}
 
@@ -573,12 +632,15 @@ function App() {
                   inventoryLots={inventoryLots}
                   filteredInventoryLots={filteredInventoryLots}
                   inventoryLoteos={inventoryLoteos}
+                  filteredInventoryLoteos={filteredInventoryLoteos}
                   inventoryLoading={inventoryLoading}
                   inventoryLoteosLoading={inventoryLoteosLoading}
                   inventoryTab={inventoryTab}
                   onTabChange={setInventoryTab}
                   inventorySearch={inventorySearch}
                   onSearchChange={setInventorySearch}
+                  inventoryLoteosSearch={inventoryLoteosSearch}
+                  onLoteosSearchChange={setInventoryLoteosSearch}
                   inventoryStatusFilter={inventoryStatusFilter}
                   onStatusFilterChange={setInventoryStatusFilter}
                   syncLoading={syncLoading}
@@ -590,6 +652,7 @@ function App() {
                   onOpenDeleteLoteoDialog={openDeleteLoteoDialog}
                   onOpenEditor={openEditor}
                   safeOpen={safeOpen}
+                  onOpenShareLoteo={handleOpenShareLoteo}
                 />
               )}
 
@@ -601,6 +664,8 @@ function App() {
                   prospectosLoading={prospectosLoading}
                   prospectosLoadingMore={prospectosLoadingMore}
                   prospectosHasMore={prospectosHasMore}
+                  prospectosSearch={prospectosSearch}
+                  onSearchChange={setProspectosSearch}
                   prospectosCategoryFilter={prospectosCategoryFilter}
                   onCategoryChange={setProspectosCategoryFilter}
                   prospectosWithoutAdvisor={prospectosWithoutAdvisor}
@@ -616,11 +681,14 @@ function App() {
               {ownerSubView === 'analisis' && (
                 <ErrorBoundary label="Error en la vista de análisis">
                   <AnalisisView
+                    apiFetch={apiFetch}
                     token={token}
                     onSessionExpired={logout}
                     prefetchedLoteos={inventoryLoteos}
                     cachedClicks={clicksCache}
+                    clicksLoadingIds={clicksLoadingIds}
                     cachedVisorData={visorDataCache}
+                    visorDataLoadingIds={visorDataLoadingIds}
                     cachedReports={reportsCache}
                     analisisLastDays={analisisLastDays}
                     onAnalisisLastDaysChange={setAnalisisLastDays}
@@ -649,6 +717,7 @@ function App() {
         onSubmit={createLoteoModal.submitCreateLoteo}
         loading={createLoteoModal.createLoteoLoading}
         error={createLoteoModal.createLoteoError}
+        apiFetch={apiFetch}
       />
 
       <LoteoFormModal
@@ -661,6 +730,7 @@ function App() {
         onSubmit={editLoteoModal.submitEditLoteo}
         loading={editLoteoModal.editLoteoLoading}
         error={editLoteoModal.editLoteoError}
+        apiFetch={apiFetch}
       />
 
       <AddProspectModal
@@ -719,6 +789,14 @@ function App() {
         loading={confirmDialogs.confirmDialog.loading}
         onConfirm={handleDeleteConfirm}
         onCancel={confirmDialogs.closeConfirmDialog}
+      />
+
+      <ShareLoteoModal
+        isOpen={shareLoteoOpen}
+        onClose={handleCloseShareLoteo}
+        visorBaseUrl={VISOR_URL}
+        apiBaseUrl={API_BASE}
+        loteoId={selectedLoteoId}
       />
 
       <EditEntityModal

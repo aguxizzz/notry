@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { Button, Loader } from '../../ui/components';
 import '../../ui/components/Modal.css';
+import ImageUploadField from '../ImageUploadField';
 
 /**
  * LoteoFormModal — unified modal for creating and editing loteos.
@@ -15,6 +16,7 @@ import '../../ui/components/Modal.css';
  * @param {Function} props.onSubmit
  * @param {boolean} props.loading
  * @param {string|null} props.error
+ * @param {Function} props.apiFetch
  */
 export default function LoteoFormModal({
   mode,
@@ -26,6 +28,7 @@ export default function LoteoFormModal({
   onSubmit,
   loading,
   error,
+  apiFetch,
 }) {
   const modalRef = useRef(null);
 
@@ -73,24 +76,35 @@ export default function LoteoFormModal({
             />
           </div>
           <div className="form-group">
-            <label htmlFor={isCreate ? 'loteo-image-url' : 'edit-loteo-image-url'}>URL de Imagen</label>
-            <input
-              id={isCreate ? 'loteo-image-url' : 'edit-loteo-image-url'}
-              type="text"
+            <ImageUploadField
+              label="Imagen de portada"
               value={formData.image_url}
-              onChange={e => onFieldChange('image_url', e.target.value)}
+              thumbnailUrl={formData.thumbnail_url}
+              onUpload={({ url, thumbnailUrl }) => {
+                onFieldChange('image_url', url);
+                onFieldChange('thumbnail_url', thumbnailUrl);
+              }}
+              apiFetch={apiFetch}
             />
           </div>
           <div className="form-group">
-            <label htmlFor={isCreate ? 'loteo-blueprint-url' : 'edit-loteo-blueprint-url'}>URL de Blueprint</label>
-            <input
-              id={isCreate ? 'loteo-blueprint-url' : 'edit-loteo-blueprint-url'}
-              type="text"
+            <ImageUploadField
+              label="Blueprint"
               value={formData.blueprint_url}
-              onChange={e => onFieldChange('blueprint_url', e.target.value)}
+              onUpload={({ url }) => onFieldChange('blueprint_url', url)}
+              apiFetch={apiFetch}
             />
           </div>
-          {error && <div className="status-message error">{error}</div>}
+          {error && (
+            <div className="status-message error">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 2L2 20h20L12 2z" />
+                <path d="M12 9v4" />
+                <circle cx="12" cy="17" r="1" fill="currentColor" />
+              </svg>
+              {error}
+            </div>
+          )}
           <div className="modal-footer">
             <Button
               type="button"

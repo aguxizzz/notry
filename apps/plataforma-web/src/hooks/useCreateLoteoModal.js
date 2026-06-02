@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { createLoteo } from '../api/loteos';
 
-export function useCreateLoteoModal({ apiFetch, onSuccess, onAddLoteo }) {
+export function useCreateLoteoModal({ apiFetch, onSuccess, onAddLoteo, loteOwnerId, setActivities }) {
   const [createLoteoOpen, setCreateLoteoOpen] = useState(false);
-  const [createLoteoForm, setCreateLoteoForm] = useState({ name: '', slug: '', image_url: '', blueprint_url: '' });
+  const [createLoteoForm, setCreateLoteoForm] = useState({ name: '', slug: '', image_url: '', thumbnail_url: '', blueprint_url: '' });
   const [createLoteoLoading, setCreateLoteoLoading] = useState(false);
   const [createLoteoError, setCreateLoteoError] = useState(null);
 
@@ -14,13 +14,28 @@ export function useCreateLoteoModal({ apiFetch, onSuccess, onAddLoteo }) {
 
   const closeCreateLoteoModal = () => {
     setCreateLoteoOpen(false);
-    setCreateLoteoForm({ name: '', slug: '', image_url: '', blueprint_url: '' });
+    setCreateLoteoForm({ name: '', slug: '', image_url: '', thumbnail_url: '', blueprint_url: '' });
+  };
+
+  const validateForm = (formData) => {
+    if (!formData.name || formData.name.trim() === '') {
+      return 'El nombre del loteo es requerido';
+    }
+    return null;
   };
 
   const submitCreateLoteo = async (e) => {
     e.preventDefault();
     setCreateLoteoLoading(true);
     setCreateLoteoError(null);
+
+    const validationError = validateForm(createLoteoForm);
+    if (validationError) {
+      setCreateLoteoError(validationError);
+      setCreateLoteoLoading(false);
+      return;
+    }
+
     try {
       await createLoteo({
         apiFetch,
@@ -31,6 +46,8 @@ export function useCreateLoteoModal({ apiFetch, onSuccess, onAddLoteo }) {
         setCreateLoteoForm,
         onSuccess,
         onAddLoteo,
+        loteOwnerId,
+        setActivities,
       });
     } catch (err) {
       setCreateLoteoError(err.message);
