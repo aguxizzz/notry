@@ -1,5 +1,6 @@
 import { API_BASE } from '../config';
 import { isValidHttpsUrl } from '../utils/validation';
+import { postActivityLog } from './activityLogs';
 
 export async function fetchLoteos({ apiFetch, setLoading, setLoteos, setAdminSubView, addToast }) {
   setLoading(true);
@@ -35,20 +36,9 @@ export async function fetchInventoryLoteosBg({ apiFetch, setInventoryLoteos, add
   }
 }
 
-export async function createLoteo({ apiFetch, createLoteoForm, setCreateLoteoLoading, setCreateLoteoError, setCreateLoteoOpen, setCreateLoteoForm, onSuccess, onAddLoteo }) {
+export async function createLoteo({ apiFetch, createLoteoForm, setCreateLoteoLoading, setCreateLoteoError, setCreateLoteoOpen, setCreateLoteoForm, onSuccess, onAddLoteo, loteOwnerId, setActivities }) {
   setCreateLoteoLoading(true);
   setCreateLoteoError(null);
-
-  if (createLoteoForm.image_url && !isValidHttpsUrl(createLoteoForm.image_url)) {
-    setCreateLoteoError('La URL de imagen debe usar https://');
-    setCreateLoteoLoading(false);
-    return;
-  }
-  if (createLoteoForm.blueprint_url && !isValidHttpsUrl(createLoteoForm.blueprint_url)) {
-    setCreateLoteoError('La URL de blueprint debe usar https://');
-    setCreateLoteoLoading(false);
-    return;
-  }
 
   try {
     const res = await apiFetch(`${API_BASE}/loteos`, {
@@ -58,13 +48,24 @@ export async function createLoteo({ apiFetch, createLoteoForm, setCreateLoteoLoa
         name: createLoteoForm.name,
         slug: createLoteoForm.slug,
         image_url: createLoteoForm.image_url,
+        thumbnail_url: createLoteoForm.thumbnail_url || undefined,
         blueprint_url: createLoteoForm.blueprint_url,
         text_annotations: [],
       }),
     });
     onAddLoteo?.(res);
     setCreateLoteoOpen(false);
-    setCreateLoteoForm({ name: '', slug: '', image_url: '', blueprint_url: '' });
+    setCreateLoteoForm({ name: '', slug: '', image_url: '', thumbnail_url: '', blueprint_url: '' });
+    if (loteOwnerId && res?.id) {
+      postActivityLog({ apiFetch, activityType: 'loteo_created', entityType: 'lote', entityId: res.id, loteOwnerId, description: `Loteo "${res.name}" creado` });
+      setActivities?.([{
+        id: crypto.randomUUID(),
+        type: 'loteo_created',
+        name: res.name,
+        description: `Loteo "${res.name}" creado`,
+        ts: Date.now(),
+      }]);
+    }
     onSuccess?.();
   } catch (error) {
     setCreateLoteoError(error.message);
@@ -73,37 +74,47 @@ export async function createLoteo({ apiFetch, createLoteoForm, setCreateLoteoLoa
   }
 }
 
-export async function deleteLoteo({ apiFetch, loteoId }) {
-  return apiFetch(`${API_BASE}/loteos/${loteoId}`, { method: 'DELETE' });
+export async function deleteLoteo({ apiFetch, loteoId, loteoName, loteOwnerId, setActivities }) {
+  if (loteOwnerId) {
+    postActivityLog({ apiFetch, activityType: 'loteo_deleted', entityType: 'lote', entityId: loteoId, loteOwnerId, description: `Loteo "${loteoName}" eliminado` });
+    setActivities?.([{
+      id: crypto.randomUUID(),
+      type: 'loteo_deleted',
+      name: loteoName,
+      description: `Loteo "${loteoName}" eliminado`,
+      ts: Date.now(),
+    }]);
+  }
+  await apiFetch(`${API_BASE}/loteos/${loteoId}`, { method: 'DELETE' });
 }
 
-export async function saveEditLoteo({ apiFetch, editingLoteoId, editLoteoForm, addToast, setEditLoteoLoading, setEditLoteoError, setEditLoteoClosing, setEditLoteoOpen, setEditingLoteoId, setInventoryLoteos, fetchInventoryLoteos, onUpdateLoteo }) {
+export async function saveEditLoteo({ apiFetch, editingLoteoId, editLoteoForm, addToast, setEditLoteoLoading, setEditLoteoError, setEditLoteoClosing, setEditLoteoOpen, setEditingLoteoId, setInventoryLoteos, fetchInventoryLoteos, onUpdateLoteo, loteOwnerId, setActivities }) {
   setEditLoteoLoading(true);
   setEditLoteoError(null);
 
-  if (editLoteoForm.image_url && !isValidHttpsUrl(editLoteoForm.image_url)) {
-    setEditLoteoError('La URL de imagen debe usar https://');
-    setEditLoteoLoading(false);
-    return;
-  }
-  if (editLoteoForm.blueprint_url && !isValidHttpsUrl(editLoteoForm.blueprint_url)) {
-    setEditLoteoError('La URL de blueprint debe usar https://');
-    setEditLoteoLoading(false);
-    return;
-  }
-
   try {
-    await apiFetch(`${API_BASE}/loteos/${editingLoteoId}`, {
+    const res = await apiFetch(`${API_BASE}/loteos/${editingLoteoId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: editLoteoForm.name,
         slug: editLoteoForm.slug,
         image_url: editLoteoForm.image_url,
+        thumbnail_url: editLoteoForm.thumbnail_url || undefined,
         blueprint_url: editLoteoForm.blueprint_url,
       }),
     });
     onUpdateLoteo?.(editingLoteoId, editLoteoForm);
+    if (loteOwnerId && res?.id) {
+      postActivityLog({ apiFetch, activityType: 'loteo_updated', entityType: 'lote', entityId: res.id, loteOwnerId, description: `Loteo "${res.name}" actualizado` });
+      setActivities?.([{
+        id: crypto.randomUUID(),
+        type: 'loteo_updated',
+        name: res.name,
+        description: `Loteo "${res.name}" actualizado`,
+        ts: Date.now(),
+      }]);
+    }
     addToast('Loteo actualizado.', 'success');
     setEditLoteoClosing(true);
     setTimeout(() => {
