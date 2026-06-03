@@ -139,17 +139,3 @@
   align-items: center;
   height: 2.75rem;
 }
-
-.stat-spinner {
-  display: block;
-  width: 1.25rem;
-  height: 1.5rem;
-  border: 2px solid color-mix(in srgb, var(--stat-accent) 20%, transparent);
-  border-top-color: var(--stat-accent);
-  border-radius: 50%;
-  animation: statSpin 600ms linear infinite;
-}
-
-@keyframes statSpin {
-  to { transform: rotate(360deg); }
-}

@@ -52,6 +52,13 @@
   outline-offset: 2px;
 }
 
+.loteo-selector-empty {
+  padding: 7px 12px;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
 .loteo-pill.active {
   background: var(--accent-color);
   color: var(--color-surface);

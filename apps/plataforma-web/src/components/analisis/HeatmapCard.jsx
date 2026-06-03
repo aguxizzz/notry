@@ -13,6 +13,7 @@ export default function HeatmapCard({
   missingCoordinatesCount,
   heatmapFocusedIdx,
   onFocusChange,
+  isLoading = false,
 }) {
   const handleCellKeyDown = useCallback((e, index) => {
     if (clicksData.length === 0) return;
@@ -53,7 +54,7 @@ export default function HeatmapCard({
         </div>
       </div>
 
-      {!visorData && !clicksData.length ? (
+      {isLoading ? (
         <div className="heatmap-loading">
           <Loader />
         </div>
