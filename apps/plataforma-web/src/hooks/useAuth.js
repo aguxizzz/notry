@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { API_BASE } from '../config';
 import { fetchCurrentUser } from '../api/auth';
 
@@ -6,11 +6,25 @@ import { fetchCurrentUser } from '../api/auth';
  * useAuth — encapsulates authentication state and login/logout actions.
  *
  * Usage:
- *   const { token, user, handleLogin, logout } = useAuth();
+ *   const { token, user, isInitializing, handleLogin, logout } = useAuth();
  */
 export function useAuth() {
   const [token, setToken] = useState(null);
   const [user, setUser] = useState(null);
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  useEffect(() => {
+    const savedToken = localStorage.getItem('auth_token');
+    if (!savedToken) {
+      setIsInitializing(false);
+      return;
+    }
+    setToken(savedToken);
+    fetchCurrentUser(savedToken)
+      .then(meData => setUser(meData))
+      .catch(() => localStorage.removeItem('auth_token'))
+      .finally(() => setIsInitializing(false));
+  }, []);
 
   /**
    * @param {string} email
@@ -42,6 +56,7 @@ export function useAuth() {
       }
 
       const accessToken = loginData.access_token;
+      localStorage.setItem('auth_token', accessToken);
       setToken(accessToken);
 
       const meData = await fetchCurrentUser(accessToken);
@@ -79,6 +94,8 @@ export function useAuth() {
       setReportsCache, setDashboardSummary,
     } = setters;
 
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('owner_sub_view');
     // Auth state is reset via the hook's own setters (closure)
     setToken(null);
     setUser(null);
@@ -105,5 +122,5 @@ export function useAuth() {
     setDashboardSummary(null);
   }
 
-  return { token, user, handleLogin, logout };
+  return { token, user, isInitializing, handleLogin, logout };
 }
