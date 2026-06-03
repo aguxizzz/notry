@@ -1,0 +1,134 @@
+.upload-progress-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.upload-card {
+  width: 280px;
+  background: var(--color-toast-bg);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px 10px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.28), 0 1px 4px rgba(0, 0, 0, 0.16);
+  animation: uploadCardEnter 280ms var(--ease-out-quart) both;
+}
+
+.upload-card--exiting {
+  animation: uploadCardExit 200ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+.upload-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  gap: 8px;
+}
+
+.upload-card__label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.upload-card__phase {
+  font-size: var(--text-xs);
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: color 200ms var(--ease-out-quart);
+}
+
+.upload-card__phase--done {
+  color: var(--color-success);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.upload-card__track {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.upload-card__bar {
+  height: 100%;
+  border-radius: 99px;
+  background: var(--color-accent);
+  transition: width 240ms var(--ease-out-quart), background-color 300ms var(--ease-out-quart);
+}
+
+.upload-card__bar--done {
+  background: var(--color-success);
+}
+
+.checkmark-path {
+  stroke-dasharray: 18;
+  stroke-dashoffset: 18;
+  opacity: 0;
+  animation: checkmarkDraw 250ms var(--ease-out-quart) 50ms both;
+}
+
+@keyframes uploadCardEnter {
+  from {
+    transform: translateX(calc(100% + 24px));
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes uploadCardExit {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(calc(100% + 24px));
+    opacity: 0;
+  }
+}
+
+@keyframes checkmarkDraw {
+  from {
+    stroke-dashoffset: 18;
+    opacity: 0;
+  }
+  to {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upload-card {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .upload-card--exiting {
+    animation: none;
+    opacity: 0;
+  }
+  .upload-card__bar {
+    transition: none;
+  }
+  .checkmark-path {
+    animation: none;
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}

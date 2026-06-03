@@ -1,38 +1,53 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { uploadImage } from '../api/upload';
 
 const ACCEPTED = 'image/jpeg,image/png,image/webp,image/gif';
 
-/**
- * @param {string} value - URL original de la imagen (para guardar en DB)
- * @param {string} thumbnailUrl - URL del thumbnail (para mostrar en preview)
- * @param {({url, thumbnailUrl}) => void} onUpload - callback con ambas URLs tras upload
- * @param {string} label
- * @param {Function} apiFetch
- */
-export default function ImageUploadField({ value, thumbnailUrl, onUpload, label, apiFetch }) {
+export default function ImageUploadField({ value, thumbnailUrl, onUpload, label, apiFetch, uploadFn, onUploadEvent }) {
   const inputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
+  const [imgLoaded, setImgLoaded] = useState(false);
 
   const previewSrc = thumbnailUrl || value;
+
+  useEffect(() => {
+    setImgLoaded(false);
+  }, [previewSrc]);
 
   async function handleFileChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
 
+    const jobId = crypto.randomUUID();
     setUploading(true);
     setUploadError(null);
+    onUploadEvent?.({ type: 'start', id: jobId, label: label ?? 'Imagen' });
+
     try {
-      const result = await uploadImage(file, apiFetch);
+      let result;
+      if (uploadFn) {
+        result = await uploadFn(file, {
+          onConvertProgress: (percent) =>
+            onUploadEvent?.({ type: 'progress', id: jobId, phase: 'converting', percent: Math.round(percent / 2) }),
+          onUploadProgress: (percent) =>
+            onUploadEvent?.({ type: 'progress', id: jobId, phase: 'uploading', percent: 50 + Math.round(percent / 2) }),
+        });
+      } else {
+        result = await uploadImage(file, apiFetch);
+      }
       onUpload(result);
+      onUploadEvent?.({ type: 'complete', id: jobId });
     } catch (err) {
       setUploadError(err.message || 'Error al subir la imagen');
+      onUploadEvent?.({ type: 'error', id: jobId });
     } finally {
       setUploading(false);
     }
   }
+
+  const showSkeleton = previewSrc && !imgLoaded && !uploading;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -50,7 +65,7 @@ export default function ImageUploadField({ value, thumbnailUrl, onUpload, label,
           height: 100,
           borderRadius: 'var(--radius-md)',
           border: previewSrc ? 'none' : '1.5px dashed var(--color-border)',
-          background: previewSrc ? 'transparent' : 'var(--color-bg)',
+          background: 'var(--color-bg)',
           cursor: uploading ? 'default' : 'pointer',
           overflow: 'hidden',
           display: 'flex',
@@ -59,15 +74,30 @@ export default function ImageUploadField({ value, thumbnailUrl, onUpload, label,
           transition: 'border-color var(--duration-fast)',
         }}
       >
+        {showSkeleton && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(90deg, var(--color-border) 25%, var(--color-bg) 50%, var(--color-border) 75%)',
+            backgroundSize: '200% 100%',
+            animation: 'shimmer 1.4s infinite',
+          }} />
+        )}
+
         {previewSrc && (
           <img
             src={previewSrc}
             alt="preview"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            onLoad={() => setImgLoaded(true)}
+            onError={() => setImgLoaded(true)}
+            style={{
+              width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+              opacity: imgLoaded ? 1 : 0,
+              transition: 'opacity 200ms',
+            }}
           />
         )}
 
-        {previewSrc && !uploading && (
+        {previewSrc && imgLoaded && !uploading && (
           <div
             className="image-upload-overlay"
             style={{
@@ -128,6 +158,10 @@ export default function ImageUploadField({ value, thumbnailUrl, onUpload, label,
         .image-upload-overlay { opacity: 0; }
         div:hover > .image-upload-overlay { opacity: 1 !important; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
       `}</style>
     </div>
   );
