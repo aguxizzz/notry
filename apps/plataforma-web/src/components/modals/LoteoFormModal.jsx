@@ -29,6 +29,8 @@ export default function LoteoFormModal({
   loading,
   error,
   apiFetch,
+  uploadFn,
+  onUploadEvent,
 }) {
   const modalRef = useRef(null);
 
@@ -85,6 +87,8 @@ export default function LoteoFormModal({
                 onFieldChange('thumbnail_url', thumbnailUrl);
               }}
               apiFetch={apiFetch}
+              uploadFn={uploadFn}
+              onUploadEvent={onUploadEvent}
             />
           </div>
           <div className="form-group">
@@ -93,6 +97,8 @@ export default function LoteoFormModal({
               value={formData.blueprint_url}
               onUpload={({ url }) => onFieldChange('blueprint_url', url)}
               apiFetch={apiFetch}
+              uploadFn={uploadFn}
+              onUploadEvent={onUploadEvent}
             />
           </div>
           {error && (
