@@ -8,11 +8,14 @@ import HeatmapCard from './analisis/HeatmapCard';
 import './views/AnalisisView.css';
 
 export default function AnalisisView({
+  apiFetch,
   token,
   onSessionExpired,
   prefetchedLoteos = [],
   cachedClicks = {},
+  clicksLoadingIds = new Set(),
   cachedVisorData = {},
+  visorDataLoadingIds = new Set(),
   cachedReports = {},
   analisisLastDays,
   onAnalisisLastDaysChange,
@@ -60,14 +63,7 @@ export default function AnalisisView({
     setLoteosLoading(true);
     setLoteosError(null);
     try {
-      const res = await fetch(`${API_BASE}/loteos?include_lotes=false&limit=50&offset=0`, {
-        headers: {
-          accept: 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Error al cargar loteos');
+      const data = await apiFetch(`${API_BASE}/loteos?include_lotes=false&limit=50&offset=0`);
       setLoteos(data.items);
       if (data.items.length > 0 && !selectedLoteo) setSelectedLoteo(data.items[0]);
     } catch (err) {
@@ -80,6 +76,8 @@ export default function AnalisisView({
   const reportStats = cachedReports[analisisLastDays] ?? null;
   const clicksData = cachedClicks[selectedLoteo?.id] ?? [];
   const visorData = cachedVisorData[selectedLoteo?.id] ?? null;
+  const isLoadingClicks = selectedLoteo?.id && clicksLoadingIds.has(selectedLoteo.id);
+  const isLoadingVisorData = selectedLoteo?.id && visorDataLoadingIds.has(selectedLoteo.id);
   const maxClicks = clicksData.reduce((m, d) => Math.max(m, d.clicks), 0);
   const totalClicks = clicksData.reduce((s, d) => s + d.clicks, 0);
 
@@ -131,11 +129,11 @@ export default function AnalisisView({
           <div className="analisis-left-col">
             <div className="analisis-summary">
               <div className="analisis-stat analisis-stat--primary">
-                <span className="analisis-stat-value">{totalClicks}</span>
-                <span className="analisis-stat-label">Clics totales</span>
+                <span className="analisis-stat-value">{isLoadingClicks ? '—' : totalClicks}</span>
+                <span className="analisis-stat-label">Clics totales {isLoadingClicks && '(cargando...)'}</span>
               </div>
               <div className="analisis-stat">
-                <span className="analisis-stat-value">{clicksData.length}</span>
+                <span className="analisis-stat-value">{isLoadingClicks ? '—' : clicksData.length}</span>
                 <span className="analisis-stat-label">Lotes con actividad</span>
               </div>
             </div>
@@ -145,6 +143,7 @@ export default function AnalisisView({
               maxClicks={maxClicks}
               topLotsFocusedIdx={topLotsFocusedIdx}
               onFocusChange={setTopLotsFocusedIdx}
+              isLoading={isLoadingClicks}
             />
           </div>
 
@@ -157,6 +156,7 @@ export default function AnalisisView({
             missingCoordinatesCount={missingCoordinatesCount}
             heatmapFocusedIdx={heatmapFocusedIdx}
             onFocusChange={setHeatmapFocusedIdx}
+            isLoading={isLoadingVisorData || isLoadingClicks}
           />
         </div>
       </div>

@@ -7,7 +7,7 @@ const StatCard = ({ label, value, color = 'var(--accent-color)', loading = false
       <span className="stat-label">{label}</span>
       {loading ? (
         <span className="stat-value-loading" aria-label="Cargando">
-          <span className="stat-spinner"></span>
+          <Loader size="sm" />
         </span>
       ) : (
         <span className="stat-value">{value}</span>

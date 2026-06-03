@@ -7,7 +7,9 @@ export default function LoteoSelector({ loteos, selectedLoteo, onSelect }) {
       role="group"
       aria-label="Seleccionar loteo. Usa Tab para navegar y Enter o Espacio para seleccionar."
     >
-      {loteos.map((loteo) => (
+      {loteos.length === 0 ? (
+        <span className="loteo-selector-empty">Sin loteos registrados</span>
+      ) : loteos.map((loteo) => (
         <button
           key={loteo.id}
           className={`loteo-pill ${selectedLoteo?.id === loteo.id ? 'active' : ''}`}

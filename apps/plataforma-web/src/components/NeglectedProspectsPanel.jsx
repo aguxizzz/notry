@@ -35,6 +35,7 @@ export default function NeglectedProspectsPanel({ prospects = [] }) {
       .slice(0, 5);
   }, [prospects]);
 
+  const hasNoProspects = prospects.length === 0;
   const isEmpty = staleProspects.length === 0;
 
   return (
@@ -50,13 +51,15 @@ export default function NeglectedProspectsPanel({ prospects = [] }) {
 
       {isEmpty ? (
         <div className="chart-empty neglected-empty">
-          <div className="neglected-empty-icon">
-            <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-              <circle cx="18" cy="18" r="16" stroke="var(--accent-color)" strokeWidth="1.5" strokeDasharray="4 3" />
-              <path d="M12 18.5l4 4 8-8" stroke="var(--accent-color)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </div>
-          <span>Todos tus prospectos han sido contactados recientemente.</span>
+          {!hasNoProspects && (
+            <div className="neglected-empty-icon">
+              <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+                <circle cx="18" cy="18" r="16" stroke="var(--accent-color)" strokeWidth="1.5" strokeDasharray="4 3" />
+                <path d="M12 18.5l4 4 8-8" stroke="var(--accent-color)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+          )}
+          <span>{hasNoProspects ? 'Sin datos de prospectos.' : 'Todos tus prospectos han sido contactados recientemente.'}</span>
         </div>
       ) : (
         <div className="chart-body neglected-list">
