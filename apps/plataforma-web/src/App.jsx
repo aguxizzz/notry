@@ -35,6 +35,8 @@ import { useProspects } from './hooks/useProspects';
 import ShareLoteoModal from './components/modals/ShareLoteoModal';
 import { PAGE_SIZE, STATUS_DISPLAY, CATEGORY_DISPLAY, formatDate, getProspectFields, getLotFields } from './constants';
 import { createApiFetch } from './api';
+import { createUploadFn } from './api/upload';
+import UploadProgressCard from './components/UploadProgressCard';
 import { fetchLots as fetchLotsService, fetchInventory as fetchInventoryService, fetchInventoryBg as fetchInventoryBgService, createLot, patchLot, deleteLot } from './api/lots';
 import { fetchLoteos as fetchLoteosService, fetchInventoryLoteos as fetchInventoryLoteosService, fetchInventoryLoteosBg as fetchInventoryLoteosBgService, deleteLoteo } from './api/loteos';
 import { createProspect as createProspectService, fetchAdvisors as fetchAdvisorsService, saveEditProspect as saveEditProspectService, updateLastContact as updateLastContactService, fetchProspectos as fetchProspectosService, loadMoreProspectos as loadMoreProspectosService } from './api/prospects';
@@ -69,8 +71,8 @@ function App() {
   const [view, setView] = useState('login'); // 'login' | 'lote_owner' | 'super_admin'
   const [adminSubView, setAdminSubView] = useState('lotes'); // 'lotes' | 'loteos'
   const [adminLoading, setAdminLoading] = useState(false);
-  const [ownerSubView, setOwnerSubView] = useState('inicio');
-  const { token, user, handleLogin: authLogin, logout: authLogout } = useAuth();
+  const [ownerSubView, setOwnerSubView] = useState(() => localStorage.getItem('owner_sub_view') || 'inicio');
+  const { token, user, isInitializing, handleLogin: authLogin, logout: authLogout } = useAuth();
   const [lots, setLots] = useState(null);
   const [loteos, setLoteos] = useState(null);
   const [selectedLot, setSelectedLot] = useState(null);
@@ -145,6 +147,21 @@ function App() {
 
   // ── Activity Feed Hook (called early so setActivities is available for modal hooks) ──
   const { activities, handleRawActivities, setActivities } = useActivityFeed({});
+
+  // Restore view when session is recovered from localStorage
+  React.useEffect(() => {
+    if (isInitializing || !user) return;
+    if (user.role === 'super_admin' || user.role === 'admin') {
+      setView('super_admin');
+    } else if (user.role === 'lote_owner') {
+      setView('lote_owner');
+    }
+  }, [user, isInitializing]);
+
+  // Persist ownerSubView so it survives page reloads
+  React.useEffect(() => {
+    localStorage.setItem('owner_sub_view', ownerSubView);
+  }, [ownerSubView]);
 
   // Auto-fetch lots when entering super_admin view
   React.useEffect(() => {
@@ -407,6 +424,23 @@ function App() {
   // apiFetch uses logout (no-arg) as the 401 handler
   const apiFetch = useMemo(() => createApiFetch(token, logout), [token, logout]);
 
+  // uploadFn: XHR-based upload with WebP conversion + progress events
+  const uploadFn = useMemo(() => createUploadFn(token, logout), [token, logout]);
+
+  const [uploadJobs, setUploadJobs] = useState([]);
+
+  const handleUploadEvent = useCallback(({ type, id, label, phase, percent }) => {
+    if (type === 'start')
+      setUploadJobs(prev => [...prev, { id, label, phase: 'converting', percent: 0, done: false }]);
+    else if (type === 'progress')
+      setUploadJobs(prev => prev.map(j => j.id === id ? { ...j, phase, percent } : j));
+    else if (type === 'complete') {
+      setUploadJobs(prev => prev.map(j => j.id === id ? { ...j, done: true, percent: 100 } : j));
+      setTimeout(() => setUploadJobs(prev => prev.filter(j => j.id !== id)), 2200);
+    } else if (type === 'error')
+      setUploadJobs(prev => prev.filter(j => j.id !== id));
+  }, []);
+
   // ── Edit Lot Modal ──────────────────────────────────────────────────────────
   const editLotModal = useEditLotModal({
     apiFetch,
@@ -528,6 +562,10 @@ function App() {
     }
     window.open(url, '_blank', 'noopener,noreferrer');
   };
+
+  if (isInitializing) {
+    return <div className="app-loading"><Loader /></div>;
+  }
 
   if (view === 'login') {
     return <LoginView onLogin={handleLogin} />;
@@ -718,6 +756,8 @@ function App() {
         loading={createLoteoModal.createLoteoLoading}
         error={createLoteoModal.createLoteoError}
         apiFetch={apiFetch}
+        uploadFn={uploadFn}
+        onUploadEvent={handleUploadEvent}
       />
 
       <LoteoFormModal
@@ -731,6 +771,8 @@ function App() {
         loading={editLoteoModal.editLoteoLoading}
         error={editLoteoModal.editLoteoError}
         apiFetch={apiFetch}
+        uploadFn={uploadFn}
+        onUploadEvent={handleUploadEvent}
       />
 
       <AddProspectModal
@@ -827,6 +869,8 @@ function App() {
         loading={createLotModal.createLotLoading}
         error={createLotModal.createLotError}
       />
+
+      <UploadProgressCard jobs={uploadJobs} />
 
       <div className="toasts-container">
         {syncError && (
