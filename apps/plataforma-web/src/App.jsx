@@ -209,8 +209,8 @@ function App() {
   // ── Client-side filtered data (derived from useSync cache, no extra API calls) ──
   const filteredInventoryLots = useMemo(() => {
     if (!inventorySearch && !inventoryStatusFilter) return null;
-    const q = inventorySearch.toLowerCase();
-    return inventoryLots.filter(lot => {
+    const q = (inventorySearch || '').toLowerCase();
+    return (inventoryLots || []).filter(lot => {
       const matchSearch = !q || lot.name?.toLowerCase().includes(q);
       const matchStatus = !inventoryStatusFilter || lot.status === inventoryStatusFilter;
       return matchSearch && matchStatus;
@@ -219,14 +219,14 @@ function App() {
 
   const filteredInventoryLoteos = useMemo(() => {
     if (!inventoryLoteosSearch) return null;
-    const q = inventoryLoteosSearch.toLowerCase();
-    return inventoryLoteos.filter(loteo => loteo.name?.toLowerCase().includes(q));
+    const q = (inventoryLoteosSearch || '').toLowerCase();
+    return (inventoryLoteos || []).filter(loteo => loteo.name?.toLowerCase().includes(q));
   }, [inventoryLoteos, inventoryLoteosSearch]);
 
   const filteredProspectos = useMemo(() => {
     if (!prospectosSearch && !prospectosCategoryFilter && !prospectosWithoutAdvisor) return null;
-    const q = prospectosSearch.toLowerCase();
-    return allProspectosList.filter(p => {
+    const q = (prospectosSearch || '').toLowerCase();
+    return (allProspectosList || []).filter(p => {
       const matchSearch = !q || p.name?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q);
       const matchCat = !prospectosCategoryFilter || p.category === prospectosCategoryFilter;
       const matchAdv = !prospectosWithoutAdvisor || !p.advisor_id;
