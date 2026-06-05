@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { API_BASE } from '../config';
 import { saveEditProspect as saveEditProspectService, updateLastContact as updateLastContactService } from '../api/prospects';
 
-export function useEditProspectModal({ apiFetch, advisorsList, setAdvisorsList, addToast, onSuccess, onUpdateLastContact, loteOwnerId, setActivities }) {
+export function useEditProspectModal({ apiFetch, advisorsList, setAdvisorsList, addToast, onSuccess, onUpdateProspect, onUpdateLastContact, loteOwnerId, setActivities }) {
   const [editProspectModalOpen, setEditProspectModalOpen] = useState(false);
   const [editingProspectId, setEditingProspectId] = useState(null);
   const [editProspectForm, setEditProspectForm] = useState({
@@ -42,10 +42,29 @@ export function useEditProspectModal({ apiFetch, advisorsList, setAdvisorsList, 
     }, 200);
   };
 
+  const validateForm = (formData) => {
+    const hasLote = formData.lote_id && formData.lote_id.trim() !== '';
+    const hasEmail = formData.email && formData.email.trim() !== '';
+    const hasPhone = formData.phone && formData.phone.trim() !== '';
+
+    if (!hasLote && !hasEmail && !hasPhone) {
+      return 'Debes proporcionar un lote, email o número de teléfono';
+    }
+    return null;
+  };
+
   const saveEditProspect = async (e) => {
     e.preventDefault();
     setEditProspectLoading(true);
     setEditProspectError(null);
+
+    const validationError = validateForm(editProspectForm);
+    if (validationError) {
+      setEditProspectError(validationError);
+      setEditProspectLoading(false);
+      return;
+    }
+
     try {
       await saveEditProspectService({
         apiFetch,
@@ -57,11 +76,10 @@ export function useEditProspectModal({ apiFetch, advisorsList, setAdvisorsList, 
         setEditProspectClosing,
         setEditProspectModalOpen,
         setEditingProspectId,
-        refreshSync: onSuccess,
+        onUpdateProspect,
         loteOwnerId,
         setActivities,
       });
-      onSuccess?.();
     } catch (err) {
       setEditProspectError(err.message);
     } finally {

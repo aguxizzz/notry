@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
-import { Search, SlidersHorizontal, Pencil, Trash2, Eye, TrendingUp, LayoutGrid } from 'lucide-react';
+import React from 'react';
+import { Search, SlidersHorizontal, Pencil, Trash2, Eye, TrendingUp, LayoutGrid, Share2 } from 'lucide-react';
 import { Button, Loader, Select, ErrorBoundary, CommentTooltip } from '../../ui/components';
 import LotDistributionBar from '../LotDistributionBar';
-import ShareLoteoModal from '../modals/ShareLoteoModal';
 import { API_BASE, VISOR_URL } from '../../config';
 import { STATUS_DISPLAY } from '../../constants';
 import '../../ui/components/ActionBtn.css';
@@ -15,14 +14,23 @@ function InventarioControls({
   onTabChange,
   inventorySearch,
   onSearchChange,
+  inventoryLoteosSearch,
+  onLoteosSearchChange,
   inventoryStatusFilter,
   onStatusFilterChange,
+  inventoryLoteoFilter,
+  onLoteoFilterChange,
+  inventoryLoteos,
   inventoryLoading,
   syncLoading,
   inventoryLoteosLoading,
   onOpenCreateLoteo,
   onOpenCreateLot,
 }) {
+  const loteoFilterOptions = [
+    { value: '', label: 'Loteo: Todos' },
+    ...(inventoryLoteos || []).map(loteo => ({ value: String(loteo.id), label: loteo.name })),
+  ];
   return (
     <div className="inventory-controls">
       <div className="inventory-tab-controls">
@@ -53,6 +61,12 @@ function InventarioControls({
           <div className="inventory-filters">
             <SlidersHorizontal size={16} className="filter-icon" />
             <Select
+              id="inventory-loteo-filter"
+              value={inventoryLoteoFilter}
+              onChange={e => onLoteoFilterChange(e.target.value)}
+              options={loteoFilterOptions}
+            />
+            <Select
               id="inventory-status-filter"
               value={inventoryStatusFilter}
               onChange={e => onStatusFilterChange(e.target.value)}
@@ -73,7 +87,16 @@ function InventarioControls({
         </>
       ) : (
         <>
-          <div className="inventory-search" />
+          <div className="inventory-search">
+            <Search size={16} className="search-icon" />
+            <input
+              type="text"
+              placeholder="Buscar por nombre..."
+              className="search-input"
+              value={inventoryLoteosSearch}
+              onChange={e => onLoteosSearchChange(e.target.value)}
+            />
+          </div>
           <div className="loader-container small">
             {(syncLoading || inventoryLoteosLoading) && <Loader size="sm" />}
           </div>
@@ -161,7 +184,8 @@ function LotesTable({ lots, filteredLots, onEditLot, onDeleteLot }) {
   );
 }
 
-function LoteosTable({ loteos, loading, onEditLoteo, onDeleteLoteo, onSafeOpen, onOpenEditor, onOpenShareLoteo }) {
+function LoteosTable({ loteos, filteredLoteos, loading, onEditLoteo, onDeleteLoteo, onSafeOpen, onOpenEditor, onOpenShareLoteo }) {
+  const data = filteredLoteos ?? loteos;
   return (
     <div key="loteos" className="inventory-table-wrapper fade-in">
       {loading && loteos.length === 0 ? (
@@ -180,12 +204,12 @@ function LoteosTable({ loteos, loading, onEditLoteo, onDeleteLoteo, onSafeOpen, 
             </tr>
           </thead>
           <tbody>
-            {loteos.length === 0 ? (
+            {data.length === 0 ? (
               <tr>
                 <td colSpan={5} className="td-empty-row">No se encontraron loteos.</td>
               </tr>
             ) : (
-              loteos.map(loteo => (
+              data.map(loteo => (
                 <tr key={loteo.id}>
                   <td className="td-name">{loteo.name}</td>
                   <td>
@@ -254,7 +278,7 @@ function LoteosTable({ loteos, loading, onEditLoteo, onDeleteLoteo, onSafeOpen, 
                         title="Copiar enlace compartible"
                         aria-label={`Copiar enlace de ${loteo.name}`}
                       >
-                        Compartir
+                        <Share2 size={16} style={{ marginRight: '6px' }} /> Compartir
                       </button>
                       <button
                         type="button"
@@ -284,14 +308,19 @@ export default function InventarioView({
   inventoryLots,
   filteredInventoryLots,
   inventoryLoteos,
+  filteredInventoryLoteos,
   inventoryLoading,
   inventoryLoteosLoading,
   inventoryTab,
   onTabChange,
   inventorySearch,
   onSearchChange,
+  inventoryLoteosSearch,
+  onLoteosSearchChange,
   inventoryStatusFilter,
   onStatusFilterChange,
+  inventoryLoteoFilter,
+  onLoteoFilterChange,
   syncLoading,
   onOpenEditLotModal,
   onOpenDeleteConfirm,
@@ -301,19 +330,8 @@ export default function InventarioView({
   onOpenDeleteLoteoDialog,
   onOpenEditor,
   safeOpen,
+  onOpenShareLoteo,
 }) {
-  const [shareLoteoOpen, setShareLoteoOpen] = useState(false);
-  const [selectedLoteoId, setSelectedLoteoId] = useState(null);
-
-  const handleOpenShareLoteo = (loteoId) => {
-    setSelectedLoteoId(loteoId);
-    setShareLoteoOpen(true);
-  };
-
-  const handleCloseShareLoteo = () => {
-    setShareLoteoOpen(false);
-    setSelectedLoteoId(null);
-  };
 
   return (
     <>
@@ -339,8 +357,13 @@ export default function InventarioView({
           onTabChange={onTabChange}
           inventorySearch={inventorySearch}
           onSearchChange={onSearchChange}
+          inventoryLoteosSearch={inventoryLoteosSearch}
+          onLoteosSearchChange={onLoteosSearchChange}
           inventoryStatusFilter={inventoryStatusFilter}
           onStatusFilterChange={onStatusFilterChange}
+          inventoryLoteoFilter={inventoryLoteoFilter}
+          onLoteoFilterChange={onLoteoFilterChange}
+          inventoryLoteos={inventoryLoteos}
           inventoryLoading={inventoryLoading}
           syncLoading={syncLoading}
           inventoryLoteosLoading={inventoryLoteosLoading}
@@ -359,24 +382,17 @@ export default function InventarioView({
           ) : (
             <LoteosTable
               loteos={inventoryLoteos}
+              filteredLoteos={filteredInventoryLoteos}
               loading={inventoryLoteosLoading}
               onEditLoteo={onOpenEditLoteoModal}
               onDeleteLoteo={onOpenDeleteLoteoDialog}
               onSafeOpen={safeOpen}
               onOpenEditor={onOpenEditor}
-              onOpenShareLoteo={handleOpenShareLoteo}
+              onOpenShareLoteo={onOpenShareLoteo}
             />
           )}
         </ErrorBoundary>
       </div>
-
-      <ShareLoteoModal
-        isOpen={shareLoteoOpen}
-        onClose={handleCloseShareLoteo}
-        visorBaseUrl={VISOR_URL}
-        apiBaseUrl={API_BASE}
-        loteoId={selectedLoteoId}
-      />
     </>
   );
 }

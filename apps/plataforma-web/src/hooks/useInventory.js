@@ -12,7 +12,9 @@ export function useInventory() {
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [inventoryLoteosLoading, setInventoryLoteosLoading] = useState(false);
   const [inventorySearch, setInventorySearch] = useState('');
+  const [inventoryLoteosSearch, setInventoryLoteosSearch] = useState('');
   const [inventoryStatusFilter, setInventoryStatusFilter] = useState('');
+  const [inventoryLoteoFilter, setInventoryLoteoFilter] = useState('');
   const [inventoryTab, setInventoryTab] = useState('lotes');
   const [inventoryLotsHasMore, setInventoryLotsHasMore] = useState(false);
   const [inventoryLotsLoadingMore, setInventoryLotsLoadingMore] = useState(false);
@@ -28,8 +30,12 @@ export function useInventory() {
     setInventoryLoteos,
     inventorySearch,
     setInventorySearch,
+    inventoryLoteosSearch,
+    setInventoryLoteosSearch,
     inventoryStatusFilter,
     setInventoryStatusFilter,
+    inventoryLoteoFilter,
+    setInventoryLoteoFilter,
     inventoryTab,
     setInventoryTab,
     inventoryLotsHasMore,

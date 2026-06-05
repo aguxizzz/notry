@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { API_BASE } from '../config';
+import { reconcileById } from '../utils/reconcile';
 
 const SYNC_INTERVAL = 60000; // 60 seconds
 
@@ -27,6 +28,7 @@ export function useSync(token, apiFetch, setters, addToast) {
     setVisorDataCache,
     setReportsCache,
     setRawActivities,
+    shouldKeepLocal,
   } = setters;
 
   const [syncLoading, setSyncLoading] = useState(false);
@@ -54,19 +56,26 @@ export function useSync(token, apiFetch, setters, addToast) {
       });
 
       // ── Lots ──────────────────────────────────────────────────────────────
+      // Merge instead of wholesale replace: identical data produces no
+      // re-render or reorder (see utils/reconcile).
       if (res.lots?.data !== undefined) {
         const items = res.lots.data ?? [];
-        setInventoryLots(items);
+        setInventoryLots(prev => reconcileById(prev, items, undefined,
+          shouldKeepLocal && ((p, inc) => shouldKeepLocal('lots', inc))));
       }
 
       // ── Loteos ───────────────────────────────────────────────────────────
       if (res.loteos?.data !== undefined) {
-        setInventoryLoteos(res.loteos.data ?? []);
+        const items = res.loteos.data ?? [];
+        setInventoryLoteos(prev => reconcileById(prev, items, undefined,
+          shouldKeepLocal && ((p, inc) => shouldKeepLocal('loteos', inc))));
       }
 
       // ── Prospectos (all, unfiltered — used by kanban) ───────────────────
       if (res.prospectos?.data !== undefined) {
-        setAllProspectosList(res.prospectos.data ?? []);
+        const items = res.prospectos.data ?? [];
+        setAllProspectosList(prev => reconcileById(prev, items, undefined,
+          shouldKeepLocal && ((p, inc) => shouldKeepLocal('prospectos', inc))));
       }
 
       // ── Dashboard ─────────────────────────────────────────────────────────

@@ -1,21 +1,32 @@
 import React from 'react';
-import { SlidersHorizontal, Pencil, Trash2, RotateCw, BookUser } from 'lucide-react';
-import { Button, Loader, Select, ErrorBoundary, CommentTooltip } from '../../ui/components';
+import { Search, SlidersHorizontal, Pencil, Trash2, RotateCw, BookUser } from 'lucide-react';
+import { Button, Select, ErrorBoundary, CommentTooltip } from '../../ui/components';
 import CategoryPieChart from '../CategoryPieChart';
 import NeglectedProspectsPanel from '../NeglectedProspectsPanel';
 import { CATEGORY_DISPLAY, ORIGIN_DISPLAY, formatDate } from '../../constants';
 import './ClientesView.css';
 
 function ProspectosFilters({
+  search,
+  onSearchChange,
   categoryFilter,
   onCategoryChange,
   withoutAdvisor,
   onWithoutAdvisorChange,
   onOpenAddProspect,
-  loading,
 }) {
   return (
     <div className="inventory-controls">
+      <div className="inventory-search">
+        <Search size={16} className="search-icon" />
+        <input
+          type="text"
+          placeholder="Buscar por nombre o email..."
+          className="search-input"
+          value={search}
+          onChange={e => onSearchChange(e.target.value)}
+        />
+      </div>
       <div className="inventory-filters">
         <SlidersHorizontal size={16} className="filter-icon" />
         <Select
@@ -43,12 +54,11 @@ function ProspectosFilters({
       <Button size="sm" onClick={onOpenAddProspect}>
         + Nuevo Prospecto
       </Button>
-      {loading && <Loader size="sm" />}
     </div>
   );
 }
 
-function ProspectosTable({ prospectos, filteredProspectos, loadingMore, hasMore, onLoadMore, onEditProspect, onDeleteProspect, onUpdateContact }) {
+function ProspectosTable({ prospectos, filteredProspectos, onEditProspect, onDeleteProspect, onUpdateContact }) {
   const data = filteredProspectos ?? prospectos;
   return (
     <div className="inventory-table-wrapper">
@@ -121,24 +131,15 @@ function ProspectosTable({ prospectos, filteredProspectos, loadingMore, hasMore,
           )}
         </tbody>
       </table>
-      {hasMore && (
-        <div className="load-more-row">
-          <Button variant="outline" size="sm" onClick={onLoadMore} disabled={loadingMore}>
-            {loadingMore ? <Loader size="sm" /> : 'Cargar más prospectos'}
-          </Button>
-        </div>
-      )}
     </div>
   );
 }
 
 export default function ClientesView({
   allProspectosList,
-  prospectosList,
   filteredProspectos,
-  prospectosLoading,
-  prospectosLoadingMore,
-  prospectosHasMore,
+  prospectosSearch,
+  onSearchChange,
   prospectosCategoryFilter,
   onCategoryChange,
   prospectosWithoutAdvisor,
@@ -146,7 +147,6 @@ export default function ClientesView({
   onOpenAddProspect,
   onEditProspect,
   onDeleteProspect,
-  onLoadMore,
   onUpdateContact,
 }) {
   return (
@@ -165,19 +165,17 @@ export default function ClientesView({
           </div>
         </div>
         <ProspectosFilters
+          search={prospectosSearch}
+          onSearchChange={onSearchChange}
           categoryFilter={prospectosCategoryFilter}
           onCategoryChange={onCategoryChange}
           withoutAdvisor={prospectosWithoutAdvisor}
           onWithoutAdvisorChange={onWithoutAdvisorChange}
           onOpenAddProspect={onOpenAddProspect}
-          loading={prospectosLoading}
         />
         <ProspectosTable
-          prospectos={prospectosList}
+          prospectos={allProspectosList}
           filteredProspectos={filteredProspectos}
-          loadingMore={prospectosLoadingMore}
-          hasMore={prospectosHasMore}
-          onLoadMore={onLoadMore}
           onEditProspect={onEditProspect}
           onDeleteProspect={onDeleteProspect}
           onUpdateContact={onUpdateContact}

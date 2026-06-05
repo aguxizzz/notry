@@ -1,34 +1,27 @@
 import { useState } from 'react';
 
 /**
- * useProspects — encapsulates prospects filter/pagination state.
+ * useProspects — encapsulates prospects filter/advisor state for the clientes view.
  *
- * Manages filter, pagination, and advisor state for the clientes view.
- * Extracted per the refactoring plan.
- *
- * Note: allProspectosList is managed by useSync in App.jsx.
+ * The prospects data itself (allProspectosList) is managed by useSync in App.jsx;
+ * the table renders from it directly with client-side filtering — there is no
+ * pagination (sync returns the full set, same source the kanban uses).
  */
 export function useProspects() {
-  const [prospectosLoading, setProspectosLoading] = useState(false);
+  const [prospectosSearch, setProspectosSearch] = useState('');
   const [prospectosCategoryFilter, setProspectosCategoryFilter] = useState('');
   const [prospectosWithoutAdvisor, setProspectosWithoutAdvisor] = useState(false);
-  const [prospectosHasMore, setProspectosHasMore] = useState(false);
-  const [prospectosLoadingMore, setProspectosLoadingMore] = useState(false);
   const [advisorsList, setAdvisorsList] = useState([]);
   const [advisorsLoading, setAdvisorsLoading] = useState(false);
 
   return {
     // State
-    prospectosLoading,
-    setProspectosLoading,
+    prospectosSearch,
+    setProspectosSearch,
     prospectosCategoryFilter,
     setProspectosCategoryFilter,
     prospectosWithoutAdvisor,
     setProspectosWithoutAdvisor,
-    prospectosHasMore,
-    setProspectosHasMore,
-    prospectosLoadingMore,
-    setProspectosLoadingMore,
     advisorsList,
     setAdvisorsList,
     advisorsLoading,

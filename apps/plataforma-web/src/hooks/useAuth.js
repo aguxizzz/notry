@@ -88,8 +88,8 @@ export function useAuth() {
     const {
       setView, setLots, setLoteos, setSelectedLot,
       setAdminSubView, setInventoryLots, setInventoryLotsHasMore, setInventorySearch,
-      setInventoryStatusFilter, setInventoryTab, setInventoryLoteos, setProspectosList,
-      setProspectosHasMore, setAllProspectosList, setProspectosCategoryFilter,
+      setInventoryStatusFilter, setInventoryTab, setInventoryLoteos,
+      setAllProspectosList, setProspectosCategoryFilter,
       setProspectosWithoutAdvisor, setToasts, setClicksCache, setVisorDataCache,
       setReportsCache, setDashboardSummary,
     } = setters;
@@ -110,8 +110,6 @@ export function useAuth() {
     setInventoryStatusFilter('');
     setInventoryTab('lotes');
     setInventoryLoteos([]);
-    setProspectosList([]);
-    setProspectosHasMore(false);
     setAllProspectosList([]);
     setProspectosCategoryFilter('');
     setProspectosWithoutAdvisor(false);
