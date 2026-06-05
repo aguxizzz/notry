@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { createLot } from '../api/lots';
 
-export function useCreateLotModal({ apiFetch, onSuccess, onAddLot }) {
+export function useCreateLotModal({ apiFetch, onSuccess, onAddLot, loteOwnerId, setActivities }) {
   const initialForm = { name: '', price: '', area_m2: '', loteo_id: '', status: 'available', comments: '' };
   const [createLotOpen, setCreateLotOpen] = useState(false);
   const [createLotForm, setCreateLotForm] = useState(initialForm);
@@ -12,14 +12,22 @@ export function useCreateLotModal({ apiFetch, onSuccess, onAddLot }) {
     if (!createLotForm.loteo_id || createLotForm.loteo_id === '') {
       return 'Debes seleccionar un loteo';
     }
-    if (!createLotForm.name || createLotForm.name.trim() === '') {
-      return 'El nombre del lote es requerido';
-    }
     if (!createLotForm.price || createLotForm.price === '') {
       return 'El precio es requerido';
     }
+    const priceNum = parseFloat(createLotForm.price);
+    if (isNaN(priceNum) || priceNum <= 0) {
+      return 'El precio debe ser un número positivo';
+    }
+    if (!createLotForm.name || createLotForm.name.trim() === '') {
+      return 'El nombre del lote es requerido';
+    }
     if (!createLotForm.area_m2 || createLotForm.area_m2 === '') {
       return 'El área es requerida';
+    }
+    const areaNum = parseFloat(createLotForm.area_m2);
+    if (isNaN(areaNum) || areaNum <= 0) {
+      return 'El área debe ser un número positivo';
     }
     if (!createLotForm.status) {
       return 'El estado es requerido';
@@ -53,6 +61,8 @@ export function useCreateLotModal({ apiFetch, onSuccess, onAddLot }) {
       const res = await createLot({
         apiFetch,
         createLotForm,
+        loteOwnerId,
+        setActivities,
       });
       onAddLot?.(res);
       closeCreateLotModal();

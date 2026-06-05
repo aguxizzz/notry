@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { patchLot } from '../api/lots';
 
-export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot }) {
+export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot, loteOwnerId, setActivities }) {
   const [editLotModalOpen, setEditLotModalOpen] = useState(false);
   const [editingLotId, setEditingLotId] = useState(null);
   const [editLotForm, setEditLotForm] = useState({ status: '', price: '', area_m2: '', comments: '' });
@@ -43,8 +43,16 @@ export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot }) {
     if (!editLotForm.price || editLotForm.price === '') {
       return 'El precio es requerido';
     }
+    const priceNum = parseFloat(editLotForm.price);
+    if (isNaN(priceNum) || priceNum <= 0) {
+      return 'El precio debe ser un número positivo';
+    }
     if (!editLotForm.area_m2 || editLotForm.area_m2 === '') {
       return 'El área es requerida';
+    }
+    const areaNum = parseFloat(editLotForm.area_m2);
+    if (isNaN(areaNum) || areaNum <= 0) {
+      return 'El área debe ser un número positivo';
     }
     if (!editLotForm.status) {
       return 'El estado es requerido';
@@ -64,7 +72,7 @@ export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot }) {
 
     setEditLotLoading(true);
     try {
-      await patchLot({ apiFetch, editingLotId, editLotForm });
+      await patchLot({ apiFetch, editingLotId, editLotForm, loteOwnerId, setActivities });
       const updates = { status: editLotForm.status };
       if (editLotForm.name) updates.name = editLotForm.name;
       if (editLotForm.loteo_id) updates.loteo_id = editLotForm.loteo_id;
