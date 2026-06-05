@@ -15,7 +15,7 @@ export function useConfirmDialogs({ apiFetch, addToast, onSuccess, onRemoveProsp
     if (!lot) return;
     setConfirmDialog(prev => ({ ...prev, loading: true }));
     try {
-      await deleteLot({ apiFetch, lotId: lot.id });
+      await deleteLot({ apiFetch, lotId: lot.id, lotName: lot.name, loteOwnerId, setActivities });
       addToast(`Lote "${lot.name}" eliminado.`, 'success');
       await fetchInventoryBg();
       setConfirmDialog({ open: false, lot: null, loading: false });

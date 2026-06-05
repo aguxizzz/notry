@@ -4,9 +4,16 @@ import './ActivityFeed.css';
 
 const ICONS = {
   prospect_created:   { Icon: UserPlus,  color: 'var(--color-success)' },
+  prospect_updated:   { Icon: FileText,  color: '#8b5cf6' },
+  prospect_deleted:   { Icon: UserMinus, color: 'var(--color-danger)' },
   prospect_category:  { Icon: ArrowRight, color: '#3b82f6' },
   prospect_followup:  { Icon: Phone,     color: '#14b8a6' },
-  prospect_deleted:   { Icon: UserMinus, color: 'var(--color-danger)' },
+  lote_created:       { Icon: Home,      color: 'var(--color-success)' },
+  lote_updated:       { Icon: Home,      color: '#c5a059' },
+  lote_deleted:       { Icon: Home,      color: 'var(--color-danger)' },
+  loteo_created:      { Icon: Home,      color: 'var(--color-success)' },
+  loteo_updated:      { Icon: Home,      color: '#c5a059' },
+  loteo_deleted:      { Icon: Home,      color: 'var(--color-danger)' },
   lot_status:         { Icon: Home,      color: '#c5a059' },
   call_made:          { Icon: Phone,     color: '#14b8a6' },
   meeting_scheduled:  { Icon: Calendar,  color: '#3b82f6' },
@@ -18,16 +25,23 @@ const ICONS = {
 };
 
 const DESCRIPTIONS = {
-  prospect_created:   (e) => `Prospecto "${e.name}" agregado`,
+  prospect_created:   (e) => e.description ?? `Prospecto "${e.name}" agregado`,
+  prospect_updated:   (e) => e.description ?? `Prospecto "${e.name}" actualizado`,
+  prospect_deleted:   (e) => e.description ?? `Prospecto "${e.name}" eliminado`,
   prospect_category:  (e) => `Prospecto "${e.name}" movido a ${e.to}`,
   prospect_followup:  (e) => `Seguimiento con "${e.name}"`,
-  prospect_deleted:   (e) => `Prospecto "${e.name}" eliminado`,
+  lote_created:       (e) => e.description ?? `Lote "${e.name}" creado`,
+  lote_updated:       (e) => e.description ?? `Lote "${e.name}" actualizado`,
+  lote_deleted:       (e) => e.description ?? `Lote "${e.name}" eliminado`,
+  loteo_created:      (e) => e.description ?? `Loteo "${e.name}" creado`,
+  loteo_updated:      (e) => e.description ?? `Loteo "${e.name}" actualizado`,
+  loteo_deleted:      (e) => e.description ?? `Loteo "${e.name}" eliminado`,
   lot_status:         (e) => `Lote "${e.name}" ${e.to}`,
   call_made:          (e) => `Llamada con "${e.name}"`,
   meeting_scheduled:  (e) => `Reunión agendada con "${e.name}"`,
   meeting_completed:  (e) => `Reunión completada con "${e.name}"`,
-  note_added:         (e) => `Nota en "${e.name}"`,
-  prospect_contacted: (e) => `Contacto con "${e.name}"`,
+  note_added:         (e) => e.description ?? `Nota en "${e.name}"`,
+  prospect_contacted: (e) => e.description ?? `Contacto con "${e.name}"`,
   email_sent:         (e) => `Email a "${e.name}"`,
   other:              (e) => e.description ?? `Actividad en "${e.name}"`,
 };
@@ -80,7 +94,7 @@ export default function ActivityFeed({ activities = [], sectionTitle = 'Activida
               return (
                 <li
                   key={`${event.type}-${event.id}-${event.ts}`}
-                  className="activity-item"
+                  className={`activity-item ${event.isOptimistic ? 'activity-item-new' : ''}`}
                   style={{ '--item-accent': color }}
                 >
                   <span className="activity-item-icon">
