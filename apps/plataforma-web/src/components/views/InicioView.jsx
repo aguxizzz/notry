@@ -51,7 +51,7 @@ export default function InicioView({
             }
             subtitle="Negociados + Vendidos"
             color="#10b981"
-            loading={!allProspectosList || allProspectosList.length === 0}
+            loading={!allProspectosList}
           />
         </div>
       </div>
