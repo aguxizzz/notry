@@ -46,10 +46,10 @@ export default function InicioView({
             label="Tasa de Conversión"
             value={
               allProspectosList && allProspectosList.length > 0
-                ? `${((allProspectosList.filter(p => ['negociacion', 'vendido'].includes(p.category)).length / allProspectosList.length) * 100).toFixed(1)}%`
+                ? `${((allProspectosList.filter(p => p.category === 'vendido').length / allProspectosList.length) * 100).toFixed(1)}%`
                 : '—'
             }
-            subtitle="Negociados + Vendidos"
+            subtitle="Vendidos"
             color="#10b981"
             loading={!allProspectosList}
           />
