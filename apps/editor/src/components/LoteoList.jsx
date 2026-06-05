@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { LayoutGrid, Loader2, Map as MapIcon, ChevronRight } from 'lucide-react';
-
-const API_BASE = 'https://notry-back.onrender.com/api/v1';
+import { API_BASE } from '../api/config';
 
 export default function LoteoList({ token, onSelect, onAuthError }) {
   const [loteos, setLoteos] = useState([]);

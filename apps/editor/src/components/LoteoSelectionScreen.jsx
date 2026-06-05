@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { MapPin } from 'lucide-react';
-
-const API_BASE = 'https://notry-back.onrender.com/api/v1';
+import { API_BASE } from '../api/config';
 
 export default function LoteoSelectionScreen({ authToken, onSelect }) {
   const [loteos, setLoteos] = useState([]);

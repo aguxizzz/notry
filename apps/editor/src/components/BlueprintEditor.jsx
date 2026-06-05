@@ -16,6 +16,8 @@ export default function BlueprintEditor({
   const [imgDims, setImgDims] = useState({ w: 1, h: 1 });
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [cursorNorm, setCursorNorm] = useState(null);
+  // Alignment guides shown while dragging a calib point: [{ axis: 'v'|'h', pos }]
+  const [alignmentGuides, setAlignmentGuides] = useState([]);
   const [zoom, setZoom] = useState(1);
   const [panX, setPanX] = useState(0);
   const [panY, setPanY] = useState(0);
@@ -184,6 +186,15 @@ export default function BlueprintEditor({
       return;
     }
 
+    // Check for calibration point (draggable only with Select tool)
+    const calibEl = e.target.closest('[data-type="calibration"]');
+    if (calibEl && activeToolRef.current === 'select') {
+      e.stopPropagation();
+      const markerId = calibEl.getAttribute('data-marker-id');
+      draggingMarkerRef.current = { markerId, isDrag: false, lastNorm: null };
+      return;
+    }
+
     // Check for polygon element
     const polygonEl = e.target.closest('[data-type="polygon"]');
     if (polygonEl && activeToolRef.current === 'select') {
@@ -231,7 +242,35 @@ export default function BlueprintEditor({
       }
     } else if (draggingMarkerRef.current) {
       draggingMarkerRef.current.isDrag = true;
-      draggingMarkerRef.current.lastNorm = norm;
+
+      // Alignment snap: magnet the dragged calib point to another point's X/Y axis
+      const markerId = draggingMarkerRef.current.markerId;
+      const others = annotationsRef.current.filter(
+        a => a.type === 'calibration-point' && a.id !== markerId && a.position
+      );
+      const { w, h } = displayDimsRef.current;
+      const z = zoomRef.current;
+      const thX = 8 / (w * z);
+      const thY = 8 / (h * z);
+
+      let snapX = null, snapY = null, bestDX = thX, bestDY = thY;
+      for (const o of others) {
+        const dx = Math.abs(norm.nx - o.position.textureX);
+        if (dx < bestDX) { bestDX = dx; snapX = o.position.textureX; }
+        const dy = Math.abs(norm.ny - o.position.textureY);
+        if (dy < bestDY) { bestDY = dy; snapY = o.position.textureY; }
+      }
+
+      const snapped = {
+        nx: snapX !== null ? snapX : norm.nx,
+        ny: snapY !== null ? snapY : norm.ny,
+      };
+      draggingMarkerRef.current.lastNorm = snapped;
+
+      const guides = [];
+      if (snapX !== null) guides.push({ axis: 'v', pos: snapX });
+      if (snapY !== null) guides.push({ axis: 'h', pos: snapY });
+      setAlignmentGuides(guides);
     }
   };
 
@@ -254,6 +293,7 @@ export default function BlueprintEditor({
         );
       }
       draggingMarkerRef.current = null;
+      setAlignmentGuides([]);
     }
   };
 
@@ -365,7 +405,7 @@ export default function BlueprintEditor({
             left: 0,
             width: dw,
             height: dh,
-            cursor: activeTool === 'polygon' || activeTool === 'poi' ? 'crosshair' : 'default',
+            cursor: activeTool === 'polygon' || activeTool === 'poi' || activeTool === 'calibrate' ? 'crosshair' : 'default',
             userSelect: 'none',
             pointerEvents: 'auto',
             overflow: 'visible'
@@ -570,8 +610,76 @@ export default function BlueprintEditor({
               );
             }
 
+            // Calibration connection line (closed, dashed, non-interactive)
+            if (ann.type === 'calibration-link' && ann.polylinePixels && ann.polylinePixels.length >= 2) {
+              const pts = ann.polylinePixels.map(([nx, ny]) => normToSvg(nx, ny));
+              if (pts.some(p => !Number.isFinite(p.x) || !Number.isFinite(p.y))) return null;
+              const ptsStr = pts.map(p => `${p.x},${p.y}`).join(' ');
+              return (
+                <polyline
+                  key={ann.id}
+                  points={ptsStr}
+                  fill="none"
+                  stroke="rgba(245,158,11,0.55)"
+                  strokeWidth={Math.max(1, 2 / zoom)}
+                  strokeDasharray={`${6 / zoom},${4 / zoom}`}
+                  pointerEvents="none"
+                />
+              );
+            }
+
+            // Calibration point markers (numbered, draggable with Select tool)
+            if (ann.type === 'calibration-point' && ann.position) {
+              // Follow the cursor live while this point is being dragged
+              const drag = draggingMarkerRef.current;
+              const posNorm = (drag && drag.markerId === ann.id && drag.lastNorm)
+                ? [drag.lastNorm.nx, drag.lastNorm.ny]
+                : [ann.position.textureX, ann.position.textureY];
+              const { x, y } = normToSvg(posNorm[0], posNorm[1]);
+              const color = ann.svgStyle?.fill ?? '#3b82f6';
+              const opacity = ann.svgStyle?.opacity ?? 1;
+              const r = Math.max(3, 7 / zoom);
+              const fontSize = Math.max(6, 9 / zoom);
+              const interactive = activeTool === 'select';
+              return (
+                <g
+                  key={ann.id}
+                  opacity={opacity}
+                  data-type="calibration"
+                  data-marker-id={ann.id}
+                  pointerEvents={interactive ? 'auto' : 'none'}
+                  style={interactive ? { cursor: 'grab' } : undefined}
+                >
+                  <circle cx={x} cy={y} r={r} fill={color} stroke="#fff" strokeWidth={Math.max(1, 2 / zoom)} />
+                  <text x={x} y={y} textAnchor="middle" dominantBaseline="central"
+                    fill="#fff" fontSize={fontSize} fontWeight="700" pointerEvents="none">
+                    {ann.label}
+                  </text>
+                </g>
+              );
+            }
+
             return null;
           })}
+
+          {/* Alignment guides while dragging a calib point */}
+          {alignmentGuides.map((g, i) => (
+            g.axis === 'v' ? (
+              <line
+                key={`guide-${i}`}
+                x1={g.pos * dw} y1={0} x2={g.pos * dw} y2={dh}
+                stroke="#22d3ee" strokeWidth={Math.max(0.75, 1 / zoom)}
+                strokeDasharray={`${4 / zoom},${4 / zoom}`} pointerEvents="none"
+              />
+            ) : (
+              <line
+                key={`guide-${i}`}
+                x1={0} y1={g.pos * dh} x2={dw} y2={g.pos * dh}
+                stroke="#22d3ee" strokeWidth={Math.max(0.75, 1 / zoom)}
+                strokeDasharray={`${4 / zoom},${4 / zoom}`} pointerEvents="none"
+              />
+            )
+          ))}
         </svg>
       </div>
     </div>

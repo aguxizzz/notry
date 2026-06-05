@@ -5,16 +5,20 @@ import { annotationsToMarkers } from '../utils/annotations';
 import '@photo-sphere-viewer/core/index.css';
 import '@photo-sphere-viewer/markers-plugin/index.css';
 
-export default function EditorViewer({ panoramaUrl, annotations, activeTool, onClick, onMarkerSelect, onPolygonUpdate, onMarkerDragEnd }) {
+// Tools that draw a polygon by clicking points and snapping to close
+const isPolyDrawTool = (t) => t === 'polygon' || t === 'poi';
+
+export default function EditorViewer({ panoramaUrl, annotations, activeTool, onClick, onMarkerSelect, onPolygonUpdate, onMarkerDragEnd, onMarkerDrag }) {
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
   const markersPluginRef = useRef(null);
   const isPanoramaReadyRef = useRef(false);
-  
+
   const onClickRef = useRef(onClick);
   const onMarkerSelectRef = useRef(onMarkerSelect);
   const onPolygonUpdateRef = useRef(onPolygonUpdate);
   const onMarkerDragEndRef = useRef(onMarkerDragEnd);
+  const onMarkerDragRef = useRef(onMarkerDrag);
   const activeToolRef = useRef(activeTool);
   const annotationsRef = useRef(annotations);
 
@@ -23,9 +27,10 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
     onMarkerSelectRef.current = onMarkerSelect;
     onPolygonUpdateRef.current = onPolygonUpdate;
     onMarkerDragEndRef.current = onMarkerDragEnd;
+    onMarkerDragRef.current = onMarkerDrag;
     activeToolRef.current = activeTool;
     annotationsRef.current = annotations;
-  }, [onClick, onMarkerSelect, onPolygonUpdate, onMarkerDragEnd, activeTool, annotations]);
+  }, [onClick, onMarkerSelect, onPolygonUpdate, onMarkerDragEnd, onMarkerDrag, activeTool, annotations]);
 
   // Init viewer
   useEffect(() => {
@@ -96,7 +101,7 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
       // Actuar exclusivamente en clic izquierdo
       if (e.button !== 0) return;
 
-      if (isSnappedToFirstPoint && activeToolRef.current === 'polygon') {
+      if (isSnappedToFirstPoint && isPolyDrawTool(activeToolRef.current)) {
         e.stopPropagation();
         isSnappedToFirstPoint = false;
         onMarkerSelectRef.current && onMarkerSelectRef.current('temp-pt-0');
@@ -144,9 +149,16 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
 
       const markerEl = e.target.closest('.psv-marker');
       if (markerEl) {
-        e.stopPropagation();
         const markerId = markerEl.id.replace('psv-marker-', '');
-        
+
+        // Calibration points are only draggable with the Select tool; in other
+        // tools let the click flow through (e.g. placing new calibration points)
+        if (markerId.startsWith('calib-') && activeToolRef.current !== 'select') {
+          return;
+        }
+
+        e.stopPropagation();
+
         onMarkerSelectRef.current && onMarkerSelectRef.current(markerId);
 
         const marker = markersPluginRef.current?.getMarker(markerId);
@@ -157,7 +169,7 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
     };
 
     const handlePointerMove = (e) => {
-      if (!draggingCorner && !draggingMarker && activeToolRef.current !== 'polygon') return;
+      if (!draggingCorner && !draggingMarker && !isPolyDrawTool(activeToolRef.current)) return;
       
       const viewer = viewerRef.current;
       const markersPlugin = markersPluginRef.current;
@@ -171,7 +183,7 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
       if (spherical) {
         const texture = viewer.dataHelper.sphericalCoordsToTextureCoords(spherical);
         
-        if (activeToolRef.current === 'polygon') {
+        if (isPolyDrawTool(activeToolRef.current)) {
           const tempMarker = markersPlugin.getMarker('temp-drawing');
           if (tempMarker && tempMarker.config.polylinePixels) {
             const pts = [...tempMarker.config.polylinePixels];
@@ -237,6 +249,10 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
             position: { textureX: texture.textureX, textureY: texture.textureY }
           });
           draggingMarker.lastTexture = texture;
+          // Calibration points update state live so ghost polygons reproject in real time
+          if (draggingMarker.markerId.startsWith('calib-')) {
+            onMarkerDragRef.current?.(draggingMarker.markerId, texture.textureX, texture.textureY);
+          }
         }
       }
     };
