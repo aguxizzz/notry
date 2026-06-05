@@ -8,29 +8,17 @@ html, body {
   font-family: var(--font-body);
   background-color: var(--color-bg);
   color: var(--color-text);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
 }
 
 * {
   box-sizing: border-box;
-}
-
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: oklch(94% 0.005 65);
-}
-
-::-webkit-scrollbar-thumb {
-  background: oklch(75% 0.03 65);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: oklch(65% 0.04 65);
 }
 
 /* Text selection */
