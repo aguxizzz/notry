@@ -1,5 +1,13 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import DOMPurify from 'dompurify';
+import { POI_ICON_MARKERS } from '../icons/poiIcons';
+
+const IconLink = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+  </svg>
+);
 
 const IconClose = () => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
@@ -347,30 +355,32 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origi
             <PrecalificacionForm key={display.markerId} lotDetail={lotDetail} origin={origin} onClose={wrappedOnClose} />
           ) : isPoi ? (
             <div id="info-panel-view">
-              <div className="poi-badge" style={{ background: poiDetail.color }}>
-                Punto de interés
-              </div>
-              {poiDetail.icon_type && (
-                <div className="lote-metrics">
-                  <div className="lote-metric-card">
-                    <span className="lote-metric-label">Tipo</span>
-                    <span className="lote-metric-value">{poiDetail.icon_type}</span>
+              <div className="poi-header">
+                {poiDetail.icon_type && POI_ICON_MARKERS[poiDetail.icon_type] && (
+                  <div className="poi-icon-wrap" style={{ background: poiDetail.color }}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d={POI_ICON_MARKERS[poiDetail.icon_type]} />
+                    </svg>
                   </div>
+                )}
+                <div className="poi-header-text">
+                  <span className="poi-label">Punto de interés</span>
+                  {poiDetail.icon_type && (
+                    <span className="poi-type-tag">{poiDetail.icon_type}</span>
+                  )}
                 </div>
-              )}
+              </div>
               {poiDetail.content && (
                 <div id="info-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(poiDetail.content) }} />
               )}
               {poiDetail.link_url && (
                 <div id="info-actions">
                   <a
-                    type="button"
                     href={poiDetail.link_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-enviar"
-                    style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}
+                    target="_self"
+                    className="poi-link-btn"
                   >
+                    <IconLink />
                     Visitar enlace
                   </a>
                 </div>
