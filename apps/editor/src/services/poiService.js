@@ -1,25 +1,4 @@
-/**
- * POI API service — centralizes all POI backend communication.
- * All methods expect the caller to pass a valid Bearer accessToken.
- */
-
-const API_BASE = 'https://notry-back.onrender.com/api/v1';
-
-/**
- * Fetch with AbortController timeout wrapper.
- * @param {string} url
- * @param {RequestInit} options
- * @param {number} ms
- */
-async function fetchWithTimeout(url, options, ms = 30000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), ms);
-  try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } finally {
-    clearTimeout(timer);
-  }
-}
+import { API_BASE, fetchWithTimeout } from '../api/config';
 
 /**
  * Fetch all POIs for a given loteo.

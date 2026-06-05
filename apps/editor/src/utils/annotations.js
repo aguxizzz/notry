@@ -40,7 +40,7 @@ export function annotationsToMarkers(annotations) {
           sold:      { fill: 'rgba(239,68,68,0.25)',   stroke: 'rgba(220,38,38,0.7)',  strokeWidth: '2' },
           reserved:  { fill: 'rgba(59,130,246,0.22)',  stroke: 'rgba(37,99,235,0.65)', strokeWidth: '2' },
         };
-        const svgStyle = statusKey && estadoStyles[statusKey]
+        const svgStyle = !ann.pending && statusKey && estadoStyles[statusKey]
           ? estadoStyles[statusKey]
           : (ann.svgStyle ?? {});
         return { ...base, svgStyle, polygonPixels: points };
@@ -97,6 +97,54 @@ export function annotationsToMarkers(annotations) {
           ? { textureX: ann.position.textureX, textureY: ann.position.textureY }
           : undefined;
         return { ...base, circle: ann.radius ?? 8, position };
+      }
+      case 'polygon-ghost': {
+        const points = (ann.polygonPixels ?? []).filter(
+          pt => Array.isArray(pt) && pt.length === 2 && typeof pt[0] === 'number' && typeof pt[1] === 'number'
+        );
+        return {
+          ...base,
+          svgStyle: {
+            fill: 'rgba(255,200,0,0.08)',
+            stroke: 'rgba(255,200,0,0.5)',
+            strokeWidth: '1.5',
+            strokeDasharray: '6,3',
+            pointerEvents: 'none',
+          },
+          polygonPixels: points,
+        };
+      }
+      case 'calibration-link': {
+        const points = (ann.polylinePixels ?? []).filter(
+          pt => Array.isArray(pt) && pt.length === 2 && typeof pt[0] === 'number' && typeof pt[1] === 'number'
+        );
+        return {
+          ...base,
+          polylinePixels: points,
+          svgStyle: {
+            fill: 'none',
+            stroke: 'rgba(245,158,11,0.5)',
+            strokeWidth: '2',
+            strokeDasharray: '6,4',
+            pointerEvents: 'none',
+          },
+        };
+      }
+      case 'calibration-point': {
+        const position = ann.position && ('textureX' in ann.position || 'textureY' in ann.position)
+          ? { textureX: ann.position.textureX, textureY: ann.position.textureY }
+          : undefined;
+        const color = ann.svgStyle?.fill ?? '#3b82f6';
+        const opacity = ann.svgStyle?.opacity ?? 1;
+        const html = `<div style="
+          width:20px;height:20px;border-radius:50%;
+          background:${color};border:2px solid #fff;
+          display:flex;align-items:center;justify-content:center;
+          font-size:10px;font-weight:700;color:#fff;
+          box-shadow:0 1px 4px rgba(0,0,0,0.5);
+          opacity:${opacity};
+        ">${ann.label ?? ''}</div>`;
+        return { ...base, html, size: { width: 20, height: 20 }, position, style: { cursor: 'grab' } };
       }
       default:
         return { ...base, circle: 5, position: { textureX: 0, textureY: 0 } };
