@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { saveEditLoteo } from '../api/loteos';
 
-export function useEditLoteoModal({ apiFetch, setInventoryLoteos, addToast, onSuccess, onUpdateLoteo, loteOwnerId, setActivities }) {
+export function useEditLoteoModal({ apiFetch, setInventoryLoteos, addToast, onUpdateLoteo, loteOwnerId, setActivities }) {
   const [editLoteoOpen, setEditLoteoOpen] = useState(false);
   const [editLoteoClosing, setEditLoteoClosing] = useState(false);
   const [editingLoteoId, setEditingLoteoId] = useState(null);
@@ -61,7 +61,6 @@ export function useEditLoteoModal({ apiFetch, setInventoryLoteos, addToast, onSu
         setEditLoteoOpen,
         setEditingLoteoId,
         setInventoryLoteos,
-        fetchInventoryLoteos: onSuccess,
         onUpdateLoteo,
         loteOwnerId,
         setActivities,

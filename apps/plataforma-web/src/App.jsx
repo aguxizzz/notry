@@ -32,6 +32,7 @@ import { useUpdateContactModal } from './hooks/useUpdateContactModal';
 import { useConfirmDialogs } from './hooks/useConfirmDialogs';
 import { useInventory } from './hooks/useInventory';
 import { useProspects } from './hooks/useProspects';
+import { usePendingMutations } from './hooks/usePendingMutations';
 import ShareLoteoModal from './components/modals/ShareLoteoModal';
 import { PAGE_SIZE, STATUS_DISPLAY, CATEGORY_DISPLAY, formatDate, getProspectFields, getLotFields } from './constants';
 import { createApiFetch } from './api';
@@ -39,7 +40,7 @@ import { createUploadFn } from './api/upload';
 import UploadProgressCard from './components/UploadProgressCard';
 import { fetchLots as fetchLotsService, fetchInventory as fetchInventoryService, fetchInventoryBg as fetchInventoryBgService, createLot, patchLot, deleteLot } from './api/lots';
 import { fetchLoteos as fetchLoteosService, fetchInventoryLoteos as fetchInventoryLoteosService, fetchInventoryLoteosBg as fetchInventoryLoteosBgService, deleteLoteo } from './api/loteos';
-import { createProspect as createProspectService, fetchAdvisors as fetchAdvisorsService, saveEditProspect as saveEditProspectService, updateLastContact as updateLastContactService, fetchProspectos as fetchProspectosService, loadMoreProspectos as loadMoreProspectosService } from './api/prospects';
+import { createProspect as createProspectService, fetchAdvisors as fetchAdvisorsService, saveEditProspect as saveEditProspectService, updateLastContact as updateLastContactService } from './api/prospects';
 import { fetchReportsBg as fetchReportsBgService, buildAnalisisCallbacks } from './api/reports';
 import './App.css';
 import './components/Layout.css';
@@ -84,23 +85,20 @@ function App() {
     inventorySearch, setInventorySearch,
     inventoryLoteosSearch, setInventoryLoteosSearch,
     inventoryStatusFilter, setInventoryStatusFilter,
+    inventoryLoteoFilter, setInventoryLoteoFilter,
     inventoryTab, setInventoryTab,
     inventoryLotsHasMore, setInventoryLotsHasMore,
     inventoryLotsLoadingMore, setInventoryLotsLoadingMore,
   } = useInventory();
 
   const {
-    prospectosLoading, setProspectosLoading,
     prospectosSearch, setProspectosSearch,
     prospectosCategoryFilter, setProspectosCategoryFilter,
     prospectosWithoutAdvisor, setProspectosWithoutAdvisor,
-    prospectosHasMore, setProspectosHasMore,
-    prospectosLoadingMore, setProspectosLoadingMore,
     advisorsList, setAdvisorsList,
     advisorsLoading, setAdvisorsLoading,
   } = useProspects();
 
-  const [prospectosList, setProspectosList] = useState([]);
   const [allProspectosList, setAllProspectosList] = useState([]);
   const [clicksCache, setClicksCache] = useState({});
   const [clicksLoadingIds, setClicksLoadingIds] = useState(new Set()); // Track which loteos are loading clicks
@@ -138,9 +136,9 @@ function App() {
       prospectosWithoutAdvisor,
       inventoryLoteos,
       inventoryLotsCount: inventoryLots.length,
-      prospectosCount: prospectosList.length,
+      prospectosCount: allProspectosList.length,
     };
-  }, [inventorySearch, inventoryLoteosSearch, inventoryStatusFilter, prospectosSearch, prospectosCategoryFilter, prospectosWithoutAdvisor, inventoryLoteos, inventoryLots.length, prospectosList.length]);
+  }, [inventorySearch, inventoryLoteosSearch, inventoryStatusFilter, prospectosSearch, prospectosCategoryFilter, prospectosWithoutAdvisor, inventoryLoteos, inventoryLots.length, allProspectosList.length]);
 
   // ── Toast notifications ────────────────────────────────────────────────────────
   const { toasts, addToast, removeToast } = useToast();
@@ -179,6 +177,7 @@ function App() {
     if (ownerSubView === 'inventario') return;
     setInventorySearch('');
     setInventoryStatusFilter('');
+    setInventoryLoteoFilter('');
   }, [ownerSubView]);
 
   // Fetch loteos for inventory editor tab (lazy, only once)
@@ -188,34 +187,24 @@ function App() {
     fetchInventoryLoteos();
   }, [ownerSubView, inventoryTab]);
 
-  // Reset prospectos filters and pagination when leaving the clientes view.
+  // Reset prospectos filters when leaving the clientes view.
   React.useEffect(() => {
     if (ownerSubView === 'clientes') return;
     setProspectosCategoryFilter('');
     setProspectosWithoutAdvisor(false);
-    setProspectosList(allProspectosList);
-    setProspectosHasMore(false);
   }, [ownerSubView]);
-
-  // When filters change while on clientes view, reset pagination to stay in sync.
-  // loadMoreProspectos accumulates into prospectosList; resetting it here ensures
-  // load-more offset stays consistent with allProspectosList.
-  React.useEffect(() => {
-    if (ownerSubView !== 'clientes') return;
-    setProspectosList(allProspectosList);
-    setProspectosHasMore(false);
-  }, [ownerSubView, prospectosCategoryFilter, prospectosWithoutAdvisor, allProspectosList]);
 
   // ── Client-side filtered data (derived from useSync cache, no extra API calls) ──
   const filteredInventoryLots = useMemo(() => {
-    if (!inventorySearch && !inventoryStatusFilter) return null;
+    if (!inventorySearch && !inventoryStatusFilter && !inventoryLoteoFilter) return null;
     const q = (inventorySearch || '').toLowerCase();
     return (inventoryLots || []).filter(lot => {
       const matchSearch = !q || lot.name?.toLowerCase().includes(q);
       const matchStatus = !inventoryStatusFilter || lot.status === inventoryStatusFilter;
-      return matchSearch && matchStatus;
+      const matchLoteo = !inventoryLoteoFilter || String(lot.loteo_id) === String(inventoryLoteoFilter);
+      return matchSearch && matchStatus && matchLoteo;
     });
-  }, [inventoryLots, inventorySearch, inventoryStatusFilter]);
+  }, [inventoryLots, inventorySearch, inventoryStatusFilter, inventoryLoteoFilter]);
 
   const filteredInventoryLoteos = useMemo(() => {
     if (!inventoryLoteosSearch) return null;
@@ -283,10 +272,6 @@ function App() {
     document.addEventListener('visibilitychange', onFocus);
   };
 
-  const fetchProspectos = async (category, withoutAdvisor, signal) => {
-    fetchProspectosService({ apiFetch, setProspectosLoading, setProspectosList, category, withoutAdvisor, signal });
-  };
-
   // Called by external triggers (openEditor focus, saveLotFromModal, handleDeleteConfirm).
   // No internal AbortController — callers pass their own if needed.
   const fetchInventoryBg = async (name, status) => {
@@ -297,9 +282,10 @@ function App() {
     fetchInventoryLoteosBgService({ apiFetch, setInventoryLoteos, addToast });
   };
 
-  const loadMoreProspectos = async () => {
-    await loadMoreProspectosService({ apiFetch, setProspectosLoadingMore, setProspectosList, setProspectosHasMore, prospectosList, prospectosCategoryFilter, prospectosWithoutAdvisor, PAGE_SIZE });
-  };
+
+  // Pending-mutation registry: protects optimistic edits from being clobbered
+  // by a sync that hasn't propagated the change yet (see usePendingMutations).
+  const { markPending, shouldKeepLocal } = usePendingMutations();
 
   // Helper: Update dashboard cache based on current prospects list
   // Avoids backend call; calculates derived metrics locally
@@ -308,6 +294,7 @@ function App() {
   };
 
   const updateProspectCategory = (prospectId, newCategory) => {
+    markPending('prospectos', prospectId, { category: newCategory });
     setAllProspectosList(prev => {
       const updated = prev.map(p => p.id === prospectId ? { ...p, category: newCategory } : p);
       // Update dashboard cache locally (no API call)
@@ -318,12 +305,21 @@ function App() {
 
   const updateProspectLastContact = (prospectId) => {
     const now = new Date().toISOString();
+    markPending('prospectos', prospectId, { last_contact: now });
     setAllProspectosList(prev =>
       prev.map(p => p.id === prospectId ? { ...p, last_contact: now } : p)
     );
   };
 
+  const updateProspect = (prospectId, updates) => {
+    markPending('prospectos', prospectId, updates);
+    setAllProspectosList(prev =>
+      prev.map(p => p.id === prospectId ? { ...p, ...updates } : p)
+    );
+  };
+
   const updateLot = (lotId, updates) => {
+    markPending('lots', lotId, updates);
     setInventoryLots(prev =>
       prev.map(lot => lot.id === lotId ? { ...lot, ...updates } : lot)
     );
@@ -334,6 +330,7 @@ function App() {
   };
 
   const updateLoteo = (loteoId, updates) => {
+    markPending('loteos', loteoId, updates);
     setInventoryLoteos(prev =>
       prev.map(loteo => loteo.id === loteoId ? { ...loteo, ...updates } : loteo)
     );
@@ -415,8 +412,8 @@ function App() {
   const logout = useCallback(() => authLogout({
     setView, setLots, setLoteos, setSelectedLot,
     setAdminSubView, setInventoryLots, setInventoryLotsHasMore, setInventorySearch,
-    setInventoryStatusFilter, setInventoryTab, setInventoryLoteos, setProspectosList,
-    setProspectosHasMore, setAllProspectosList, setProspectosCategoryFilter,
+    setInventoryStatusFilter, setInventoryTab, setInventoryLoteos,
+    setAllProspectosList, setProspectosCategoryFilter,
     setProspectosWithoutAdvisor, setClicksCache, setVisorDataCache,
     setReportsCache, setDashboardSummary,
   }), []);
@@ -445,8 +442,9 @@ function App() {
   const editLotModal = useEditLotModal({
     apiFetch,
     onSuccess: () => {
+      // No immediate refetch: optimistic updateLot + next sync (reconciled, with
+      // in-flight protection) cover it without a stale-overwrite revert.
       addToast('Lote actualizado.', 'success');
-      fetchInventoryBg(inventorySearch, inventoryStatusFilter);
     },
     onUpdateLot: updateLot,
     loteOwnerId: user?.lote_owner_id,
@@ -482,10 +480,8 @@ function App() {
     apiFetch,
     setInventoryLoteos,
     addToast,
-    onSuccess: () => {
-      addToast('Loteo actualizado.', 'success');
-      fetchInventoryLoteos();
-    },
+    // No onSuccess/refetch: saveEditLoteo handles the toast + optimistic update;
+    // the next sync (reconciled) confirms it.
     setActivities,
     onUpdateLoteo: updateLoteo,
     loteOwnerId: user?.lote_owner_id,
@@ -504,6 +500,7 @@ function App() {
     setVisorDataCache,
     setReportsCache,
     setRawActivities: handleRawActivities,
+    shouldKeepLocal,
   }, addToast);
 
   // ── Add Prospect Modal ────────────────────────────────────────────────────────
@@ -523,6 +520,7 @@ function App() {
     setAdvisorsList,
     addToast,
     onSuccess: refreshSync,
+    onUpdateProspect: updateProspect,
     onUpdateLastContact: updateProspectLastContact,
     loteOwnerId: user?.lote_owner_id,
     setActivities: setActivities,
@@ -681,6 +679,8 @@ function App() {
                   onLoteosSearchChange={setInventoryLoteosSearch}
                   inventoryStatusFilter={inventoryStatusFilter}
                   onStatusFilterChange={setInventoryStatusFilter}
+                  inventoryLoteoFilter={inventoryLoteoFilter}
+                  onLoteoFilterChange={setInventoryLoteoFilter}
                   syncLoading={syncLoading}
                   onOpenEditLotModal={editLotModal.openEditLotModal}
                   onOpenDeleteConfirm={confirmDialogs.openDeleteConfirm}
@@ -697,11 +697,7 @@ function App() {
               {ownerSubView === 'clientes' && (
                 <ClientesView
                   allProspectosList={allProspectosList}
-                  prospectosList={prospectosList}
                   filteredProspectos={filteredProspectos}
-                  prospectosLoading={prospectosLoading}
-                  prospectosLoadingMore={prospectosLoadingMore}
-                  prospectosHasMore={prospectosHasMore}
                   prospectosSearch={prospectosSearch}
                   onSearchChange={setProspectosSearch}
                   prospectosCategoryFilter={prospectosCategoryFilter}
@@ -711,7 +707,6 @@ function App() {
                   onOpenAddProspect={addProspectModal.openAddProspectModal}
                   onEditProspect={editProspectModal.openEditProspectModal}
                   onDeleteProspect={openDeleteProspectDialog}
-                  onLoadMore={loadMoreProspectos}
                   onUpdateContact={updateContactModal.openUpdateContactModal}
                 />
               )}

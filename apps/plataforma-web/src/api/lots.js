@@ -1,4 +1,5 @@
 import { API_BASE } from '../config';
+import { logActivity } from './activityLogs';
 
 export async function fetchLots({ apiFetch, setLoading, setLots, setSelectedLot, setAdminSubView }) {
   setLoading(true);
@@ -46,7 +47,7 @@ export async function fetchInventoryBg({ apiFetch, setInventoryLots, setInventor
   }
 }
 
-export async function createLot({ apiFetch, createLotForm }) {
+export async function createLot({ apiFetch, createLotForm, loteOwnerId, setActivities }) {
   const body = {};
   if (createLotForm.name) body.name = createLotForm.name;
   if (createLotForm.price !== '') body.price = parseFloat(createLotForm.price);
@@ -54,14 +55,18 @@ export async function createLot({ apiFetch, createLotForm }) {
   if (createLotForm.loteo_id) body.loteo_id = createLotForm.loteo_id;
   if (createLotForm.status) body.status = createLotForm.status;
   if (createLotForm.comments?.trim()) body.comments = createLotForm.comments.trim();
-  return apiFetch(`${API_BASE}/lots`, {
+  const res = await apiFetch(`${API_BASE}/lots`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+  if (res?.id) {
+    logActivity({ apiFetch, activityType: 'lote_created', entityType: 'lote', entityId: res.id, loteOwnerId, description: `Lote "${res.name || 'Sin nombre'}" creado`, name: res.name || 'Sin nombre', setActivities });
+  }
+  return res;
 }
 
-export async function patchLot({ apiFetch, editingLotId, editLotForm }) {
+export async function patchLot({ apiFetch, editingLotId, editLotForm, loteOwnerId, setActivities }) {
   const body = { status: editLotForm.status };
   if (editLotForm.name) body.name = editLotForm.name;
   if (editLotForm.loteo_id) body.loteo_id = editLotForm.loteo_id;
@@ -71,14 +76,19 @@ export async function patchLot({ apiFetch, editingLotId, editLotForm }) {
   else body.area_m2 = null;
   if (editLotForm.comments?.trim()) body.comments = editLotForm.comments.trim();
   else body.comments = null;
-  return apiFetch(`${API_BASE}/lots/${editingLotId}`, {
+  const res = await apiFetch(`${API_BASE}/lots/${editingLotId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+  if (res?.id) {
+    logActivity({ apiFetch, activityType: 'lote_updated', entityType: 'lote', entityId: res.id, loteOwnerId, description: `Lote "${res.name || 'Sin nombre'}" actualizado`, name: res.name || 'Sin nombre', setActivities });
+  }
+  return res;
 }
 
-export async function deleteLot({ apiFetch, lotId }) {
-  return apiFetch(`${API_BASE}/lots/${lotId}`, { method: 'DELETE' });
+export async function deleteLot({ apiFetch, lotId, lotName, loteOwnerId, setActivities }) {
+  logActivity({ apiFetch, activityType: 'lote_deleted', entityType: 'lote', entityId: lotId, loteOwnerId, description: `Lote "${lotName || 'Sin nombre'}" eliminado`, name: lotName || 'Sin nombre', setActivities });
+  await apiFetch(`${API_BASE}/lots/${lotId}`, { method: 'DELETE' });
 }
 

@@ -1,10 +1,11 @@
 import { useState, useCallback } from 'react';
 import { API_BASE } from '../config';
+import { logActivity } from '../api/activityLogs';
 
-export function usePatchProspect({ token, onSessionExpired, onError }) {
+export function usePatchProspect({ token, onSessionExpired, onError, apiFetch, loteOwnerId, setActivities }) {
   const [patchingIds, setPatchingIds] = useState(new Set());
 
-  const patchProspect = useCallback(async (id, category, previousColumns, setColumns, onSuccess) => {
+  const patchProspect = useCallback(async (id, category, previousColumns, setColumns, onSuccess, prospectName) => {
     setPatchingIds(prev => new Set([...prev, id]));
 
     try {
@@ -26,6 +27,18 @@ export function usePatchProspect({ token, onSessionExpired, onError }) {
           }
 
           if (res.ok) {
+            // Log activity for category change
+            logActivity({
+              apiFetch,
+              activityType: 'prospect_updated',
+              entityType: 'prospect',
+              entityId: id,
+              loteOwnerId,
+              description: `Prospecto "${prospectName || 'Sin nombre'}" actualizado`,
+              extraData: { prospect_name: prospectName || 'Sin nombre' },
+              name: prospectName || 'Sin nombre',
+              setActivities,
+            });
             onSuccess?.();
             return;
           }
@@ -54,7 +67,7 @@ export function usePatchProspect({ token, onSessionExpired, onError }) {
         return next;
       });
     }
-  }, [token, onSessionExpired, onError]);
+  }, [token, onSessionExpired, onError, apiFetch, loteOwnerId, setActivities]);
 
   return { patchProspect, patchingIds };
 }

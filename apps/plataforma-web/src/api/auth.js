@@ -28,7 +28,7 @@ export function buildLogoutHandler({
   setView, setToken, setUser, setLots, setLoteos, setSelectedLot,
   setAdminSubView, setInventoryLots, setInventoryLoteos,
   setInventoryLotsHasMore, setInventorySearch, setInventoryStatusFilter,
-  setInventoryTab, setProspectosList, setAllProspectosList, setProspectosHasMore,
+  setInventoryTab, setAllProspectosList,
   setProspectosCategoryFilter, setProspectosWithoutAdvisor,
   setClicksCache, setVisorDataCache, setReportsCache, setDashboardSummary,
 }) {
@@ -46,8 +46,6 @@ export function buildLogoutHandler({
     setInventoryStatusFilter('');
     setInventoryTab('lotes');
     setInventoryLoteos([]);
-    setProspectosList([]);
-    setProspectosHasMore(false);
     setAllProspectosList([]);
     setProspectosCategoryFilter('');
     setProspectosWithoutAdvisor(false);
