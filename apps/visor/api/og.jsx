@@ -8,10 +8,11 @@ export default async function handler(req) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
 
-  let name = 'Visor de Loteo';
-  let thumbnailUrl = null;
+  // Prefer inline params (passed by middleware) to avoid a second Render call
+  let name = searchParams.get('name') ?? 'Visor de Loteo';
+  let thumbnailUrl = searchParams.get('thumbnail') ?? null;
 
-  if (id) {
+  if (id && name === 'Visor de Loteo') {
     try {
       const res = await fetch(`${BACKEND}/api/v1/public/loteos/${id}/preview`, {
         signal: AbortSignal.timeout(3000),
