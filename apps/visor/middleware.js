@@ -11,6 +11,14 @@ const BOT_USER_AGENTS = [
   'ia_archiver',
   'googlebot',
   'bingbot',
+  'opengraph',
+  'preview',
+  'crawler',
+  'spider',
+  'bot/',
+  'iframely',
+  'rogerbot',
+  'embedly',
 ];
 
 const BACKEND = 'https://notry-back.onrender.com';
@@ -41,12 +49,9 @@ export default async function middleware(req) {
   const match = dataParam.match(LOTEO_ID_RE);
   const loteoId = match?.[1] ?? null;
 
-  const ogImageUrl = loteoId
-    ? `${reqUrl.origin}/api/og?id=${loteoId}`
-    : `${reqUrl.origin}/api/og`;
-
   let title = 'Visor 360°';
   let description = 'Experiencia interactiva equirrectangular';
+  let thumbnailUrl = null;
 
   if (loteoId) {
     try {
@@ -59,9 +64,17 @@ export default async function middleware(req) {
           title = `${data.name} — Visor 360°`;
           description = `Explorá ${data.name} en nuestro visor equirrectangular interactivo`;
         }
+        thumbnailUrl = data.thumbnail_url ?? null;
       }
     } catch (_) {}
   }
+
+  // Pass name + thumbnail as params so /api/og doesn't need a second Render call
+  const ogParams = new URLSearchParams();
+  if (loteoId) ogParams.set('id', loteoId);
+  if (title !== 'Visor 360°') ogParams.set('name', title.replace(' — Visor 360°', ''));
+  if (thumbnailUrl) ogParams.set('thumbnail', thumbnailUrl);
+  const ogImageUrl = `${reqUrl.origin}/api/og?${ogParams}`;
 
   const html = `<!DOCTYPE html>
 <html lang="es">
