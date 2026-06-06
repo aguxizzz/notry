@@ -69,12 +69,17 @@ export default async function middleware(req) {
     } catch (_) {}
   }
 
-  // Pass name + thumbnail as params so /api/og doesn't need a second Render call
-  const ogParams = new URLSearchParams();
-  if (loteoId) ogParams.set('id', loteoId);
-  if (title !== 'Visor 360°') ogParams.set('name', title.replace(' — Visor 360°', ''));
-  if (thumbnailUrl) ogParams.set('thumbnail', thumbnailUrl);
-  const ogImageUrl = `${reqUrl.origin}/api/og?${ogParams}`;
+  // Use the Cloudflare thumbnail directly when available — avoids the /api/og function entirely
+  // Fall back to the generated image only when there's no thumbnail
+  let ogImageUrl;
+  if (thumbnailUrl) {
+    ogImageUrl = thumbnailUrl;
+  } else {
+    const ogParams = new URLSearchParams();
+    if (loteoId) ogParams.set('id', loteoId);
+    if (title !== 'Visor 360°') ogParams.set('name', title.replace(' — Visor 360°', ''));
+    ogImageUrl = `${reqUrl.origin}/api/og?${ogParams}`;
+  }
 
   const html = `<!DOCTYPE html>
 <html lang="es">
@@ -86,8 +91,6 @@ export default async function middleware(req) {
   <meta property="og:title" content="${escapeHtml(title)}" />
   <meta property="og:description" content="${escapeHtml(description)}" />
   <meta property="og:image" content="${escapeHtml(ogImageUrl)}" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${escapeHtml(title)}" />
   <meta name="twitter:description" content="${escapeHtml(description)}" />
