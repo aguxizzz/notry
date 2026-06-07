@@ -51,6 +51,7 @@ export default function POIInspector({
   onCreatePoi,
   onSavePoi,
   onDeletePoi,
+  siblingStages = [],
   onDeselect,
   onFieldChange,
   isSaving,
@@ -63,6 +64,7 @@ export default function POIInspector({
     description: poi.description || '',
     link_url: poi.link_url || '',
     color: poi.color || '#14b8a6',
+    target_loteo_id: poi.target_loteo_id || '',
   });
 
   useEffect(() => {
@@ -72,6 +74,7 @@ export default function POIInspector({
       description: poi.description || '',
       link_url: poi.link_url || '',
       color: poi.color || '#14b8a6',
+      target_loteo_id: poi.target_loteo_id || '',
     });
   }, [poi.id]);
 
@@ -109,12 +112,32 @@ export default function POIInspector({
         style={{ resize: 'vertical' }}
       />
 
+      {siblingStages.length > 0 && (
+        <>
+          <span className="inspector-label">Ir a etapa (opcional)</span>
+          <select
+            className="inspector-input"
+            value={form.target_loteo_id}
+            onChange={e => handleChange('target_loteo_id', e.target.value)}
+          >
+            <option value="">— Ninguna —</option>
+            {siblingStages.map(s => (
+              <option key={s.id} value={s.id}>
+                {s.name}{s.tipo === 'general' ? ' (general)' : ''}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+
       <span className="inspector-label">URL (opcional)</span>
       <input
         className="inspector-input"
         value={form.link_url}
         onChange={e => handleChange('link_url', e.target.value)}
         placeholder="https://..."
+        disabled={!!form.target_loteo_id}
+        title={form.target_loteo_id ? 'Deshabilitado: el POI ya navega a una etapa' : undefined}
       />
 
       <span className="inspector-label">Color</span>

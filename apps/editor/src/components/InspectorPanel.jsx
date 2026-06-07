@@ -22,7 +22,7 @@ export default function InspectorPanel({
   // Lot — existing
   isSavingLote, onSaveLote,
   // POI
-  onCreatePoi, onSavePoi, onDeletePoi,
+  onCreatePoi, onSavePoi, onDeletePoi, siblingStages,
   onDeselectPoi, onPoiFieldChange,
   isCreatingPoi, isSavingPoi,
   // Save
@@ -152,6 +152,7 @@ export default function InspectorPanel({
                 onCreatePoi={onCreatePoi}
                 onSavePoi={onSavePoi}
                 onDeletePoi={onDeletePoi}
+                siblingStages={siblingStages}
                 onDeselect={onDeselectPoi}
                 onFieldChange={onPoiFieldChange}
                 isSaving={isCreatingPoi || isSavingPoi}

@@ -3,6 +3,7 @@ import { InfoPanel } from './components/InfoPanel.jsx';
 import { useViewer } from './hooks/useViewer.js';
 import { annotationsToMarkers } from './annotations.js';
 import BlueprintViewer from './components/BlueprintViewer.jsx';
+import StageSwitcher from './components/StageSwitcher.jsx';
 
 const API_URL = '/api/viewer/current';
 const FALLBACK_DATA_URL = '/data/viewer.json';
@@ -70,23 +71,66 @@ function postLoteClick(id) {
     .catch((err) => console.warn('POST lote click:', err));
 }
 
+// Normaliza la respuesta a un grupo de etapas. Soporta la forma nueva
+// (group_visor_data: { stages, entry_stage_id }) y la vieja (visor_data plano),
+// que se envuelve como un grupo de una sola etapa.
+function normalizeToGroup(data) {
+  if (data && Array.isArray(data.stages)) {
+    return {
+      grupoId: data.grupo_id ?? null,
+      entryStageId: data.entry_stage_id ?? data.stages[0]?.id ?? null,
+      stages: data.stages,
+      __usingFallback: data.__usingFallback,
+    };
+  }
+  return {
+    grupoId: null,
+    entryStageId: 'single',
+    stages: [{ id: 'single', name: '', tipo: null, orden: 0, visor: data }],
+    __usingFallback: data?.__usingFallback,
+  };
+}
+
 const PANEL_CLOSED = { isOpen: false, title: '', content: '', markerId: null, detail: {} };
 
 export default function App() {
-  const [rawData, setRawData] = useState(null);
+  const [group, setGroup] = useState(null);
+  const [currentStageId, setCurrentStageId] = useState(null);
   const [error, setError] = useState(null);
   const [usingFallback, setUsingFallback] = useState(false);
   const [panel, setPanel] = useState(PANEL_CLOSED);
   const [viewMode, setViewMode] = useState('panorama');
-  const blueprintUrl = rawData?.blueprintUrl || null;
 
   useEffect(() => {
     fetchViewerData()
       .then((data) => {
-        if (data.__usingFallback) setUsingFallback(true);
-        setRawData(data);
+        const normalized = normalizeToGroup(data);
+        if (normalized.__usingFallback) setUsingFallback(true);
+        setGroup(normalized);
+        setCurrentStageId(normalized.entryStageId);
       })
       .catch((err) => setError(err.message));
+  }, []);
+
+  const stages = group?.stages ?? [];
+  const currentStage = useMemo(
+    () => stages.find((s) => s.id === currentStageId) ?? stages[0] ?? null,
+    [stages, currentStageId]
+  );
+  const rawData = currentStage?.visor ?? null;
+  const blueprintUrl = rawData?.blueprintUrl || null;
+
+  // Mapa id→nombre de etapa para resolver el destino de un POI de navegación.
+  const stageNameById = useMemo(
+    () => Object.fromEntries(stages.map((s) => [s.id, s.name])),
+    [stages]
+  );
+
+  const goToStage = useCallback((stageId) => {
+    if (!stageId) return;
+    setCurrentStageId(stageId);
+    setPanel(PANEL_CLOSED);
+    setViewMode('panorama');
   }, []);
 
   const annotations = rawData?.annotations ?? [];
@@ -132,6 +176,8 @@ export default function App() {
           icon_type: ann.icon_type ?? null,
           link_url: ann.link_url ?? null,
           color: ann.color ?? '#14b8a6',
+          target_loteo_id: ann.target_loteo_id ?? null,
+          target_stage_name: ann.target_loteo_id ? (stageNameById[ann.target_loteo_id] ?? null) : null,
         },
       });
       return;
@@ -149,7 +195,7 @@ export default function App() {
       markerId: marker.id,
       detail: { price: ann?.price, area_m2: ann?.area_m2, estado: ann?.status ?? ann?.estado, comments: ann?.comments ?? null },
     });
-  }, [annotationsById]);
+  }, [annotationsById, stageNameById]);
 
   const handleBlueprintSelect = useCallback((ann) => {
     const id = ann.uuid || ann.id;
@@ -166,6 +212,8 @@ export default function App() {
           icon_type: ann.icon_type ?? null,
           link_url: ann.link_url ?? null,
           color: ann.color ?? '#14b8a6',
+          target_loteo_id: ann.target_loteo_id ?? null,
+          target_stage_name: ann.target_loteo_id ? (stageNameById[ann.target_loteo_id] ?? null) : null,
         },
       });
       return;
@@ -178,7 +226,7 @@ export default function App() {
       markerId: id,
       detail: { price: ann.price, area_m2: ann.area_m2, estado: ann.status ?? ann.estado, comments: ann.comments ?? null },
     });
-  }, []);
+  }, [stageNameById]);
 
   const handleMarkerUnselect = useCallback(() => {
     setPanel(PANEL_CLOSED);
@@ -195,7 +243,7 @@ export default function App() {
     );
   }
 
-  if (!rawData) {
+  if (!group || !rawData) {
     return (
       <div style={{ width: '100%', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#111' }}>
         <div style={{ width: 40, height: 40, border: '4px solid #444', borderTopColor: '#c5a059', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
@@ -246,6 +294,15 @@ export default function App() {
           Modo offline · datos locales
         </div>
       )}
+
+      {stages.length > 1 && (
+        <StageSwitcher
+          stages={stages}
+          currentStageId={currentStage?.id ?? null}
+          onSelect={goToStage}
+        />
+      )}
+
       <InfoPanel
         isOpen={panel.isOpen}
         title={panel.title}
@@ -254,6 +311,7 @@ export default function App() {
         detail={panel.detail}
         origin={VISIT_ORIGIN}
         onClose={() => setPanel(PANEL_CLOSED)}
+        onGoToStage={goToStage}
       />
     </>
   );

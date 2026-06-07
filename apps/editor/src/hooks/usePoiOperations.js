@@ -28,6 +28,7 @@ export function usePoiOperations({
         description: form.description.trim() || null,
         link_url: form.link_url.trim() || null,
         color: form.color || '#14b8a6',
+        target_loteo_id: form.target_loteo_id || null,
         ...(mode === 'blueprint'
           ? { blueprint_coordinates: polygonPixels }
           : { coordinates_360: polygonPixels }),
@@ -47,6 +48,7 @@ export function usePoiOperations({
             description: res.description,
             link_url: res.link_url,
             color: res.color,
+            target_loteo_id: res.target_loteo_id ?? null,
             ...(mode === 'blueprint'
               ? { blueprint_coordinates: polygonPixels }
               : { panorama_coordinates: polygonPixels }),
@@ -79,6 +81,7 @@ export function usePoiOperations({
           description: form.description.trim() || null,
           link_url: form.link_url.trim() || null,
           color: form.color || '#14b8a6',
+          target_loteo_id: form.target_loteo_id || null,
         }),
         ...(hasCoords ? [coordFn(token, poiId, polygonPixels)] : []),
       ];
@@ -95,6 +98,7 @@ export function usePoiOperations({
             description: metaRes.description,
             link_url: metaRes.link_url,
             color: metaRes.color,
+            target_loteo_id: metaRes.target_loteo_id ?? null,
             ...(hasCoords
               ? mode === 'blueprint'
                 ? { blueprint_coordinates: polygonPixels }

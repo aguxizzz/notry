@@ -115,7 +115,7 @@ export function annotationsToMarkers(annotations, snapThreshold = 5) {
         const statusStyles = {
           available: { fill: 'rgba(34,197,94,0.08)',  stroke: 'rgba(255,255,255,0.9)', strokeWidth: '1.5', strokeDasharray: '12 6', strokeLinecap: 'round' },
           sold:      { fill: 'rgba(239,68,68,0.08)',   stroke: 'rgba(255,255,255,0.9)', strokeWidth: '1.5', strokeDasharray: '12 6', strokeLinecap: 'round' },
-          reserved:  { fill: 'rgba(59,130,246,0.08)',  stroke: 'rgba(255,255,255,0.9)', strokeWidth: '1.5', strokeDasharray: '12 6', strokeLinecap: 'round' },
+          reserved:  { fill: 'rgba(59,130,246,0.28)',  stroke: 'rgba(255,255,255,0.9)', strokeWidth: '1.5', strokeDasharray: '12 6', strokeLinecap: 'round' },
         };
         const fillStyle = statusKey && statusStyles[statusKey]
           ? statusStyles[statusKey]

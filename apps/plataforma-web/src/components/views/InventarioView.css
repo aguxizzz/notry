@@ -15,29 +15,10 @@
   white-space: nowrap;
 }
 
-.inventory-tab-select {
-  background: var(--panel-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  color: var(--text-main);
-  font-family: inherit;
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: var(--space-xs) 28px var(--space-xs) var(--space-sm);
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  min-width: 140px;
-}
-
-.inventory-tab-select:focus {
-  outline: none;
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 2px rgba(197, 160, 89, 0.2);
+.inventory-tab-select-custom {
+  min-width: 120px;
+  flex-shrink: 0;
+  margin-bottom: 0;
 }
 
 .inventory-controls {
@@ -609,6 +590,197 @@
   white-space: nowrap;
 }
 
+.prospecto-tag.clickable {
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.prospecto-tag.clickable:hover {
+  background: rgba(197, 160, 89, 0.10);
+  color: var(--accent-color);
+  border-color: rgba(197, 160, 89, 0.30);
+}
+
+.prospecto-tag.clickable.active {
+  background: rgba(197, 160, 89, 0.14);
+  color: var(--accent-color);
+  border-color: rgba(197, 160, 89, 0.45);
+}
+
+/* ─── Prospecto Tooltip ────────────────────────────────────────── */
+
+.prospecto-tooltip {
+  width: 280px;
+  background: var(--panel-bg, #ffffff);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.06);
+  z-index: var(--z-dropdown, 1002);
+  animation: tooltipEnter 0.18s var(--ease-out);
+  overflow: hidden;
+}
+
+.prospecto-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 14px;
+  width: 8px;
+  height: 8px;
+  background: var(--panel-bg, #ffffff);
+  border: 1px solid var(--border-color);
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg);
+}
+
+.prospecto-tooltip.bottom::after {
+  bottom: auto;
+  top: -5px;
+  border-top: 1px solid var(--border-color);
+  border-left: 1px solid var(--border-color);
+  border-bottom: none;
+  border-right: none;
+}
+
+.prospecto-tooltip-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-sm) 10px;
+  border-bottom: 1px solid var(--border-color);
+  background: rgba(197, 160, 89, 0.04);
+}
+
+.prospecto-tooltip-header-main {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.prospecto-tooltip-name-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font-primary);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  color: var(--color-text);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  text-align: left;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.prospecto-tooltip-name-btn:hover {
+  color: var(--accent-color);
+}
+
+.prospecto-tooltip-badge {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  line-height: 1.4;
+  align-self: flex-start;
+}
+
+.prospecto-tooltip-badge.category-primer_contacto {
+  background: var(--color-cat-contacto-bg);
+  color: var(--color-cat-contacto);
+}
+.prospecto-tooltip-badge.category-seguimiento {
+  background: var(--color-cat-seguimiento-bg);
+  color: var(--color-cat-seguimiento);
+}
+.prospecto-tooltip-badge.category-negociacion {
+  background: var(--color-cat-negociacion-bg);
+  color: var(--color-cat-negociacion);
+}
+.prospecto-tooltip-badge.category-vendido {
+  background: var(--color-cat-vendido-bg);
+  color: var(--color-cat-vendido);
+}
+
+.prospecto-tooltip-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+  margin-top: 1px;
+}
+
+.prospecto-tooltip-close:hover {
+  color: var(--accent-color);
+  background: rgba(197, 160, 89, 0.10);
+}
+
+.prospecto-tooltip-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px var(--space-sm) var(--space-sm);
+}
+
+.prospecto-tooltip-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  line-height: 1.5;
+  padding: 3px 0;
+}
+
+.prospecto-tooltip-icon {
+  color: var(--accent-color);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.prospecto-tooltip-icon.muted {
+  color: var(--text-muted);
+}
+
+.prospecto-tooltip-muted {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.prospecto-tooltip-row--notes {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+  align-items: flex-start;
+}
+
+.prospecto-tooltip-notes-text {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* Loteo pill selector */
 .loteo-pill {
   background: transparent;
@@ -644,4 +816,89 @@
   color: var(--accent-dark);
   font-weight: var(--weight-bold);
   box-shadow: 0 2px 8px rgba(197, 160, 89, 0.2);
+}
+
+/* ── Loteos agrupados: etapas anidadas bajo el general ──────────────────────── */
+.action-btn.group {
+  background: rgba(139, 92, 246, 0.12);
+  color: #8b5cf6;
+}
+.action-btn.group:hover,
+.action-btn.group.active {
+  background: #8b5cf6;
+  color: var(--color-text);
+}
+
+/* Recuadro alrededor del grupo: se dibuja como fondos internos, no como border.
+   En tablas con border-collapse, los bordes reales de las celdas se mezclan
+   con los separadores de fila y pueden sobresalir 1-2px en las esquinas. */
+.loteos-table tr.loteo-group-row > td {
+  --group-border-top: 0px;
+  --group-border-bottom: 0px;
+  --group-border-left: 0px;
+  --group-border-right: 0px;
+  background:
+    linear-gradient(var(--accent-color), var(--accent-color)) top left / 100% var(--group-border-top) no-repeat,
+    linear-gradient(var(--accent-color), var(--accent-color)) bottom left / 100% var(--group-border-bottom) no-repeat,
+    linear-gradient(var(--accent-color), var(--accent-color)) top left / var(--group-border-left) 100% no-repeat,
+    linear-gradient(var(--accent-color), var(--accent-color)) top right / var(--group-border-right) 100% no-repeat,
+    rgba(197, 160, 89, 0.05);
+}
+.loteos-table tr.loteo-group-row > td:first-child {
+  --group-border-left: 2px;
+}
+.loteos-table tr.loteo-group-row > td:last-child {
+  --group-border-right: 2px;
+}
+.loteos-table tbody tr.loteo-group-first {
+  border-top: none;
+}
+.loteos-table tbody tr.loteo-group-first > td {
+  --group-border-top: 2px;
+}
+.loteos-table tbody tr.loteo-group-last {
+  border-bottom: none;
+}
+.loteos-table tbody tr.loteo-group-last > td {
+  --group-border-bottom: 2px;
+}
+
+/* Nombre: general en negrita, etapa indentada con conector tipo árbol */
+.loteo-name-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.loteo-name-cell.role-general .loteo-name-text {
+  font-weight: 600;
+}
+.loteo-name-cell.role-etapa {
+  padding-left: 22px;
+}
+.loteo-tree-connector {
+  width: 12px;
+  height: 12px;
+  margin-top: 2px;
+  border-left: 1.5px solid var(--border-color);
+  border-bottom: 1.5px solid var(--border-color);
+  border-bottom-left-radius: 4px;
+}
+
+/* Badges de rol */
+.loteo-role-badge {
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  line-height: 1.4;
+}
+.loteo-role-badge.general {
+  background: rgba(197, 160, 89, 0.16);
+  color: var(--accent-color);
+}
+.loteo-role-badge.etapa {
+  background: var(--bg-dark);
+  color: var(--text-muted);
 }

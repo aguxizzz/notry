@@ -66,6 +66,22 @@ export async function createLoteo({ apiFetch, createLoteoForm, setCreateLoteoLoa
   }
 }
 
+export async function addLoteoToGroup({ apiFetch, loteoId, targetGrupoId, tipo, orden = 0 }) {
+  return apiFetch(`${API_BASE}/loteos/${loteoId}/group`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      target_grupo_id: targetGrupoId || undefined,
+      tipo,
+      orden,
+    }),
+  });
+}
+
+export async function removeLoteoFromGroup({ apiFetch, loteoId }) {
+  return apiFetch(`${API_BASE}/loteos/${loteoId}/group`, { method: 'DELETE' });
+}
+
 export async function deleteLoteo({ apiFetch, loteoId, loteoName, loteOwnerId, setActivities }) {
   logActivity({ apiFetch, activityType: 'loteo_deleted', entityType: 'loteo', entityId: loteoId, loteOwnerId, description: `Loteo "${loteoName}" eliminado`, name: loteoName, setActivities });
   await apiFetch(`${API_BASE}/loteos/${loteoId}`, { method: 'DELETE' });

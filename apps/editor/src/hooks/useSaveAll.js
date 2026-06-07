@@ -26,7 +26,8 @@ const poiChanged = (cur, saved) => {
     (cur.icon_type ?? '') !== (saved.icon_type ?? '') ||
     (cur.description ?? '') !== (saved.description ?? '') ||
     (cur.link_url ?? '') !== (saved.link_url ?? '') ||
-    (cur.color ?? '') !== (saved.color ?? '')
+    (cur.color ?? '') !== (saved.color ?? '') ||
+    (cur.target_loteo_id ?? '') !== (saved.target_loteo_id ?? '')
   );
 };
 
@@ -132,6 +133,7 @@ export function useSaveAll({ annotations, token, loteoId, savedAnnotationsRef, o
               description: poi.description || null,
               link_url: poi.link_url || null,
               color: poi.color || '#14b8a6',
+              target_loteo_id: poi.target_loteo_id || null,
             }),
           }));
         }

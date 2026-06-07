@@ -14,6 +14,7 @@ import ConfirmDialog from './components/ConfirmDialog';
 import DeleteProspectDialog from './components/DeleteProspectDialog';
 import DeleteLoteoDialog from './components/DeleteLoteoDialog';
 import LoteoFormModal from './components/modals/LoteoFormModal';
+import GroupLoteoModal from './components/modals/GroupLoteoModal';
 import AddProspectModal from './components/modals/AddProspectModal';
 import UpdateContactModal from './components/modals/UpdateContactModal';
 import { Badge, Button, ErrorBoundary, Loader, Select, EditEntityModal } from './ui/components';
@@ -26,6 +27,7 @@ import { useEditLotModal } from './hooks/useEditLotModal';
 import { useCreateLotModal } from './hooks/useCreateLotModal';
 import { useEditLoteoModal } from './hooks/useEditLoteoModal';
 import { useCreateLoteoModal } from './hooks/useCreateLoteoModal';
+import { useGroupLoteoModal } from './hooks/useGroupLoteoModal';
 import { useAddProspectModal } from './hooks/useAddProspectModal';
 import { useEditProspectModal } from './hooks/useEditProspectModal';
 import { useUpdateContactModal } from './hooks/useUpdateContactModal';
@@ -100,6 +102,7 @@ function App() {
   } = useProspects();
 
   const [allProspectosList, setAllProspectosList] = useState([]);
+  const [highlightedProspectId, setHighlightedProspectId] = useState(null);
   const [clicksCache, setClicksCache] = useState({});
   const [clicksLoadingIds, setClicksLoadingIds] = useState(new Set()); // Track which loteos are loading clicks
   const [visorDataCache, setVisorDataCache] = useState({}); // { loteoId: visorData }
@@ -376,6 +379,13 @@ function App() {
     setDeleteLoteoDialog({ open: false, loteo: null, loading: false });
   };
 
+  const handleNavigateToProspect = (id) => {
+    setProspectosSearch('');
+    setProspectosCategoryFilter('');
+    setHighlightedProspectId(id);
+    setOwnerSubView('clientes');
+  };
+
   const handleOpenShareLoteo = (loteoId) => {
     setSelectedLoteoId(loteoId);
     setShareLoteoOpen(true);
@@ -502,6 +512,14 @@ function App() {
     setRawActivities: handleRawActivities,
     shouldKeepLocal,
   }, addToast);
+
+  // ── Group Loteo Modal ─────────────────────────────────────────────────────────
+  const groupLoteoModal = useGroupLoteoModal({
+    apiFetch,
+    addToast,
+    onUpdateLoteo: updateLoteo,
+    refreshSync,
+  });
 
   // ── Add Prospect Modal ────────────────────────────────────────────────────────
   const addProspectModal = useAddProspectModal({
@@ -688,9 +706,12 @@ function App() {
                   onOpenCreateLoteoModal={createLoteoModal.openCreateLoteoModal}
                   onOpenEditLoteoModal={editLoteoModal.openEditLoteoModal}
                   onOpenDeleteLoteoDialog={openDeleteLoteoDialog}
+                  onGroupLoteo={groupLoteoModal.openGroupModal}
                   onOpenEditor={openEditor}
                   safeOpen={safeOpen}
                   onOpenShareLoteo={handleOpenShareLoteo}
+                  allProspectosList={allProspectosList}
+                  onNavigateToProspect={handleNavigateToProspect}
                 />
               )}
 
@@ -708,6 +729,7 @@ function App() {
                   onEditProspect={editProspectModal.openEditProspectModal}
                   onDeleteProspect={openDeleteProspectDialog}
                   onUpdateContact={updateContactModal.openUpdateContactModal}
+                  highlightedProspectId={highlightedProspectId}
                 />
               )}
 
@@ -769,6 +791,19 @@ function App() {
         uploadFn={uploadFn}
         onUploadEvent={handleUploadEvent}
       />
+
+      {groupLoteoModal.groupModalOpen && (
+        <GroupLoteoModal
+          isOpen={groupLoteoModal.groupModalOpen}
+          onClose={groupLoteoModal.closeGroupModal}
+          loteo={groupLoteoModal.groupLoteo}
+          loteos={inventoryLoteos}
+          onSubmit={groupLoteoModal.submitGroup}
+          onUngroup={groupLoteoModal.ungroup}
+          loading={groupLoteoModal.groupLoading}
+          error={groupLoteoModal.groupError}
+        />
+      )}
 
       <AddProspectModal
         isOpen={addProspectModal.addProspectOpen}

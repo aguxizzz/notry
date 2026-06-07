@@ -91,7 +91,7 @@ export default function ShareLoteoModal({
   const [copiedOrigin, setCopiedOrigin] = useState(null);
 
   const generateLink = (origin) => {
-    const dataUrl = `${apiBaseUrl}/loteos/${loteoId}/visor_data`;
+    const dataUrl = `${apiBaseUrl}/loteos/${loteoId}/group_visor_data`;
     const baseUrl = `${visorBaseUrl}/?data=${dataUrl}`;
     if (origin) {
       return `${baseUrl}&ref=${origin}`;

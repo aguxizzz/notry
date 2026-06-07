@@ -235,7 +235,7 @@ function PrecalificacionForm({ lotDetail, onClose, origin }) {
 // Duration must match --t in index.css (0.28s)
 const CLOSE_DURATION_MS = 280;
 
-export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origin, onClose }) {
+export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origin, onClose, onGoToStage }) {
   const [showForm, setShowForm] = useState(false);
   const [transDir, setTransDir] = useState(null);
   const [isClosing, setIsClosing] = useState(false);
@@ -303,6 +303,8 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origi
     icon_type: display.detail?.icon_type ?? null,
     link_url: display.detail?.link_url ?? null,
     color: display.detail?.color ?? '#14b8a6',
+    target_loteo_id: display.detail?.target_loteo_id ?? null,
+    target_stage_name: display.detail?.target_stage_name ?? null,
     content: display.content ?? '',
   };
 
@@ -373,7 +375,18 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origi
               {poiDetail.content && (
                 <div id="info-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(poiDetail.content) }} />
               )}
-              {poiDetail.link_url && (
+              {poiDetail.target_loteo_id && onGoToStage ? (
+                <div id="info-actions">
+                  <button
+                    type="button"
+                    className="poi-link-btn"
+                    onClick={() => onGoToStage(poiDetail.target_loteo_id)}
+                  >
+                    <IconLink />
+                    {poiDetail.target_stage_name ? `Ir a ${poiDetail.target_stage_name}` : 'Ir a la etapa'}
+                  </button>
+                </div>
+              ) : poiDetail.link_url ? (
                 <div id="info-actions">
                   <a
                     href={poiDetail.link_url}
@@ -384,7 +397,7 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origi
                     Visitar enlace
                   </a>
                 </div>
-              )}
+              ) : null}
             </div>
           ) : (
             <div
