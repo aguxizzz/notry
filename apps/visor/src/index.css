@@ -617,6 +617,7 @@ html, body {
   justify-content: center;
   gap: 0.45rem;
   width: 100%;
+  box-sizing: border-box;
   padding: 0.7rem 1rem;
   background: transparent;
   color: var(--accent);

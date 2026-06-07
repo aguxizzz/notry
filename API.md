@@ -1188,6 +1188,8 @@ Creates a new activity log entry.
 | `frances` | French amortization |
 
 ### ActivityType
+
+**CRM Interactions:**
 | Value | Description |
 |-------|-------------|
 | `call_made` | Outgoing call |
@@ -1196,6 +1198,31 @@ Creates a new activity log entry.
 | `note_added` | Note added |
 | `prospect_contacted` | Prospect contacted |
 | `email_sent` | Email sent |
+
+**CRUD Operations - Prospect:**
+| Value | Description |
+|-------|-------------|
+| `prospect_created` | Prospect created |
+| `prospect_updated` | Prospect updated |
+| `prospect_deleted` | Prospect deleted |
+
+**CRUD Operations - Lote:**
+| Value | Description |
+|-------|-------------|
+| `lote_created` | Lot created |
+| `lote_updated` | Lot updated |
+| `lote_deleted` | Lot deleted |
+
+**CRUD Operations - Loteo:**
+| Value | Description |
+|-------|-------------|
+| `loteo_created` | Loteo created |
+| `loteo_updated` | Loteo updated |
+| `loteo_deleted` | Loteo deleted |
+
+**Generic:**
+| Value | Description |
+|-------|-------------|
 | `other` | Other activity |
 
 ### EntityType

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { API_BASE } from './api/config';
+import { API_BASE, fetchWithTimeout } from './api/config';
 import { useAuth } from './hooks/useAuth';
 import { useDraft } from './hooks/useDraft';
 import { useHistory } from './hooks/useHistory';
@@ -67,6 +67,7 @@ function App() {
   }, [calibrationPoints]);
   const [isLoadingDefault, setIsLoadingDefault] = useState(true);
   const [loteoId, setLoteoId] = useState(null);
+  const [siblingStages, setSiblingStages] = useState([]);
   const { token: accessToken, handleLogin, handleLogout } = useAuth();
   const [selectedLoteo, setSelectedLoteo] = useState(null);
   const [poiForm, setPoiForm] = useState({ title: '', icon_type: '', description: '', link_url: '', color: '#14b8a6' });
@@ -199,6 +200,28 @@ function App() {
       .catch((err) => console.warn('Fallback panorama.jpg not available:', err))
       .finally(() => setIsLoadingDefault(false));
   }, []);
+
+  // Etapas hermanas del grupo (para que un POI pueda navegar a otra etapa).
+  useEffect(() => {
+    if (!loteoId || !accessToken) { setSiblingStages([]); return; }
+    let cancelled = false;
+    fetchWithTimeout(`${API_BASE}/loteos?limit=100`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (cancelled || !data?.items) return;
+        const me = data.items.find(l => l.id === loteoId);
+        if (!me?.grupo_id) { setSiblingStages([]); return; }
+        const siblings = data.items
+          .filter(l => l.grupo_id === me.grupo_id && l.id !== loteoId)
+          .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+          .map(l => ({ id: l.id, name: l.name, tipo: l.tipo }));
+        setSiblingStages(siblings);
+      })
+      .catch(() => { if (!cancelled) setSiblingStages([]); });
+    return () => { cancelled = true; };
+  }, [loteoId, accessToken]);
 
   // Reset pending panel state when selection changes
   useEffect(() => {
@@ -658,6 +681,7 @@ function App() {
         onSaveLote={() => handleSaveLote(selectedMarker)}
         onCreatePoi={handleCreatePoi}
         onSavePoi={handleSavePoi}
+        siblingStages={siblingStages}
         onDeletePoi={handleDeletePoi}
         onDeselectPoi={() => { setSelectedId(null); setInspectorOpen(false); }}
         onPoiFieldChange={(field, value) => {
