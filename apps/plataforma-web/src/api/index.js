@@ -1,4 +1,5 @@
 import { API_BASE } from '../config';
+import { getErrorMessage } from '../utils/errors';
 
 /**
  * Creates an apiFetch function bound to the current token and logout handler.
@@ -32,14 +33,15 @@ export function createApiFetch(token, logout) {
           return body ? JSON.parse(body) : null;
         }
 
-        if (res.status >= 400 && res.status < 500) {
+        {
           const raw = await res.text();
-          let detail = raw;
-          try { detail = JSON.parse(raw).detail; } catch {}
-          throw new Error(detail || `HTTP ${res.status}`);
+          let detail;
+          try {
+            const parsed = JSON.parse(raw);
+            detail = parsed.detail;
+          } catch {}
+          throw new Error(getErrorMessage(detail || `HTTP ${res.status}`));
         }
-
-        throw new Error(`HTTP ${res.status}`);
       } catch (err) {
         const isAbort = err.name === 'AbortError';
         const isLastAttempt = attempt === retries;

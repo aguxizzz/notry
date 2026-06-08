@@ -31,7 +31,7 @@ export async function fetchInventoryLoteosBg({ apiFetch, setInventoryLoteos, add
     const data = await apiFetch(`${API_BASE}/loteos?include_lotes=false&limit=50&offset=0`);
     setInventoryLoteos(data.items);
   } catch (error) {
-    if (error.name !== 'AbortError') addToast(`Error actualizando loteos: ${error.message}`, 'error');
+    if (error.name !== 'AbortError') addToast(error.message, 'error');
   }
 }
 

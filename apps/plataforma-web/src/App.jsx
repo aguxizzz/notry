@@ -407,7 +407,7 @@ function App() {
       removeLoteoFromList(loteo.id);
       refreshSync();
     } catch (err) {
-      addToast(`Error: ${err.message}`, 'error');
+      addToast(err.message, 'error');
       setDeleteLoteoDialog(prev => ({ ...prev, loading: false }));
     }
   };
@@ -869,6 +869,7 @@ function App() {
         visorBaseUrl={VISOR_URL}
         apiBaseUrl={API_BASE}
         loteoId={selectedLoteoId}
+        addToast={addToast}
       />
 
       <EditEntityModal

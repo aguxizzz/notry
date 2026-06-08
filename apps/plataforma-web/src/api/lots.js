@@ -43,7 +43,7 @@ export async function fetchInventoryBg({ apiFetch, setInventoryLots, setInventor
     setInventoryLots(data.items);
     setInventoryLotsHasMore(data.items.length === PAGE_SIZE);
   } catch (error) {
-    if (error.name !== 'AbortError') addToast(`Error actualizando lotes: ${error.message}`, 'error');
+    if (error.name !== 'AbortError') addToast(error.message, 'error');
   }
 }
 

@@ -87,6 +87,7 @@ export default function ShareLoteoModal({
   visorBaseUrl,
   apiBaseUrl,
   loteoId,
+  addToast,
 }) {
   const [copiedOrigin, setCopiedOrigin] = useState(null);
 
@@ -122,7 +123,7 @@ export default function ShareLoteoModal({
           setCopiedOrigin(origin.value);
           setTimeout(() => setCopiedOrigin(null), 2000);
         } catch (err) {
-          console.error('Error copying to clipboard:', err);
+          addToast?.('No se pudo copiar el enlace. Copialo manualmente.', 'error');
         }
       }
       return;

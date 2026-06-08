@@ -44,7 +44,7 @@ export function usePatchProspect({ token, onSessionExpired, onError, apiFetch, l
           }
 
           if (res.status >= 400 && res.status < 500) {
-            throw new Error('Error al actualizar prospect');
+            throw new Error('Error al actualizar prospecto');
           }
 
           throw new Error(`HTTP ${res.status}`);
