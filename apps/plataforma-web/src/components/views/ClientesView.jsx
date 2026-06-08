@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Search, SlidersHorizontal, Pencil, Trash2, RotateCw, BookUser } from 'lucide-react';
 import { Button, Select, ErrorBoundary, CommentTooltip } from '../../ui/components';
 import CategoryPieChart from '../CategoryPieChart';
@@ -58,8 +58,19 @@ function ProspectosFilters({
   );
 }
 
-function ProspectosTable({ prospectos, filteredProspectos, onEditProspect, onDeleteProspect, onUpdateContact }) {
+function ProspectosTable({ prospectos, filteredProspectos, onEditProspect, onDeleteProspect, onUpdateContact, highlightedProspectId }) {
   const data = filteredProspectos ?? prospectos;
+
+  useEffect(() => {
+    if (!highlightedProspectId) return;
+    const el = document.getElementById(`prospect-row-${highlightedProspectId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('row-highlight');
+    const t = setTimeout(() => el.classList.remove('row-highlight'), 1800);
+    return () => clearTimeout(t);
+  }, [highlightedProspectId]);
+
   return (
     <div className="inventory-table-wrapper">
       <table className="inventory-table">
@@ -82,7 +93,7 @@ function ProspectosTable({ prospectos, filteredProspectos, onEditProspect, onDel
             </tr>
           ) : (
             data.map(p => (
-              <tr key={p.id}>
+              <tr key={p.id} id={`prospect-row-${p.id}`}>
                 <td className="td-name">{p.name}</td>
                 <td className="td-muted">{p.email || '—'}</td>
                 <td className="td-muted">{p.phone || '—'}</td>
@@ -148,6 +159,7 @@ export default function ClientesView({
   onEditProspect,
   onDeleteProspect,
   onUpdateContact,
+  highlightedProspectId,
 }) {
   return (
     <ErrorBoundary label="Error al cargar prospectos">
@@ -179,6 +191,7 @@ export default function ClientesView({
           onEditProspect={onEditProspect}
           onDeleteProspect={onDeleteProspect}
           onUpdateContact={onUpdateContact}
+          highlightedProspectId={highlightedProspectId}
         />
       </div>
     </ErrorBoundary>

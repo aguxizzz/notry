@@ -123,6 +123,16 @@
   background: rgba(0, 0, 0, 0.03);
 }
 
+@keyframes rowHighlight {
+  0%   { background: rgba(197, 160, 89, 0.22); }
+  65%  { background: rgba(197, 160, 89, 0.10); }
+  100% { background: transparent; }
+}
+
+.inventory-table tbody tr.row-highlight {
+  animation: rowHighlight 1.8s var(--ease-out) forwards;
+}
+
 .inventory-table td {
   padding: var(--space-md) var(--space-lg);
   font-size: 0.875rem;

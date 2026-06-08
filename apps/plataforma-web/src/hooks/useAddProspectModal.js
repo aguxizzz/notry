@@ -19,9 +19,31 @@ export function useAddProspectModal({ apiFetch, onSuccess, addToast, onAddProspe
     setAddProspectForm({ name: '', email: '', phone: '', category: 'primer_contacto', lote_id: '' });
   };
 
+  const validateForm = (formData) => {
+    if (!formData.category || formData.category.trim() === '') {
+      return 'La categoría es requerida';
+    }
+    const hasLote = formData.lote_id && formData.lote_id.trim() !== '';
+    const hasEmail = formData.email && formData.email.trim() !== '';
+    const hasPhone = formData.phone && formData.phone.trim() !== '';
+
+    if (!hasLote && !hasEmail && !hasPhone) {
+      return 'Debes proporcionar un lote, email o número de teléfono';
+    }
+    return null;
+  };
+
   const submitAddProspect = async (formData) => {
     setAddProspectLoading(true);
     setAddProspectError(null);
+
+    const validationError = validateForm(formData);
+    if (validationError) {
+      setAddProspectError(validationError);
+      setAddProspectLoading(false);
+      return;
+    }
+
     try {
       await createProspectService({
         apiFetch,

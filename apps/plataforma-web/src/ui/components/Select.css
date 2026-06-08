@@ -61,12 +61,8 @@
   transform: translateY(-50%) rotate(180deg);
 }
 
-/* Dropdown panel — animated via clip-path (no grid, no opacity seam) */
+/* Dropdown panel — portaled to document.body, position set via inline style */
 .select-dropdown {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
   background: var(--panel-bg);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
@@ -83,6 +79,10 @@
 .select-dropdown--open {
   clip-path: inset(0 0 0% 0);
   pointer-events: auto;
+}
+
+.select-dropdown--instant {
+  transition: none !important;
 }
 
 /* Individual options */
