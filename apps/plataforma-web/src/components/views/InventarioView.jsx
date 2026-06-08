@@ -364,14 +364,24 @@ function buildLoteoRows(data) {
     const members = [];
     if (item.general) members.push({ loteo: item.general, role: 'general' });
     for (const e of item.etapas) members.push({ loteo: e, role: 'etapa' });
+    const groupHasGeneral = !!item.general;
+    const groupLabel = item.general?.name ?? item.etapas[0]?.name ?? 'Grupo';
+    rows.push({
+      key: `header-${item.grupoId}`,
+      variant: 'group-header',
+      label: groupLabel,
+      isFirst: true,
+      isLast: false,
+    });
     members.forEach((m, i) => {
       rows.push({
         key: m.loteo.id,
         loteo: m.loteo,
         variant: 'group',
         role: m.role,
-        isFirst: i === 0,
+        isFirst: false,
         isLast: i === members.length - 1,
+        groupHasGeneral,
       });
     });
   }
@@ -379,7 +389,7 @@ function buildLoteoRows(data) {
 }
 
 function LoteoRow({ row, onEditLoteo, onDeleteLoteo, onGroupLoteo, onSafeOpen, onOpenEditor, onOpenShareLoteo }) {
-  const { loteo, variant, role, isFirst, isLast } = row;
+  const { loteo, variant, role, isFirst, isLast, groupHasGeneral } = row;
   const rowClass = [];
   if (variant === 'group') {
     rowClass.push('loteo-group-row');
@@ -393,8 +403,8 @@ function LoteoRow({ row, onEditLoteo, onDeleteLoteo, onGroupLoteo, onSafeOpen, o
     <tr className={rowClass.join(' ')}>
       <td className="td-name">
         {variant === 'group' ? (
-          <span className={`loteo-name-cell role-${role}`}>
-            {role === 'etapa' && <span className="loteo-tree-connector" aria-hidden="true" />}
+          <span className={`loteo-name-cell role-${role}${role === 'etapa' && !groupHasGeneral ? ' no-indent' : ''}`}>
+            {role === 'etapa' && groupHasGeneral && <span className="loteo-tree-connector" aria-hidden="true" />}
             <span className="loteo-name-text">{loteo.name}</span>
             <span className={`loteo-role-badge ${role}`}>{role === 'general' ? 'General' : 'Etapa'}</span>
           </span>
@@ -433,30 +443,32 @@ function LoteoRow({ row, onEditLoteo, onDeleteLoteo, onGroupLoteo, onSafeOpen, o
         )}
       </td>
       <td className="td-actions">
-        <button
-          className="action-btn edit"
-          onClick={() => onEditLoteo(loteo)}
-          title="Editar"
-          aria-label={`Editar ${loteo.name}`}
-        >
-          <Pencil size={16} />
-        </button>
-        <button
-          className={`action-btn group${isGrouped ? ' active' : ''}`}
-          onClick={() => onGroupLoteo(loteo)}
-          title={isGrouped ? 'Editar grupo' : 'Agrupar'}
-          aria-label={`Agrupar ${loteo.name}`}
-        >
-          <Layers size={16} />
-        </button>
-        <button
-          className="action-btn delete"
-          onClick={() => onDeleteLoteo(loteo)}
-          title="Eliminar"
-          aria-label={`Eliminar ${loteo.name}`}
-        >
-          <Trash2 size={16} />
-        </button>
+        <div className="loteo-link-actions">
+          <button
+            className="action-btn edit"
+            onClick={() => onEditLoteo(loteo)}
+            title="Editar"
+            aria-label={`Editar ${loteo.name}`}
+          >
+            <Pencil size={16} />
+          </button>
+          <button
+            className={`action-btn group${isGrouped ? ' active' : ''}`}
+            onClick={() => onGroupLoteo(loteo)}
+            title={isGrouped ? 'Editar grupo' : 'Agrupar'}
+            aria-label={`Agrupar ${loteo.name}`}
+          >
+            <Layers size={16} />
+          </button>
+          <button
+            className="action-btn delete"
+            onClick={() => onDeleteLoteo(loteo)}
+            title="Eliminar"
+            aria-label={`Eliminar ${loteo.name}`}
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
       </td>
       <td className="td-links">
         <div className="loteo-link-actions">
@@ -519,18 +531,32 @@ function LoteosTable({ loteos, filteredLoteos, loading, onEditLoteo, onDeleteLot
                 <td colSpan={5} className="td-empty-row">No se encontraron loteos.</td>
               </tr>
             ) : (
-              rows.map(row => (
-                <LoteoRow
-                  key={row.key}
-                  row={row}
-                  onEditLoteo={onEditLoteo}
-                  onDeleteLoteo={onDeleteLoteo}
-                  onGroupLoteo={onGroupLoteo}
-                  onSafeOpen={onSafeOpen}
-                  onOpenEditor={onOpenEditor}
-                  onOpenShareLoteo={onOpenShareLoteo}
-                />
-              ))
+              rows.map(row => {
+                if (row.variant === 'group-header') {
+                  return (
+                    <tr key={row.key} className="loteo-group-row loteo-group-first loteo-group-header-row">
+                      <td colSpan={5} className="td-group-header">
+                        <span className="group-header-label">
+                          <Layers size={11} aria-hidden="true" />
+                          {row.label}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                }
+                return (
+                  <LoteoRow
+                    key={row.key}
+                    row={row}
+                    onEditLoteo={onEditLoteo}
+                    onDeleteLoteo={onDeleteLoteo}
+                    onGroupLoteo={onGroupLoteo}
+                    onSafeOpen={onSafeOpen}
+                    onOpenEditor={onOpenEditor}
+                    onOpenShareLoteo={onOpenShareLoteo}
+                  />
+                );
+              })
             )}
           </tbody>
         </table>

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Layers, Unlink } from 'lucide-react';
-import { Button, Loader } from '../../ui/components';
+import { Button, Loader, Select } from '../../ui/components';
 import '../../ui/components/Modal.css';
 import './GroupLoteoModal.css';
 
@@ -68,7 +68,7 @@ export default function GroupLoteoModal({
       <div className="modal-card" onClick={e => e.stopPropagation()} aria-modal="true" role="dialog">
         <h3 className="modal-title">
           <Layers size={18} style={{ marginRight: 8, verticalAlign: '-3px' }} />
-          Agrupar “{loteo.name}”
+          Agrupar "{loteo.name}"
         </h3>
 
         {isGrouped ? (
@@ -89,34 +89,34 @@ export default function GroupLoteoModal({
           </>
         ) : (
           <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label htmlFor="group-destination">Grupo</label>
-              <select
-                id="group-destination"
-                value={destination}
-                onChange={e => setDestination(e.target.value)}
-              >
-                <option value="new">Crear grupo nuevo</option>
-                {otherGroups.map(g => (
-                  <option key={g.grupoId} value={g.grupoId}>Unir a “{g.label}”</option>
-                ))}
-              </select>
-            </div>
+            <Select
+              id="group-destination"
+              label="Grupo"
+              value={destination}
+              onChange={e => setDestination(e.target.value)}
+              options={[
+                { value: 'new', label: 'Crear grupo nuevo' },
+                ...otherGroups.map(g => ({ value: g.grupoId, label: `Unir a "${g.label}"` })),
+              ]}
+            />
 
-            <div className="form-group">
-              <label htmlFor="group-tipo">Rol en el grupo</label>
-              <select id="group-tipo" value={tipo} onChange={e => setTipo(e.target.value)}>
-                <option value="etapa">Etapa</option>
-                <option value="general">Imagen general</option>
-              </select>
-              <p className="group-modal-hint">
-                La imagen general lleva los POIs y textos de los alrededores. Es opcional, pero recomendada (una por grupo).
-              </p>
-            </div>
+            <Select
+              id="group-tipo"
+              label="Rol en el grupo"
+              value={tipo}
+              onChange={e => setTipo(e.target.value)}
+              options={[
+                { value: 'etapa', label: 'Etapa' },
+                { value: 'general', label: 'Imagen general' },
+              ]}
+            />
+            <p className="group-modal-hint">
+              La imagen general lleva los POIs y textos de los alrededores. Es opcional, pero recomendada (una por grupo).
+            </p>
 
             {generalTaken && (
               <div className="status-message error">
-                Ese grupo ya tiene una imagen general. Elegí “Etapa” o quitá la general actual.
+                Ese grupo ya tiene una imagen general. Elegí "Etapa" o quitá la general actual.
               </div>
             )}
             {error && <div className="status-message error">{error}</div>}
