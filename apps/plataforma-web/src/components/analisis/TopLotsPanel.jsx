@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import './TopLotsPanel.css';
 
-export default function TopLotsPanel({ topLots, maxClicks, topLotsFocusedIdx, onFocusChange }) {
+export default function TopLotsPanel({ topLots, maxClicks, topLotsFocusedIdx, onFocusChange, isLoading = false }) {
   const handleKeyDown = useCallback((e, index) => {
     if (topLots.length === 0) return;
     if (e.key === 'ArrowDown') {
@@ -33,7 +33,9 @@ export default function TopLotsPanel({ topLots, maxClicks, topLotsFocusedIdx, on
         role="listbox"
         aria-label="Ranking de lotes, usa flechas arriba y abajo para navegar"
       >
-        {topLots.length === 0 ? (
+        {isLoading ? (
+          <p className="top-lots-empty">Cargando datos...</p>
+        ) : topLots.length === 0 ? (
           <p className="top-lots-empty">Sin datos disponibles</p>
         ) : (
           topLots.map((item, i) => (

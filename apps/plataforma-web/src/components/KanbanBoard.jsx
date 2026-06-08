@@ -14,7 +14,7 @@ const COL_META = {
   vendido:         { label: 'Vendido',           accentVar: '--kanban-vendido-accent' },
 };
 
-export default function KanbanBoard({ token, onSessionExpired, prospectosList = [], loteos = [], advisorsList = [], onUpdateProspectCategory }) {
+export default function KanbanBoard({ token, onSessionExpired, prospectosList = [], loteos = [], advisorsList = [], onUpdateProspectCategory, apiFetch, loteOwnerId, setActivities }) {
   const [columns, setColumns] = useState({
     primer_contacto: [],
     seguimiento: [],
@@ -33,6 +33,9 @@ export default function KanbanBoard({ token, onSessionExpired, prospectosList = 
       setKanbanError(msg);
       setTimeout(() => setKanbanError(null), 3000);
     },
+    apiFetch,
+    loteOwnerId,
+    setActivities,
   });
 
   const enrichedProspects = useMemo(() => {
@@ -111,7 +114,8 @@ export default function KanbanBoard({ token, onSessionExpired, prospectosList = 
       targetCat,
       previousColumns,
       setColumns,
-      () => onUpdateProspectCategory?.(id, targetCat)
+      () => onUpdateProspectCategory?.(id, targetCat),
+      prospect?.name
     );
   };
 

@@ -86,7 +86,16 @@ export default function CreateLoteoModal({
               onChange={e => onFieldChange('blueprint_url', e.target.value)}
             />
           </div>
-          {error && <div className="status-message error">{error}</div>}
+          {error && (
+            <div className="status-message error">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 2L2 20h20L12 2z" />
+                <path d="M12 9v4" />
+                <circle cx="12" cy="17" r="1" fill="currentColor" />
+              </svg>
+              {error}
+            </div>
+          )}
           <div className="modal-footer">
             <Button variant="outline" size="sm" type="button" onClick={onClose}>
               Cancelar

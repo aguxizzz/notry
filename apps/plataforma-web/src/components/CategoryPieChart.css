@@ -126,8 +126,13 @@
   gap: 8px;
   padding: var(--space-sm) var(--space-xs);
   border: none;
-  border-radius: var(--radius-md);
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
   transition: background 0.15s ease;
+}
+
+.chart-row:last-child {
+  border-bottom: none;
 }
 
 .chart-row:hover {
