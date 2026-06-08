@@ -21,7 +21,7 @@ export function useConfirmDialogs({ apiFetch, addToast, onSuccess, onRemoveProsp
       setConfirmDialog({ open: false, lot: null, loading: false });
       onSuccess?.();
     } catch (err) {
-      addToast(`Error: ${err.message}`, 'error');
+      addToast(err.message, 'error');
       setConfirmDialog(prev => ({ ...prev, loading: false }));
     }
   };

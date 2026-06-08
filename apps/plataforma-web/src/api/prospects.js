@@ -24,7 +24,7 @@ export async function createProspect({ apiFetch, addProspectForm, setAddProspect
     setAddProspectForm({ name: '', email: '', phone: '', category: 'primer_contacto', lote_id: '' });
     logActivity({ apiFetch, activityType: 'prospect_created', entityType: 'prospect', entityId: res.id, loteOwnerId, description: `Prospecto "${res.name}" creado`, extraData: { prospect_name: res.name }, name: res.name, setActivities });
   } catch (error) {
-    addToast(`Error: ${error.message}`, 'error');
+    addToast(error.message, 'error');
     setAddProspectError(error.message);
   } finally {
     setAddProspectLoading(false);
@@ -96,7 +96,7 @@ export async function updateLastContact({ apiFetch, setUpdatingContact, addToast
     logActivity({ apiFetch, activityType: 'prospect_contacted', entityType: 'prospect', entityId: prospectId, loteOwnerId, description: observationNotes || 'Contacto registrado', extraData: { prospect_name: prospectName }, name: prospectName, setActivities });
     refreshSync();
   } catch (error) {
-    addToast(`Error: ${error.message}`, 'error');
+    addToast(error.message, 'error');
   } finally {
     setUpdatingContact(false);
   }
@@ -115,7 +115,7 @@ export async function handleDeleteProspectConfirm({ apiFetch, deleteProspectDial
     setDeleteProspectDialog({ open: false, prospect: null, loading: false });
     refreshSync();
   } catch (err) {
-    addToast(`Error: ${err.message}`, 'error');
+    addToast(err.message, 'error');
     setDeleteProspectDialog(prev => ({ ...prev, loading: false }));
   }
 }

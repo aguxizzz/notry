@@ -47,7 +47,7 @@ export function useAuth() {
         let message;
         if (loginRes.status === 401) {
           message = 'Credenciales inválidas. Verificá tu email y contraseña.';
-        } else if (loginRes.status === 400 && loginData.detail?.toLowerCase().includes('inactive')) {
+        } else if (loginRes.status === 400 && loginData.detail?.toLowerCase().includes('inactivo')) {
           message = 'Tu cuenta está inactiva. Contactá al administrador para habilitarla.';
         } else {
           message = loginData.detail || 'Error al iniciar sesión. Intentá de nuevo.';
