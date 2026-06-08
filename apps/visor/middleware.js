@@ -23,8 +23,10 @@ const BOT_USER_AGENTS = [
 
 const BACKEND = 'https://notry-back.onrender.com';
 
-// Matches /loteos/{uuid}/visor_data in a URL string
-const LOTEO_ID_RE = /\/loteos\/([0-9a-f-]{36})\/visor_data/i;
+// Matches /loteos/{uuid}/visor_data and /loteos/{uuid}/group_visor_data in a URL string.
+// Los links de compartir usan group_visor_data (agrupamiento por etapas), así que el prefijo
+// group_ es opcional — sin esto el loteoId no se extrae y se pierde título e imagen del preview.
+const LOTEO_ID_RE = /\/loteos\/([0-9a-f-]{36})\/(?:group_)?visor_data/i;
 
 function isBot(req) {
   const ua = (req.headers.get('user-agent') ?? '').toLowerCase();
