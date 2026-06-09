@@ -295,6 +295,7 @@ export default function App() {
           selectedId={panel.markerId}
           onMarkerSelect={handleBlueprintSelect}
           onMarkerHover={() => {}}
+          hasStageSwitcher={stages.length > 1}
         />
       ) : (
         <div id="viewer-container" ref={viewerRef} />

@@ -27,6 +27,7 @@ export default function BlueprintViewer({
   selectedId,
   onMarkerSelect,
   onMarkerHover,
+  hasStageSwitcher,
 }) {
   const containerRef = useRef(null);
   const transformRef = useRef(null);
@@ -222,7 +223,10 @@ export default function BlueprintViewer({
           loading="lazy"
           draggable={false}
         />
-        <div className="viewer-badge viewer-badge--center">
+        <div
+          className="viewer-badge viewer-badge--center"
+          style={hasStageSwitcher ? { bottom: 82 } : undefined}
+        >
           Sin lotes definidos en blueprint
         </div>
       </div>
