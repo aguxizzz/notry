@@ -145,6 +145,17 @@ export default function App() {
     [annotations]
   );
 
+  // URLs de panorama de todas las etapas para precargarlas en la cache del visor
+  // y que el primer cambio a cada una sea instantáneo.
+  const preloadUrls = useMemo(
+    () => stages.map((s) => s.visor?.panoramaUrl).filter(Boolean),
+    [stages]
+  );
+
+  const homePosition = useMemo(
+    () => rawData?.homeYaw != null ? { yaw: rawData.homeYaw, pitch: rawData.homePitch ?? 0 } : null,
+    [rawData]
+  );
   const markers = useMemo(() => annotationsToMarkers(annotations, rawData?.snapThreshold), [annotations, rawData?.snapThreshold]);
   const viewerData = useMemo(
     () => viewMode === 'blueprint' || !rawData
@@ -232,7 +243,7 @@ export default function App() {
     setPanel(PANEL_CLOSED);
   }, []);
 
-  const viewerRef = useViewer(viewerData, handleMarkerSelect, handleMarkerUnselect);
+  const viewerRef = useViewer(viewerData, handleMarkerSelect, handleMarkerUnselect, preloadUrls, homePosition);
 
   if (error) {
     return (
@@ -256,7 +267,7 @@ export default function App() {
       {blueprintUrl && (
         <button
           className="view-toggle"
-          style={{ background: viewMode === 'blueprint' ? 'var(--accent)' : '#333' }}
+          style={viewMode === 'blueprint' ? { background: 'var(--accent)', color: '#1a1a1a', border: 'none' } : {}}
           onClick={() => setViewMode(v => v === 'panorama' ? 'blueprint' : 'panorama')}
           aria-label={viewMode === 'blueprint' ? 'Cambiar a vista panorama' : 'Cambiar a vista blueprint'}
           title={viewMode === 'blueprint' ? 'Ver panorama' : 'Ver blueprint'}
