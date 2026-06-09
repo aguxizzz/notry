@@ -70,6 +70,7 @@ function App() {
   const [homePosition, setHomePosition] = useState(null);
   const [loteoSettingsOpen, setLoteoSettingsOpen] = useState(false);
   const getViewerPositionRef = useRef(null);
+  const [viewerReady, setViewerReady] = useState(false);
   const [isLoadingDefault, setIsLoadingDefault] = useState(true);
   const [loteoId, setLoteoId] = useState(null);
   const [siblingStages, setSiblingStages] = useState([]);
@@ -648,7 +649,7 @@ function App() {
           backTitle={fromList ? 'Volver al listado' : 'Volver a la plataforma'}
           onOpenLoteoSettings={loteoId ? () => setLoteoSettingsOpen(true) : undefined}
           onCaptureHome={loteoId ? handleCaptureHome : undefined}
-          canCaptureHome={!!panoramaUrl && mode === 'panorama'}
+          canCaptureHome={!!panoramaUrl && mode === 'panorama' && viewerReady}
         />
 
         <div style={{ width: '100%', height: '100%' }}>
@@ -694,6 +695,7 @@ function App() {
               onMarkerDragEnd={handleMarkerDragEnd}
               onMarkerDrag={handleCalibrationDragLive}
               getPositionRef={getViewerPositionRef}
+              onViewerReadyChange={setViewerReady}
             />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#aaa', textAlign: 'center', padding: '2rem' }}>
