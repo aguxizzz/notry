@@ -8,7 +8,7 @@ import '@photo-sphere-viewer/markers-plugin/index.css';
 // Tools that draw a polygon by clicking points and snapping to close
 const isPolyDrawTool = (t) => t === 'polygon' || t === 'poi';
 
-export default function EditorViewer({ panoramaUrl, annotations, activeTool, onClick, onMarkerSelect, onPolygonUpdate, onMarkerDragEnd, onMarkerDrag }) {
+export default function EditorViewer({ panoramaUrl, annotations, activeTool, onClick, onMarkerSelect, onPolygonUpdate, onMarkerDragEnd, onMarkerDrag, getPositionRef, onViewerReadyChange }) {
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
   const markersPluginRef = useRef(null);
@@ -58,6 +58,8 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
 
     viewerRef.current.addEventListener('ready', () => {
       isPanoramaReadyRef.current = true;
+      if (getPositionRef) getPositionRef.current = () => viewerRef.current?.getPosition() ?? null;
+      onViewerReadyChange?.(true);
       if (annotationsRef.current) {
         markersPluginRef.current.setMarkers(annotationsToMarkers(annotationsRef.current));
       }
@@ -72,9 +74,11 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
     });
 
     return () => {
+      if (getPositionRef) getPositionRef.current = null;
+      onViewerReadyChange?.(false);
       viewerRef.current.destroy();
     };
-  }, [panoramaUrl]); 
+  }, [panoramaUrl]);
 
   // Manejar el toggle entre exploración 3D y dibujo en canvas
   useEffect(() => {
