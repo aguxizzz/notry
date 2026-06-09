@@ -18,6 +18,7 @@ import DraftBanner from './components/DraftBanner';
 import SessionExpiredBanner from './components/SessionExpiredBanner';
 import Toolbar from './components/Toolbar';
 import InspectorPanel from './components/InspectorPanel';
+import LoteoSettingsModal from './components/LoteoSettingsModal';
 import './App.css';
 
 // Map annotations to the right coordinate system based on mode
@@ -65,6 +66,10 @@ function App() {
     );
     return isHomographyValid(H) ? H : null;
   }, [calibrationPoints]);
+  const [snapThreshold, setSnapThreshold] = useState(5);
+  const [homePosition, setHomePosition] = useState(null);
+  const [loteoSettingsOpen, setLoteoSettingsOpen] = useState(false);
+  const getViewerPositionRef = useRef(null);
   const [isLoadingDefault, setIsLoadingDefault] = useState(true);
   const [loteoId, setLoteoId] = useState(null);
   const [siblingStages, setSiblingStages] = useState([]);
@@ -115,6 +120,17 @@ function App() {
   } = useSaveAll({ annotations, token: accessToken, loteoId, savedAnnotationsRef, onAuthError: handleLogout, onAfterSave: clearDraft, calibrationPoints, savedCalibrationRef });
 
 
+
+  // Cuando se carga vía ?data=URL, selectedLoteo queda null — lo cargamos aparte
+  useEffect(() => {
+    if (!loteoId || selectedLoteo || !accessToken) return;
+    fetch(`${API_BASE}/loteos/${loteoId}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setSelectedLoteo(data); })
+      .catch(() => {});
+  }, [loteoId, selectedLoteo, accessToken]);
 
   // Carga datos desde ?data=URL o desde el panorama.jpg del proyecto padre
   useEffect(() => {
@@ -182,6 +198,12 @@ function App() {
           if (Array.isArray(data.calibrationPoints) && data.calibrationPoints.length > 0) {
             setCalibrationPoints(data.calibrationPoints);
             savedCalibrationRef.current = data.calibrationPoints;
+          }
+          if (data.snapThreshold != null) {
+            setSnapThreshold(data.snapThreshold);
+          }
+          if (data.homeYaw != null && data.homePitch != null) {
+            setHomePosition({ yaw: data.homeYaw, pitch: data.homePitch });
           }
         })
         .catch(err => {
@@ -335,6 +357,19 @@ function App() {
     pushHistory(annotations);
     setCalibrationPoints([]);
     setCalibrationStep(null);
+  };
+
+  const handleCaptureHome = async () => {
+    const pos = getViewerPositionRef.current?.();
+    if (!pos) throw new Error('El visor no está listo');
+    const res = await fetchWithTimeout(`${API_BASE}/loteos/${loteoId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      body: JSON.stringify({ home_yaw: pos.yaw, home_pitch: pos.pitch }),
+    });
+    if (!res.ok) throw new Error(`Error ${res.status}`);
+    const saved = await res.json();
+    setHomePosition({ yaw: saved.home_yaw, pitch: saved.home_pitch });
   };
 
   const handleModeChange = (nextMode, { silent = false } = {}) => {
@@ -551,11 +586,13 @@ function App() {
 
   const handleLoteoSelect = (loteo) => {
     const dataUrl = `${API_BASE}/loteos/${loteo.id}/visor_data`;
-    const editorUrl = `${window.location.origin}${window.location.pathname}?data=${encodeURIComponent(dataUrl)}`;
+    const editorUrl = `${window.location.origin}${window.location.pathname}?data=${encodeURIComponent(dataUrl)}&from=list`;
     window.open(editorUrl, '_blank');
   };
 
-  const hasDataParam = new URLSearchParams(window.location.search).has('data');
+  const params = new URLSearchParams(window.location.search);
+  const hasDataParam = params.has('data');
+  const fromList = params.get('from') === 'list';
 
   if (!accessToken) {
     return <LoginScreen onLogin={handleLogin} />;
@@ -604,6 +641,14 @@ function App() {
           onCancelCalibration={cancelCalibration}
           onDeleteCalibrationPoint={handleDeleteCalibrationPoint}
           onClearCalibration={handleClearCalibration}
+          onBack={fromList
+            ? () => { window.location.href = window.location.origin + window.location.pathname; }
+            : () => { window.opener?.focus(); window.close(); }
+          }
+          backTitle={fromList ? 'Volver al listado' : 'Volver a la plataforma'}
+          onOpenLoteoSettings={loteoId ? () => setLoteoSettingsOpen(true) : undefined}
+          onCaptureHome={loteoId ? handleCaptureHome : undefined}
+          canCaptureHome={!!panoramaUrl && mode === 'panorama'}
         />
 
         <div style={{ width: '100%', height: '100%' }}>
@@ -648,6 +693,7 @@ function App() {
               onPolygonUpdate={handlePolygonUpdate}
               onMarkerDragEnd={handleMarkerDragEnd}
               onMarkerDrag={handleCalibrationDragLive}
+              getPositionRef={getViewerPositionRef}
             />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#aaa', textAlign: 'center', padding: '2rem' }}>
@@ -695,6 +741,21 @@ function App() {
         isSavingPoi={isSavingPoi}
         isSavingAll={isSavingAll}
         onSaveAll={handleSaveAll}
+      />
+
+      <LoteoSettingsModal
+        isOpen={loteoSettingsOpen}
+        onClose={() => setLoteoSettingsOpen(false)}
+        loteoId={loteoId}
+        token={accessToken}
+        initialName={selectedLoteo?.name ?? ''}
+        initialSnapThreshold={snapThreshold}
+        onSaved={(saved) => {
+          if (saved.snap_threshold != null) setSnapThreshold(saved.snap_threshold);
+          if (saved.home_yaw != null) setHomePosition({ yaw: saved.home_yaw, pitch: saved.home_pitch });
+          else if (saved.home_yaw === null) setHomePosition(null);
+          setSelectedLoteo(prev => prev ? { ...prev, name: saved.name ?? prev.name } : prev);
+        }}
       />
     </div>
   );

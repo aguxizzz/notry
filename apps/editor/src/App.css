@@ -48,13 +48,48 @@
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 0.5rem;
+  align-items: flex-end;
+  gap: 0;
   background: rgba(30, 30, 36, 0.9);
-  padding: 0.5rem;
+  padding: 6px 8px;
   border-radius: 8px;
   z-index: 1000;
   box-shadow: 0 4px 6px rgba(0,0,0,0.3);
   pointer-events: auto;
+}
+
+.toolbar-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 0 5px;
+}
+
+.toolbar-group-label {
+  font-size: 8px;
+  font-weight: 600;
+  color: #484852;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.toolbar-group-btns {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.toolbar-divider {
+  width: 1px;
+  background: #383840;
+  align-self: stretch;
+  margin: 2px 2px;
+  flex-shrink: 0;
 }
 
 .tool-btn {
@@ -380,6 +415,70 @@ div[onClick]:focus-visible {
   color: var(--accent);
   font-size: var(--text-lg);
   font-weight: var(--weight-semibold);
+}
+
+/* Modal save spinner */
+@keyframes modal-spin {
+  to { transform: rotate(360deg); }
+}
+
+.modal-spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(17, 17, 17, 0.25);
+  border-top-color: #111;
+  border-radius: 50%;
+  animation: modal-spin 0.65s linear infinite;
+  flex-shrink: 0;
+}
+
+/* Home capture speech bubble */
+@keyframes home-bubble-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.home-bubble {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 1100;
+  animation: home-bubble-in 0.15s ease-out;
+}
+
+.home-bubble::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+}
+
+.home-bubble.success {
+  background: #1a2b1a;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+.home-bubble.success::before {
+  border-bottom-color: var(--accent);
+}
+
+.home-bubble.error {
+  background: #2b1a1a;
+  border: 1px solid #ef4444;
+  color: #ef4444;
+}
+.home-bubble.error::before {
+  border-bottom-color: #ef4444;
 }
 
 .loteo-center {
