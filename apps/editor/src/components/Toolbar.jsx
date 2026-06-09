@@ -1,4 +1,5 @@
-import { MousePointer2, Pentagon, Type, ArrowLeft, Grid3x3, Camera, MapPin, Menu, X, LogOut, Undo2, Redo2, Crosshair } from 'lucide-react';
+import { useState } from 'react';
+import { MousePointer2, Pentagon, Type, ArrowLeft, Grid3x3, Camera, MapPin, Menu, X, LogOut, Undo2, Redo2, Crosshair, SlidersHorizontal, Home } from 'lucide-react';
 import { CALIBRATION_ENABLED } from '../config/features';
 
 const TOOLS = [
@@ -7,6 +8,19 @@ const TOOLS = [
   { id: 'text',    icon: Type,          title: 'Texto',       shortcut: '2' },
   { id: 'poi',     icon: MapPin,        title: 'POI',         shortcut: '3' },
 ];
+
+function Group({ label, children }) {
+  return (
+    <div className="toolbar-group">
+      <span className="toolbar-group-label" aria-hidden="true">{label ?? ''}</span>
+      <div className="toolbar-group-btns">{children}</div>
+    </div>
+  );
+}
+
+function Divider() {
+  return <div className="toolbar-divider" />;
+}
 
 export default function Toolbar({
   activeTool,
@@ -30,73 +44,151 @@ export default function Toolbar({
   onCancelCalibration,
   onDeleteCalibrationPoint,
   onClearCalibration,
+  onOpenLoteoSettings,
+  onCaptureHome,
+  canCaptureHome,
+  onBack,
+  backTitle,
 }) {
+  const [homeStatus, setHomeStatus] = useState('idle'); // 'idle' | 'saving' | 'success' | 'error'
+  const [homeError, setHomeError] = useState(null);
+
+  const handleCaptureHome = async () => {
+    if (!onCaptureHome || homeStatus === 'saving') return;
+    setHomeStatus('saving');
+    setHomeError(null);
+    try {
+      await onCaptureHome();
+      setHomeStatus('success');
+      setTimeout(() => setHomeStatus('idle'), 2000);
+    } catch (err) {
+      setHomeStatus('error');
+      setHomeError(err.message);
+      setTimeout(() => { setHomeStatus('idle'); setHomeError(null); }, 3000);
+    }
+  };
+
+  const homeColor = homeStatus === 'success' ? 'var(--accent)' : homeStatus === 'error' ? '#ef4444' : undefined;
+  const homeTitle = homeStatus === 'success'
+    ? 'Posición guardada'
+    : homeStatus === 'error'
+    ? `Error: ${homeError}`
+    : 'Guardar posición inicial de cámara';
+
+  const hasSettingsGroup = onOpenLoteoSettings || onCaptureHome;
+
   return (
     <>
       <div className="toolbar">
-        <button
-          className="tool-btn"
-          onClick={() => window.location.href = window.location.origin + window.location.pathname}
-          title="Volver al listado"
-          style={{ marginRight: '10px', background: '#333' }}
-        >
-          <ArrowLeft size={20} />
-        </button>
 
-        <div style={{ height: '24px', width: '1px', background: '#444', marginRight: '10px' }} />
-
-        <button
-          className={`tool-btn ${mode === 'panorama' ? 'active' : ''}`}
-          onClick={() => onModeChange('panorama')}
-          title="Modo Panorama"
-          disabled={!panoramaUrl}
-          style={{ opacity: !panoramaUrl ? 0.4 : 1 }}
-        >
-          <Camera size={20} />
-        </button>
-        {blueprintUrl && (
+        {/* Inicio */}
+        <Group label="Inicio">
           <button
-            className={`tool-btn ${mode === 'blueprint' ? 'active' : ''}`}
-            onClick={() => onModeChange('blueprint')}
-            title="Modo Blueprint"
+            className="tool-btn"
+            onClick={onBack}
+            title={backTitle}
+            style={{ background: '#333' }}
           >
-            <Grid3x3 size={20} />
+            <ArrowLeft size={20} />
           </button>
+        </Group>
+
+        {/* Ajustes */}
+        {hasSettingsGroup && (
+          <>
+            <Divider />
+            <Group label="Ajustes">
+              {onOpenLoteoSettings && (
+                <button
+                  className="tool-btn"
+                  onClick={onOpenLoteoSettings}
+                  title="Configuración del loteo"
+                >
+                  <SlidersHorizontal size={18} />
+                </button>
+              )}
+              {onCaptureHome && (
+                <div style={{ position: 'relative' }}>
+                  <button
+                    className="tool-btn"
+                    onClick={handleCaptureHome}
+                    title={homeTitle}
+                    disabled={!canCaptureHome || homeStatus === 'saving'}
+                    style={{
+                      color: homeColor,
+                      opacity: (!canCaptureHome || homeStatus === 'saving') ? 0.4 : 1,
+                      transition: 'color 0.2s',
+                    }}
+                  >
+                    <Home size={18} />
+                  </button>
+                  {homeStatus === 'success' && (
+                    <div className="home-bubble success">Posición guardada</div>
+                  )}
+                  {homeStatus === 'error' && (
+                    <div className="home-bubble error">{homeError ?? 'Error'}</div>
+                  )}
+                </div>
+              )}
+            </Group>
+          </>
         )}
 
-        <div style={{ height: '24px', width: '1px', background: '#444', marginRight: '10px' }} />
-
-        {TOOLS.map(tool => {
-          const Icon = tool.icon;
-          return (
+        {/* Vista */}
+        <Divider />
+        <Group label="Vista">
+          <button
+            className={`tool-btn ${mode === 'panorama' ? 'active' : ''}`}
+            onClick={() => onModeChange('panorama')}
+            title="Modo Panorama"
+            disabled={!panoramaUrl}
+            style={{ opacity: !panoramaUrl ? 0.4 : 1 }}
+          >
+            <Camera size={20} />
+          </button>
+          {blueprintUrl && (
             <button
-              key={tool.id}
-              className={`tool-btn ${activeTool === tool.id ? 'active' : ''}`}
-              onClick={() => onToolChange(tool.id)}
-              title={tool.shortcut ? `${tool.title} (${tool.shortcut})` : tool.title}
-              disabled={!panoramaUrl && !blueprintUrl}
-              style={{ position: 'relative' }}
+              className={`tool-btn ${mode === 'blueprint' ? 'active' : ''}`}
+              onClick={() => onModeChange('blueprint')}
+              title="Modo Blueprint"
             >
-              <Icon size={20} />
-              {tool.shortcut && (
-                <span style={{
-                  position: 'absolute', bottom: '2px', right: '3px',
-                  fontSize: '9px', lineHeight: 1, color: '#888', fontWeight: 600,
-                  pointerEvents: 'none',
-                }}>
-                  {tool.shortcut}
-                </span>
-              )}
+              <Grid3x3 size={20} />
             </button>
-          );
-        })}
+          )}
+        </Group>
 
-        {/* Calibration is a local-only, work-in-progress tool. The CALIBRATION_ENABLED
-            flag (VITE_CALIBRATION) hides this entry point in production/Vercel so the
-            feature ships in the bundle but stays unreachable for end users. */}
-        {CALIBRATION_ENABLED && blueprintUrl && panoramaUrl && (
-          <>
-            <div style={{ height: '24px', width: '1px', background: '#444', marginLeft: '4px' }} />
+        {/* Dibujo */}
+        <Divider />
+        <Group label="Dibujo">
+          {TOOLS.map(tool => {
+            const Icon = tool.icon;
+            return (
+              <button
+                key={tool.id}
+                className={`tool-btn ${activeTool === tool.id ? 'active' : ''}`}
+                onClick={() => onToolChange(tool.id)}
+                title={tool.shortcut ? `${tool.title} (${tool.shortcut})` : tool.title}
+                disabled={!panoramaUrl && !blueprintUrl}
+                style={{ position: 'relative' }}
+              >
+                <Icon size={20} />
+                {tool.shortcut && (
+                  <span style={{
+                    position: 'absolute', bottom: '2px', right: '3px',
+                    fontSize: '9px', lineHeight: 1, color: '#888', fontWeight: 600,
+                    pointerEvents: 'none',
+                  }}>
+                    {tool.shortcut}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+
+          {/* Calibration is a local-only, work-in-progress tool. The CALIBRATION_ENABLED
+              flag (VITE_CALIBRATION) hides this entry point in production/Vercel so the
+              feature ships in the bundle but stays unreachable for end users. */}
+          {CALIBRATION_ENABLED && blueprintUrl && panoramaUrl && (
             <button
               className={`tool-btn ${activeTool === 'calibrate' ? 'active' : ''}`}
               onClick={() => onToolChange('calibrate')}
@@ -117,40 +209,45 @@ export default function Toolbar({
                 </span>
               )}
             </button>
-          </>
-        )}
+          )}
+        </Group>
 
-        <div style={{ height: '24px', width: '1px', background: '#444', marginLeft: '4px' }} />
+        {/* Historial */}
+        <Divider />
+        <Group label="Historial">
+          <button
+            className="tool-btn"
+            onClick={onUndo}
+            title="Deshacer (Ctrl+Z)"
+            disabled={!canUndo}
+            style={{ opacity: canUndo ? 1 : 0.35 }}
+          >
+            <Undo2 size={20} />
+          </button>
+          <button
+            className="tool-btn"
+            onClick={onRedo}
+            title="Rehacer (Ctrl+Y)"
+            disabled={!canRedo}
+            style={{ opacity: canRedo ? 1 : 0.35 }}
+          >
+            <Redo2 size={20} />
+          </button>
+        </Group>
 
-        <button
-          className="tool-btn"
-          onClick={onUndo}
-          title="Deshacer (Ctrl+Z)"
-          disabled={!canUndo}
-          style={{ opacity: canUndo ? 1 : 0.35 }}
-        >
-          <Undo2 size={20} />
-        </button>
-        <button
-          className="tool-btn"
-          onClick={onRedo}
-          title="Rehacer (Ctrl+Y)"
-          disabled={!canRedo}
-          style={{ opacity: canRedo ? 1 : 0.35 }}
-        >
-          <Redo2 size={20} />
-        </button>
+        {/* Sesión — sin label */}
+        <Divider />
+        <Group>
+          <button
+            className="tool-btn"
+            onClick={onLogout}
+            title="Cerrar Sesión"
+            style={{ color: '#ef4444' }}
+          >
+            <LogOut size={20} />
+          </button>
+        </Group>
 
-        <div style={{ height: '24px', width: '1px', background: '#444', marginLeft: '4px' }} />
-
-        <button
-          className="tool-btn"
-          onClick={onLogout}
-          title="Cerrar Sesión"
-          style={{ color: '#ef4444' }}
-        >
-          <LogOut size={20} />
-        </button>
       </div>
 
       <button
