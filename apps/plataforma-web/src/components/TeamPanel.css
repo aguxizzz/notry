@@ -20,10 +20,10 @@
 
 .org-section-head {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 2px;
-  text-align: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
   padding-top: var(--space-sm);
   border-top: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
 }
@@ -36,20 +36,11 @@
   color: var(--text-main);
 }
 
-.org-section-name {
-  margin: 0;
-  font-family: var(--font-primary);
-  font-size: var(--text-xl);
-  font-weight: var(--weight-bold);
-  color: var(--text-main);
-}
-
-/* Fila nombre + lápiz (y su modo edición) centrada bajo el título "Organización" */
-.org-section-head .org-phone-view,
-.org-section-head .org-phone-edit {
-  justify-content: center;
-  width: auto;
-  max-width: 100%;
+.org-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
 }
 
 .org-card-field {
