@@ -7,7 +7,8 @@ import {
   Settings,
   LogOut,
   Menu,
-  X
+  X,
+  Layers,
 } from 'lucide-react';
 import './Sidebar.css';
 
@@ -19,6 +20,7 @@ const Sidebar = ({ user, activeItem, onItemClick, onLogout, isOpen, onToggle }) 
     { id: 'inventario', label: 'Inventario', icon: <Package size={20} /> },
     { id: 'clientes', label: 'Clientes', icon: <Users size={20} /> },
     { id: 'analisis', label: 'Análisis', icon: <BarChart2 size={20} /> },
+    { id: 'proyectos', label: 'Proyectos', icon: <Layers size={20} /> },
     { id: 'configuracion', label: 'Configuración', icon: <Settings size={20} /> },
   ];
 

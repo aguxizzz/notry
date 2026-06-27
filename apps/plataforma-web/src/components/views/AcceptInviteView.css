@@ -1,0 +1,26 @@
+.accept-centered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-lg) 0;
+}
+
+.accept-greeting {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin: 0 0 var(--space-lg);
+}
+
+.accept-hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: var(--space-sm) 0 var(--space-md);
+}
+
+.accept-readonly {
+  opacity: 0.7;
+  cursor: not-allowed;
+}

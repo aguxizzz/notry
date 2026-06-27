@@ -1,0 +1,494 @@
+.team-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  width: 100%;
+}
+
+.team-panel-loading {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* ── Sección Organización (dentro de la card de configuración) ── */
+.org-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: 100%;
+}
+
+.org-section-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+  padding-top: var(--space-sm);
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+}
+
+.org-section-title {
+  margin: 0;
+  font-family: var(--font-primary);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-black);
+  color: var(--text-main);
+}
+
+.org-section-name {
+  margin: 0;
+  font-family: var(--font-primary);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  color: var(--text-main);
+}
+
+/* Fila nombre + lápiz (y su modo edición) centrada bajo el título "Organización" */
+.org-section-head .org-phone-view,
+.org-section-head .org-phone-edit {
+  justify-content: center;
+  width: auto;
+  max-width: 100%;
+}
+
+.org-card-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+
+.org-card-field-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-base);
+  color: var(--text-muted);
+}
+
+.org-card-field-note {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  font-style: italic;
+  opacity: 0.85;
+}
+
+.org-card-field-value {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.org-empty {
+  font-weight: 500;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.org-phone-view,
+.org-phone-edit {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  width: 100%;
+}
+
+.org-phone-input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: calc(var(--space-xs) + 2px) var(--space-sm);
+  font-family: inherit;
+  font-size: var(--text-base);
+  color: var(--text-main);
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: border-color var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.org-phone-input::placeholder {
+  color: var(--text-muted);
+}
+
+.org-phone-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 15%, transparent);
+}
+
+.org-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--panel-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.org-icon-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--accent-dark);
+  border-color: color-mix(in srgb, var(--accent-color) 40%, transparent);
+}
+
+.org-icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.org-icon-save:hover:not(:disabled) {
+  color: var(--color-stat-available);
+  border-color: color-mix(in srgb, var(--color-stat-available) 40%, transparent);
+}
+
+/* Members list */
+.team-members-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.team-members-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--panel-bg);
+}
+
+.team-member-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-card);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.team-member-row:last-child {
+  border-bottom: none;
+}
+
+.team-member-row:hover {
+  background: var(--bg-hover);
+}
+
+.team-member-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent-color) 18%, var(--panel-bg));
+  color: var(--accent-dark);
+  border: 1px solid color-mix(in srgb, var(--accent-color) 32%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.team-member-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.team-member-name {
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team-member-you {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.team-member-email {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team-member-role {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  padding: 4px 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.team-member-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  width: var(--btn-height-sm);
+  height: var(--btn-height-sm);
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.team-member-remove:hover {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+.team-member-remove:focus-visible,
+.team-invite-action:focus-visible,
+.team-invite-btn:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+.team-member-remove:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Invite section */
+.team-invite-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.team-invite-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  min-height: var(--btn-height-sm);
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  font-family: var(--font-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-main);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+  width: fit-content;
+}
+
+.team-invite-btn:hover {
+  border-color: var(--accent-color);
+  background: color-mix(in srgb, var(--accent-color) 10%, var(--panel-bg));
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--accent-dark) 78%, transparent);
+  transform: translateY(-1px);
+}
+
+.team-invite-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  background: var(--panel-bg);
+  box-shadow: var(--shadow-sm);
+}
+
+.team-invite-form h4 {
+  margin: 0;
+  font-family: var(--font-primary);
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  color: var(--text-main);
+}
+
+.team-invite-hint {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin: calc(-1 * var(--space-xs)) 0 0;
+}
+
+.team-invite-form-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: 0;
+  flex-wrap: wrap;
+}
+
+/* Invitaciones pendientes */
+.team-invites-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.team-section-label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.team-invites-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--panel-bg);
+}
+
+.team-invites-loading {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--panel-bg);
+  color: var(--text-muted);
+  font-size: var(--text-base);
+  padding: var(--space-md);
+}
+
+.team-invite-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-card);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+}
+
+.team-invite-row:last-child {
+  border-bottom: none;
+}
+
+.team-invite-row-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg-dark);
+  border: 1px dashed var(--border-color);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.team-invite-action {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  width: var(--btn-height-sm);
+  height: var(--btn-height-sm);
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.team-invite-action:hover {
+  color: var(--accent-color);
+  background: var(--bg-hover);
+}
+
+/* Modal de invitación lista — usa .modal-overlay / .modal-card estándar */
+.team-temp-password-desc {
+  margin: 0 0 var(--space-md);
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.team-invite-link-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+}
+
+.team-invite-link-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.team-invite-link-text {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: var(--text-main);
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.team-invite-share-row {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.team-invite-expiry-note {
+  margin: var(--space-sm) 0 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.team-invite-result .modal-actions {
+  margin-top: var(--space-lg);
+}
+
+/* Select inline para editar rol desde la fila del miembro */
+.team-member-role-picker {
+  margin: 0;
+  min-width: 130px;
+}
+
+.team-member-role-picker .select-trigger {
+  font-size: var(--text-xs);
+}
