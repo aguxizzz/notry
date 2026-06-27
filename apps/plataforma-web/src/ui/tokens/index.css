@@ -105,8 +105,8 @@
   /* === Z-index scale === */
   --z-base: 0;
   --z-raised: 10;
-  --z-dropdown: 1002;
-  --z-modal: 1000;
+  --z-modal: 1001; /* sobre la sidebar fija (z-index 1000) */
+  --z-dropdown: 1002; /* dropdowns/selects abren por encima de un modal */
   --z-toast: 1003;
 
   /* === Dark surfaces (mobile topbar, sidebar, overlays) === */

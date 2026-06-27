@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import ImageUploadField from '../ImageUploadField';
 import '../../ui/components/Modal.css';
 
@@ -44,7 +45,7 @@ export default function ProjectFormModal({ isOpen, onClose, onSubmit, loading, e
     onSubmit({ name, branding: Object.keys(brandingPayload).length ? brandingPayload : null });
   }
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card project-form-modal" onClick={e => e.stopPropagation()}>
         <h3 className="modal-title">{initialData ? 'Editar proyecto' : 'Nuevo proyecto'}</h3>
@@ -124,6 +125,7 @@ export default function ProjectFormModal({ isOpen, onClose, onSubmit, loading, e
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
