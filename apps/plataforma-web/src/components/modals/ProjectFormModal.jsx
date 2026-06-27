@@ -1,7 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import ImageUploadField from '../ImageUploadField';
 import '../../ui/components/Modal.css';
+
+// Fuentes del selector de tipografía que no carga la app por defecto.
+// Se cargan perezosamente al abrir el modal para previsualizar cada opción.
+const FONT_PREVIEW_HREF =
+  'https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Lato:wght@400&family=Montserrat:wght@400&family=Playfair+Display:wght@400&display=swap';
 
 const FONT_OPTIONS = [
   { value: '', label: 'Default (Space Grotesk)' },
@@ -30,6 +35,18 @@ export default function ProjectFormModal({ isOpen, onClose, onSubmit, loading, e
     ...EMPTY_BRANDING,
     ...(initialData?.branding ?? {}),
   });
+
+  // Carga perezosa de las fuentes del selector, solo al abrir el modal.
+  useEffect(() => {
+    if (!isOpen) return;
+    const id = 'project-font-preview';
+    if (document.getElementById(id)) return;
+    const link = document.createElement('link');
+    link.id = id;
+    link.rel = 'stylesheet';
+    link.href = FONT_PREVIEW_HREF;
+    document.head.appendChild(link);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -84,8 +101,17 @@ export default function ProjectFormModal({ isOpen, onClose, onSubmit, loading, e
 
           <div className="form-group">
             <label className="form-label">Tipografía</label>
-            <select className="form-input" value={branding.font_family} onChange={e => setBrandingField('font_family', e.target.value)}>
-              {FONT_OPTIONS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+            <select
+              className="form-input"
+              value={branding.font_family}
+              onChange={e => setBrandingField('font_family', e.target.value)}
+              style={{ fontFamily: branding.font_family || undefined }}
+            >
+              {FONT_OPTIONS.map(f => (
+                <option key={f.value} value={f.value} style={{ fontFamily: f.value || undefined }}>
+                  {f.label}
+                </option>
+              ))}
             </select>
           </div>
 

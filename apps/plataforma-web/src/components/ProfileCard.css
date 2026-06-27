@@ -30,6 +30,28 @@
   color: var(--text-main);
 }
 
+.profile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  width: 100%;
+}
+
+.profile-head-title {
+  font-family: var(--font-primary);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-black);
+  color: var(--text-main);
+}
+
+.profile-head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
 .profile-fields {
   display: flex;
   flex-direction: column;
@@ -70,6 +92,7 @@
 .profile-inline-view {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-xs);
   width: 100%;
 }

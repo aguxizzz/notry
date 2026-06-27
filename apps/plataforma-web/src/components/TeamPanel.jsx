@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import './TeamPanel.css';
 import '../ui/components/Modal.css';
-import { Phone, Pencil, X, UserPlus, Trash2, Crown, Shield, User, Link2, Copy, Check, MessageCircle, Clock } from 'lucide-react';
+import { Phone, Pencil, UserPlus, Trash2, Crown, Shield, User, Link2, Copy, Check, MessageCircle, Clock } from 'lucide-react';
 import { Select, Button } from '../ui/components';
 import ConfirmModal from './ConfirmModal';
 import { createInvite, fetchInvites, revokeInvite, buildInviteUrl, removeMember, updateOrg, updateMemberRole } from '../api/organizations';
@@ -40,53 +40,39 @@ export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, s
   const isOwner = user?.org_role === 'owner';
   const canEditOrg = CAN_EDIT_ORG.includes(user?.org_role);
 
-  // Número de WhatsApp de la organización (uno por org, no por usuario).
+  // Datos de la organización (nombre + WhatsApp): edición por sección, un solo Guardar.
   const phone = org?.phone ?? '';
-  const [phoneEditing, setPhoneEditing] = useState(false);
-  const [phoneDraft, setPhoneDraft] = useState(phone);
-  // Nombre de la organización editable (solo owner/admin)
   const orgName = org?.org_name ?? '';
-  const [orgNameEditing, setOrgNameEditing] = useState(false);
+  const [orgEditing, setOrgEditing] = useState(false);
   const [orgNameDraft, setOrgNameDraft] = useState(orgName);
+  const [phoneDraft, setPhoneDraft] = useState(phone);
+  const [orgSaving, setOrgSaving] = useState(false);
 
-  useEffect(() => { setOrgNameDraft(orgName); }, [orgName]);
+  // Sincroniza los drafts con los datos externos mientras no se está editando.
+  useEffect(() => {
+    if (!orgEditing) { setOrgNameDraft(orgName); setPhoneDraft(phone); }
+  }, [orgName, phone, orgEditing]);
 
-  function startOrgNameEdit() { setOrgNameDraft(orgName); setOrgNameEditing(true); }
-  function cancelOrgNameEdit() { setOrgNameDraft(orgName); setOrgNameEditing(false); }
+  function startOrgEdit() { setOrgNameDraft(orgName); setPhoneDraft(phone); setOrgEditing(true); }
+  function cancelOrgEdit() { setOrgNameDraft(orgName); setPhoneDraft(phone); setOrgEditing(false); }
 
-  async function handleSaveOrgName() {
-    const next = orgNameDraft.trim();
-    if (!next || next === orgName) { setOrgNameEditing(false); return; }
-    const prev = orgName;
-    setOrg(o => ({ ...o, org_name: next }));
-    setOrgNameEditing(false);
+  async function handleSaveOrg() {
+    const nextName = orgNameDraft.trim();
+    const nextPhone = phoneDraft.trim();
+    if (!nextName) { addToast?.('El nombre de la organización no puede quedar vacío', 'error'); return; }
+    if (nextName === orgName && nextPhone === phone) { setOrgEditing(false); return; }
+    const prev = { org_name: orgName, phone };
+    setOrgSaving(true);
+    setOrg(o => ({ ...o, org_name: nextName, phone: nextPhone || null }));
     try {
-      await updateOrg({ apiFetch, org_name: next });
-      addToast?.('Nombre de organización actualizado', 'success');
+      await updateOrg({ apiFetch, org_name: nextName, phone: nextPhone || null });
+      addToast?.('Organización actualizada', 'success');
+      setOrgEditing(false);
     } catch (err) {
-      setOrg(o => ({ ...o, org_name: prev }));
-      addToast?.(err.message || 'No se pudo actualizar el nombre', 'error');
-    }
-  }
-
-  // Mantiene el draft sincronizado si el número cambia desde afuera.
-  useEffect(() => { setPhoneDraft(phone); }, [phone]);
-
-  function startPhoneEdit() { setPhoneDraft(phone); setPhoneEditing(true); }
-  function cancelPhoneEdit() { setPhoneDraft(phone); setPhoneEditing(false); }
-
-  async function handleSavePhone() {
-    const next = phoneDraft.trim();
-    if (next === phone) { setPhoneEditing(false); return; }
-    const prevPhone = phone;
-    setOrg(prev => ({ ...prev, phone: next || null }));
-    setPhoneEditing(false);
-    try {
-      await updateOrg({ apiFetch, phone: next || null });
-      addToast?.('Número actualizado', 'success');
-    } catch (err) {
-      setOrg(prev => ({ ...prev, phone: prevPhone }));
-      addToast?.(err.message || 'No se pudo actualizar el número', 'error');
+      setOrg(o => ({ ...o, org_name: prev.org_name, phone: prev.phone }));
+      addToast?.(err.message || 'No se pudo actualizar la organización', 'error');
+    } finally {
+      setOrgSaving(false);
     }
   }
 
@@ -197,32 +183,43 @@ export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, s
       <div className="org-section">
         <div className="org-section-head">
           <h3 className="org-section-title">Organización</h3>
-          {orgNameEditing ? (
-            <div className="org-phone-edit" style={{ width: '100%' }}>
-              <input
-                className="org-phone-input"
-                type="text"
-                value={orgNameDraft}
-                onChange={e => setOrgNameDraft(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') handleSaveOrgName(); if (e.key === 'Escape') cancelOrgNameEdit(); }}
-                autoFocus
-              />
-              <button type="button" className="org-icon-btn org-icon-save" onClick={handleSaveOrgName} title="Guardar">
-                <Check size={16} />
-              </button>
-              <button type="button" className="org-icon-btn" onClick={cancelOrgNameEdit} title="Cancelar">
-                <X size={16} />
-              </button>
-            </div>
+          {canEditOrg && (!orgEditing ? (
+            <button type="button" className="btn-ghost btn-sm" onClick={startOrgEdit}>
+              <Pencil size={14} /> Editar
+            </button>
           ) : (
-            <div className="org-phone-view">
-              {org?.org_name && <p className="org-section-name" style={{ margin: 0 }}>{org.org_name}</p>}
-              {canEditOrg && (
-                <button type="button" className="org-icon-btn" onClick={startOrgNameEdit} title="Editar nombre">
-                  <Pencil size={15} />
-                </button>
-              )}
+            <div className="org-edit-actions">
+              <button
+                type="button"
+                className="btn-primary btn-sm"
+                onClick={handleSaveOrg}
+                disabled={orgSaving || !orgNameDraft.trim()}
+              >
+                {orgSaving ? 'Guardando...' : 'Guardar'}
+              </button>
+              <button type="button" className="btn-ghost btn-sm" onClick={cancelOrgEdit} disabled={orgSaving}>
+                Cancelar
+              </button>
             </div>
+          ))}
+        </div>
+
+        <div className="org-card-field">
+          <span className="org-card-field-label">Nombre</span>
+          {orgEditing ? (
+            <input
+              className="org-phone-input"
+              type="text"
+              value={orgNameDraft}
+              onChange={e => setOrgNameDraft(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSaveOrg(); if (e.key === 'Escape') cancelOrgEdit(); }}
+              disabled={orgSaving}
+              autoFocus
+            />
+          ) : (
+            <span className={`org-card-field-value ${org?.org_name ? '' : 'org-empty'}`}>
+              {org?.org_name || 'Sin nombre'}
+            </span>
           )}
         </div>
 
@@ -233,51 +230,20 @@ export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, s
               Se usa para el botón del visor público
             </span>
           </span>
-
-          {phoneEditing ? (
-            <div className="org-phone-edit">
-              <input
-                className="org-phone-input"
-                type="tel"
-                inputMode="tel"
-                placeholder="+54 9 11 1234-5678"
-                value={phoneDraft}
-                onChange={e => setPhoneDraft(e.target.value)}
-                autoFocus
-              />
-              <button
-                type="button"
-                className="org-icon-btn org-icon-save"
-                onClick={handleSavePhone}
-                title="Guardar"
-              >
-                <Check size={16} />
-              </button>
-              <button
-                type="button"
-                className="org-icon-btn"
-                onClick={cancelPhoneEdit}
-                title="Cancelar"
-              >
-                <X size={16} />
-              </button>
-            </div>
+          {orgEditing ? (
+            <input
+              className="org-phone-input"
+              type="tel"
+              inputMode="tel"
+              placeholder="+54 9 11 1234-5678"
+              value={phoneDraft}
+              onChange={e => setPhoneDraft(e.target.value)}
+              disabled={orgSaving}
+            />
           ) : (
-            <div className="org-phone-view">
-              <span className={`org-card-field-value ${phone ? '' : 'org-empty'}`}>
-                {phone || 'Sin número configurado'}
-              </span>
-              {canEditOrg && (
-                <button
-                  type="button"
-                  className="org-icon-btn"
-                  onClick={startPhoneEdit}
-                  title="Editar número"
-                >
-                  <Pencil size={15} />
-                </button>
-              )}
-            </div>
+            <span className={`org-card-field-value ${phone ? '' : 'org-empty'}`}>
+              {phone || 'Sin número configurado'}
+            </span>
           )}
         </div>
 

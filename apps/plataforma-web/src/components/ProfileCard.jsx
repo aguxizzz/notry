@@ -1,36 +1,41 @@
 import { useState, useEffect } from 'react';
-import { Lock, User, Pencil, Check, X } from 'lucide-react';
+import { Lock, User, Pencil } from 'lucide-react';
 import { updateUser, changePassword } from '../api/auth';
 import './ProfileCard.css';
 
 export default function ProfileCard({ user, setUser, apiFetch, addToast }) {
   const initial = user?.full_name?.[0]?.toUpperCase() ?? '?';
 
-  // ── Nombre inline edit ───────────────────────────────────────────────────
-  const [nameEditing, setNameEditing] = useState(false);
+  // ── Edición del perfil (Nombre) por sección ──────────────────────────────
+  const [editing, setEditing] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => { if (!nameEditing) setNameDraft(user?.full_name ?? ''); }, [user?.full_name, nameEditing]);
+  useEffect(() => { if (!editing) setNameDraft(user?.full_name ?? ''); }, [user?.full_name, editing]);
 
-  function startNameEdit() { setNameDraft(user?.full_name ?? ''); setNameEditing(true); }
-  function cancelNameEdit() { setNameEditing(false); }
+  function startEdit() { setNameDraft(user?.full_name ?? ''); setEditing(true); }
+  function cancelEdit() { setEditing(false); }
 
-  async function handleSaveName() {
+  async function handleSave() {
     const next = nameDraft.trim();
-    if (!next || next === user?.full_name) { setNameEditing(false); return; }
+    if (!next) { addToast?.('El nombre no puede quedar vacío', 'error'); return; }
+    if (next === user?.full_name) { setEditing(false); return; }
     const prev = user?.full_name;
+    setSaving(true);
     setUser(u => ({ ...u, full_name: next }));
-    setNameEditing(false);
     try {
       await updateUser({ apiFetch, full_name: next });
-      addToast?.('Nombre actualizado', 'success');
+      addToast?.('Perfil actualizado', 'success');
+      setEditing(false);
     } catch (err) {
       setUser(u => ({ ...u, full_name: prev }));
-      addToast?.(err.message || 'No se pudo actualizar el nombre', 'error');
+      addToast?.(err.message || 'No se pudo actualizar el perfil', 'error');
+    } finally {
+      setSaving(false);
     }
   }
 
-  // ── Cambio de contraseña ─────────────────────────────────────────────────
+  // ── Cambio de contraseña (acción propia: requiere contraseña actual) ──────
   const [pwEditing, setPwEditing] = useState(false);
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
@@ -59,40 +64,51 @@ export default function ProfileCard({ user, setUser, apiFetch, addToast }) {
     <div className="profile-card">
       <div className="profile-avatar">{initial}</div>
 
+      <div className="profile-head">
+        <span className="profile-head-title">Perfil</span>
+        {!editing ? (
+          <button type="button" className="btn-ghost btn-sm" onClick={startEdit}>
+            <Pencil size={14} /> Editar
+          </button>
+        ) : (
+          <div className="profile-head-actions">
+            <button
+              type="button"
+              className="btn-primary btn-sm"
+              onClick={handleSave}
+              disabled={saving || !nameDraft.trim()}
+            >
+              {saving ? 'Guardando...' : 'Guardar'}
+            </button>
+            <button type="button" className="btn-ghost btn-sm" onClick={cancelEdit} disabled={saving}>
+              Cancelar
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className="profile-fields">
         {/* Nombre */}
         <div className="profile-field">
           <span className="profile-field-label">
             <User size={14} /> Nombre
           </span>
-          {nameEditing ? (
-            <div className="profile-inline-edit">
-              <input
-                className="org-phone-input"
-                type="text"
-                value={nameDraft}
-                onChange={e => setNameDraft(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') cancelNameEdit(); }}
-                autoFocus
-              />
-              <button type="button" className="org-icon-btn org-icon-save" onClick={handleSaveName} title="Guardar">
-                <Check size={16} />
-              </button>
-              <button type="button" className="org-icon-btn" onClick={cancelNameEdit} title="Cancelar">
-                <X size={16} />
-              </button>
-            </div>
+          {editing ? (
+            <input
+              className="org-phone-input"
+              type="text"
+              value={nameDraft}
+              onChange={e => setNameDraft(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') cancelEdit(); }}
+              disabled={saving}
+              autoFocus
+            />
           ) : (
-            <div className="profile-inline-view">
-              <span className="profile-field-value">{user?.full_name ?? '—'}</span>
-              <button type="button" className="org-icon-btn" onClick={startNameEdit} title="Editar nombre">
-                <Pencil size={15} />
-              </button>
-            </div>
+            <span className="profile-field-value">{user?.full_name ?? '—'}</span>
           )}
         </div>
 
-        {/* Contraseña */}
+        {/* Contraseña — acción propia, requiere la contraseña actual */}
         <div className="profile-field">
           <span className="profile-field-label">
             <Lock size={14} /> Contraseña
@@ -121,13 +137,13 @@ export default function ProfileCard({ user, setUser, apiFetch, addToast }) {
               <div className="profile-pw-actions">
                 <button
                   type="button"
-                  className="btn-primary"
+                  className="btn-primary btn-sm"
                   onClick={handleSavePassword}
                   disabled={pwSaving || !currentPw || !newPw}
                 >
                   {pwSaving ? 'Guardando...' : 'Cambiar contraseña'}
                 </button>
-                <button type="button" className="btn-ghost" onClick={cancelPwEdit} disabled={pwSaving}>
+                <button type="button" className="btn-ghost btn-sm" onClick={cancelPwEdit} disabled={pwSaving}>
                   Cancelar
                 </button>
               </div>
@@ -135,8 +151,8 @@ export default function ProfileCard({ user, setUser, apiFetch, addToast }) {
           ) : (
             <div className="profile-inline-view">
               <span className="profile-field-value profile-password">••••••••</span>
-              <button type="button" className="org-icon-btn" onClick={startPwEdit} title="Cambiar contraseña">
-                <Pencil size={15} />
+              <button type="button" className="btn-ghost btn-sm" onClick={startPwEdit}>
+                Cambiar contraseña
               </button>
             </div>
           )}
