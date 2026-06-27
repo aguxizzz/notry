@@ -1,8 +1,8 @@
 import { API_BASE } from '../config';
 
-const MAX_DIMENSION = 2048; // px en el lado más largo; reduce memoria en backend y red
+const THUMB_MAX_SIZE = 800; // px en el lado más largo, espejo de THUMB_MAX_SIZE del backend
 
-async function convertToWebP(file, onProgress) {
+function generateThumbnail(file) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);
@@ -10,8 +10,8 @@ async function convertToWebP(file, onProgress) {
     img.onload = () => {
       let { naturalWidth: w, naturalHeight: h } = img;
 
-      if (w > MAX_DIMENSION || h > MAX_DIMENSION) {
-        const ratio = Math.min(MAX_DIMENSION / w, MAX_DIMENSION / h);
+      if (w > THUMB_MAX_SIZE || h > THUMB_MAX_SIZE) {
+        const ratio = Math.min(THUMB_MAX_SIZE / w, THUMB_MAX_SIZE / h);
         w = Math.round(w * ratio);
         h = Math.round(h * ratio);
       }
@@ -21,15 +21,13 @@ async function convertToWebP(file, onProgress) {
       canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
       URL.revokeObjectURL(objectUrl);
-      onProgress?.(50);
 
       canvas.toBlob(
         (blob) => {
           canvas.width = 0;
           canvas.height = 0;
           img.src = '';
-          if (!blob) { reject(new Error('No se pudo convertir la imagen')); return; }
-          onProgress?.(100);
+          if (!blob) { reject(new Error('No se pudo generar el thumbnail')); return; }
           const newName = file.name.replace(/\.[^.]+$/, '.webp');
           resolve(new File([blob], newName, { type: 'image/webp' }));
         },
@@ -47,63 +45,80 @@ async function convertToWebP(file, onProgress) {
   });
 }
 
-function uploadViaXHR(url, token, formData, { onProgress, onComplete, onError, logout }) {
-  const xhr = new XMLHttpRequest();
-
-  xhr.upload.onprogress = (e) => {
-    if (e.lengthComputable) onProgress?.(Math.round((e.loaded / e.total) * 100));
-  };
-
-  xhr.onload = () => {
-    if (xhr.status === 401) {
-      logout?.();
-      onError?.(new Error('Sesión expirada. Inicia sesión nuevamente.'));
-      return;
+function xhrRequest(method, url, { headers = {}, body, onProgress, logout, requiresAuth = true } = {}) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url);
+    Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+    if (onProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
     }
-    if (xhr.status >= 200 && xhr.status < 300) {
-      try {
-        onComplete?.(JSON.parse(xhr.responseText));
-      } catch {
-        onError?.(new Error('Respuesta inválida del servidor'));
+    xhr.onload = () => {
+      if (requiresAuth && xhr.status === 401) {
+        logout?.();
+        reject(new Error('Sesión expirada. Inicia sesión nuevamente.'));
+        return;
       }
-      return;
-    }
-    let detail = `HTTP ${xhr.status}`;
-    try { detail = JSON.parse(xhr.responseText).detail || detail; } catch {}
-    onError?.(new Error(detail));
-  };
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try { resolve(xhr.responseText ? JSON.parse(xhr.responseText) : null); }
+        catch { reject(new Error('Respuesta inválida del servidor')); }
+        return;
+      }
+      let detail = `HTTP ${xhr.status}`;
+      try { detail = JSON.parse(xhr.responseText).detail || detail; } catch {}
+      reject(new Error(detail));
+    };
+    xhr.onerror = () => reject(new Error('Error de red'));
+    xhr.send(body);
+  });
+}
 
-  xhr.onerror = () => onError?.(new Error('Error de red'));
+function getPresignedUrl(token, logout, file) {
+  return xhrRequest('POST', `${API_BASE}/upload/presign`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({ filename: file.name, content_type: file.type }),
+    logout,
+  });
+}
 
-  xhr.open('POST', url);
-  xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-  xhr.setRequestHeader('Accept', 'application/json');
-  xhr.send(formData);
+function uploadThumbnail(token, logout, thumbFile, onProgress) {
+  const formData = new FormData();
+  formData.append('file', thumbFile);
+  return xhrRequest('POST', `${API_BASE}/upload/thumbnail`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    body: formData,
+    onProgress,
+    logout,
+  });
+}
 
-  return xhr;
+function uploadOriginalToR2(uploadUrl, file, onProgress) {
+  return xhrRequest('PUT', uploadUrl, {
+    headers: { 'Content-Type': file.type },
+    body: file,
+    onProgress,
+    requiresAuth: false,
+  });
 }
 
 export function createUploadFn(token, logout) {
-  return function uploadImage(file, { onConvertProgress, onUploadProgress } = {}) {
-    return new Promise(async (resolve, reject) => {
-      let webpFile;
-      try {
-        webpFile = await convertToWebP(file, onConvertProgress);
-      } catch (err) {
-        reject(err);
-        return;
-      }
+  return async function uploadImage(file, { onConvertProgress, onUploadProgress } = {}) {
+    const thumbFile = await generateThumbnail(file);
+    onConvertProgress?.(40);
+    const thumbResult = await uploadThumbnail(token, logout, thumbFile, (p) =>
+      onConvertProgress?.(40 + Math.round(p * 0.6))
+    );
 
-      const formData = new FormData();
-      formData.append('file', webpFile);
+    const presign = await getPresignedUrl(token, logout, file);
+    await uploadOriginalToR2(presign.upload_url, file, onUploadProgress);
 
-      uploadViaXHR(`${API_BASE}/upload`, token, formData, {
-        onProgress: onUploadProgress,
-        onComplete: (data) => resolve({ url: data.url, thumbnailUrl: data.thumbnail_url }),
-        onError: reject,
-        logout,
-      });
-    });
+    return { url: presign.public_url, thumbnailUrl: thumbResult.thumbnail_url };
   };
 }
 

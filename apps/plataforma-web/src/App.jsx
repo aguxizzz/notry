@@ -3,12 +3,16 @@ import { Copy, Search, SlidersHorizontal, Pencil, Trash2, Check, X, AlertCircle,
 import Sidebar from './components/Sidebar';
 import StatCard from './components/StatCard';
 import LoginView from './components/views/LoginView';
+import AcceptInviteView from './components/views/AcceptInviteView';
 import InicioView from './components/views/InicioView';
 import AdminView from './components/views/AdminView';
 import InventarioView from './components/views/InventarioView';
 import ClientesView from './components/views/ClientesView';
 import KanbanBoard from './components/KanbanBoard';
 import AnalisisView from './components/AnalisisView';
+import TeamPanel from './components/TeamPanel';
+import ProfileCard from './components/ProfileCard';
+import ProjectsView from './components/views/ProjectsView';
 import CategoryPieChart from './components/CategoryPieChart';
 import ConfirmDialog from './components/ConfirmDialog';
 import DeleteProspectDialog from './components/DeleteProspectDialog';
@@ -44,8 +48,14 @@ import { fetchLots as fetchLotsService, fetchInventory as fetchInventoryService,
 import { fetchLoteos as fetchLoteosService, fetchInventoryLoteos as fetchInventoryLoteosService, fetchInventoryLoteosBg as fetchInventoryLoteosBgService, deleteLoteo } from './api/loteos';
 import { createProspect as createProspectService, fetchAdvisors as fetchAdvisorsService, saveEditProspect as saveEditProspectService, updateLastContact as updateLastContactService } from './api/prospects';
 import { fetchReportsBg as fetchReportsBgService, buildAnalisisCallbacks } from './api/reports';
+import { fetchMyOrg } from './api/organizations';
+import { fetchProjects } from './api/projects';
 import './App.css';
 import './components/Layout.css';
+
+// Link de invitación al equipo: ?invite=<token>. Si está presente, la app
+// muestra la pantalla de aceptación antes de cualquier gate de auth.
+const INVITE_TOKEN = new URLSearchParams(window.location.search).get('invite');
 
 const OWNER_VIEW_HEADERS = {
   inicio: {
@@ -64,9 +74,13 @@ const OWNER_VIEW_HEADERS = {
     title: 'Análisis',
     subtitle: 'Medí la actividad comercial y detectá oportunidades con datos reales.',
   },
+  proyectos: {
+    title: 'Proyectos',
+    subtitle: 'Agrupá loteos bajo una identidad visual compartida para el visor público.',
+  },
   configuracion: {
-    title: 'Configuración',
-    subtitle: 'Ajustá preferencias y detalles de tu espacio de trabajo.',
+    title: 'Mi cuenta',
+    subtitle: 'Gestioná tu perfil y tu equipo de trabajo.',
   },
 };
 
@@ -75,7 +89,7 @@ function App() {
   const [adminSubView, setAdminSubView] = useState('lotes'); // 'lotes' | 'loteos'
   const [adminLoading, setAdminLoading] = useState(false);
   const [ownerSubView, setOwnerSubView] = useState(() => localStorage.getItem('owner_sub_view') || 'inicio');
-  const { token, user, isInitializing, handleLogin: authLogin, logout: authLogout } = useAuth();
+  const { token, user, setUser, isInitializing, handleLogin: authLogin, logout: authLogout } = useAuth();
   const [lots, setLots] = useState(null);
   const [loteos, setLoteos] = useState(null);
   const [selectedLot, setSelectedLot] = useState(null);
@@ -114,6 +128,10 @@ function App() {
   const [deleteLoteoDialog, setDeleteLoteoDialog] = useState({ open: false, loteo: null, loading: false });
   const [shareLoteoOpen, setShareLoteoOpen] = useState(false);
   const [selectedLoteoId, setSelectedLoteoId] = useState(null);
+  const [org, setOrg] = useState(null);
+  const [orgLoading, setOrgLoading] = useState(false);
+  const [projects, setProjects] = useState([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
 
   const filtersRef = React.useRef({
     inventorySearch,
@@ -189,6 +207,13 @@ function App() {
     if (inventoryLoteos.length > 0) return;
     fetchInventoryLoteos();
   }, [ownerSubView, inventoryTab]);
+
+  // Pre-fetch loteos when navigating to Proyectos (needed for assignment UI)
+  React.useEffect(() => {
+    if (ownerSubView !== 'proyectos' || !token) return;
+    if (inventoryLoteos.length > 0) return;
+    fetchInventoryLoteos();
+  }, [ownerSubView]);
 
   // Reset prospectos filters when leaving the clientes view.
   React.useEffect(() => {
@@ -426,6 +451,7 @@ function App() {
     setAllProspectosList, setProspectosCategoryFilter,
     setProspectosWithoutAdvisor, setClicksCache, setVisorDataCache,
     setReportsCache, setDashboardSummary,
+    setOrg, setProjects,
   }), []);
 
   // apiFetch uses logout (no-arg) as the 401 handler
@@ -513,6 +539,29 @@ function App() {
     shouldKeepLocal,
   }, addToast);
 
+  // Pre-fetch org (configuracion) and projects on login, in parallel with /sync.
+  // Not added to the sync endpoint because:
+  //   - org is scoped to the user's organization, not to lote_owner_ids (the sync's scope model)
+  //   - both datasets change rarely; two extra parallel requests at login are negligible
+  // See discussion 2026-06-18 — "Option B" over extending /sync
+  useEffect(() => {
+    if (!token) return;
+    setOrgLoading(true);
+    fetchMyOrg({ apiFetch })
+      .then(setOrg)
+      .catch(() => addToast('No se pudo cargar la organización', 'error'))
+      .finally(() => setOrgLoading(false));
+  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!token) return;
+    setProjectsLoading(true);
+    fetchProjects({ apiFetch })
+      .then(setProjects)
+      .catch(() => addToast('No se pudieron cargar los proyectos', 'error'))
+      .finally(() => setProjectsLoading(false));
+  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Group Loteo Modal ─────────────────────────────────────────────────────────
   const groupLoteoModal = useGroupLoteoModal({
     apiFetch,
@@ -578,6 +627,10 @@ function App() {
     }
     window.open(url, '_blank', 'noopener,noreferrer');
   };
+
+  if (INVITE_TOKEN) {
+    return <AcceptInviteView token={INVITE_TOKEN} />;
+  }
 
   if (isInitializing) {
     return <div className="app-loading"><Loader /></div>;
@@ -656,7 +709,7 @@ function App() {
         ) : (
           <div className="owner-layout">
             <div key={ownerSubView} className="view-content">
-              <header className="owner-header">
+              <header className={`owner-header${ownerSubView === 'inicio' ? '' : ' owner-header--compact'}`}>
                 <h1 className="view-title">{ownerViewHeader.title}</h1>
                 <h2>{ownerViewSubtitle}</h2>
               </header>
@@ -753,7 +806,34 @@ function App() {
                 </ErrorBoundary>
               )}
 
-              {ownerSubView !== 'inventario' && ownerSubView !== 'clientes' && ownerSubView !== 'analisis' && ownerSubView !== 'inicio' && (
+              {ownerSubView === 'configuracion' && (
+                <div className="configuracion-layout">
+                  <ProfileCard user={user} setUser={setUser} apiFetch={apiFetch} addToast={addToast} />
+                  <TeamPanel
+                    user={user}
+                    apiFetch={apiFetch}
+                    addToast={addToast}
+                    org={org}
+                    orgLoading={orgLoading}
+                    setOrg={setOrg}
+                  />
+                </div>
+              )}
+
+              {ownerSubView === 'proyectos' && (
+                <ProjectsView
+                  apiFetch={apiFetch}
+                  uploadFn={uploadFn}
+                  onUploadEvent={handleUploadEvent}
+                  allLoteos={inventoryLoteos}
+                  addToast={addToast}
+                  projects={projects}
+                  projectsLoading={projectsLoading}
+                  setProjects={setProjects}
+                />
+              )}
+
+              {ownerSubView !== 'inventario' && ownerSubView !== 'clientes' && ownerSubView !== 'analisis' && ownerSubView !== 'inicio' && ownerSubView !== 'configuracion' && ownerSubView !== 'proyectos' && (
                 <div className="owner-panel">
                   <p>Tu dashboard de {ownerSubView} está siendo preparado.</p>
                 </div>
