@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import './TeamPanel.css';
 import '../ui/components/Modal.css';
 import { Phone, Pencil, X, UserPlus, Trash2, Crown, Shield, User, Link2, Copy, Check, MessageCircle, Clock } from 'lucide-react';
@@ -440,7 +441,7 @@ export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, s
         </div>
       )}
 
-      {inviteResult && (
+      {inviteResult && createPortal(
         <div className="modal-overlay" onClick={() => setInviteResult(null)}>
           <div className="modal-card team-invite-result" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
             <h3 className="modal-title">Invitación lista</h3>
@@ -468,7 +469,8 @@ export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, s
               <Button size="sm" onClick={() => setInviteResult(null)}>Listo</Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <ConfirmModal

@@ -61,21 +61,33 @@ export default function ProjectsView({ apiFetch, uploadFn, onUploadEvent, allLot
 
   async function handleAssignLoteo(projectId, loteoId) {
     if (!loteoId) return;
+    const snapshot = projects;
+    // Optimista: agrego el loteo al proyecto en el acto; reconcilio con la respuesta.
+    setProjects(prev => prev.map(p =>
+      p.id === projectId ? { ...p, loteo_ids: [...(p.loteo_ids ?? []), loteoId] } : p
+    ));
     try {
       const updated = await assignLoteos({ apiFetch, projectId, loteoIds: [loteoId] });
       setProjects(prev => prev.map(p => p.id === projectId ? updated : p));
-      addToast?.('Loteo asignado al proyecto', 'success');
     } catch {
+      setProjects(snapshot);
       addToast?.('Error al asignar el loteo', 'error');
     }
   }
 
   async function handleUnassign(projectId, loteoId) {
+    const snapshot = projects;
+    // Optimista: saco el loteo del proyecto en el acto; reconcilio con la respuesta.
+    setProjects(prev => prev.map(p =>
+      p.id === projectId
+        ? { ...p, loteo_ids: (p.loteo_ids ?? []).filter(id => String(id) !== String(loteoId)) }
+        : p
+    ));
     try {
       const updated = await unassignLoteo({ apiFetch, projectId, loteoId });
       setProjects(prev => prev.map(p => p.id === projectId ? updated : p));
-      addToast?.('Loteo removido del proyecto', 'success');
     } catch {
+      setProjects(snapshot);
       addToast?.('Error al remover el loteo', 'error');
     }
   }
