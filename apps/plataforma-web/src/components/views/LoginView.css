@@ -80,6 +80,16 @@
   width: 100%;
 }
 
+.login-card form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.login-card form .primary-button {
+  margin-top: var(--space-xs);
+}
+
 .form-group {
   margin-bottom: var(--space-sm);
 }

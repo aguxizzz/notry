@@ -1,0 +1,17 @@
+# Dependencias
+node_modules/
+
+# Builds locales (cada app igual versiona su dist si hace falta)
+.vite/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Entorno
+.env.local
+.DS_Store
+
+# Capturas de Playwright (el helper escribe en /tmp por defecto)
+/screenshots/
+*.shot.png

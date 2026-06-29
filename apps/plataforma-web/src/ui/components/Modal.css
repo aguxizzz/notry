@@ -46,7 +46,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal);
   animation: modalFadeIn var(--duration-slow) var(--ease-out) forwards;
   will-change: opacity;
 }
@@ -227,6 +227,23 @@
   letter-spacing: 0.05em;
 }
 
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin: 0;
+}
+
+.form-group label,
+.form-label {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
 .form-group textarea {
   width: 100%;
   background: var(--bg-dark);
@@ -281,6 +298,13 @@
 .form-group select:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.form-error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+  line-height: 1.4;
 }
 
 .form-group textarea:disabled {

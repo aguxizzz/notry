@@ -1,0 +1,182 @@
+.profile-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+}
+
+.profile-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent-color) 18%, var(--panel-bg));
+  color: var(--accent-dark);
+  border: 1px solid color-mix(in srgb, var(--accent-color) 32%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-primary);
+  font-size: 1.9rem;
+  font-weight: var(--weight-black);
+  flex-shrink: 0;
+}
+
+.profile-name {
+  margin: 0 0 var(--space-xs);
+  font-family: var(--font-primary);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-black);
+  color: var(--text-main);
+}
+
+.profile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  width: 100%;
+}
+
+.profile-head-title {
+  font-family: var(--font-primary);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-black);
+  color: var(--text-main);
+}
+
+.profile-head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.profile-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: 100%;
+}
+
+.profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+
+.profile-field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-base);
+  color: var(--text-muted);
+}
+
+.profile-field-value {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.profile-password {
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+}
+
+/* Edición inline — comparte visual con TeamPanel */
+.profile-inline-view {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  width: 100%;
+}
+
+.profile-inline-edit {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  width: 100%;
+}
+
+/* Reutiliza los tokens de TeamPanel para los controles de edición */
+.profile-card .org-phone-input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: calc(var(--space-xs) + 2px) var(--space-sm);
+  font-family: inherit;
+  font-size: var(--text-base);
+  color: var(--text-main);
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: border-color var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.profile-card .org-phone-input::placeholder { color: var(--text-muted); }
+
+.profile-card .org-phone-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 15%, transparent);
+}
+
+.profile-card .org-phone-input:disabled { opacity: 0.5; }
+
+.profile-card .org-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--panel-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out);
+}
+
+.profile-card .org-icon-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--accent-dark);
+  border-color: color-mix(in srgb, var(--accent-color) 40%, transparent);
+}
+
+.profile-card .org-icon-save:hover:not(:disabled) {
+  color: var(--color-stat-available);
+  border-color: color-mix(in srgb, var(--color-stat-available) 40%, transparent);
+}
+
+.profile-card .org-icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Formulario de cambio de contraseña */
+.profile-pw-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  width: 100%;
+}
+
+.profile-pw-error {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-danger);
+}
+
+.profile-pw-actions {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  margin-top: 4px;
+}

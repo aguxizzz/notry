@@ -1,0 +1,316 @@
+.projects-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  max-width: 880px;
+}
+
+.projects-loading {
+  color: var(--text-muted);
+  font-size: var(--text-base);
+}
+
+/* Header */
+.projects-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.projects-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-family: var(--font-primary);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-black);
+  color: var(--text-main);
+}
+
+.projects-title-row h2 {
+  margin: 0;
+  font-size: inherit;
+  line-height: 1.15;
+}
+
+.projects-new-btn {
+  flex-shrink: 0;
+}
+
+/* Empty state */
+.projects-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  padding: clamp(var(--space-xl), 8vw, var(--space-2xl));
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+  text-align: center;
+  background: color-mix(in srgb, var(--panel-bg) 72%, transparent);
+  min-height: 284px;
+  justify-content: center;
+}
+
+.projects-empty h3 {
+  margin: 0;
+  font-family: var(--font-primary);
+  font-size: var(--text-xl);
+  line-height: 1.2;
+  color: var(--text-main);
+}
+
+.projects-empty p {
+  margin: 0;
+  font-size: var(--text-base);
+  line-height: 1.5;
+  max-width: 360px;
+}
+
+/* Projects list */
+.projects-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* Project card */
+.project-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.project-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+}
+
+.project-color-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 3px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+}
+
+.project-color-preview span {
+  display: block;
+  width: 30px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.project-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.project-card-info h3 {
+  margin: 0;
+  font-family: var(--font-primary);
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-loteo-count {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.project-card-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.projects-view .btn-sm {
+  padding: 5px 10px;
+  font-size: var(--text-xs);
+  min-height: var(--btn-height-sm);
+}
+
+.projects-view .btn-danger {
+  color: var(--color-danger);
+}
+
+.projects-view .btn-danger:hover {
+  background: var(--color-danger-bg);
+  border-color: color-mix(in srgb, var(--color-danger) 35%, var(--border-color));
+}
+
+/* Logo preview */
+.project-logo-preview {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+  background: var(--bg-surface);
+  flex-wrap: wrap;
+}
+
+.project-logo-preview img {
+  max-height: 40px;
+  max-width: 160px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+}
+
+/* Loteos section */
+.project-loteos-section {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.project-section-label {
+  margin: 0;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  font-weight: var(--weight-bold);
+}
+
+.project-no-loteos {
+  margin: 0;
+  font-size: var(--text-base);
+  color: var(--text-muted);
+}
+
+.project-loteos-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.project-loteo-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  padding: 4px 6px 4px 12px;
+  font-size: var(--text-sm);
+  color: var(--text-main);
+}
+
+.project-loteo-chip button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.project-loteo-chip button:hover {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+/* Assign loteo — usa el componente Select estándar (portaleado, no se recorta) */
+.project-assign-row {
+  position: relative;
+}
+
+/* El Select estándar es full-width; lo acotamos para que quede como un control compacto */
+.project-assign-select {
+  max-width: 240px;
+  margin: 0;
+}
+
+/* Project form modal extras */
+.project-form-modal {
+  max-width: 560px;
+  width: 90%;
+}
+
+.project-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.form-section-title {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  font-weight: var(--weight-bold);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--border-color);
+}
+
+.project-colors-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+}
+
+.color-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.color-input-row input[type="color"] {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  cursor: pointer;
+  background: none;
+  flex-shrink: 0;
+}
+
+.color-input-row .form-input {
+  flex: 1;
+}
+
+@media (max-width: 640px) {
+  .projects-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .project-card-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .project-card-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .project-colors-row {
+    grid-template-columns: 1fr;
+  }
+}

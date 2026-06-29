@@ -3,5 +3,8 @@
   "private": true,
   "workspaces": [
     "apps/*"
-  ]
+  ],
+  "devDependencies": {
+    "playwright": "^1.61.0"
+  }
 }
