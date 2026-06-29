@@ -24,6 +24,22 @@ export async function fetchCurrentUser(accessToken) {
  * Resets all app state on logout. This function should be called
  * by App.jsx during the logout action. It does NOT make any API calls.
  */
+export async function updateUser({ apiFetch, full_name }) {
+  return apiFetch(`${API_BASE}/auth/me`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ full_name }),
+  });
+}
+
+export async function changePassword({ apiFetch, current_password, new_password }) {
+  return apiFetch(`${API_BASE}/auth/me/password`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ current_password, new_password }),
+  });
+}
+
 export function buildLogoutHandler({
   setView, setToken, setUser, setLots, setLoteos, setSelectedLot,
   setAdminSubView, setInventoryLots, setInventoryLoteos,

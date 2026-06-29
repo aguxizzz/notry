@@ -3,7 +3,7 @@ import { uploadImage } from '../api/upload';
 
 const ACCEPTED = 'image/jpeg,image/png,image/webp,image/gif';
 
-export default function ImageUploadField({ value, thumbnailUrl, onUpload, label, apiFetch, uploadFn, onUploadEvent }) {
+export default function ImageUploadField({ value, thumbnailUrl, onUpload, label, showLabel = true, apiFetch, uploadFn, onUploadEvent }) {
   const inputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
@@ -51,7 +51,7 @@ export default function ImageUploadField({ value, thumbnailUrl, onUpload, label,
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {label && (
+      {showLabel && label && (
         <span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-medium)', color: 'var(--color-text)' }}>
           {label}
         </span>

@@ -105,8 +105,8 @@
   /* === Z-index scale === */
   --z-base: 0;
   --z-raised: 10;
-  --z-dropdown: 1002;
-  --z-modal: 1000;
+  --z-modal: 1001; /* sobre la sidebar fija (z-index 1000) */
+  --z-dropdown: 1002; /* dropdowns/selects abren por encima de un modal */
   --z-toast: 1003;
 
   /* === Dark surfaces (mobile topbar, sidebar, overlays) === */
@@ -137,8 +137,14 @@
   --card-accent: #c5a059;
   --col-accent: #c5a059;
   --bg-dark: #faf8f4;
+  --bg-card: #ffffff;
+  --bg-surface: #faf8f4;
+  --bg-hover: rgba(197, 160, 89, 0.08);
+  --surface-hover: rgba(197, 160, 89, 0.08);
   --panel-bg: #ffffff;
   --text-main: #1a1a2a;
+  --text-muted: #4b5563;
+  --text-secondary: #4b5563;
   --border-color: #e8e2d9;
   --accent-color: #c5a059;
   --accent-hover: #d9b38c;

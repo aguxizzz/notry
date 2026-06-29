@@ -92,6 +92,7 @@ export function useAuth() {
       setAllProspectosList, setProspectosCategoryFilter,
       setProspectosWithoutAdvisor, setToasts, setClicksCache, setVisorDataCache,
       setReportsCache, setDashboardSummary,
+      setOrg, setProjects,
     } = setters;
 
     localStorage.removeItem('auth_token');
@@ -118,7 +119,9 @@ export function useAuth() {
     setVisorDataCache({});
     setReportsCache({});
     setDashboardSummary(null);
+    setOrg?.(null);
+    setProjects?.([]);
   }
 
-  return { token, user, isInitializing, handleLogin, logout };
+  return { token, user, setUser, isInitializing, handleLogin, logout };
 }
