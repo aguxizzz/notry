@@ -96,7 +96,10 @@
   padding: 4px 9px;
   border-radius: 0;
   cursor: pointer;
-  transition: color 150ms var(--ease-out);
+  transition:
+    color 150ms var(--ease-out),
+    transform 150ms var(--ease-out),
+    background-color 150ms var(--ease-out);
   position: relative;
   line-height: 1.4;
   appearance: none;
@@ -119,12 +122,16 @@
 
 .picker-a .pa-opt:hover { color: var(--color-text); }
 
+.picker-a .pa-opt:active {
+  transform: translateY(1px) scale(0.96);
+}
+
 .picker-a .pa-opt.on {
   color: var(--color-text);
   font-weight: 600;
 }
 
-.picker-a .pa-opt.on::after {
+.picker-a .pa-opt::after {
   content: '';
   position: absolute;
   left: 9px;
@@ -132,6 +139,13 @@
   bottom: 0;
   height: 2px;
   background: var(--color-text);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 220ms var(--ease-out-quint);
+}
+
+.picker-a .pa-opt.on::after {
+  transform: scaleX(1);
 }
 
 /* ── Stats loading ── */
@@ -148,6 +162,21 @@
    kicker del label va tracked en color del acento, y el context abajo en muted. */
 .period-metrics {
   display: flex;
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+}
+
+.period-metrics--fading-out {
+  opacity: 0.35;
+  transform: translateY(4px);
+}
+
+.period-metrics--fading-in {
+  animation: period-metrics-enter 300ms var(--ease-out-quart) both;
+}
+
+@keyframes period-metrics-enter {
+  from { opacity: 0.35; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .period-metric {
@@ -203,3 +232,22 @@
 .period-metric--prospects { --c: var(--color-stat-info); }
 .period-metric--revenue { --c: var(--color-accent-dark); }
 .period-metric--lots { --c: var(--color-success); }
+
+@media (prefers-reduced-motion: reduce) {
+  .picker-a .pa-opt,
+  .picker-a .pa-opt::after,
+  .period-metrics {
+    transition: none;
+  }
+
+  .picker-a .pa-opt:active {
+    transform: none;
+  }
+
+  .period-metrics--fading-out,
+  .period-metrics--fading-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
