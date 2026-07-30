@@ -1,0 +1,63 @@
+/* ── SectionHeader ──
+   Header de sección del sistema (V2: eyebrow dorado en mayúsculas SIN línea +
+   título + sub). Misma familia a distintas escalas via `tier`:
+     tier="section"  centro — eyebrow dorado pleno + H2 grande
+     tier="aside"    columna derecha — eyebrow dorado más chico + título chico
+   El label del sidebar izquierdo (tier 3, gris apagado) vive en Sidebar.css. */
+.section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.section-header-text {
+  min-width: 0;
+}
+
+.section-header-eyebrow {
+  font-family: var(--font-primary);
+  font-size: 0.625rem;
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent-color);
+  line-height: 1.2;
+  margin: 0;
+}
+
+.section-header-title {
+  font-family: var(--font-primary);
+  font-weight: var(--weight-black);
+  color: var(--text-main);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  margin: 7px 0 0;
+}
+
+.section-header--section .section-header-title {
+  font-size: clamp(1.35rem, 2.2vw, 1.8rem);
+}
+
+.section-header-sub {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  line-height: 1.3;
+  margin: 4px 0 0;
+}
+
+.section-header-actions {
+  flex: none;
+}
+
+/* ── Tier aside (columna derecha) ── */
+.section-header--aside .section-header-eyebrow {
+  font-size: 0.6rem;
+  letter-spacing: 0.16em;
+}
+
+.section-header--aside .section-header-title {
+  font-size: var(--text-md);
+  letter-spacing: -0.01em;
+  margin-top: 4px;
+}

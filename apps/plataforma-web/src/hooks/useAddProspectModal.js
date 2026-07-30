@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { createProspect as createProspectService } from '../api/prospects';
 
-export function useAddProspectModal({ apiFetch, onSuccess, addToast, onAddProspect, loteOwnerId, setActivities }) {
+export function useAddProspectModal({ apiFetch, onSuccess, addToast, onAddProspect, loteOwnerId, addActivity }) {
   const [addProspectOpen, setAddProspectOpen] = useState(false);
   const [addProspectForm, setAddProspectForm] = useState({
     name: '', email: '', phone: '', category: 'primer_contacto', lote_id: '',
@@ -23,12 +23,11 @@ export function useAddProspectModal({ apiFetch, onSuccess, addToast, onAddProspe
     if (!formData.category || formData.category.trim() === '') {
       return 'La categoría es requerida';
     }
-    const hasLote = formData.lote_id && formData.lote_id.trim() !== '';
     const hasEmail = formData.email && formData.email.trim() !== '';
     const hasPhone = formData.phone && formData.phone.trim() !== '';
 
-    if (!hasLote && !hasEmail && !hasPhone) {
-      return 'Debes proporcionar un lote, email o número de teléfono';
+    if (!hasEmail && !hasPhone) {
+      return 'Se requiere al menos un email o teléfono';
     }
     return null;
   };
@@ -56,7 +55,7 @@ export function useAddProspectModal({ apiFetch, onSuccess, addToast, onAddProspe
         addToast,
         onAddProspect,
         loteOwnerId,
-        setActivities,
+        addActivity,
       });
     } catch (err) {
       setAddProspectError(err.message);

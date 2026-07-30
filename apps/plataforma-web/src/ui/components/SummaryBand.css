@@ -1,0 +1,117 @@
+.summary-band {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.86fr) minmax(480px, 1.55fr);
+  gap: clamp(22px, 4vw, 52px);
+  align-items: center;
+  padding: clamp(22px, 3vw, 32px);
+  border: 1px solid var(--color-border-warm);
+  border-radius: var(--radius-surface);
+  background: var(--color-surface);
+}
+
+.summary-band__lead {
+  min-width: 0;
+}
+
+.summary-band__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-left: 1px solid var(--color-border-warm);
+}
+
+.summary-metric {
+  min-width: 0;
+  padding: 6px clamp(16px, 2.5vw, 28px);
+}
+
+.summary-metric + .summary-metric {
+  border-left: 1px solid var(--color-border-warm);
+}
+
+.summary-metric__icon {
+  display: inline-flex;
+  color: var(--accent-dark);
+}
+
+.summary-metric__label,
+.summary-metric__value {
+  display: block;
+}
+
+.summary-metric__label {
+  margin-top: 14px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.summary-metric__label small {
+  display: block;
+  min-height: 1em;
+  margin-top: 2px;
+  color: color-mix(in srgb, var(--text-muted) 70%, transparent);
+  font-size: var(--text-xs);
+}
+
+.summary-metric__value {
+  overflow: hidden;
+  margin-top: 5px;
+  color: var(--text-main);
+  font-family: var(--font-primary);
+  font-size: clamp(1.15rem, 2vw, 1.55rem);
+  letter-spacing: var(--tracking-title);
+  text-overflow: ellipsis;
+}
+
+.summary-metric--danger .summary-metric__icon,
+.summary-metric--danger .summary-metric__value {
+  color: var(--color-danger);
+}
+
+.summary-metric--followup .summary-metric__icon,
+.summary-metric--followup .summary-metric__value {
+  color: var(--color-followup-overdue);
+}
+
+@media (max-width: 1120px) {
+  .summary-band {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-band__metrics {
+    border-top: 1px solid var(--color-border-warm);
+    border-left: 0;
+    padding-top: var(--space-md);
+  }
+}
+
+@media (max-width: 720px) {
+  .summary-band {
+    padding: var(--space-md);
+  }
+
+  .summary-band__metrics {
+    grid-template-columns: 1fr;
+    padding-top: var(--space-xs);
+  }
+
+  .summary-metric {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    align-items: center;
+    padding: 13px 0;
+  }
+
+  .summary-metric + .summary-metric {
+    border-top: 1px solid var(--color-border-warm);
+    border-left: 0;
+  }
+
+  .summary-metric__label,
+  .summary-metric__value {
+    margin-top: 0;
+  }
+
+  .summary-metric__value {
+    text-align: right;
+  }
+}

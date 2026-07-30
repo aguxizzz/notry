@@ -13,6 +13,10 @@
   --color-text: #1a1a2a;
   --color-text-muted: #4b5563;
   --color-border: #e8e2d9;
+  --color-border-warm: #ece4d2;
+  --color-cream: #faf8f4;
+  --color-surface-subtle: color-mix(in srgb, var(--color-bg) 72%, var(--color-surface));
+  --color-focus-ring: color-mix(in srgb, var(--color-accent) 18%, transparent);
 
   /* Status colors */
   --color-success: #10b981;
@@ -22,13 +26,29 @@
   --color-danger: #ef4444;
   --color-danger-bg: rgba(239, 68, 68, 0.12);
 
-  /* Badge Status Colors */
-  --badge-available: #047857;
-  --badge-available-bg: rgba(16, 185, 129, 0.12);
-  --badge-reserved: #b45309;
-  --badge-reserved-bg: rgba(245, 158, 11, 0.12);
-  --badge-sold: #dc2626;
-  --badge-sold-bg: rgba(239, 68, 68, 0.12);
+  /* Seguimiento de clientes: prioridad cálida, sin el rojo de error. */
+  --color-followup-overdue: #6d5261;
+  --color-followup-overdue-strong: #704452;
+  --color-followup-overdue-bg: #f0e9ed;
+  --color-followup-overdue-bg-strong: #eadde3;
+
+  /* Lot lifecycle: verde=disponible, azul=reservado, rojo=vendido.
+     El color funciona como lectura semántica inmediata; el dorado queda como
+     acento de marca para acciones y jerarquía. */
+  --color-lot-available: #10b981;
+  --color-lot-available-bg: color-mix(in srgb, var(--color-lot-available) 14%, transparent);
+  --color-lot-reserved: #3b82f6;
+  --color-lot-reserved-bg: color-mix(in srgb, var(--color-lot-reserved) 13%, transparent);
+  --color-lot-sold: #ef4444;
+  --color-lot-sold-bg: color-mix(in srgb, var(--color-lot-sold) 12%, transparent);
+
+  /* Compatibility aliases: migrar consumidores a --color-lot-* por etapas. */
+  --badge-available: var(--color-lot-available);
+  --badge-available-bg: var(--color-lot-available-bg);
+  --badge-reserved: var(--color-lot-reserved);
+  --badge-reserved-bg: var(--color-lot-reserved-bg);
+  --badge-sold: var(--color-lot-sold);
+  --badge-sold-bg: var(--color-lot-sold-bg);
 
   /* Category colors (for badges) */
   --color-cat-contacto: #4338ca;
@@ -49,6 +69,8 @@
   /* === Typography === */
   --font-primary: 'Space Grotesk', sans-serif;
   --font-body: 'Outfit', system-ui, sans-serif;
+  --font-ui: var(--font-body);
+  --font-secondary: var(--font-body);
 
   /* Font sizes */
   --text-xs: 0.7rem;
@@ -59,6 +81,14 @@
   --text-xl: 1.25rem;
   --text-2xl: 2rem;
   --text-3xl: 2.5rem;
+
+  /* Semantic type roles */
+  --type-page-title: clamp(1.65rem, 2.6vw, 2.25rem);
+  --type-section-title: clamp(1.35rem, 2.2vw, 1.8rem);
+  --type-metric-hero: clamp(2.4rem, 5vw, 4.25rem);
+  --tracking-title: -0.04em;
+  --tracking-eyebrow: 0.16em;
+  --leading-title: 1.08;
 
   /* Font weights */
   --weight-regular: 400;
@@ -74,12 +104,19 @@
   --space-xl: 48px;
   --space-2xl: 72px;
 
+  /* Semantic layout rhythm */
+  --page-gutter: clamp(var(--space-md), 3vw, 40px);
+  --page-section-gap: var(--space-md);
+  --page-group-gap: var(--space-xl);
+
   /* === Borders === */
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
   --radius-xl: 12px;
   --radius-full: 9999px;
+  --radius-control: var(--radius-lg);
+  --radius-surface: var(--radius-xl);
 
   /* === Shadows === */
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.06);
@@ -87,6 +124,8 @@
   --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.08);
   --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.1);
   --shadow-offset: 12px 12px 0px rgba(0, 0, 0, 0.1);
+  --shadow-surface: 0 1px 2px rgba(26, 26, 42, 0.04);
+  --shadow-raised: var(--shadow-sm);
 
   /* === Transitions === */
   --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
@@ -94,12 +133,15 @@
   --duration-fast: 150ms;
   --duration-base: 200ms;
   --duration-slow: 300ms;
+  --motion-focus: border-color var(--duration-fast) var(--ease-out),
+                  box-shadow var(--duration-fast) var(--ease-out);
 
   /* === Component-specific === */
   --btn-height: 56px;
   --btn-height-sm: 32px;
+  --control-height: 40px;
   --nav-height: 64px;
-  --sidebar-width: 70px;
+  --sidebar-width: 232px;
   --side-panel-width: 360px;
 
   /* === Z-index scale === */
@@ -125,9 +167,9 @@
   /* === Stat card accent colors === */
   --color-stat-info: #3b82f6;
   --color-stat-success: #22c55e;
-  --color-stat-available: #16a34a;
-  --color-stat-reserved: #2563eb;
-  --color-stat-sold: #dc2626;
+  --color-stat-available: var(--color-lot-available);
+  --color-stat-reserved: var(--color-lot-reserved);
+  --color-stat-sold: var(--color-lot-sold);
 
   /* === Success/danger hover variants === */
   --color-success-hover: #059669;
@@ -150,4 +192,12 @@
   --accent-hover: #d9b38c;
   --accent-dark: #8e7343;
   --shadow-offset: 12px 12px 0px rgba(0, 0, 0, 0.1);
+
+  /* ── Firma de hover (P1 · tinte + borde, sin movimiento) ──
+     Única para todos los interactivos. Superficies (cards, filas, panels)
+     toman velo dorado + borde teñido; el botón primario aclara a --accent-hover
+     y el outline usa borde/texto de acento. NO usar transform/offset-shadow. */
+  --hover-surface-bg: color-mix(in srgb, var(--accent-color) 5%, transparent);
+  --hover-surface-border: color-mix(in srgb, var(--accent-color) 35%, transparent);
+  --hover-outline-bg: color-mix(in srgb, var(--accent-color) 6%, transparent);
 }

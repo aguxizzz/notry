@@ -41,7 +41,10 @@
 .owner-layout {
   min-height: 100vh;
   padding: var(--space-lg);
-  padding-left: calc(var(--sidebar-width) + var(--space-lg));
+  /* El despeje del sidebar lo da `margin-left: var(--sidebar-width)` en la
+     media query de Sidebar.css. No sumar acá también el ancho como padding
+     (antes: padding-left calc(sidebar-width + space-lg)) o se cuenta doble y
+     queda un hueco blanco entre el sidebar y el contenido. */
   background-color: var(--bg-dark);
   display: flex;
   flex-direction: column;

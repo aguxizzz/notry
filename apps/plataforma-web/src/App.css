@@ -1,19 +1,6 @@
 /* App.css — Reduced to layout-level and shared styles only */
 /* Component-level styles have been moved to co-located CSS files */
 
-/* ── Configuración: tarjeta de perfil sobre el panel de equipos, centrado ── */
-.configuracion-layout {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-lg);
-  width: 100%;
-  max-width: 620px;
-  padding: var(--space-lg);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: var(--panel-bg);
-}
-
 /* ── Global Utilities ── */
 .sr-only {
   position: absolute;

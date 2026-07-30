@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import ImageUploadField from '../ImageUploadField';
+import { Button } from '../../ui/components';
 import '../../ui/components/Modal.css';
 
 // Fuentes del selector de tipografía que no carga la app por defecto.
@@ -144,10 +145,10 @@ export default function ProjectFormModal({ isOpen, onClose, onSubmit, loading, e
           {error && <p className="form-error">{error}</p>}
 
           <div className="modal-actions">
-            <button type="submit" className="btn-primary" disabled={loading || !name.trim()}>
+            <Button type="submit" disabled={loading || !name.trim()}>
               {loading ? 'Guardando...' : initialData ? 'Guardar cambios' : 'Crear proyecto'}
-            </button>
-            <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
+            </Button>
+            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
           </div>
         </form>
       </div>

@@ -35,7 +35,7 @@ export async function fetchInventoryLoteosBg({ apiFetch, setInventoryLoteos, add
   }
 }
 
-export async function createLoteo({ apiFetch, createLoteoForm, setCreateLoteoLoading, setCreateLoteoError, setCreateLoteoOpen, setCreateLoteoForm, onSuccess, onAddLoteo, loteOwnerId, setActivities }) {
+export async function createLoteo({ apiFetch, createLoteoForm, setCreateLoteoLoading, setCreateLoteoError, setCreateLoteoOpen, setCreateLoteoForm, onSuccess, onAddLoteo, loteOwnerId, addActivity }) {
   setCreateLoteoLoading(true);
   setCreateLoteoError(null);
 
@@ -56,7 +56,7 @@ export async function createLoteo({ apiFetch, createLoteoForm, setCreateLoteoLoa
     setCreateLoteoOpen(false);
     setCreateLoteoForm({ name: '', slug: '', image_url: '', thumbnail_url: '', blueprint_url: '' });
     if (res?.id) {
-      logActivity({ apiFetch, activityType: 'loteo_created', entityType: 'loteo', entityId: res.id, loteOwnerId, description: `Loteo "${res.name}" creado`, name: res.name, setActivities });
+      logActivity({ apiFetch, activityType: 'loteo_created', entityType: 'loteo', entityId: res.id, loteOwnerId, description: `Loteo "${res.name}" creado`, name: res.name, addActivity });
     }
     onSuccess?.();
   } catch (error) {
@@ -82,12 +82,12 @@ export async function removeLoteoFromGroup({ apiFetch, loteoId }) {
   return apiFetch(`${API_BASE}/loteos/${loteoId}/group`, { method: 'DELETE' });
 }
 
-export async function deleteLoteo({ apiFetch, loteoId, loteoName, loteOwnerId, setActivities }) {
-  logActivity({ apiFetch, activityType: 'loteo_deleted', entityType: 'loteo', entityId: loteoId, loteOwnerId, description: `Loteo "${loteoName}" eliminado`, name: loteoName, setActivities });
+export async function deleteLoteo({ apiFetch, loteoId, loteoName, loteOwnerId, addActivity }) {
+  logActivity({ apiFetch, activityType: 'loteo_deleted', entityType: 'loteo', entityId: loteoId, loteOwnerId, description: `Loteo "${loteoName}" eliminado`, name: loteoName, addActivity });
   await apiFetch(`${API_BASE}/loteos/${loteoId}`, { method: 'DELETE' });
 }
 
-export async function saveEditLoteo({ apiFetch, editingLoteoId, editLoteoForm, addToast, setEditLoteoLoading, setEditLoteoError, setEditLoteoClosing, setEditLoteoOpen, setEditingLoteoId, onUpdateLoteo, loteOwnerId, setActivities }) {
+export async function saveEditLoteo({ apiFetch, editingLoteoId, editLoteoForm, addToast, setEditLoteoLoading, setEditLoteoError, setEditLoteoClosing, setEditLoteoOpen, setEditingLoteoId, onUpdateLoteo, loteOwnerId, addActivity }) {
   setEditLoteoLoading(true);
   setEditLoteoError(null);
 
@@ -105,7 +105,7 @@ export async function saveEditLoteo({ apiFetch, editingLoteoId, editLoteoForm, a
     });
     onUpdateLoteo?.(editingLoteoId, editLoteoForm);
     if (res?.id) {
-      logActivity({ apiFetch, activityType: 'loteo_updated', entityType: 'loteo', entityId: res.id, loteOwnerId, description: `Loteo "${res.name}" actualizado`, name: res.name, setActivities });
+      logActivity({ apiFetch, activityType: 'loteo_updated', entityType: 'loteo', entityId: res.id, loteOwnerId, description: `Loteo "${res.name}" actualizado`, name: res.name, addActivity });
     }
     addToast('Loteo actualizado.', 'success');
     // No immediate refetch: optimistic update + next sync (reconciled) cover it.

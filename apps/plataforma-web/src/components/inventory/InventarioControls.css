@@ -1,0 +1,76 @@
+/* InventarioControls — composición específica sobre DataToolbar/SearchField. */
+
+.inventario-shell .inventory-filters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  overflow: visible;
+}
+
+.inventario-shell .inventory-filters .form-group {
+  margin-bottom: 0;
+  flex: 0 1 auto;
+  min-width: 140px;
+}
+
+.inventario-shell .inventory-filters .form-group label {
+  display: none;
+}
+
+.inventario-shell .filter-icon {
+  color: var(--text-muted);
+}
+
+/* ─── Overrides scoped al shell de inventario ──────────────────────────────── */
+
+.inventario-shell .inv-seg {
+  display: inline-flex;
+  background: var(--inv-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 3px;
+  flex: none;
+}
+
+.inventario-shell .inv-seg button {
+  border: none;
+  background: none;
+  font-family: var(--font-primary);
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  padding: 7px 15px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+
+.inventario-shell .inv-seg button.on {
+  background: var(--panel-bg);
+  color: var(--text-main);
+  box-shadow: var(--shadow-sm);
+}
+
+.inventario-shell .inv-toolbar {
+  flex-wrap: nowrap;
+}
+
+@media (max-width: 720px) {
+  .inventario-shell .inv-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .inventario-shell .inv-toolbar .search-field {
+    flex-basis: 100%;
+    order: 2;
+  }
+
+  .inventario-shell .inv-toolbar .inventory-filters {
+    order: 3;
+  }
+
+  .inventario-shell .inv-toolbar .loader-container {
+    order: 3;
+  }
+}

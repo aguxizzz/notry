@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { patchLot } from '../api/lots';
 
-export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot, loteOwnerId, setActivities }) {
+export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot, loteOwnerId, addActivity }) {
   const [editLotModalOpen, setEditLotModalOpen] = useState(false);
   const [editingLotId, setEditingLotId] = useState(null);
   const [editLotForm, setEditLotForm] = useState({ status: '', price: '', area_m2: '', comments: '' });
@@ -72,7 +72,7 @@ export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot, loteOwnerId,
 
     setEditLotLoading(true);
     try {
-      await patchLot({ apiFetch, editingLotId, editLotForm, loteOwnerId, setActivities });
+      await patchLot({ apiFetch, editingLotId, editLotForm, loteOwnerId, addActivity });
       const updates = { status: editLotForm.status };
       if (editLotForm.name) updates.name = editLotForm.name;
       if (editLotForm.loteo_id) updates.loteo_id = editLotForm.loteo_id;

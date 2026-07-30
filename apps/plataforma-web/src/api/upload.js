@@ -67,7 +67,7 @@ function xhrRequest(method, url, { headers = {}, body, onProgress, logout, requi
         return;
       }
       let detail = `HTTP ${xhr.status}`;
-      try { detail = JSON.parse(xhr.responseText).detail || detail; } catch {}
+      try { detail = JSON.parse(xhr.responseText).detail || detail; } catch { /* use HTTP status */ }
       reject(new Error(detail));
     };
     xhr.onerror = () => reject(new Error('Error de red'));

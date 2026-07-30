@@ -125,7 +125,7 @@ export default function EditEntityModal({
   );
 }
 
-function renderField(field, formData, onFormChange, idx) {
+function renderField(field, formData, onFormChange) {
   const { name, label, type = 'text', required = false, placeholder, step, options, disabled = false } = field;
   const value = formData[name] ?? '';
 

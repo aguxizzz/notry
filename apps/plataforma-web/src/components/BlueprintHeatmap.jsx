@@ -13,9 +13,11 @@ export default function BlueprintHeatmap({
   annotations,
   clicksData,
   missingCoordinatesCount,
+  loteoName,
 }) {
   const [hoveredLoteId, setHoveredLoteId] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const wrapperRef = useRef(null);
 
   const {
@@ -61,22 +63,36 @@ export default function BlueprintHeatmap({
     };
   }, [handleWheel, handlePanEnd, handlePanMove]);
 
+  useEffect(() => {
+    const syncFullscreenState = () => {
+      const fullscreenElement = document.fullscreenElement ?? document.webkitFullscreenElement;
+      setIsFullscreen(fullscreenElement === wrapperRef.current);
+    };
+
+    document.addEventListener('fullscreenchange', syncFullscreenState);
+    document.addEventListener('webkitfullscreenchange', syncFullscreenState);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', syncFullscreenState);
+      document.removeEventListener('webkitfullscreenchange', syncFullscreenState);
+    };
+  }, []);
+
   const handleMouseEnter = () => { isHoveredRef.current = true; };
   const handleMouseLeave = () => { isHoveredRef.current = false; };
 
   const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
+    const fullscreenElement = document.fullscreenElement ?? document.webkitFullscreenElement;
+    if (!fullscreenElement) {
       const el = wrapperRef.current;
       if (el?.requestFullscreen) {
-        el.requestFullscreen().catch(err => console.error('[BlueprintHeatmap] requestFullscreen failed:', err));
+        void el.requestFullscreen().catch(() => {});
       } else if (el?.webkitRequestFullscreen) {
         el.webkitRequestFullscreen();
-      } else {
-        console.warn('[BlueprintHeatmap] requestFullscreen not supported, el:', wrapperRef.current);
       }
     } else {
       if (document.exitFullscreen) {
-        document.exitFullscreen().catch(err => console.error('[BlueprintHeatmap] exitFullscreen failed:', err));
+        void document.exitFullscreen().catch(() => {});
       } else if (document.webkitExitFullscreen) {
         document.webkitExitFullscreen();
       }
@@ -110,6 +126,8 @@ export default function BlueprintHeatmap({
 
   const commonWrapperProps = {
     ref: wrapperRef,
+    role: 'region',
+    'aria-label': `Plano interactivo${loteoName ? ` de ${loteoName}` : ''}`,
     onMouseMove: handleWrapperMouseMove,
     onMouseEnter: handleMouseEnter,
     onMouseLeave: handleMouseLeave,
@@ -146,6 +164,8 @@ export default function BlueprintHeatmap({
         <div
           className="blueprint-heatmap-wrapper"
           ref={wrapperRef}
+          role="region"
+          aria-label={`Plano interactivo${loteoName ? ` de ${loteoName}` : ''}`}
           onMouseDown={handlePanStart}
           onMouseMove={handleWrapperMouseMove}
           onMouseEnter={handleMouseEnter}
@@ -195,6 +215,7 @@ export default function BlueprintHeatmap({
             onZoomOut={zoomOut}
             onReset={resetView}
             onFullscreen={toggleFullscreen}
+            isFullscreen={isFullscreen}
           />
         </div>
       )}

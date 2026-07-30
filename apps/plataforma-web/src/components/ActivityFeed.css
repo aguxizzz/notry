@@ -3,37 +3,39 @@
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  /* El alto lo controla cada vista que lo monta (Inicio/Inventario) vía
+     `align-items: stretch`. Acá no forzamos `flex:1` para que, fuera de un
+     grid/flex parent, no se estire al infinito. */
 }
 
-.activity-feed-header {
-  padding: var(--space-lg) var(--space-lg) var(--space-md);
+/* Scroll interno: ocupa todo el alto disponible del feed y, si hay más items
+   que lugar, scrollea. El alto lo controla cada vista que lo monta:
+     • Inicio: quiere estirarse al borde inferior del kanban (sin tope).
+     • Inventario: usa un tope propio (ver InventarioView.css).
+   Acá solo dejamos `min-height: 0` para que flex permita que el scroll se
+   encoja cuando hay overflow. */
+.activity-feed-scroll {
   position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
 }
 
-.activity-feed-header .stats-header-eyebrow {
-  position: relative;
-  z-index: 1;
-}
-
-.activity-feed-title {
-  font-family: var(--font-primary);
-  font-size: clamp(1.5rem, 3vw, 2rem);
-  font-weight: var(--weight-black);
-  color: var(--text-main);
-  margin: 0 0 2px 0;
-  line-height: 1;
-  letter-spacing: -0.03em;
-  position: relative;
-  z-index: 1;
-}
-
-.activity-feed-subtitle {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-  font-weight: 400;
-  letter-spacing: 0;
-  margin: 0;
-  position: relative;
+/* Fade inferior anclado al .activity-feed-scroll (no al feed), para que cubra
+   el área scrollable real, sea del alto que sea. */
+.activity-feed-scroll::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 34px;
+  pointer-events: none;
+  background: linear-gradient(to top, var(--panel-bg), transparent);
   z-index: 1;
 }
 
@@ -41,6 +43,36 @@
   list-style: none;
   margin: 0;
   padding: 0;
+  /* Flex item del scroll (que es overflow-y:auto). Si el contenido de los
+     <li> excede el alto del scroll, la UL no crece — el scroll hace el
+     recorte. */
+  min-height: 0;
+}
+
+.activity-feed-list::-webkit-scrollbar {
+  width: 7px;
+}
+
+.activity-feed-list::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: var(--radius-full);
+}
+
+/* Cabecera de día (Hoy / Ayer / fecha), pegajosa dentro del scroll. */
+.activity-day-head {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-raised);
+  padding: var(--space-xs) var(--space-lg);
+  background: color-mix(in srgb, var(--bg-surface) 92%, var(--panel-bg));
+  backdrop-filter: blur(4px);
+  font-family: var(--font-primary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .activity-item {
@@ -116,28 +148,6 @@
   white-space: nowrap;
   flex-shrink: 0;
   letter-spacing: 0.02em;
-}
-
-.activity-feed-load-more {
-  padding: var(--space-md) var(--space-lg);
-  border-top: 1px solid var(--border-color);
-  border: none;
-  cursor: pointer;
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--color-accent);
-  letter-spacing: 0.04em;
-  transition: color var(--duration-fast) var(--ease-out);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  width: 100%;
-  background: transparent;
-}
-
-.activity-feed-load-more:hover {
-  color: var(--accent-hover);
 }
 
 .activity-feed-empty {

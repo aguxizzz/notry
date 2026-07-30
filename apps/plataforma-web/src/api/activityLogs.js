@@ -27,7 +27,7 @@ export async function postActivityLog({ apiFetch, activityType, entityType, enti
 /**
  * logActivity — persist an activity log AND optimistically push it to the
  * in-memory feed so it shows instantly. Replaces the duplicated
- * `postActivityLog(...) + setActivities([{...}])` block scattered across the
+ * `postActivityLog(...) + addActivity({...})` block scattered across the
  * lots/loteos/prospects services.
  *
  * The optimistic entry uses the same `activityType` and `description` as the
@@ -36,14 +36,12 @@ export async function postActivityLog({ apiFetch, activityType, entityType, enti
  *
  * No-ops when `loteOwnerId` is missing (owner context required).
  */
-export function logActivity({ apiFetch, activityType, entityType, entityId, loteOwnerId, description, extraData, name, setActivities }) {
+export function logActivity({ apiFetch, activityType, entityType, entityId, loteOwnerId, description, extraData, name, addActivity }) {
   if (!loteOwnerId) return;
   postActivityLog({ apiFetch, activityType, entityType, entityId, loteOwnerId, description, extraData });
-  setActivities?.([{
-    id: crypto.randomUUID(),
+  addActivity?.({
     type: activityType,
     name: name ?? extraData?.prospect_name ?? 'Sin nombre',
     description,
-    ts: Date.now(),
-  }]);
+  });
 }

@@ -38,8 +38,10 @@ export function createApiFetch(token, logout) {
           let detail;
           try {
             const parsed = JSON.parse(raw);
-            detail = parsed.detail;
-          } catch {}
+            detail = parsed.detail ?? parsed.message ?? parsed.error;
+          } catch {
+            // Some gateways return a non-JSON error body; use the HTTP status.
+          }
           throw new Error(getErrorMessage(detail || `HTTP ${res.status}`));
         }
       } catch (err) {

@@ -1,4 +1,5 @@
 @import './ui/tokens/index.css';
+@import './ui/components/table.css';
 
 html, body {
   margin: 0;

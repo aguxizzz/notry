@@ -1,72 +1,14 @@
-/* ── Loteo Selector ── */
+/* ── Loteo Selector (picker editorial · variante A) ──
+   Hereda los estilos `.picker-a` ya definidos en PeriodSelector.css.
+   Acá sólo reseteamos cualquier cosa que pudiera quedar del estilo viejo
+   (pills con fondo dorado). */
+
 .loteo-selector {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  background: color-mix(in srgb, var(--accent-color) 6%, var(--panel-bg));
-  border: 1.5px solid color-mix(in srgb, var(--accent-color) 25%, var(--border-color));
-  border-radius: 10px;
-  padding: 4px 5px;
-  width: fit-content;
-}
-
-.loteo-pill {
-  background: transparent;
-  color: color-mix(in srgb, var(--color-text-muted) 70%, var(--color-text));
-  border: 1.5px solid transparent;
-  border-radius: 7px;
-  padding: 7px 15px;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-bold);
-  font-family: var(--font-primary);
-  cursor: pointer;
-  transition:
-    background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  letter-spacing: 0.02em;
-  line-height: 1;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.loteo-pill:hover {
-  background: color-mix(in srgb, var(--accent-color) 10%, transparent);
-  color: var(--accent-dark);
-  border-color: color-mix(in srgb, var(--accent-color) 30%, transparent);
-  transform: translateY(-1px);
-}
-
-.loteo-pill:active {
-  transform: translateY(1px);
-  box-shadow: none;
-}
-
-.loteo-pill:focus-visible {
-  outline: 2px solid var(--accent-color);
-  outline-offset: 2px;
+  /* ya no se usa como contenedor: el layout lo arma .picker-a */
+  display: contents;
 }
 
 .loteo-selector-empty {
-  padding: 7px 12px;
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-  font-style: italic;
-}
-
-.loteo-pill.active {
-  background: var(--accent-color);
-  color: var(--color-surface);
-  font-weight: var(--weight-black);
-  border-color: var(--accent-color);
-  box-shadow:
-    0 2px 6px rgba(197, 160, 89, 0.4),
-    0 1px 2px rgba(197, 160, 89, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  transform: translateY(-1px);
+  /* ya no se usa — el mensaje se renderiza inline en pa-opt */
+  display: none;
 }

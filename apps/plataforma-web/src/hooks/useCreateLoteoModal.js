@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { createLoteo } from '../api/loteos';
 
-export function useCreateLoteoModal({ apiFetch, onSuccess, onAddLoteo, loteOwnerId, setActivities }) {
+export function useCreateLoteoModal({ apiFetch, onSuccess, onAddLoteo, loteOwnerId, addActivity, existingLoteos = [] }) {
   const [createLoteoOpen, setCreateLoteoOpen] = useState(false);
   const [createLoteoForm, setCreateLoteoForm] = useState({ name: '', slug: '', image_url: '', thumbnail_url: '', blueprint_url: '' });
   const [createLoteoLoading, setCreateLoteoLoading] = useState(false);
@@ -20,6 +20,14 @@ export function useCreateLoteoModal({ apiFetch, onSuccess, onAddLoteo, loteOwner
   const validateForm = (formData) => {
     if (!formData.name || formData.name.trim() === '') {
       return 'El nombre del loteo es requerido';
+    }
+    const normalizedName = formData.name.trim().toLocaleLowerCase('es');
+    const normalizedSlug = formData.slug.trim().toLocaleLowerCase('es');
+    if ((existingLoteos || []).some(loteo => (
+      loteo.name?.trim().toLocaleLowerCase('es') === normalizedName
+      || (normalizedSlug && loteo.slug?.trim().toLocaleLowerCase('es') === normalizedSlug)
+    ))) {
+      return 'Ya existe un loteo con ese nombre o slug.';
     }
     return null;
   };
@@ -47,7 +55,7 @@ export function useCreateLoteoModal({ apiFetch, onSuccess, onAddLoteo, loteOwner
         onSuccess,
         onAddLoteo,
         loteOwnerId,
-        setActivities,
+        addActivity,
       });
     } catch (err) {
       setCreateLoteoError(err.message);

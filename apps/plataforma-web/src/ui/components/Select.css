@@ -46,6 +46,10 @@
   padding-right: 1rem;
 }
 
+.select-trigger__label--changing {
+  animation: select-value-change 220ms cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+
 .select-trigger__chevron {
   position: absolute;
   right: var(--space-md);
@@ -61,14 +65,23 @@
   transform: translateY(-50%) rotate(180deg);
 }
 
-/* Dropdown panel — portaled to document.body, position set via inline style */
+/* Dropdown panel — portaled to document.body, offsets set via inline style.
+   position:fixed en base (no solo al abrir) es clave: el panel se renderiza
+   siempre en el DOM (aunque cerrado, oculto con clip-path), y sin position
+   quedaba `static` al final de <body> ocupando altura real → inflaba el alto
+   del documento y metía scroll fantasma. Fixed lo saca del flujo estando
+   cerrado. */
 .select-dropdown {
+  position: fixed;
   background: var(--panel-bg);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-offset);
   z-index: var(--z-dropdown);
-  overflow: hidden;
+  max-height: min(320px, calc(100vh - 24px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 
   /* Clip from top — reveals downward like a sliding panel */
   clip-path: inset(0 0 100% 0);
@@ -112,8 +125,33 @@
   font-weight: var(--weight-bold);
 }
 
+.select-option--disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
+.select-option--disabled:hover,
+.select-option--disabled:focus {
+  background: transparent;
+}
+
+@keyframes select-value-change {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
+  .select-trigger__label--changing {
+    animation: none;
+  }
   .select-trigger__chevron {
     transition: none;
   }

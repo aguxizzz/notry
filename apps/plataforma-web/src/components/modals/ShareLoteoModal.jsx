@@ -122,7 +122,7 @@ export default function ShareLoteoModal({
           await navigator.clipboard.writeText(link);
           setCopiedOrigin(origin.value);
           setTimeout(() => setCopiedOrigin(null), 2000);
-        } catch (err) {
+        } catch {
           addToast?.('No se pudo copiar el enlace. Copialo manualmente.', 'error');
         }
       }

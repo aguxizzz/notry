@@ -1,8 +1,16 @@
 import { useState } from 'react';
-import { Layers, Plus, Trash2, X } from 'lucide-react';
+import { Layers, Plus, Pencil, Trash2, X } from 'lucide-react';
 import ProjectFormModal from '../modals/ProjectFormModal';
 import ConfirmModal from '../ConfirmModal';
-import { Select } from '../../ui/components';
+import ShellLayout from '../ShellLayout';
+import {
+  Button,
+  FeedbackState,
+  PageHeader,
+  PageLayout,
+  Panel,
+  Select,
+} from '../../ui/components';
 import { createProject, updateProject, deleteProject, assignLoteos, unassignLoteo } from '../../api/projects';
 import './ProjectsView.css';
 
@@ -98,130 +106,161 @@ export default function ProjectsView({ apiFetch, uploadFn, onUploadEvent, allLot
     return allLoteos.filter(l => !assigned.has(String(l.id)));
   }
 
-  if (projectsLoading) return <div className="projects-loading">Cargando proyectos...</div>;
-
   return (
-    <div className="projects-view">
-      {projects.length === 0 ? (
-        <div className="projects-empty">
-          <Layers size={40} />
-          <h3>Creá tu primer proyecto</h3>
-          <p>Definí una identidad visual y asigná los loteos que van a compartirla.</p>
-          <button className="btn-primary" onClick={() => setModalOpen(true)}>Crear el primero</button>
-        </div>
-      ) : (
-        <>
-        <div className="projects-header">
-          <div className="projects-title-row">
-            <Layers size={22} />
-            <h2>Proyectos activos</h2>
-          </div>
-          <button className="btn-primary projects-new-btn" onClick={() => { setSaveError(null); setModalOpen(true); }}>
-            <Plus size={15} />
-            Nuevo proyecto
-          </button>
-        </div>
-        <div className="projects-list">
-          {projects.map(project => {
+    <ShellLayout className="projects-shell">
+      <PageLayout className="projects-page">
+        <PageHeader
+          eyebrow="Identidad de marca"
+          title="Proyectos"
+          description="Agrupá loteos bajo una identidad visual compartida para cada desarrollo."
+          actions={projects.length > 0 ? (
+            <Button size="sm" onClick={() => { setSaveError(null); setModalOpen(true); }}>
+              <Plus size={16} aria-hidden="true" />
+              Nuevo proyecto
+            </Button>
+          ) : null}
+        />
+
+        {projectsLoading ? (
+          <FeedbackState
+            className="projects-feedback"
+            busy
+            title="Cargando proyectos"
+            description="Consultando identidades y loteos asociados…"
+          />
+        ) : projects.length === 0 ? (
+          <FeedbackState
+            className="projects-feedback"
+            icon={<Layers size={25} />}
+            title="Creá tu primer proyecto"
+            description="Definí una identidad visual y asigná los loteos que van a compartirla."
+            action={(
+              <Button size="sm" onClick={() => { setSaveError(null); setModalOpen(true); }}>
+                <Plus size={16} aria-hidden="true" />
+                Crear proyecto
+              </Button>
+            )}
+          />
+        ) : (
+          <div className="projects-grid">
+            {projects.map(project => {
             const b = project.branding || {};
+            const primary = b.primary_color || '#c5a059';
+            const accent = b.accent_color || '#8e7343';
             const projectLoteoIds = new Set((project.loteo_ids ?? []).map(String));
             const assignedLoteos = allLoteos.filter(l => projectLoteoIds.has(String(l.id)));
             const available = getAvailableLoteos(project);
+            const count = assignedLoteos.length;
 
             return (
-              <div key={project.id} className="project-card">
-                <div className="project-card-header">
-                  <div className="project-color-preview">
-                    <span style={{ background: b.primary_color || '#c5a059' }} />
-                    <span style={{ background: b.accent_color || '#b38a3f' }} />
+              <Panel key={project.id} className="project-card" flush style={{ '--pc': primary, '--ac': accent }}>
+                <div className="project-brand">
+                  <div className="project-logo">
+                    {b.logo_primary
+                      ? <img src={b.logo_primary} alt="" />
+                      : <span>{(project.name || '?').charAt(0).toUpperCase()}</span>}
                   </div>
-                  <div className="project-card-info">
-                    <h3>{project.name}</h3>
-                    <span className="project-loteo-count">{assignedLoteos.length} loteo{assignedLoteos.length !== 1 ? 's' : ''}</span>
-                  </div>
-                  <div className="project-card-actions">
-                    <button className="btn-ghost btn-sm" onClick={() => { setSaveError(null); setEditingProject(project); }}>Editar</button>
-                    <button className="btn-ghost btn-sm btn-danger" onClick={() => setProjectToDelete(project)}><Trash2 size={14} /></button>
+                  <div className="project-brand-text">
+                    <div className="project-name">{project.name}</div>
+                    <div className="project-count">
+                      {count > 0 ? `${count} loteo${count !== 1 ? 's' : ''} asignado${count !== 1 ? 's' : ''}` : 'Sin loteos'}
+                    </div>
                   </div>
                 </div>
 
-                {b.logo_primary && (
-                  <div className="project-logo-preview">
-                    <img src={b.logo_primary} alt="Logo principal" />
-                    {b.logo_secondary && <img src={b.logo_secondary} alt="Logo secundario" />}
+                {count > 0 ? (
+                  <div className="project-loteo-list">
+                    {assignedLoteos.map(l => (
+                      <div key={l.id} className="project-loteo-row">
+                        <span className="project-loteo-name">{l.name}</span>
+                        <button
+                          className="project-loteo-remove"
+                          onClick={() => handleUnassign(project.id, l.id)}
+                          title="Quitar loteo"
+                          aria-label={`Quitar ${l.name}`}
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="project-loteo-placeholder">
+                    <p className="project-loteo-empty-title">Sin loteos asignados</p>
+                    <p className="project-loteo-empty-sub">
+                      {available.length > 0
+                        ? 'Asigná un loteo desde el menú de abajo.'
+                        : 'No hay loteos disponibles para asignar.'}
+                    </p>
                   </div>
                 )}
 
-                <div className="project-loteos-section">
-                  <p className="project-section-label">Loteos asignados</p>
-                  {assignedLoteos.length === 0 ? (
-                    <p className="project-no-loteos">Ningún loteo asignado todavía.</p>
-                  ) : (
-                    <div className="project-loteos-list">
-                      {assignedLoteos.map(l => (
-                        <div key={l.id} className="project-loteo-chip">
-                          <span>{l.name}</span>
-                          <button onClick={() => handleUnassign(project.id, l.id)} title="Remover"><X size={12} /></button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {available.length > 0 && (
-                    <div className="project-assign-row">
+                <div className="project-foot">
+                  <div className="project-foot-assign">
+                    {available.length > 0 && (
                       <Select
                         id={`assign-loteo-${project.id}`}
                         className="project-assign-select"
                         value=""
                         onChange={e => handleAssignLoteo(project.id, e.target.value)}
                         options={[
-                          { value: '', label: '+ Asignar loteo' },
+                          { value: '', label: 'Asignar loteo' },
                           ...available.map(l => ({ value: String(l.id), label: l.name })),
                         ]}
                       />
-                    </div>
-                  )}
+                    )}
+                  </div>
+                  <div className="project-foot-actions">
+                    <button className="project-link" onClick={() => { setSaveError(null); setEditingProject(project); }}>
+                      <Pencil size={14} />
+                      Editar proyecto
+                    </button>
+                    <button className="project-link project-link--danger" onClick={() => setProjectToDelete(project)}>
+                      <Trash2 size={14} />
+                      Eliminar
+                    </button>
+                  </div>
                 </div>
-              </div>
+              </Panel>
             );
           })}
-        </div>
-        </>
-      )}
+          </div>
+        )}
 
-      <ProjectFormModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSubmit={handleCreate}
-        loading={saving}
-        error={saveError}
-        apiFetch={apiFetch}
-        uploadFn={uploadFn}
-        onUploadEvent={onUploadEvent}
-      />
+        <ProjectFormModal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          onSubmit={handleCreate}
+          loading={saving}
+          error={saveError}
+          apiFetch={apiFetch}
+          uploadFn={uploadFn}
+          onUploadEvent={onUploadEvent}
+        />
 
-      <ProjectFormModal
-        key={editingProject?.id ?? 'edit'}
-        isOpen={!!editingProject}
-        onClose={() => setEditingProject(null)}
-        onSubmit={handleEdit}
-        loading={saving}
-        error={saveError}
-        initialData={editingProject}
-        apiFetch={apiFetch}
-        uploadFn={uploadFn}
-        onUploadEvent={onUploadEvent}
-      />
+        <ProjectFormModal
+          key={editingProject?.id ?? 'edit'}
+          isOpen={!!editingProject}
+          onClose={() => setEditingProject(null)}
+          onSubmit={handleEdit}
+          loading={saving}
+          error={saveError}
+          initialData={editingProject}
+          apiFetch={apiFetch}
+          uploadFn={uploadFn}
+          onUploadEvent={onUploadEvent}
+        />
 
-      <ConfirmModal
-        isOpen={!!projectToDelete}
-        title="¿Eliminar proyecto?"
-        message={projectToDelete ? `Estás a punto de eliminar "${projectToDelete.name}". Los loteos quedarán sin proyecto asignado.` : ''}
-        confirmLabel="Eliminar"
-        loading={deleting}
-        onConfirm={handleDeleteConfirmed}
-        onCancel={() => setProjectToDelete(null)}
-      />
-    </div>
+        <ConfirmModal
+          isOpen={!!projectToDelete}
+          title="¿Eliminar proyecto?"
+          message={projectToDelete ? `Estás a punto de eliminar "${projectToDelete.name}". Los loteos quedarán sin proyecto asignado.` : ''}
+          confirmLabel="Eliminar"
+          loading={deleting}
+          onConfirm={handleDeleteConfirmed}
+          onCancel={() => setProjectToDelete(null)}
+        />
+      </PageLayout>
+    </ShellLayout>
   );
 }

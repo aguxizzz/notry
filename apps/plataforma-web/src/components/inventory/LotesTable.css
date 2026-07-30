@@ -1,0 +1,68 @@
+/* LotesTable — estilos específicos de la tabla principal de lotes:
+   prospecto-tags (chips) y filas de relleno (reservan alto en la última página
+   para que el pager no salte). El resto de la tabla usa estilos compartidos
+   en ui/components/table.css (.inventory-table, .td-*, etc.). */
+
+.prospectos-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.prospecto-tag {
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  padding: 3px var(--space-xs);
+  white-space: nowrap;
+}
+
+.prospecto-tag.clickable {
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.prospecto-tag.clickable:hover {
+  background: rgba(197, 160, 89, 0.10);
+  color: var(--accent-color);
+  border-color: rgba(197, 160, 89, 0.30);
+}
+
+.prospecto-tag.clickable.active {
+  background: rgba(197, 160, 89, 0.14);
+  color: var(--accent-color);
+  border-color: rgba(197, 160, 89, 0.45);
+}
+
+/* Filas de relleno: reservan el alto de 10 filas en la última página para que
+   el pager no salte. Invisibles: sin borde, sin hover, sin contenido.
+   El borde se anula en el <tr> (no en el <td>): con border-collapse, un borde
+   "none" en la celda pierde contra el "1px solid" heredado del <tr> genérico
+   (gana el más ancho, no el más específico), así que hay que pisarlo al mismo
+   nivel. La altura se fija igual a la de una fila real (--btn-height-sm, la
+   de los botones de acción) para que el pager no suba al haber menos filas. */
+.inventario-shell .inventory-table tbody tr.lot-filler-row {
+  border-bottom: none;
+}
+/* Misma razón de especificidad que el borde: la regla genérica de hover
+   (línea de abajo, `tbody tr:hover`) tiene tantas clases como esta pero un
+   tipo de elemento más, así que gana por specificity a menos que se iguale
+   aquí agregando `tbody tr` también. */
+.inventario-shell .inventory-table tbody tr.lot-filler-row:hover {
+  background: transparent;
+}
+/* `height` en un <td> con box-sizing:border-box (reset global) cuenta el
+   padding adentro del alto, achicando el contenido real. Las filas de datos
+   nunca fijan `height` (su alto sale del contenido + padding, sin importar
+   box-sizing), así que acá hay que volver a content-box para que el cálculo
+   sea padding + alto, igual que en una fila real. */
+.inventario-shell .lot-filler-row td {
+  box-sizing: content-box;
+  height: var(--btn-height-sm);
+}

@@ -17,7 +17,7 @@ export default function BlueprintTooltip({ hoveredLoteId, annotations, clicksMap
     >
       {label}
       <br />
-      <strong>{clicks} clicks</strong>
+      <strong>{clicks} clics</strong>
     </div>
   );
 }

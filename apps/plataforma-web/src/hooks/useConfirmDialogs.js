@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { deleteLot } from '../api/lots';
 import { handleDeleteProspectConfirm as handleDeleteProspectConfirmService } from '../api/prospects';
 
-export function useConfirmDialogs({ apiFetch, addToast, onSuccess, onRemoveProspect, loteOwnerId, setActivities }) {
+export function useConfirmDialogs({ apiFetch, addToast, onSuccess, onRemoveProspect, loteOwnerId, addActivity }) {
   const [confirmDialog, setConfirmDialog] = useState({ open: false, lot: null, loading: false });
   const [deleteProspectDialog, setDeleteProspectDialog] = useState({ open: false, prospect: null, loading: false });
 
@@ -15,7 +15,7 @@ export function useConfirmDialogs({ apiFetch, addToast, onSuccess, onRemoveProsp
     if (!lot) return;
     setConfirmDialog(prev => ({ ...prev, loading: true }));
     try {
-      await deleteLot({ apiFetch, lotId: lot.id, lotName: lot.name, loteOwnerId, setActivities });
+      await deleteLot({ apiFetch, lotId: lot.id, lotName: lot.name, loteOwnerId, addActivity });
       addToast(`Lote "${lot.name}" eliminado.`, 'success');
       await fetchInventoryBg();
       setConfirmDialog({ open: false, lot: null, loading: false });
@@ -39,7 +39,7 @@ export function useConfirmDialogs({ apiFetch, addToast, onSuccess, onRemoveProsp
       refreshSync: onSuccess,
       onRemoveProspect,
       loteOwnerId,
-      setActivities,
+      addActivity,
     });
   };
 

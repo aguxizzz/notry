@@ -1,106 +1,96 @@
-import { useEffect, useRef } from 'react';
+import { memo } from 'react';
 
-const POINT_COUNT = 1500;
-const RADIUS = 0.45; // fraction of smallest screen dimension
-
-function buildSphere() {
-  const pts = [];
-  for (let i = 0; i < POINT_COUNT; i++) {
-    // Fibonacci sphere — evenly distributed points
-    const phi = Math.acos(1 - 2 * (i + 0.5) / POINT_COUNT);
-    const theta = Math.PI * (1 + Math.sqrt(5)) * i;
-    pts.push([
-      Math.sin(phi) * Math.cos(theta),
-      Math.sin(phi) * Math.sin(theta),
-      Math.cos(phi),
-    ]);
-  }
-  return pts;
-}
-
-export default function LoginBackground() {
-  const canvasRef = useRef(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    const pts = buildSphere();
-    let angleY = 0;
-    const tiltX = 0.35;
-    let raf;
-
-    // Read sphere dot color from CSS token
-    const rawColor = getComputedStyle(document.documentElement)
-      .getPropertyValue('--color-sphere-dot')
-      .trim() || 'rgba(197, 160, 89, 1)';
-    // Strip the alpha from the token so we can recompute it per-dot
-    const baseColor = rawColor.replace(/[\d.]+\)$/, '');
-
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-    resize();
-    window.addEventListener('resize', resize);
-
-    const draw = () => {
-      const W = canvas.width;
-      const H = canvas.height;
-      const cx = W * 0.93;
-      const cy = H * 0.17;
-      const r = Math.min(W, H) * RADIUS;
-
-      ctx.clearRect(0, 0, W, H);
-      angleY += 0.0020;
-
-      const cosY = Math.cos(angleY);
-      const sinY = Math.sin(angleY);
-      const cosX = Math.cos(tiltX);
-      const sinX = Math.sin(tiltX);
-
-      const projected = pts.map(([x, y, z]) => {
-        // Rotate around Y axis
-        const x1 = x * cosY + z * sinY;
-        const z1 = -x * sinY + z * cosY;
-        // Rotate around X axis (fixed tilt)
-        const y2 = y * cosX - z1 * sinX;
-        const z2 = y * sinX + z1 * cosX;
-
-        const depth = (z2 + 1) / 2; // 0 = back, 1 = front
-        return {
-          sx: cx + x1 * r,
-          sy: cy + y2 * r,
-          depth,
-          z2,
-        };
-      });
-
-      // Paint back-to-front so front dots are on top
-      projected.sort((a, b) => a.z2 - b.z2);
-
-      projected.forEach(({ sx, sy, depth }) => {
-        const dotR = 0.8 + depth * 1.8;
-        const alpha = 0.08 + depth * 0.52;
-        ctx.beginPath();
-        ctx.arc(sx, sy, dotR, 0, Math.PI * 2);
-        ctx.fillStyle = `${baseColor}${alpha.toFixed(2)})`;
-        ctx.fill();
-      });
-
-      raf = requestAnimationFrame(draw);
-    };
-
-    draw();
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener('resize', resize);
-    };
-  }, []);
-
+const LoginBackground = memo(function LoginBackground() {
   return (
-    <canvas
-      ref={canvasRef}
-      style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}
-    />
+    <svg
+      className="login-territory-map"
+      viewBox="0 0 900 900"
+      preserveAspectRatio="xMidYMid slice"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <defs>
+        <filter id="login-paper-noise">
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency=".75"
+            numOctaves="2"
+            stitchTiles="stitch"
+          />
+          <feColorMatrix type="saturate" values="0" />
+          <feComponentTransfer>
+            <feFuncA type="table" tableValues="0 .045" />
+          </feComponentTransfer>
+        </filter>
+      </defs>
+
+      <rect width="900" height="900" fill="#e9e0d1" />
+      <rect
+        width="900"
+        height="900"
+        filter="url(#login-paper-noise)"
+        opacity=".55"
+      />
+
+      <g
+        transform="translate(-92 32) rotate(-11 450 450)"
+        fill="none"
+        stroke="#5c5348"
+        strokeWidth="1.2"
+      >
+        <path d="M70 120 272 86 298 238 101 271Z" />
+        <path d="M272 86 476 52 501 205 298 238Z" />
+        <path d="M476 52 680 18 707 171 501 205Z" />
+        <path d="M680 18 883 -16 909 138 707 171Z" />
+        <path d="M101 271 298 238 324 390 128 425Z" />
+        <path d="M298 238 501 205 527 357 324 390Z" />
+        <path d="M501 205 707 171 733 324 527 357Z" />
+        <path d="M707 171 909 138 936 290 733 324Z" />
+        <path d="M128 425 324 390 351 544 153 579Z" />
+        <path d="M324 390 527 357 553 510 351 544Z" />
+        <path d="M527 357 733 324 759 477 553 510Z" />
+        <path d="M733 324 936 290 962 444 759 477Z" />
+        <path d="M183 723 377 684 408 840 213 880Z" />
+        <path d="M377 684 579 643 609 799 408 840Z" />
+        <path d="M579 643 783 600 815 757 609 799Z" />
+        <path d="M783 600 985 556 1018 713 815 757Z" />
+      </g>
+
+      <g
+        transform="translate(-92 32) rotate(-11 450 450)"
+        fill="#c5a059"
+        opacity=".28"
+      >
+        <path d="M501 205 707 171 733 324 527 357Z" />
+        <path d="M183 723 377 684 408 840 213 880Z" />
+      </g>
+
+      <path
+        d="M-30 650C212 525 404 570 544 502c163-79 235-225 412-298"
+        fill="none"
+        stroke="#f7f1e8"
+        strokeWidth="58"
+      />
+      <path
+        d="M-30 650C212 525 404 570 544 502c163-79 235-225 412-298"
+        fill="none"
+        stroke="#6e665c"
+        strokeWidth="1.4"
+        strokeDasharray="7 6"
+      />
+
+      <g transform="translate(-92 32) rotate(-11 450 450)">
+        <circle cx="617" cy="265" r="13" fill="#1f1d22" />
+        <circle cx="617" cy="265" r="4" fill="#d7b66f" />
+        <text x="639" y="262" fill="#39343a" fontSize="11">
+          LOS AROMOS
+        </text>
+        <text x="639" y="279" fill="#766e65" fontSize="9">
+          142 LOTES
+        </text>
+      </g>
+    </svg>
   );
-}
+});
+
+export default LoginBackground;

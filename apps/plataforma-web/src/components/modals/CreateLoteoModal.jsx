@@ -23,7 +23,6 @@ export default function CreateLoteoModal({
   onSubmit,
   loading,
   error,
-  isValidHttpsUrl,
 }) {
   const modalRef = useRef(null);
 
