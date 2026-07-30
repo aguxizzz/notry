@@ -7,6 +7,11 @@ export function getHeatColor(clicks, maxClicks) {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
+export function getHeatGradient() {
+  const stops = [0, 0.2, 0.4, 0.6, 0.8, 1];
+  return `linear-gradient(90deg, ${stops.map((ratio) => getHeatColor(ratio, 1)).join(', ')})`;
+}
+
 export function getTextColor(clicks, maxClicks) {
   // Resolves to hardcoded values because CSS variables in inline SVG styles don't resolve.
   // --color-text-muted: #4b5563  --text-main: #1a1a2a

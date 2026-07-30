@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { API_BASE } from '../config';
 import { logActivity } from '../api/activityLogs';
 
-export function usePatchProspect({ token, onSessionExpired, onError, apiFetch, loteOwnerId, setActivities }) {
+export function usePatchProspect({ token, onSessionExpired, onError, apiFetch, loteOwnerId, addActivity }) {
   const [patchingIds, setPatchingIds] = useState(new Set());
 
   const patchProspect = useCallback(async (id, category, previousColumns, setColumns, onSuccess, prospectName) => {
@@ -37,7 +37,7 @@ export function usePatchProspect({ token, onSessionExpired, onError, apiFetch, l
               description: `Prospecto "${prospectName || 'Sin nombre'}" actualizado`,
               extraData: { prospect_name: prospectName || 'Sin nombre' },
               name: prospectName || 'Sin nombre',
-              setActivities,
+              addActivity,
             });
             onSuccess?.();
             return;
@@ -67,7 +67,7 @@ export function usePatchProspect({ token, onSessionExpired, onError, apiFetch, l
         return next;
       });
     }
-  }, [token, onSessionExpired, onError, apiFetch, loteOwnerId, setActivities]);
+  }, [token, onSessionExpired, onError, apiFetch, loteOwnerId, addActivity]);
 
   return { patchProspect, patchingIds };
 }

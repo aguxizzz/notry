@@ -1,118 +1,112 @@
-/* ── Buttons ── */
-.primary-button {
+/* ── Button (primitiva canónica del design system) ──
+   variant: primary | outline | danger      size: sm | md | lg
+   Radio 8px (#9). Firma de hover #10: tinte + borde, SIN movimiento
+   (prohibido transform / offset-shadow). Ver design-lab/button-lab.html.
+
+   Clases emitidas por Button.jsx: `.primary-button` / `.outline-button`
+   (variantes), `.btn-sm|.btn-md|.btn-lg` (tamaños), `.danger` (sobre primary).
+   `.btn-danger` es un hook opcional para outline-danger (ej. borrar). */
+
+.primary-button,
+.outline-button {
+  --btn-h: 40px;      /* md por defecto */
+  --btn-px: 18px;
+  --btn-fs: 0.8rem;
   width: auto;
-  background: var(--accent-color);
-  color: var(--color-text);
-  border: none;
-  border-radius: var(--radius-md);
-  padding: var(--space-md) var(--space-lg);
-  font-family: var(--font-primary);
-  font-weight: var(--weight-bold);
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: var(--btn-height);
   gap: var(--space-sm);
+  min-height: var(--btn-h);
+  padding: 0 var(--btn-px);
+  font-family: var(--font-primary);
+  font-weight: var(--weight-bold);
+  font-size: var(--btn-fs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
   position: relative;
   overflow: hidden;
+  transition: background var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+
+/* ── Tamaños ──
+   Altura uniforme 40px para todo el in-app (sm y md comparten alto; sm solo es
+   más compacto en padding/fuente para filas y contextos apretados). lg = hero de
+   login/modal full-width. */
+.btn-sm,
+.btn-fit { --btn-h: 40px; --btn-px: 16px; --btn-fs: 0.75rem; }
+.btn-md  { --btn-h: 40px; --btn-px: 20px; --btn-fs: 0.8rem; }
+.btn-lg  { --btn-h: 52px; --btn-px: 28px; --btn-fs: 0.85rem; width: 100%; }
+/* compat: btn-fit conservaba un min-width fijo */
+.btn-fit { min-width: 110px; }
+
+/* ── Variante: primary (dorado sólido) ── */
+.primary-button {
+  background: var(--accent-color);
+  color: var(--color-text);
+  border-color: var(--accent-color);
 }
 
 .primary-button:hover:not(:disabled) {
   background: var(--accent-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 0px var(--color-accent-dark);
+  border-color: var(--accent-hover);
 }
 
-.primary-button:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: none;
-}
-
-.primary-button:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.primary-button.btn-fit {
-  min-width: 110px;
-  min-height: var(--btn-height-sm);
-  padding: var(--space-sm) var(--space-md);
-}
-
-.primary-button.btn-fit .loader {
-  width: 16px;
-  height: 16px;
-  border-width: 2px;
-}
-
-.primary-button.gold {
-  background: var(--accent-color);
-  color: var(--color-text);
-}
-
-.primary-button:disabled {
-  opacity: 0.5;
-}
-
-.primary-button .loader {
-  border-color: rgba(26, 26, 42, 0.2);
-  border-top-color: var(--color-text);
-}
-
-/* General outline button styles */
+/* ── Variante: outline ── */
 .outline-button {
-  width: auto;
   background: transparent;
-  color: var(--color-text-muted);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: var(--space-md) var(--space-lg);
-  font-family: var(--font-primary);
-  font-weight: var(--weight-bold);
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: var(--btn-height);
-  gap: var(--space-sm);
-  position: relative;
-  overflow: hidden;
+  color: var(--text-muted);
+  border-color: var(--border-color);
 }
 
 .outline-button:hover:not(:disabled) {
-  border-color: var(--color-text);
-  color: var(--color-text);
-  background: var(--color-bg);
+  background: var(--hover-outline-bg);
+  border-color: var(--accent-color);
+  color: var(--accent-dark);
 }
 
-.outline-button:active:not(:disabled) {
-  transform: translateY(0);
+/* ── Variante: danger ──
+   .danger (sobre primary) = relleno rojo · .btn-danger = outline rojo (hover) */
+.primary-button.danger {
+  background: var(--color-danger);
+  color: #fff;
+  border-color: var(--color-danger);
 }
 
+.primary-button.danger:hover:not(:disabled) {
+  background: var(--color-danger-hover);
+  border-color: var(--color-danger-hover);
+}
+
+.outline-button.btn-danger:hover:not(:disabled) {
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+/* ── Estados compartidos ── */
+.primary-button:focus-visible,
 .outline-button:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
-.outline-button.btn-fit {
-  min-width: 110px;
-  min-height: var(--btn-height-sm);
-  padding: var(--space-sm) var(--space-md);
-}
-
-.outline-button.btn-fit .loader {
-  width: 16px;
-  height: 16px;
-  border-width: 2px;
-}
-
+.primary-button:disabled,
 .outline-button:disabled {
   opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Loader ── */
+.primary-button .loader {
+  border-color: rgba(26, 26, 42, 0.25);
+  border-top-color: var(--color-text);
 }
 
 .outline-button .loader {
@@ -120,106 +114,9 @@
   border-top-color: var(--color-text-muted);
 }
 
-.primary-button.outline {
-  background: transparent;
-  color: var(--text-muted);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: var(--space-sm) var(--space-md);
-  font-family: var(--font-primary);
-  font-weight: var(--weight-bold);
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: var(--btn-height);
-}
-
-.primary-button.outline:hover:not(:disabled) {
-  border-color: var(--text-main);
-  color: var(--text-main);
-}
-
-.primary-button.danger {
-  background: var(--color-danger);
-  color: #fff;
-}
-
-.primary-button.danger:hover:not(:disabled) {
-  background: #dc2626;
-  box-shadow: 0 4px 0px #991b1b;
-}
-
-/* ── Utility aliases (btn-primary / btn-ghost) ── */
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-sm);
-  background: var(--accent-color);
-  color: var(--color-text);
-  border: none;
-  border-radius: var(--radius-md);
-  padding: var(--space-sm) var(--space-md);
-  font-family: var(--font-primary);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  min-height: var(--btn-height-sm, 36px);
-  transition: background var(--duration-fast) var(--ease-out),
-              transform var(--duration-fast) var(--ease-out),
-              box-shadow var(--duration-fast) var(--ease-out);
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 3px 0 var(--color-accent-dark);
-}
-
-.btn-primary:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: none;
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-ghost {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-sm);
-  background: transparent;
-  color: var(--text-muted);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: var(--space-sm) var(--space-md);
-  font-family: var(--font-primary);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  min-height: var(--btn-height-sm, 36px);
-  transition: border-color var(--duration-fast) var(--ease-out),
-              color var(--duration-fast) var(--ease-out),
-              background var(--duration-fast) var(--ease-out);
-}
-
-.btn-ghost:hover:not(:disabled) {
-  border-color: var(--text-main);
-  color: var(--text-main);
-  background: var(--bg-hover);
-}
-
-.btn-ghost:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.btn-sm .loader,
+.btn-fit .loader {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
 }

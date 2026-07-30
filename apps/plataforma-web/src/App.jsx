@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Copy, Search, SlidersHorizontal, Pencil, Trash2, Check, X, AlertCircle, Menu, Eye } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import StatCard from './components/StatCard';
@@ -8,10 +8,10 @@ import InicioView from './components/views/InicioView';
 import AdminView from './components/views/AdminView';
 import InventarioView from './components/views/InventarioView';
 import ClientesView from './components/views/ClientesView';
+import CobranzasView from './components/views/CobranzasView';
 import KanbanBoard from './components/KanbanBoard';
 import AnalisisView from './components/AnalisisView';
-import TeamPanel from './components/TeamPanel';
-import ProfileCard from './components/ProfileCard';
+import ConfiguracionView from './components/views/ConfiguracionView';
 import ProjectsView from './components/views/ProjectsView';
 import CategoryPieChart from './components/CategoryPieChart';
 import ConfirmDialog from './components/ConfirmDialog';
@@ -39,15 +39,15 @@ import { useConfirmDialogs } from './hooks/useConfirmDialogs';
 import { useInventory } from './hooks/useInventory';
 import { useProspects } from './hooks/useProspects';
 import { usePendingMutations } from './hooks/usePendingMutations';
+import { useContracts } from './hooks/useContracts';
 import ShareLoteoModal from './components/modals/ShareLoteoModal';
-import { PAGE_SIZE, STATUS_DISPLAY, CATEGORY_DISPLAY, formatDate, getProspectFields, getLotFields } from './constants';
+import { PAGE_SIZE, STATUS_DISPLAY, CATEGORY_DISPLAY, getProspectFields, getLotFields } from './constants';
 import { createApiFetch } from './api';
 import { createUploadFn } from './api/upload';
 import UploadProgressCard from './components/UploadProgressCard';
-import { fetchLots as fetchLotsService, fetchInventory as fetchInventoryService, fetchInventoryBg as fetchInventoryBgService, createLot, patchLot, deleteLot } from './api/lots';
+import { fetchLots as fetchLotsService, fetchInventoryBg as fetchInventoryBgService } from './api/lots';
 import { fetchLoteos as fetchLoteosService, fetchInventoryLoteos as fetchInventoryLoteosService, fetchInventoryLoteosBg as fetchInventoryLoteosBgService, deleteLoteo } from './api/loteos';
-import { createProspect as createProspectService, fetchAdvisors as fetchAdvisorsService, saveEditProspect as saveEditProspectService, updateLastContact as updateLastContactService } from './api/prospects';
-import { fetchReportsBg as fetchReportsBgService, buildAnalisisCallbacks } from './api/reports';
+import { buildAnalisisCallbacks } from './api/reports';
 import { fetchMyOrg } from './api/organizations';
 import { fetchProjects } from './api/projects';
 import './App.css';
@@ -69,6 +69,10 @@ const OWNER_VIEW_HEADERS = {
   clientes: {
     title: 'Clientes',
     subtitle: 'Seguimiento claro para prospectos, asesores y próximos contactos.',
+  },
+  cobranzas: {
+    title: 'Cobranzas',
+    subtitle: 'Seguí el avance de pagos y cuotas de cada contrato.',
   },
   analisis: {
     title: 'Análisis',
@@ -95,16 +99,14 @@ function App() {
   const [selectedLot, setSelectedLot] = useState(null);
   const [inventoryLots, setInventoryLots] = useState([]);
   const {
-    inventoryLoading, setInventoryLoading,
+    inventoryLoading,
     inventoryLoteosLoading, setInventoryLoteosLoading,
     inventoryLoteos, setInventoryLoteos,
     inventorySearch, setInventorySearch,
     inventoryLoteosSearch, setInventoryLoteosSearch,
-    inventoryStatusFilter, setInventoryStatusFilter,
     inventoryLoteoFilter, setInventoryLoteoFilter,
     inventoryTab, setInventoryTab,
-    inventoryLotsHasMore, setInventoryLotsHasMore,
-    inventoryLotsLoadingMore, setInventoryLotsLoadingMore,
+    setInventoryLotsHasMore,
   } = useInventory();
 
   const {
@@ -112,7 +114,7 @@ function App() {
     prospectosCategoryFilter, setProspectosCategoryFilter,
     prospectosWithoutAdvisor, setProspectosWithoutAdvisor,
     advisorsList, setAdvisorsList,
-    advisorsLoading, setAdvisorsLoading,
+    advisorsLoading,
   } = useProspects();
 
   const [allProspectosList, setAllProspectosList] = useState([]);
@@ -136,7 +138,6 @@ function App() {
   const filtersRef = React.useRef({
     inventorySearch,
     inventoryLoteosSearch,
-    inventoryStatusFilter,
     prospectosSearch,
     prospectosCategoryFilter,
     prospectosWithoutAdvisor,
@@ -151,7 +152,6 @@ function App() {
     filtersRef.current = {
       inventorySearch,
       inventoryLoteosSearch,
-      inventoryStatusFilter,
       prospectosSearch,
       prospectosCategoryFilter,
       prospectosWithoutAdvisor,
@@ -159,13 +159,13 @@ function App() {
       inventoryLotsCount: inventoryLots.length,
       prospectosCount: allProspectosList.length,
     };
-  }, [inventorySearch, inventoryLoteosSearch, inventoryStatusFilter, prospectosSearch, prospectosCategoryFilter, prospectosWithoutAdvisor, inventoryLoteos, inventoryLots.length, allProspectosList.length]);
+  }, [inventorySearch, inventoryLoteosSearch, prospectosSearch, prospectosCategoryFilter, prospectosWithoutAdvisor, inventoryLoteos, inventoryLots.length, allProspectosList.length]);
 
   // ── Toast notifications ────────────────────────────────────────────────────────
   const { toasts, addToast, removeToast } = useToast();
 
-  // ── Activity Feed Hook (called early so setActivities is available for modal hooks) ──
-  const { activities, handleRawActivities, setActivities } = useActivityFeed({});
+  // ── Activity Feed Hook (called early so addActivity is available for modal hooks) ──
+  const { activities, handleRawActivities, addActivity } = useActivityFeed({});
 
   // Restore view when session is recovered from localStorage
   React.useEffect(() => {
@@ -182,13 +182,6 @@ function App() {
     localStorage.setItem('owner_sub_view', ownerSubView);
   }, [ownerSubView]);
 
-  // Auto-fetch lots when entering super_admin view
-  React.useEffect(() => {
-    if (view === 'super_admin' && !lots) {
-      fetchLots();
-    }
-  }, [view]);
-
   // Note: All background polling is now handled by the useSync hook above.
   // It fires immediately on login and every 60 seconds thereafter.
 
@@ -197,22 +190,7 @@ function App() {
   React.useEffect(() => {
     if (ownerSubView === 'inventario') return;
     setInventorySearch('');
-    setInventoryStatusFilter('');
     setInventoryLoteoFilter('');
-  }, [ownerSubView]);
-
-  // Fetch loteos for inventory editor tab (lazy, only once)
-  React.useEffect(() => {
-    if (ownerSubView !== 'inventario' || inventoryTab !== 'loteos' || !token) return;
-    if (inventoryLoteos.length > 0) return;
-    fetchInventoryLoteos();
-  }, [ownerSubView, inventoryTab]);
-
-  // Pre-fetch loteos when navigating to Proyectos (needed for assignment UI)
-  React.useEffect(() => {
-    if (ownerSubView !== 'proyectos' || !token) return;
-    if (inventoryLoteos.length > 0) return;
-    fetchInventoryLoteos();
   }, [ownerSubView]);
 
   // Reset prospectos filters when leaving the clientes view.
@@ -224,15 +202,14 @@ function App() {
 
   // ── Client-side filtered data (derived from useSync cache, no extra API calls) ──
   const filteredInventoryLots = useMemo(() => {
-    if (!inventorySearch && !inventoryStatusFilter && !inventoryLoteoFilter) return null;
+    if (!inventorySearch && !inventoryLoteoFilter) return null;
     const q = (inventorySearch || '').toLowerCase();
     return (inventoryLots || []).filter(lot => {
       const matchSearch = !q || lot.name?.toLowerCase().includes(q);
-      const matchStatus = !inventoryStatusFilter || lot.status === inventoryStatusFilter;
       const matchLoteo = !inventoryLoteoFilter || String(lot.loteo_id) === String(inventoryLoteoFilter);
-      return matchSearch && matchStatus && matchLoteo;
+      return matchSearch && matchLoteo;
     });
-  }, [inventoryLots, inventorySearch, inventoryStatusFilter, inventoryLoteoFilter]);
+  }, [inventoryLots, inventorySearch, inventoryLoteoFilter]);
 
   const filteredInventoryLoteos = useMemo(() => {
     if (!inventoryLoteosSearch) return null;
@@ -260,27 +237,17 @@ function App() {
     }
   };
 
-  const fetchLots = async () => {
+  async function fetchLots() {
     fetchLotsService({ apiFetch, setLoading: setAdminLoading, setLots, setSelectedLot, setAdminSubView });
-  };
+  }
 
   const fetchLoteos = async () => {
     fetchLoteosService({ apiFetch, setLoading: setAdminLoading, setLoteos, setAdminSubView, addToast });
   };
 
-  const fetchInventory = async (name, status, signal) => {
-    fetchInventoryService({ apiFetch, setInventoryLoading, setInventoryLots, setInventoryLotsHasMore, PAGE_SIZE, name, status, signal });
-  };
-
-  const fetchInventoryLoteos = async () => {
+  async function fetchInventoryLoteos() {
     fetchInventoryLoteosService({ apiFetch, setInventoryLoteosLoading, setInventoryLoteos });
-  };
-
-  
-  
-  const fetchAdvisors = async () => {
-    fetchAdvisorsService({ apiFetch, setAdvisorsLoading, setAdvisorsList });
-  };
+  }
 
   const openDeleteProspectDialog = (prospect) => {
     confirmDialogs.openDeleteProspectDialog(prospect);
@@ -294,7 +261,7 @@ function App() {
     // Reads current filter values at event time via filtersRef to avoid stale closure.
     const onFocus = () => {
       fetchInventoryLoteosBg();
-      fetchInventoryBgService({ apiFetch, setInventoryLots, setInventoryLotsHasMore, PAGE_SIZE, name: filtersRef.current.inventorySearch, status: filtersRef.current.inventoryStatusFilter, addToast });
+      fetchInventoryBgService({ apiFetch, setInventoryLots, setInventoryLotsHasMore, PAGE_SIZE, name: filtersRef.current.inventorySearch, addToast });
       document.removeEventListener('visibilitychange', onFocus);
     };
     document.addEventListener('visibilitychange', onFocus);
@@ -302,8 +269,8 @@ function App() {
 
   // Called by external triggers (openEditor focus, saveLotFromModal, handleDeleteConfirm).
   // No internal AbortController — callers pass their own if needed.
-  const fetchInventoryBg = async (name, status) => {
-    fetchInventoryBgService({ apiFetch, setInventoryLots, setInventoryLotsHasMore, PAGE_SIZE, name, status, addToast });
+  const fetchInventoryBg = async (name) => {
+    fetchInventoryBgService({ apiFetch, setInventoryLots, setInventoryLotsHasMore, PAGE_SIZE, name, addToast });
   };
 
   const fetchInventoryLoteosBg = async () => {
@@ -388,10 +355,6 @@ function App() {
     });
   };
 
-  const openDeleteConfirm = (lot) => {
-    confirmDialogs.openDeleteConfirm(lot);
-  };
-
   const handleDeleteConfirm = async () => {
     await confirmDialogs.handleDeleteConfirm(fetchInventoryBg);
   };
@@ -426,7 +389,7 @@ function App() {
     if (!loteo) return;
     setDeleteLoteoDialog(prev => ({ ...prev, loading: true }));
     try {
-      await deleteLoteo({ apiFetch, loteoId: loteo.id, loteoName: loteo.name, loteOwnerId: user?.lote_owner_id, setActivities });
+      await deleteLoteo({ apiFetch, loteoId: loteo.id, loteoName: loteo.name, loteOwnerId: user?.lote_owner_id, addActivity });
       addToast(`Loteo "${loteo.name}" eliminado.`, 'success');
       setDeleteLoteoDialog({ open: false, loteo: null, loading: false });
       removeLoteoFromList(loteo.id);
@@ -437,17 +400,16 @@ function App() {
     }
   };
 
-  const fetchReportsBg = async (days) => {
-    await fetchReportsBgService({ apiFetch, token, setReportsCache, days });
-  };
-
   // Wrapped logout for child components that call it with no arguments.
   // Defined before apiFetch so it can be passed as the logout callback.
   // Wrapped in useCallback to prevent unnecessary recreations that would cause apiFetch to be recreated.
+  // The auth hook exposes stable setters, but React Compiler cannot infer that
+  // contract through the wrapper. Keep this callback stable for apiFetch.
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const logout = useCallback(() => authLogout({
     setView, setLots, setLoteos, setSelectedLot,
     setAdminSubView, setInventoryLots, setInventoryLotsHasMore, setInventorySearch,
-    setInventoryStatusFilter, setInventoryTab, setInventoryLoteos,
+    setInventoryTab, setInventoryLoteos,
     setAllProspectosList, setProspectosCategoryFilter,
     setProspectosWithoutAdvisor, setClicksCache, setVisorDataCache,
     setReportsCache, setDashboardSummary,
@@ -455,10 +417,35 @@ function App() {
   }), []);
 
   // apiFetch uses logout (no-arg) as the 401 handler
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const apiFetch = useMemo(() => createApiFetch(token, logout), [token, logout]);
+
+  // Auto-fetch admin data and inventory loteos when their views become active.
+  React.useEffect(() => {
+    if (view === 'super_admin' && !lots) fetchLots();
+  }, [view, lots]);
+
+  React.useEffect(() => {
+    if (ownerSubView !== 'inventario' || inventoryTab !== 'loteos' || !token) return;
+    if (inventoryLoteos.length === 0) fetchInventoryLoteos();
+  }, [ownerSubView, inventoryTab, token, inventoryLoteos.length]);
+
+  React.useEffect(() => {
+    if (ownerSubView !== 'proyectos' || !token) return;
+    if (inventoryLoteos.length === 0) fetchInventoryLoteos();
+  }, [ownerSubView, token, inventoryLoteos.length]);
 
   // uploadFn: XHR-based upload with WebP conversion + progress events
   const uploadFn = useMemo(() => createUploadFn(token, logout), [token, logout]);
+
+  // Cobranzas follows the same shared prefetch pattern as org and projects:
+  // load once after login, keep the cache above the routed view, and refresh
+  // quietly after financial writes.
+  const contractsState = useContracts({
+    apiFetch,
+    addToast,
+    enabled: Boolean(token && user?.role === 'lote_owner'),
+  });
 
   const [uploadJobs, setUploadJobs] = useState([]);
 
@@ -484,7 +471,7 @@ function App() {
     },
     onUpdateLot: updateLot,
     loteOwnerId: user?.lote_owner_id,
-    setActivities,
+    addActivity,
   });
 
   // ── Create Lot Modal ─────────────────────────────────────────────────────────
@@ -492,11 +479,11 @@ function App() {
     apiFetch,
     onSuccess: () => {
       addToast('Lote creado.', 'success');
-      fetchInventoryBg(inventorySearch, inventoryStatusFilter);
+      fetchInventoryBg(inventorySearch);
     },
     onAddLot: addLot,
     loteOwnerId: user?.lote_owner_id,
-    setActivities,
+    addActivity,
   });
 
   // ── Create Loteo Modal ─────────────────────────────────────────────────────
@@ -508,7 +495,8 @@ function App() {
     },
     onAddLoteo: addLoteo,
     loteOwnerId: user?.lote_owner_id,
-    setActivities,
+    addActivity,
+    existingLoteos: inventoryLoteos,
   });
 
   // ── Edit Loteo Modal ──────────────────────────────────────────────────────────
@@ -518,7 +506,7 @@ function App() {
     addToast,
     // No onSuccess/refetch: saveEditLoteo handles the toast + optimistic update;
     // the next sync (reconciled) confirms it.
-    setActivities,
+    addActivity,
     onUpdateLoteo: updateLoteo,
     loteOwnerId: user?.lote_owner_id,
   });
@@ -546,6 +534,7 @@ function App() {
   // See discussion 2026-06-18 — "Option B" over extending /sync
   useEffect(() => {
     if (!token) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOrgLoading(true);
     fetchMyOrg({ apiFetch })
       .then(setOrg)
@@ -555,6 +544,7 @@ function App() {
 
   useEffect(() => {
     if (!token) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setProjectsLoading(true);
     fetchProjects({ apiFetch })
       .then(setProjects)
@@ -577,7 +567,7 @@ function App() {
     addToast,
     onAddProspect: addProspect,
     loteOwnerId: user?.lote_owner_id,
-    setActivities: setActivities,
+    addActivity,
   });
 
   // ── Edit Prospect Modal ──────────────────────────────────────────────────────
@@ -590,7 +580,7 @@ function App() {
     onUpdateProspect: updateProspect,
     onUpdateLastContact: updateProspectLastContact,
     loteOwnerId: user?.lote_owner_id,
-    setActivities: setActivities,
+    addActivity,
   });
 
   const updateContactModal = useUpdateContactModal({
@@ -598,7 +588,7 @@ function App() {
     addToast,
     onSuccess: refreshSync,
     loteOwnerId: user?.lote_owner_id,
-    setActivities: setActivities,
+    addActivity,
   });
 
   // ── Confirm Dialogs ─────────────────────────────────────────────────────────
@@ -608,7 +598,7 @@ function App() {
     onSuccess: refreshSync,
     onRemoveProspect: removeProspect,
     loteOwnerId: user?.lote_owner_id,
-    setActivities: setActivities,
+    addActivity,
   });
 
   const copyToClipboard = (text) => {
@@ -707,12 +697,14 @@ function App() {
             copyToClipboard={copyToClipboard}
           />
         ) : (
-          <div className="owner-layout">
+          <div className={`owner-layout${ownerSubView === 'inicio' || ownerSubView === 'inventario' || ownerSubView === 'clientes' || ownerSubView === 'analisis' || ownerSubView === 'proyectos' || ownerSubView === 'configuracion' ? ' owner-layout--shell' : ''}${ownerSubView === 'inicio' ? ' owner-layout--inicio' : ''}`}>
             <div key={ownerSubView} className="view-content">
-              <header className={`owner-header${ownerSubView === 'inicio' ? '' : ' owner-header--compact'}`}>
-                <h1 className="view-title">{ownerViewHeader.title}</h1>
-                <h2>{ownerViewSubtitle}</h2>
-              </header>
+              {ownerSubView !== 'inicio' && ownerSubView !== 'inventario' && ownerSubView !== 'clientes' && ownerSubView !== 'cobranzas' && ownerSubView !== 'analisis' && ownerSubView !== 'proyectos' && ownerSubView !== 'configuracion' && (
+                <header className="owner-header owner-header--compact">
+                  <h1 className="view-title">{ownerViewHeader.title}</h1>
+                  <h2>{ownerViewSubtitle}</h2>
+                </header>
+              )}
 
               {ownerSubView === 'inicio' && (
                 <InicioView
@@ -725,17 +717,16 @@ function App() {
                   onSessionExpired={logout}
                   onUpdateProspectCategory={updateProspectCategory}
                   activities={activities}
-                  loteos={inventoryLoteos}
-                  onOpenShareLoteo={handleOpenShareLoteo}
                   apiFetch={apiFetch}
                   loteOwnerId={user?.lote_owner_id}
-                  setActivities={setActivities}
+                  addActivity={addActivity}
                 />
               )}
 
               {ownerSubView === 'inventario' && (
                 <InventarioView
                   dashboardSummary={dashboardSummary}
+                  activities={activities}
                   inventoryLots={inventoryLots}
                   filteredInventoryLots={filteredInventoryLots}
                   inventoryLoteos={inventoryLoteos}
@@ -748,8 +739,6 @@ function App() {
                   onSearchChange={setInventorySearch}
                   inventoryLoteosSearch={inventoryLoteosSearch}
                   onLoteosSearchChange={setInventoryLoteosSearch}
-                  inventoryStatusFilter={inventoryStatusFilter}
-                  onStatusFilterChange={setInventoryStatusFilter}
                   inventoryLoteoFilter={inventoryLoteoFilter}
                   onLoteoFilterChange={setInventoryLoteoFilter}
                   syncLoading={syncLoading}
@@ -765,6 +754,7 @@ function App() {
                   onOpenShareLoteo={handleOpenShareLoteo}
                   allProspectosList={allProspectosList}
                   onNavigateToProspect={handleNavigateToProspect}
+                  contractsState={contractsState}
                 />
               )}
 
@@ -783,7 +773,20 @@ function App() {
                   onDeleteProspect={openDeleteProspectDialog}
                   onUpdateContact={updateContactModal.openUpdateContactModal}
                   highlightedProspectId={highlightedProspectId}
+                  activities={activities}
                 />
+              )}
+
+              {ownerSubView === 'cobranzas' && (
+                <ErrorBoundary label="Error en la vista de cobranzas">
+                  <CobranzasView
+                    apiFetch={apiFetch}
+                    inventoryLots={inventoryLots}
+                    allProspectosList={allProspectosList}
+                    advisorsList={advisorsList}
+                    contractsState={contractsState}
+                  />
+                </ErrorBoundary>
               )}
 
               {ownerSubView === 'analisis' && (
@@ -807,17 +810,15 @@ function App() {
               )}
 
               {ownerSubView === 'configuracion' && (
-                <div className="configuracion-layout">
-                  <ProfileCard user={user} setUser={setUser} apiFetch={apiFetch} addToast={addToast} />
-                  <TeamPanel
-                    user={user}
-                    apiFetch={apiFetch}
-                    addToast={addToast}
-                    org={org}
-                    orgLoading={orgLoading}
-                    setOrg={setOrg}
-                  />
-                </div>
+                <ConfiguracionView
+                  user={user}
+                  setUser={setUser}
+                  apiFetch={apiFetch}
+                  addToast={addToast}
+                  org={org}
+                  orgLoading={orgLoading}
+                  setOrg={setOrg}
+                />
               )}
 
               {ownerSubView === 'proyectos' && (
@@ -833,7 +834,7 @@ function App() {
                 />
               )}
 
-              {ownerSubView !== 'inventario' && ownerSubView !== 'clientes' && ownerSubView !== 'analisis' && ownerSubView !== 'inicio' && ownerSubView !== 'configuracion' && ownerSubView !== 'proyectos' && (
+              {ownerSubView !== 'inventario' && ownerSubView !== 'clientes' && ownerSubView !== 'cobranzas' && ownerSubView !== 'analisis' && ownerSubView !== 'inicio' && ownerSubView !== 'configuracion' && ownerSubView !== 'proyectos' && (
                 <div className="owner-panel">
                   <p>Tu dashboard de {ownerSubView} está siendo preparado.</p>
                 </div>

@@ -1,0 +1,60 @@
+/* Ring segmentado reutilizable (donut). Valores tomados 1:1 del ring de inventario. */
+.segment-ring {
+  position: relative;
+  width: 128px;
+  height: 128px;
+  flex: none;
+}
+
+.segment-ring-pie {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: conic-gradient(var(--ring-grad));
+  -webkit-mask: radial-gradient(circle, transparent 52%, #000 53%);
+  mask: radial-gradient(circle, transparent 52%, #000 53%);
+}
+
+.segment-ring-ctr {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+.segment-ring-ctr b {
+  font-family: var(--font-primary);
+  font-weight: 700;
+  font-size: var(--text-xl);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--text-main);
+}
+
+.segment-ring-ctr span {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+/* Variante chica (cards de distribución) */
+.segment-ring--sm {
+  width: 108px;
+  height: 108px;
+}
+
+.segment-ring--sm .segment-ring-ctr b {
+  font-size: 1.5rem;
+}
+
+.segment-ring--sm .segment-ring-ctr span {
+  font-size: 0.56rem;
+  letter-spacing: 0.05em;
+  margin-top: 1px;
+}

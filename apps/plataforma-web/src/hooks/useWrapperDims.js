@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 
 export function useWrapperDims(wrapperRef) {
   const [wrapperDims, setWrapperDims] = useState(null);

@@ -1,574 +1,43 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { Search, SlidersHorizontal, Pencil, Trash2, Eye, TrendingUp, LayoutGrid, Share2, Phone, Mail, Clock, MessageCircle, X, Layers } from 'lucide-react';
-import { Button, Loader, Select, ErrorBoundary, CommentTooltip } from '../../ui/components';
-import LotDistributionBar from '../LotDistributionBar';
-import { API_BASE, VISOR_URL } from '../../config';
-import { STATUS_DISPLAY, CATEGORY_DISPLAY } from '../../constants';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Boxes, CircleDollarSign, Plus, Ticket, X } from 'lucide-react';
+import {
+  Button,
+  ErrorBoundary,
+  PageHeader,
+  PageLayout,
+  Panel,
+  SectionHeader,
+  SummaryBand,
+  SummaryMetric,
+} from '../../ui/components';
+import ActivityFeed from '../ActivityFeed';
+import ShellLayout from '../ShellLayout';
+import { INVENTORY_ACTIVITY_TYPES } from '../inventory/constants';
+import {
+  computeInventoryStats,
+  fmtInt,
+  fmtMoney,
+} from '../inventory/inventoryStats';
+import { useWheelToHorizontal } from '../inventory/useWheelToHorizontal';
+import StateRing from '../inventory/StateRing';
+import DonutCard from '../inventory/DonutCard';
+import AlertCard from '../inventory/AlertCard';
+import InventarioControls from '../inventory/InventarioControls';
+import LoteosTable from '../inventory/LoteosTable';
+import LotesTable from '../inventory/LotesTable';
+import {
+  filterByInventoryAttention,
+  INVENTORY_ATTENTION_ORDER,
+  INVENTORY_ATTENTION_RULES,
+} from '../inventory/inventoryAttention';
 import '../../ui/components/ActionBtn.css';
 import './InventarioView.css';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatRelativeContact(dateStr) {
-  if (!dateStr) return null;
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-  if (diffMins < 1) return 'Ahora';
-  if (diffMins < 60) return `Hace ${diffMins}m`;
-  if (diffHours < 24) return `Hace ${diffHours}h`;
-  if (diffDays === 1) return 'Ayer';
-  if (diffDays < 7) return `Hace ${diffDays}d`;
-  return date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
-}
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function ProspectoTooltip({ prospecto, triggerEl, onClose, onNavigateToProspect }) {
-  const tooltipRef = useRef(null);
-  const [coords, setCoords] = useState({});
-  const [positionBottom, setPositionBottom] = useState(false);
-
-  useEffect(() => {
-    if (!triggerEl) return;
-    const update = () => {
-      const rect = triggerEl.getBoundingClientRect();
-      const tooltipHeight = tooltipRef.current ? tooltipRef.current.offsetHeight : 200;
-      const spaceAbove = rect.top;
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const isBottom = spaceAbove < tooltipHeight + 16 && spaceBelow > tooltipHeight + 16;
-      setPositionBottom(isBottom);
-      const left = Math.min(rect.left, window.innerWidth - 296);
-      if (isBottom) {
-        setCoords({ top: rect.bottom + 8, left, bottom: 'auto' });
-      } else {
-        setCoords({ bottom: window.innerHeight - rect.top + 8, left, top: 'auto' });
-      }
-    };
-    update();
-    const t = setTimeout(update, 0);
-    window.addEventListener('scroll', update, true);
-    window.addEventListener('resize', update);
-    return () => { clearTimeout(t); window.removeEventListener('scroll', update, true); window.removeEventListener('resize', update); };
-  }, [triggerEl]);
-
-  useEffect(() => {
-    const handleOutside = (e) => {
-      if (tooltipRef.current && !tooltipRef.current.contains(e.target) && !triggerEl?.contains(e.target)) onClose();
-    };
-    const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('mousedown', handleOutside);
-    document.addEventListener('keydown', handleEsc);
-    return () => { document.removeEventListener('mousedown', handleOutside); document.removeEventListener('keydown', handleEsc); };
-  }, [triggerEl, onClose]);
-
-  const contactLabel = formatRelativeContact(prospecto.last_contact);
-  const categoryLabel = CATEGORY_DISPLAY[prospecto.category] ?? prospecto.category;
-
-  return createPortal(
-    <div
-      ref={tooltipRef}
-      className={`prospecto-tooltip${positionBottom ? ' bottom' : ''}`}
-      style={{ position: 'fixed', margin: 0, ...coords }}
-    >
-      <div className="prospecto-tooltip-header">
-        <div className="prospecto-tooltip-header-main">
-          <button
-              className="prospecto-tooltip-name-btn"
-              onClick={() => { onNavigateToProspect(prospecto.id); onClose(); }}
-              title="Ver en tabla de prospectos"
-            >
-              {prospecto.name}
-            </button>
-          {prospecto.category && (
-            <span className={`prospecto-tooltip-badge category-${prospecto.category}`}>
-              {categoryLabel}
-            </span>
-          )}
-        </div>
-        <button className="prospecto-tooltip-close" onClick={onClose} aria-label="Cerrar">
-          <X size={14} />
-        </button>
-      </div>
-      <div className="prospecto-tooltip-body">
-        {prospecto.phone && (
-          <div className="prospecto-tooltip-row">
-            <Phone size={13} className="prospecto-tooltip-icon" />
-            <span>{prospecto.phone}</span>
-          </div>
-        )}
-        {prospecto.email && (
-          <div className="prospecto-tooltip-row">
-            <Mail size={13} className="prospecto-tooltip-icon" />
-            <span>{prospecto.email}</span>
-          </div>
-        )}
-        <div className="prospecto-tooltip-row">
-          <Clock size={13} className={`prospecto-tooltip-icon${!contactLabel ? ' muted' : ''}`} />
-          <span className={!contactLabel ? 'prospecto-tooltip-muted' : ''}>
-            {contactLabel ? `Último contacto: ${contactLabel}` : 'Sin contacto aún'}
-          </span>
-        </div>
-        {prospecto.observation_notes && (
-          <div className="prospecto-tooltip-row prospecto-tooltip-row--notes">
-            <MessageCircle size={13} className="prospecto-tooltip-icon" />
-            <span className="prospecto-tooltip-notes-text">{prospecto.observation_notes}</span>
-          </div>
-        )}
-      </div>
-    </div>,
-    document.body
-  );
-}
-
-function InventarioControls({
-  inventoryTab,
-  onTabChange,
-  inventorySearch,
-  onSearchChange,
-  inventoryLoteosSearch,
-  onLoteosSearchChange,
-  inventoryStatusFilter,
-  onStatusFilterChange,
-  inventoryLoteoFilter,
-  onLoteoFilterChange,
-  inventoryLoteos,
-  inventoryLoading,
-  syncLoading,
-  inventoryLoteosLoading,
-  onOpenCreateLoteo,
-  onOpenCreateLot,
-}) {
-  const loteoFilterOptions = [
-    { value: '', label: 'Loteo: Todos' },
-    ...(inventoryLoteos || []).map(loteo => ({ value: String(loteo.id), label: loteo.name })),
-  ];
-  return (
-    <div className="inventory-controls">
-      <div className="inventory-tab-controls">
-        <SlidersHorizontal size={16} className="filter-icon" />
-        <span className="inventory-tab-label">Ver tabla de:</span>
-        <Select
-          id="inventory-tab-select"
-          value={inventoryTab}
-          onChange={e => onTabChange(e.target.value)}
-          options={[
-            { value: 'lotes', label: 'Lotes' },
-            { value: 'loteos', label: 'Loteos' },
-          ]}
-          className="inventory-tab-select-custom"
-        />
-      </div>
-
-      {inventoryTab === 'lotes' ? (
-        <>
-          <div className="inventory-search">
-            <Search size={16} className="search-icon" />
-            <input
-              type="text"
-              placeholder="Buscar por nombre..."
-              className="search-input"
-              value={inventorySearch}
-              onChange={e => onSearchChange(e.target.value)}
-            />
-          </div>
-          <div className="inventory-filters">
-            <SlidersHorizontal size={16} className="filter-icon" />
-            <Select
-              id="inventory-loteo-filter"
-              value={inventoryLoteoFilter}
-              onChange={e => onLoteoFilterChange(e.target.value)}
-              options={loteoFilterOptions}
-            />
-            <Select
-              id="inventory-status-filter"
-              value={inventoryStatusFilter}
-              onChange={e => onStatusFilterChange(e.target.value)}
-              options={[
-                { value: '', label: 'Estado: Todos' },
-                { value: 'available', label: 'Disponible' },
-                { value: 'reserved', label: 'Reservado' },
-                { value: 'sold', label: 'Vendido' },
-              ]}
-            />
-          </div>
-          <div className="loader-container small">
-            {(inventoryLoading || syncLoading) && <Loader size="sm" />}
-          </div>
-          <Button size="sm" onClick={onOpenCreateLot}>
-            + Nuevo Lote
-          </Button>
-        </>
-      ) : (
-        <>
-          <div className="inventory-search">
-            <Search size={16} className="search-icon" />
-            <input
-              type="text"
-              placeholder="Buscar por nombre..."
-              className="search-input"
-              value={inventoryLoteosSearch}
-              onChange={e => onLoteosSearchChange(e.target.value)}
-            />
-          </div>
-          <div className="loader-container small">
-            {(syncLoading || inventoryLoteosLoading) && <Loader size="sm" />}
-          </div>
-          <Button size="sm" onClick={onOpenCreateLoteo}>
-            + Nuevo Loteo
-          </Button>
-        </>
-      )}
-    </div>
-  );
-}
-
-function LotesTable({ lots, filteredLots, onEditLot, onDeleteLot, allProspectos, onNavigateToProspect }) {
-  const [openTooltip, setOpenTooltip] = useState(null);
-  const data = filteredLots ?? lots;
-
-  const handleTagClick = (e, prospecto) => {
-    const triggerEl = e.currentTarget;
-    setOpenTooltip(prev =>
-      prev?.prospecto?.id === prospecto.id ? null : { prospecto, triggerEl }
-    );
-  };
-
-  return (
-    <div key="lotes" className="inventory-table-wrapper fade-in">
-      {openTooltip && (
-        <ProspectoTooltip
-          prospecto={openTooltip.prospecto}
-          triggerEl={openTooltip.triggerEl}
-          onClose={() => setOpenTooltip(null)}
-          onNavigateToProspect={onNavigateToProspect}
-        />
-      )}
-      <table className="inventory-table">
-        <thead>
-          <tr>
-            <th scope="col">Nombre</th>
-            <th scope="col">Área</th>
-            <th scope="col">Precio</th>
-            <th scope="col">Estado</th>
-            <th scope="col">Loteo</th>
-            <th scope="col">Prospectos</th>
-            <th scope="col">Notas</th>
-            <th scope="col">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.length === 0 ? (
-            <tr>
-              <td colSpan={8} className="td-empty-row">No se encontraron lotes.</td>
-            </tr>
-          ) : (
-            data.map(lot => {
-              const prospectosDeLote = (allProspectos || []).filter(p => p.lote_id === lot.id);
-              const tieneDatos = prospectosDeLote.length > 0;
-              return (
-                <tr key={lot.id}>
-                  <td className="td-name">{lot.name}</td>
-                  <td>{lot.area_m2 ? `${parseFloat(lot.area_m2).toLocaleString()} m²` : '—'}</td>
-                  <td>{lot.price ? `$${parseFloat(lot.price).toLocaleString()}` : '—'}</td>
-                  <td>
-                    <span className={`badge status-${STATUS_DISPLAY[lot.status] ?? lot.status}`}>
-                      {STATUS_DISPLAY[lot.status] ?? lot.status}
-                    </span>
-                  </td>
-                  <td className="td-loteo">{lot.loteo_name}</td>
-                  <td>
-                    {!lot.prospect_names?.length ? (
-                      <span className="td-empty">—</span>
-                    ) : (
-                      <div className="prospectos-list">
-                        {tieneDatos
-                          ? prospectosDeLote.map(p => (
-                              <button
-                                key={p.id}
-                                className={`prospecto-tag clickable${openTooltip?.prospecto?.id === p.id ? ' active' : ''}`}
-                                onClick={(e) => handleTagClick(e, p)}
-                                title={`Ver info de ${p.name}`}
-                              >
-                                {p.name}
-                              </button>
-                            ))
-                          : lot.prospect_names.map((name, i) => (
-                              <span key={i} className="prospecto-tag">{name}</span>
-                            ))
-                        }
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    <CommentTooltip content={lot.comments} label="Notas" entityName={lot.name} />
-                  </td>
-                  <td className="td-actions">
-                    <button
-                      className="action-btn edit"
-                      onClick={() => onEditLot(lot)}
-                      title="Editar"
-                      aria-label={`Editar ${lot.name}`}
-                    >
-                      <Pencil size={16} />
-                    </button>
-                    <button
-                      className="action-btn delete"
-                      onClick={() => onDeleteLot(lot)}
-                      title="Eliminar"
-                      aria-label={`Eliminar ${lot.name}`}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </td>
-                </tr>
-              );
-            })
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// Ordena los loteos agrupando las etapas debajo de su general (o de la primera
-// etapa si no hay general). Devuelve filas con metadata de posición para el recuadro.
-function buildLoteoRows(data) {
-  const groupsByetapas = new Map();
-  const order = [];
-  for (const loteo of data) {
-    if (!loteo.grupo_id) {
-      order.push({ kind: 'standalone', loteo });
-    } else {
-      if (!groupsByetapas.has(loteo.grupo_id)) {
-        const entry = { kind: 'group', grupoId: loteo.grupo_id, general: null, etapas: [] };
-        groupsByetapas.set(loteo.grupo_id, entry);
-        order.push(entry);
-      }
-      const g = groupsByetapas.get(loteo.grupo_id);
-      if (loteo.tipo === 'general') g.general = loteo;
-      else g.etapas.push(loteo);
-    }
-  }
-  const rows = [];
-  for (const item of order) {
-    if (item.kind === 'standalone') {
-      rows.push({ key: item.loteo.id, loteo: item.loteo, variant: 'standalone' });
-      continue;
-    }
-    item.etapas.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
-    const members = [];
-    if (item.general) members.push({ loteo: item.general, role: 'general' });
-    for (const e of item.etapas) members.push({ loteo: e, role: 'etapa' });
-    const groupHasGeneral = !!item.general;
-    const groupLabel = item.general?.name ?? item.etapas[0]?.name ?? 'Grupo';
-    rows.push({
-      key: `header-${item.grupoId}`,
-      variant: 'group-header',
-      label: groupLabel,
-      isFirst: true,
-      isLast: false,
-    });
-    members.forEach((m, i) => {
-      rows.push({
-        key: m.loteo.id,
-        loteo: m.loteo,
-        variant: 'group',
-        role: m.role,
-        isFirst: false,
-        isLast: i === members.length - 1,
-        groupHasGeneral,
-      });
-    });
-  }
-  return rows;
-}
-
-function LoteoRow({ row, onEditLoteo, onDeleteLoteo, onGroupLoteo, onSafeOpen, onOpenEditor, onOpenShareLoteo }) {
-  const { loteo, variant, role, isFirst, isLast, groupHasGeneral } = row;
-  const rowClass = [];
-  if (variant === 'group') {
-    rowClass.push('loteo-group-row');
-    if (isFirst) rowClass.push('loteo-group-first');
-    if (isLast) rowClass.push('loteo-group-last');
-    rowClass.push(role === 'general' ? 'loteo-group-general' : 'loteo-group-etapa');
-  }
-  const isGrouped = !!loteo.grupo_id;
-
-  return (
-    <tr className={rowClass.join(' ')}>
-      <td className="td-name">
-        {variant === 'group' ? (
-          <span className={`loteo-name-cell role-${role}${role === 'etapa' && !groupHasGeneral ? ' no-indent' : ''}`}>
-            {role === 'etapa' && groupHasGeneral && <span className="loteo-tree-connector" aria-hidden="true" />}
-            <span className="loteo-name-text">{loteo.name}</span>
-            <span className={`loteo-role-badge ${role}`}>{role === 'general' ? 'General' : 'Etapa'}</span>
-          </span>
-        ) : (
-          loteo.name
-        )}
-      </td>
-      <td>
-        {loteo.image_url ? (
-          <button
-            type="button"
-            className="text-action-btn view"
-            onClick={() => onSafeOpen(loteo.image_url)}
-            title="Ver imagen"
-            aria-label="Ver imagen"
-          >
-            <Eye size={16} style={{ marginRight: '6px' }} /> Ver
-          </button>
-        ) : (
-          <span className="td-empty">—</span>
-        )}
-      </td>
-      <td>
-        {loteo.blueprint_url ? (
-          <button
-            type="button"
-            className="text-action-btn view"
-            onClick={() => onSafeOpen(loteo.blueprint_url)}
-            title="Ver blueprint"
-            aria-label="Ver blueprint"
-          >
-            <Eye size={16} style={{ marginRight: '6px' }} /> Ver
-          </button>
-        ) : (
-          <span className="td-empty">—</span>
-        )}
-      </td>
-      <td className="td-actions">
-        <div className="loteo-link-actions">
-          <button
-            className="action-btn edit"
-            onClick={() => onEditLoteo(loteo)}
-            title="Editar"
-            aria-label={`Editar ${loteo.name}`}
-          >
-            <Pencil size={16} />
-          </button>
-          <button
-            className={`action-btn group${isGrouped ? ' active' : ''}`}
-            onClick={() => onGroupLoteo(loteo)}
-            title={isGrouped ? 'Editar grupo' : 'Agrupar'}
-            aria-label={`Agrupar ${loteo.name}`}
-          >
-            <Layers size={16} />
-          </button>
-          <button
-            className="action-btn delete"
-            onClick={() => onDeleteLoteo(loteo)}
-            title="Eliminar"
-            aria-label={`Eliminar ${loteo.name}`}
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
-      </td>
-      <td className="td-links">
-        <div className="loteo-link-actions">
-          <button
-            type="button"
-            className="text-action-btn view"
-            onClick={() => window.open(`${VISOR_URL}/?data=${API_BASE}/loteos/${loteo.id}/group_visor_data`, '_blank', 'noopener,noreferrer')}
-            title="Abrir visor"
-            aria-label={`Abrir visor de ${loteo.name}`}
-          >
-            Visor
-          </button>
-          <button
-            type="button"
-            className="text-action-btn view"
-            onClick={() => onOpenShareLoteo(loteo.id)}
-            title="Copiar enlace compartible"
-            aria-label={`Copiar enlace de ${loteo.name}`}
-          >
-            <Share2 size={16} style={{ marginRight: '6px' }} /> Compartir
-          </button>
-          <button
-            type="button"
-            className="text-action-btn view"
-            onClick={() => onOpenEditor(loteo.id)}
-            title="Abrir editor"
-            aria-label={`Abrir editor de ${loteo.name}`}
-          >
-            Editor
-          </button>
-        </div>
-      </td>
-    </tr>
-  );
-}
-
-function LoteosTable({ loteos, filteredLoteos, loading, onEditLoteo, onDeleteLoteo, onGroupLoteo, onSafeOpen, onOpenEditor, onOpenShareLoteo }) {
-  const data = filteredLoteos ?? loteos;
-  const rows = buildLoteoRows(data);
-  return (
-    <div key="loteos" className="inventory-table-wrapper fade-in">
-      {loading && loteos.length === 0 ? (
-        <div className="table-cell-center">
-          <Loader />
-        </div>
-      ) : (
-        <table className="inventory-table loteos-table">
-          <thead>
-            <tr>
-              <th scope="col">Nombre</th>
-              <th scope="col">Imagen</th>
-              <th scope="col">Blueprint</th>
-              <th scope="col">Acciones</th>
-              <th scope="col">Links</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="td-empty-row">No se encontraron loteos.</td>
-              </tr>
-            ) : (
-              rows.map(row => {
-                if (row.variant === 'group-header') {
-                  return (
-                    <tr key={row.key} className="loteo-group-row loteo-group-first loteo-group-header-row">
-                      <td colSpan={5} className="td-group-header">
-                        <span className="group-header-label">
-                          <Layers size={11} aria-hidden="true" />
-                          {row.label}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                }
-                return (
-                  <LoteoRow
-                    key={row.key}
-                    row={row}
-                    onEditLoteo={onEditLoteo}
-                    onDeleteLoteo={onDeleteLoteo}
-                    onGroupLoteo={onGroupLoteo}
-                    onSafeOpen={onSafeOpen}
-                    onOpenEditor={onOpenEditor}
-                    onOpenShareLoteo={onOpenShareLoteo}
-                  />
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-}
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function InventarioView({
   dashboardSummary,
+  activities = [],
   inventoryLots,
   filteredInventoryLots,
   inventoryLoteos,
@@ -581,8 +50,6 @@ export default function InventarioView({
   onSearchChange,
   inventoryLoteosSearch,
   onLoteosSearchChange,
-  inventoryStatusFilter,
-  onStatusFilterChange,
   inventoryLoteoFilter,
   onLoteoFilterChange,
   syncLoading,
@@ -598,71 +65,358 @@ export default function InventarioView({
   onOpenShareLoteo,
   allProspectosList,
   onNavigateToProspect,
+  contractsState,
 }) {
+  const [attentionFilter, setAttentionFilter] = useState(null);
+  const inventoryPanelRef = useRef(null);
+  const clearAttentionRef = useRef(null);
+  const contracts = contractsState?.contracts;
+  const contractsLoading = contractsState?.loading;
+  const contractsError = contractsState?.error;
+  const contractsEnabled = contractsState !== undefined;
+
+  const attentionContext = useMemo(() => ({
+    lots: inventoryLots || [],
+    prospects: allProspectosList || [],
+    contracts: contracts || [],
+    contractsAvailable: Boolean(
+      contractsEnabled
+      && !contractsLoading
+      && !contractsError
+    ),
+  }), [
+    inventoryLots,
+    allProspectosList,
+    contracts,
+    contractsLoading,
+    contractsError,
+    contractsEnabled,
+  ]);
+
+  const stats = useMemo(
+    () => computeInventoryStats(
+      inventoryLots || [],
+      inventoryLoteos || [],
+      dashboardSummary,
+      attentionContext,
+    ),
+    [inventoryLots, inventoryLoteos, dashboardSummary, attentionContext]
+  );
+
+  const inventoryActivities = useMemo(
+    () => (activities || []).filter(a => INVENTORY_ACTIVITY_TYPES.has(a.type)),
+    [activities]
+  );
+
+  const activeAttentionRule = attentionFilter
+    ? INVENTORY_ATTENTION_RULES[attentionFilter]
+    : null;
+
+  const visibleInventoryLots = useMemo(() => {
+    const base = filteredInventoryLots ?? inventoryLots ?? [];
+    return activeAttentionRule?.tab === 'lotes'
+      ? filterByInventoryAttention(base, attentionFilter, attentionContext)
+      : filteredInventoryLots;
+  }, [activeAttentionRule, attentionFilter, attentionContext, filteredInventoryLots, inventoryLots]);
+
+  const visibleInventoryLoteos = useMemo(() => {
+    const base = filteredInventoryLoteos ?? inventoryLoteos ?? [];
+    return activeAttentionRule?.tab === 'loteos'
+      ? filterByInventoryAttention(base, attentionFilter, attentionContext)
+      : filteredInventoryLoteos;
+  }, [activeAttentionRule, attentionFilter, attentionContext, filteredInventoryLoteos, inventoryLoteos]);
+
+  const attentionResultCount = activeAttentionRule?.tab === 'loteos'
+    ? (visibleInventoryLoteos ?? inventoryLoteos ?? []).length
+    : (visibleInventoryLots ?? inventoryLots ?? []).length;
+
+  useEffect(() => {
+    if (!activeAttentionRule || inventoryTab !== activeAttentionRule.tab) return;
+    const frame = requestAnimationFrame(() => {
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      inventoryPanelRef.current?.scrollIntoView({
+        behavior: reduceMotion ? 'auto' : 'smooth',
+        block: 'start',
+      });
+      clearAttentionRef.current?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeAttentionRule, inventoryTab]);
+
+  const clearAttentionFilter = () => setAttentionFilter(null);
+
+  const handleTabChange = (nextTab) => {
+    if (activeAttentionRule && activeAttentionRule.tab !== nextTab) {
+      clearAttentionFilter();
+    }
+    onTabChange(nextTab);
+  };
+
+  const handleAttentionSelect = (ruleKey) => {
+    if (attentionFilter === ruleKey) {
+      clearAttentionFilter();
+      return;
+    }
+
+    const rule = INVENTORY_ATTENTION_RULES[ruleKey];
+    if (rule.tab === 'lotes') {
+      onSearchChange('');
+      onLoteoFilterChange('');
+    } else {
+      onLoteosSearchChange('');
+    }
+    onTabChange(rule.tab);
+    setAttentionFilter(ruleKey);
+  };
+
+  const dgridRef = useWheelToHorizontal();
+  const donuts = stats.distribution.slice(0, 12);
+  const priceBars = stats.distribution
+    .filter(d => d.avgPrice > 0)
+    .sort((a, b) => b.avgPrice - a.avgPrice)
+    .slice(0, 6);
+  const maxBarPrice = priceBars.reduce((m, d) => Math.max(m, d.avgPrice), 0) || 1;
 
   return (
-    <>
-      <div className="stats-section">
-        <div className="stats-header has-deco-icon">
-          <TrendingUp className="section-deco-icon" size={72} />
-          <div className="stats-header-eyebrow">Inventario</div>
-          <h2>Distribución de Lotes</h2>
-          <p className="stats-header-sub">Estado actual del inventario disponible</p>
-        </div>
-        <LotDistributionBar summary={dashboardSummary} loading={!dashboardSummary} />
-      </div>
-
-      <div className="kanban-section">
-        <div className="kanban-header has-deco-icon">
-          <LayoutGrid className="section-deco-icon" size={80} />
-          <div className="stats-header-eyebrow">Lotes</div>
-          <h2>Gestión de Inventario</h2>
-          <p className="kanban-header-sub">Administra lotes y loteos</p>
-        </div>
-        <InventarioControls
-          inventoryTab={inventoryTab}
-          onTabChange={onTabChange}
-          inventorySearch={inventorySearch}
-          onSearchChange={onSearchChange}
-          inventoryLoteosSearch={inventoryLoteosSearch}
-          onLoteosSearchChange={onLoteosSearchChange}
-          inventoryStatusFilter={inventoryStatusFilter}
-          onStatusFilterChange={onStatusFilterChange}
-          inventoryLoteoFilter={inventoryLoteoFilter}
-          onLoteoFilterChange={onLoteoFilterChange}
-          inventoryLoteos={inventoryLoteos}
-          inventoryLoading={inventoryLoading}
-          syncLoading={syncLoading}
-          inventoryLoteosLoading={inventoryLoteosLoading}
-          onOpenCreateLot={onOpenCreateLotModal}
-          onOpenCreateLoteo={onOpenCreateLoteoModal}
+    <ShellLayout className="inventario-shell">
+      <PageLayout className="inventario-page">
+        <PageHeader
+          eyebrow="Inventario comercial"
+          title="Inventario"
+          description="Controlá disponibilidad, valores y pendientes de lotes y loteos."
+          actions={
+            <Button
+              size="sm"
+              onClick={inventoryTab === 'lotes' ? onOpenCreateLotModal : onOpenCreateLoteoModal}
+            >
+              <Plus size={16} aria-hidden="true" />
+              Nuevo {inventoryTab === 'lotes' ? 'lote' : 'loteo'}
+            </Button>
+          }
         />
 
-        <ErrorBoundary label="Error al cargar inventario">
-          {inventoryTab === 'lotes' ? (
-            <LotesTable
-              lots={inventoryLots}
-              filteredLots={filteredInventoryLots}
-              onEditLot={onOpenEditLotModal}
-              onDeleteLot={onOpenDeleteConfirm}
-              allProspectos={allProspectosList}
-              onNavigateToProspect={onNavigateToProspect}
-            />
-          ) : (
-            <LoteosTable
-              loteos={inventoryLoteos}
-              filteredLoteos={filteredInventoryLoteos}
-              loading={inventoryLoteosLoading}
-              onEditLoteo={onOpenEditLoteoModal}
-              onDeleteLoteo={onOpenDeleteLoteoDialog}
-              onGroupLoteo={onGroupLoteo}
-              onSafeOpen={safeOpen}
-              onOpenEditor={onOpenEditor}
-              onOpenShareLoteo={onOpenShareLoteo}
-            />
+        <SummaryBand
+          className="inv-summary"
+          aria-label="Resumen del inventario"
+          lead={
+            <div className="inv-summary-lead">
+              <span className="inv-summary-eyebrow">Composición por estado</span>
+              <div className="inv-pie-wrap">
+                <StateRing
+                  counts={{ available: stats.available, reserved: stats.reserved, sold: stats.sold }}
+                  availablePct={stats.availablePct}
+                />
+                <div className="inv-ring-legend">
+                  <span className="inv-lk" style={{ '--c': 'var(--badge-available)' }}>
+                    <span className="inv-lk-d" />Disponibles <b>{stats.available}</b>
+                  </span>
+                  <span className="inv-lk" style={{ '--c': 'var(--color-stat-reserved)' }}>
+                    <span className="inv-lk-d" />Reservados <b>{stats.reserved}</b>
+                  </span>
+                  <span className="inv-lk" style={{ '--c': 'var(--badge-sold)' }}>
+                    <span className="inv-lk-d" />Vendidos <b>{stats.sold}</b>
+                  </span>
+                </div>
+              </div>
+            </div>
+          }
+        >
+          <SummaryMetric
+            icon={<Boxes size={17} />}
+            label="Total de lotes"
+            hint="inventario registrado"
+            value={fmtInt(stats.total)}
+          />
+          <SummaryMetric
+            icon={<CircleDollarSign size={17} />}
+            label="Valor estimado"
+            hint="valor total publicado"
+            value={fmtMoney(stats.valorEstimado)}
+          />
+          <SummaryMetric
+            icon={<Ticket size={17} />}
+            label="Ticket promedio"
+            hint="promedio por lote"
+            value={fmtMoney(stats.ticket)}
+          />
+        </SummaryBand>
+
+        {/* Tabla de gestión */}
+        <Panel
+          as="section"
+          id="inventory-results"
+          ref={inventoryPanelRef}
+          className="inventory-panel"
+          flush
+        >
+          <SectionHeader
+            className="inv-phead"
+            eyebrow="Gestión"
+            title={inventoryTab === 'lotes' ? 'Lotes' : 'Loteos'}
+            sub={inventoryTab === 'lotes'
+              ? 'Disponibilidad, valores y prospectos asociados'
+              : 'Desarrollos, publicación y configuración del visor'}
+          />
+          <InventarioControls
+            inventoryTab={inventoryTab}
+            onTabChange={handleTabChange}
+            inventorySearch={inventorySearch}
+            onSearchChange={onSearchChange}
+            inventoryLoteosSearch={inventoryLoteosSearch}
+            onLoteosSearchChange={onLoteosSearchChange}
+            inventoryLoteoFilter={inventoryLoteoFilter}
+            onLoteoFilterChange={onLoteoFilterChange}
+            inventoryLoteos={inventoryLoteos}
+            inventoryLoading={inventoryLoading}
+            syncLoading={syncLoading}
+            inventoryLoteosLoading={inventoryLoteosLoading}
+          />
+
+          {activeAttentionRule && (
+            <div className="inv-attention-filter">
+              <span className="inv-attention-filter-copy" role="status" aria-live="polite">
+                <span className="inv-attention-filter-label">Filtro de atención</span>
+                <strong>{activeAttentionRule.label}</strong>
+                <span className="inv-attention-filter-count">
+                  {attentionResultCount} {attentionResultCount === 1 ? 'resultado' : 'resultados'}
+                </span>
+              </span>
+              <button
+                ref={clearAttentionRef}
+                type="button"
+                onClick={clearAttentionFilter}
+                aria-label={`Quitar filtro ${activeAttentionRule.label}`}
+              >
+                <X size={14} aria-hidden="true" />
+                Quitar
+              </button>
+            </div>
           )}
-        </ErrorBoundary>
-      </div>
-    </>
+
+          <ErrorBoundary label="Error al cargar inventario">
+            {inventoryTab === 'lotes' ? (
+              <LotesTable
+                lots={inventoryLots}
+                filteredLots={visibleInventoryLots}
+                onEditLot={onOpenEditLotModal}
+                onDeleteLot={onOpenDeleteConfirm}
+                allProspectos={allProspectosList}
+                onNavigateToProspect={onNavigateToProspect}
+              />
+            ) : (
+              <LoteosTable
+                loteos={inventoryLoteos}
+                filteredLoteos={visibleInventoryLoteos}
+                loading={inventoryLoteosLoading}
+                onEditLoteo={onOpenEditLoteoModal}
+                onDeleteLoteo={onOpenDeleteLoteoDialog}
+                onGroupLoteo={onGroupLoteo}
+                onSafeOpen={safeOpen}
+                onOpenEditor={onOpenEditor}
+                onOpenShareLoteo={onOpenShareLoteo}
+              />
+            )}
+          </ErrorBoundary>
+        </Panel>
+
+        {/* Fila: pendientes operativos + actividad reciente */}
+        <div className="inv-row3">
+            <Panel as="section" className="inv-mod inv-attn">
+              <SectionHeader
+                tier="aside"
+                className="inv-mod-head"
+                eyebrow="Control"
+                title="Pendientes operativos"
+                sub="Inconsistencias que requieren una acción"
+              />
+              <div className="inv-alerts">
+                {INVENTORY_ATTENTION_ORDER.map(ruleKey => {
+                  const rule = INVENTORY_ATTENTION_RULES[ruleKey];
+                  return (
+                    <AlertCard
+                      key={rule.key}
+                      tone={rule.tone}
+                      n={stats.attention[rule.key]}
+                      label={rule.label}
+                      sub={rule.sub}
+                      active={attentionFilter === rule.key}
+                      onClick={() => handleAttentionSelect(rule.key)}
+                      controls="inventory-results"
+                    />
+                  );
+                })}
+              </div>
+            </Panel>
+
+            <Panel as="section" className="inv-mod inv-activity">
+              <ActivityFeed
+                activities={inventoryActivities}
+                sectionTitle="Actividad reciente"
+                sectionSubtitle="Últimos movimientos del inventario"
+              />
+            </Panel>
+        </div>
+
+        {/* Distribución por loteo */}
+        {donuts.length > 0 && (
+            <Panel as="section" className="inv-mod">
+              <SectionHeader
+                tier="aside"
+                className="inv-mod-head"
+                eyebrow="Ocupación"
+                title="Distribución por loteo"
+                sub="Estado de los lotes en cada loteo"
+                actions={
+                  <div className="inv-dlegend">
+                    <span className="inv-lk" style={{ '--c': 'var(--badge-available)' }}><span className="inv-lk-d" />Disp.</span>
+                    <span className="inv-lk" style={{ '--c': 'var(--color-stat-reserved)' }}><span className="inv-lk-d" />Res.</span>
+                    <span className="inv-lk" style={{ '--c': 'var(--badge-sold)' }}><span className="inv-lk-d" />Vend.</span>
+                  </div>
+                }
+              />
+              <div className="inv-dgrid" ref={dgridRef}>
+                {donuts.map(d => (
+                  <DonutCard key={d.name} name={d.name} total={d.total} available={d.available} reserved={d.reserved} sold={d.sold} availablePct={d.availablePct} />
+                ))}
+              </div>
+            </Panel>
+        )}
+
+        {/* Precio promedio */}
+        <Panel as="section" className="inv-mod">
+            <SectionHeader tier="aside" className="inv-mod-head" eyebrow="Valores" title="Precio promedio" sub="Valores de venta del inventario" />
+            <div className="inv-prices">
+              <div className="inv-prices-hero">
+                <div className="inv-k">Precio promedio por m²</div>
+                <div className="inv-pv">{fmtMoney(stats.pricePerM2)}</div>
+                <div className="inv-r">Rango {fmtMoney(stats.minPrice)} – {fmtMoney(stats.maxPrice)} por lote</div>
+                <div className="inv-kpis">
+                  <div className="inv-kpi">
+                    <div className="inv-kpi-v">{fmtMoney(stats.ticket)}</div>
+                    <div className="inv-kpi-l">Ticket prom.</div>
+                  </div>
+                  <div className="inv-kpi">
+                    <div className="inv-kpi-v">{fmtMoney(stats.valorEstimado)}</div>
+                    <div className="inv-kpi-l">Valor total</div>
+                  </div>
+                </div>
+              </div>
+              {priceBars.length > 0 && (
+                <div className="inv-hbars">
+                  {priceBars.map(d => (
+                    <div className="inv-hbar" key={d.name}>
+                      <span className="inv-hbar-nm" title={d.name}>{d.name}</span>
+                      <div className="inv-hbar-track">
+                        <i style={{ width: `${Math.max(4, (d.avgPrice / maxBarPrice) * 100)}%` }} />
+                      </div>
+                      <span className="inv-hbar-v">{fmtMoney(d.avgPrice)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+        </Panel>
+      </PageLayout>
+    </ShellLayout>
   );
 }

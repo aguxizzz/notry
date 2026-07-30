@@ -1,17 +1,26 @@
 import React from 'react';
 import './Button.css';
 
-export default function Button({ variant = 'primary', size = 'md', loading = false, disabled = false, children, className = '', ...props }) {
-  const sizeClass = size === 'sm' ? 'btn-fit' : '';
-  const variantClass = variant === 'outline' ? 'outline-button' : 'primary-button';
+const SIZE_CLASS = { sm: 'btn-sm', md: 'btn-md', lg: 'btn-lg' };
+const VARIANT_CLASS = {
+  primary: 'primary-button',
+  outline: 'outline-button',
+  danger: 'primary-button danger',
+};
+
+export default function Button({ as: Tag = 'button', variant = 'primary', size = 'md', loading = false, disabled = false, children, className = '', ...props }) {
+  const classes = [VARIANT_CLASS[variant] || VARIANT_CLASS.primary, SIZE_CLASS[size] || SIZE_CLASS.md, className]
+    .filter(Boolean)
+    .join(' ');
+  const isButton = Tag === 'button';
 
   return (
-    <button
-      className={`${variantClass} ${sizeClass} ${className}`}
-      disabled={disabled || loading}
+    <Tag
+      className={classes}
+      disabled={isButton ? disabled || loading : undefined}
       {...props}
     >
       {loading ? <span className="loader"></span> : children}
-    </button>
+    </Tag>
   );
 }

@@ -1,8 +1,18 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import './Select.css';
 
-export default function Select({ id, label, value, onChange, options, disabled = false, className = '' }) {
+export default function Select({
+  id,
+  label,
+  ariaLabel,
+  ariaDescribedBy,
+  value,
+  onChange,
+  options,
+  disabled = false,
+  className = '',
+}) {
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
   const [dropdownStyle, setDropdownStyle] = useState({});
@@ -15,16 +25,6 @@ export default function Select({ id, label, value, onChange, options, disabled =
 
   useEffect(() => {
     if (!open || !triggerRef.current) return;
-
-    const rect = triggerRef.current.getBoundingClientRect();
-    const estimatedHeight = options.length * 34 + 8;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const openUpward = spaceBelow < estimatedHeight + 8 && rect.top > estimatedHeight + 8;
-
-    setDropdownStyle(openUpward
-      ? { position: 'fixed', bottom: window.innerHeight - rect.top + 6, top: 'auto', left: rect.left, width: rect.width }
-      : { position: 'fixed', top: rect.bottom + 6, left: rect.left, width: rect.width }
-    );
 
     const closeInstant = () => {
       const el = document.getElementById(listboxId);
@@ -40,6 +40,19 @@ export default function Select({ id, label, value, onChange, options, disabled =
       window.removeEventListener('resize', closeInstant);
     };
   }, [open, options.length, listboxId]);
+
+  const getDropdownPosition = () => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return {};
+
+    const estimatedHeight = Math.min(options.length * 38 + 8, 320);
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUpward = spaceBelow < estimatedHeight + 8 && rect.top > estimatedHeight + 8;
+
+    return openUpward
+      ? { position: 'fixed', bottom: window.innerHeight - rect.top + 6, top: 'auto', left: rect.left, width: rect.width }
+      : { position: 'fixed', top: rect.bottom + 6, left: rect.left, width: rect.width };
+  };
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -62,11 +75,13 @@ export default function Select({ id, label, value, onChange, options, disabled =
       // Remove instant-close class before opening so the open animation plays normally
       const el = document.getElementById(listboxId);
       if (el) el.classList.remove('select-dropdown--instant');
+      setDropdownStyle(getDropdownPosition());
     }
     setOpen(o => !o);
   };
 
   const handleSelect = (optValue) => {
+    if (options.find(option => option.value === optValue)?.disabled) return;
     onChange({ target: { value: optValue } });
     setOpen(false);
     setActiveIdx(-1);
@@ -82,15 +97,19 @@ export default function Select({ id, label, value, onChange, options, disabled =
     } else if (e.key === 'ArrowDown' && open) {
       e.preventDefault();
       const idx = options.findIndex(o => o.value === value);
-      const nextIdx = Math.min(idx + 1, options.length - 1);
-      setActiveIdx(nextIdx);
-      handleSelect(options[nextIdx].value);
+      const nextIdx = options.findIndex((option, optionIdx) => optionIdx > idx && !option.disabled);
+      if (nextIdx >= 0) {
+        setActiveIdx(nextIdx);
+        handleSelect(options[nextIdx].value);
+      }
     } else if (e.key === 'ArrowUp' && open) {
       e.preventDefault();
       const idx = options.findIndex(o => o.value === value);
-      const prevIdx = Math.max(idx - 1, 0);
-      setActiveIdx(prevIdx);
-      handleSelect(options[prevIdx].value);
+      const prevIdx = options.findLastIndex((option, optionIdx) => optionIdx < idx && !option.disabled);
+      if (prevIdx >= 0) {
+        setActiveIdx(prevIdx);
+        handleSelect(options[prevIdx].value);
+      }
     }
   };
 
@@ -107,11 +126,17 @@ export default function Select({ id, label, value, onChange, options, disabled =
           onKeyDown={handleKeyDown}
           disabled={disabled}
           aria-haspopup="listbox"
+          aria-label={ariaLabel || undefined}
           aria-expanded={open}
           aria-controls={listboxId}
+          aria-describedby={ariaDescribedBy}
           aria-activedescendant={open ? activeOptionId : undefined}
         >
-          <span className="select-trigger__label" aria-hidden="true">
+          <span
+            key={selected?.value ?? 'empty'}
+            className="select-trigger__label select-trigger__label--changing"
+            aria-hidden="true"
+          >
             {selected ? selected.label : '—'}
           </span>
           <svg
@@ -134,7 +159,7 @@ export default function Select({ id, label, value, onChange, options, disabled =
             id={listboxId}
             className={`select-dropdown${open ? ' select-dropdown--open' : ''}`}
             role="listbox"
-            aria-label={label}
+            aria-label={ariaLabel || label}
             style={dropdownStyle}
           >
             {options.map((opt, idx) => (
@@ -144,7 +169,9 @@ export default function Select({ id, label, value, onChange, options, disabled =
                 type="button"
                 role="option"
                 aria-selected={opt.value === value}
-                className={`select-option${opt.value === value ? ' select-option--selected' : ''}`}
+                aria-disabled={opt.disabled || undefined}
+                disabled={opt.disabled}
+                className={`select-option${opt.value === value ? ' select-option--selected' : ''}${opt.disabled ? ' select-option--disabled' : ''}`}
                 onClick={() => handleSelect(opt.value)}
                 onMouseEnter={() => setActiveIdx(idx)}
               >

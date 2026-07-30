@@ -1,158 +1,14 @@
-/* ── Inventory View ── */
-.inventory-tab-controls {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  flex-shrink: 0;
-}
+/* ── Inventory View ──────────────────────────────────────────────────────
+   Estilos de layout y shell del módulo de inventario (.inventario-shell).
+   Los componentes específicos viven coubicados en src/components/inventory/
+   con sus propios .css. Los comentarios `→ inventory/X.css` debajo son
+   breadcrumbs de qué selectores ya no viven acá.
 
-.inventory-tab-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
+   Estructura base de .inventory-table → ui/components/table.css (compartida).
+   ─────────────────────────────────────────────────────────────────────────── */
 
-.inventory-tab-select-custom {
-  min-width: 120px;
-  flex-shrink: 0;
-  margin-bottom: 0;
-}
-
-.inventory-controls {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  border-bottom: 1px solid var(--border-color);
-  flex-wrap: wrap;
-}
-
-.inventory-search {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  background: var(--bg-dark);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: var(--space-xs) var(--space-sm);
-  flex: 1;
-  min-width: 200px;
-}
-
-.search-icon {
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.search-input {
-  background: transparent;
-  border: none;
-  outline: none;
-  color: var(--text-main);
-  font-size: 0.875rem;
-  font-family: inherit;
-  width: 100%;
-}
-
-.search-input::placeholder {
-  color: var(--text-muted);
-}
-
-.search-input:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.inventory-filters {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  overflow: visible;
-}
-
-.inventory-filters .form-group {
-  margin-bottom: 0;
-  flex: 0 1 auto;
-  min-width: 140px;
-}
-
-.inventory-filters .form-group label {
-  display: none;
-}
-
-.filter-icon {
-  color: var(--text-muted);
-}
-
-.inventory-table-wrapper {
-  overflow-x: auto;
-  padding: 0 var(--space-md) var(--space-md);
-}
-
-.fade-in {
-  animation: tableFadeIn 250ms ease forwards;
-}
-
-@keyframes tableFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.inventory-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.inventory-table thead tr {
-  border-bottom: 2px solid var(--border-color);
-}
-
-.inventory-table th {
-  text-align: left;
-  padding: var(--space-sm) var(--space-lg);
-  font-size: 0.7rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-}
-
-.inventory-table tbody tr {
-  border-bottom: 1px solid var(--border-color);
-  transition: background 0.15s ease;
-}
-
-.inventory-table tbody tr:last-child {
-  border-bottom: none;
-}
-
-.inventory-table tbody tr:hover {
-  background: rgba(0, 0, 0, 0.03);
-}
-
-.inventory-table td {
-  padding: var(--space-md) var(--space-lg);
-  font-size: 0.875rem;
-  color: var(--text-muted);
-}
-
-.inventory-table button {
-  font-family: inherit;
-}
-
-.td-name {
-  color: var(--text-main) !important;
-  font-weight: 700;
-}
+/* .inventory-tab-controls/label/select-custom: CSS muerto (no se usa en ningún JSX) */
+/* Toolbar y filtros específicos → inventory/InventarioControls.css */
 
 .td-price {
   color: var(--accent-color) !important;
@@ -162,11 +18,6 @@
 .td-loteo {
   color: var(--text-main) !important;
   font-size: 0.85rem !important;
-}
-
-.td-empty {
-  color: var(--border-color);
-  font-size: 1.1rem;
 }
 
 .td-comments-indicator {
@@ -190,18 +41,6 @@
 
 .url-link:hover {
   text-decoration: underline;
-}
-
-.td-empty-row {
-  text-align: center;
-  color: var(--text-muted);
-  padding: 40px 20px !important;
-  font-size: 0.875rem;
-}
-
-.td-muted {
-  color: var(--text-muted) !important;
-  font-size: 0.85rem !important;
 }
 
 .td-links {
@@ -241,16 +80,7 @@
   color: var(--text-muted);
 }
 
-.visor-link {
-  background: var(--accent-color);
-  color: var(--color-text);
-  padding: var(--space-xs) var(--space-md);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-bold);
-  text-decoration: none;
-  text-transform: uppercase;
-}
+/* .visor-link es un <Button as="a"> del design system (sin estilos propios). */
 
 .last-contact-cell {
   display: flex;
@@ -573,213 +403,9 @@
   cursor: pointer;
 }
 
-.prospectos-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-}
+/* .prospectos-list, .prospecto-tag* → inventory/LotesTable.css */
 
-.prospecto-tag {
-  background: rgba(0, 0, 0, 0.04);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  padding: 3px var(--space-xs);
-  white-space: nowrap;
-}
-
-.prospecto-tag.clickable {
-  cursor: pointer;
-  transition:
-    background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out);
-}
-
-.prospecto-tag.clickable:hover {
-  background: rgba(197, 160, 89, 0.10);
-  color: var(--accent-color);
-  border-color: rgba(197, 160, 89, 0.30);
-}
-
-.prospecto-tag.clickable.active {
-  background: rgba(197, 160, 89, 0.14);
-  color: var(--accent-color);
-  border-color: rgba(197, 160, 89, 0.45);
-}
-
-/* ─── Prospecto Tooltip ────────────────────────────────────────── */
-
-.prospecto-tooltip {
-  width: 280px;
-  background: var(--panel-bg, #ffffff);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.06);
-  z-index: var(--z-dropdown, 1002);
-  animation: tooltipEnter 0.18s var(--ease-out);
-  overflow: hidden;
-}
-
-.prospecto-tooltip::after {
-  content: '';
-  position: absolute;
-  bottom: -5px;
-  left: 14px;
-  width: 8px;
-  height: 8px;
-  background: var(--panel-bg, #ffffff);
-  border: 1px solid var(--border-color);
-  border-top: none;
-  border-left: none;
-  transform: rotate(45deg);
-}
-
-.prospecto-tooltip.bottom::after {
-  bottom: auto;
-  top: -5px;
-  border-top: 1px solid var(--border-color);
-  border-left: 1px solid var(--border-color);
-  border-bottom: none;
-  border-right: none;
-}
-
-.prospecto-tooltip-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-sm) 10px;
-  border-bottom: 1px solid var(--border-color);
-  background: rgba(197, 160, 89, 0.04);
-}
-
-.prospecto-tooltip-header-main {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0;
-}
-
-.prospecto-tooltip-name-btn {
-  background: none;
-  border: none;
-  padding: 0;
-  font-family: var(--font-primary);
-  font-size: var(--text-base);
-  font-weight: var(--weight-bold);
-  color: var(--color-text);
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: pointer;
-  text-align: left;
-  transition: color var(--duration-fast) var(--ease-out);
-}
-
-.prospecto-tooltip-name-btn:hover {
-  color: var(--accent-color);
-}
-
-.prospecto-tooltip-badge {
-  display: inline-block;
-  font-size: 0.62rem;
-  font-weight: var(--weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  line-height: 1.4;
-  align-self: flex-start;
-}
-
-.prospecto-tooltip-badge.category-primer_contacto {
-  background: var(--color-cat-contacto-bg);
-  color: var(--color-cat-contacto);
-}
-.prospecto-tooltip-badge.category-seguimiento {
-  background: var(--color-cat-seguimiento-bg);
-  color: var(--color-cat-seguimiento);
-}
-.prospecto-tooltip-badge.category-negociacion {
-  background: var(--color-cat-negociacion-bg);
-  color: var(--color-cat-negociacion);
-}
-.prospecto-tooltip-badge.category-vendido {
-  background: var(--color-cat-vendido-bg);
-  color: var(--color-cat-vendido);
-}
-
-.prospecto-tooltip-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  color: var(--text-muted);
-  transition: color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
-  margin-top: 1px;
-}
-
-.prospecto-tooltip-close:hover {
-  color: var(--accent-color);
-  background: rgba(197, 160, 89, 0.10);
-}
-
-.prospecto-tooltip-body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px var(--space-sm) var(--space-sm);
-}
-
-.prospecto-tooltip-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  font-size: var(--text-sm);
-  color: var(--color-text);
-  line-height: 1.5;
-  padding: 3px 0;
-}
-
-.prospecto-tooltip-icon {
-  color: var(--accent-color);
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.prospecto-tooltip-icon.muted {
-  color: var(--text-muted);
-}
-
-.prospecto-tooltip-muted {
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-.prospecto-tooltip-row--notes {
-  margin-top: 4px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border-color);
-  align-items: flex-start;
-}
-
-.prospecto-tooltip-notes-text {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
+/* ─── Prospecto Tooltip → inventory/ProspectoTooltip.css ─────────────────── */
 
 /* Loteo pill selector */
 .loteo-pill {
@@ -832,96 +458,563 @@
 /* td-actions uses display:flex which removes it from table-cell formatting and
    breaks border-collapse for group rows. Restore table-cell here and move flex
    to an inner wrapper (same pattern as td-links / loteo-link-actions). */
-.loteos-table .td-actions {
-  display: table-cell;
-  vertical-align: middle;
+/* .loteos-table*, .loteo-group-*, .loteo-name-cell*, .loteo-tree-connector,
+   .loteo-role-badge*, .td-group-header, .group-header-label → inventory/LoteosTable.css */
+
+/* ═══════════════════════════════════════════════════════════════════
+   REDISEÑO · Inventario — alinea la vista con el lenguaje limpio de
+   Inicio (skin tokens, headers livianos, paneles suaves, tabla refinada
+   estilo crm-cobranzas). Todo scopeado a .inventario-shell para NO tocar
+   Clientes, que reutiliza las clases .inventory-table / .inventory-*.
+   ═══════════════════════════════════════════════════════════════════ */
+.inventario-shell {
+  --shell-gap: var(--space-lg);
+
+  --skin-card-bg: var(--panel-bg);
+  --skin-card-border: var(--border-color);
+  --skin-card-shadow: var(--shadow-surface);
+  --skin-panel-radius: var(--radius-surface);
+  --inv-subtle: color-mix(in srgb, var(--accent-color) 4%, var(--panel-bg));
+  --inv-track: color-mix(in srgb, var(--border-color) 60%, var(--panel-bg));
+  --inv-info: #2563eb;
 }
 
-/* Group box: real cell borders let border-collapse merge shared edges cleanly.
-   2px accent on td beats 1px separator on preceding/following tr (fixes ghost
-   line above first row and gap in lateral borders). Equal borders on adjacent
-   group-last / group-first cells collapse into a single line (fixes double
-   border between consecutive groups). */
-.loteos-table tr.loteo-group-row > td {
-  background: rgba(197, 160, 89, 0.05);
+.inventario-shell .inventario-page {
+  --page-section-gap: var(--space-md);
 }
-.loteos-table tr.loteo-group-row > td:first-child {
-  border-left: 2px solid var(--accent-color);
+
+.inventario-shell .inv-summary-eyebrow {
+  display: block;
+  margin-bottom: var(--space-sm);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
-.loteos-table tr.loteo-group-row > td:last-child {
-  border-right: 2px solid var(--accent-color);
+
+.inventario-shell .inv-pie-wrap {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex: 1;
 }
-.loteos-table tbody tr.loteo-group-first > td {
-  border-top: 2px solid var(--accent-color);
+
+/* .inv-ring*, .inv-ring-ctr* → inventory/StateRing.css */
+.inventario-shell .inv-ring-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
 }
-.loteos-table tbody tr.loteo-group-last > td {
-  border-bottom: 2px solid var(--accent-color);
+
+.inventario-shell .inv-lk {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-base);
+  color: var(--text-muted);
 }
-.loteos-table tbody tr.loteo-group-last {
+
+.inventario-shell .inv-lk-d {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--c);
+  flex: none;
+}
+
+.inventario-shell .inv-lk b {
+  font-family: var(--font-primary);
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--text-main);
+  margin-left: auto;
+}
+
+/* ── Fila inferior: requieren atención (ancho) + actividad reciente ── */
+.inventario-shell .inv-row3 {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: var(--space-lg);
+  align-items: stretch;
+}
+
+.inventario-shell .inv-attn,
+.inventario-shell .inv-activity {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header de panel (eyebrow + h2 + sub, 3 líneas) ──
+   Eyebrow + h2 unificados con los de Inicio (.stats-header-eyebrow / .stats-header h2). */
+.inventario-shell .inv-phead {
+  padding: var(--space-md) var(--space-md) var(--space-sm);
+}
+
+/* eyebrow + título + sub ahora vienen de <SectionHeader> (tier section). */
+
+/* ── Panel de la tabla ── (superficie desde <Panel flush>) */
+.inventario-shell .inventory-panel .data-toolbar {
+  border-top: 1px solid var(--border-color);
+}
+
+/* Contexto del filtro activado desde "Requieren atención". Vive entre la
+   toolbar y la tabla para que la causa del subconjunto siempre sea visible. */
+.inventario-shell .inv-attention-filter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-lg);
+  border-top: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--accent-color) 7%, var(--panel-bg));
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.inventario-shell .inv-attention-filter-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.inventario-shell .inv-attention-filter-label {
+  font-family: var(--font-primary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-dark);
+}
+
+.inventario-shell .inv-attention-filter strong {
+  color: var(--text-main);
+  font-weight: var(--weight-bold);
+}
+
+.inventario-shell .inv-attention-filter-count {
+  color: var(--text-muted);
+}
+
+.inventario-shell .inv-attention-filter button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-left: auto;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--panel-bg);
+  color: var(--text-main);
+  font: inherit;
+  font-weight: var(--weight-bold);
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+
+.inventario-shell .inv-attention-filter button:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-dark);
+}
+
+.inventario-shell .inv-attention-filter button:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+/* .inv-seg y composición específica → inventory/InventarioControls.css */
+
+/* Tabla refinada */
+.inventario-shell .inventory-table-wrapper {
+  padding: 0;
+}
+
+/* Filas de relleno: reservan el alto de 10 filas en la última página para que
+   el pager no salte. Invisibles: sin borde, sin hover, sin contenido.
+   El borde se anula en el <tr> (no en el <td>): con border-collapse, un borde
+   "none" en la celda pierde contra el "1px solid" heredado del <tr> genérico
+   (gana el más ancho, no el más específico), así que hay que pisarlo al mismo
+   nivel. La altura se fija igual a la de una fila real (--btn-height-sm, la
+   de los botones de acción) para que el pager no suba al haber menos filas. */
+/* .lot-filler-row → inventory/LotesTable.css */
+
+/* ── Paginador de la tabla de lotes ── */
+/* Pager → estilo base compartido (.table-pager en ui/components/table.css). */
+
+.inventario-shell .inventory-table thead th {
+  background: var(--inv-subtle);
+  padding: 11px var(--space-lg);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.inventario-shell .inventory-table thead tr {
   border-bottom: none;
 }
 
-/* Group header row */
-.loteos-table tbody tr.loteo-group-header-row {
-  border-bottom: 1px solid rgba(197, 160, 89, 0.2);
-}
-.loteos-table tr.loteo-group-header-row > td {
-  background: rgba(197, 160, 89, 0.10);
-}
-.td-group-header {
-  padding: 10px var(--space-lg) !important;
-}
-.group-header-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.65rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--accent-color);
-  opacity: 0.85;
+.inventario-shell .inventory-table tbody tr {
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
 }
 
-/* Nombre: general en negrita, etapa indentada con conector tipo árbol */
-.loteo-name-cell {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.loteo-name-cell.role-general .loteo-name-text {
-  font-weight: 600;
-}
-.loteo-name-cell.role-etapa {
-  padding-left: 22px;
-}
-.loteo-name-cell.role-etapa.no-indent {
-  padding-left: 0;
-}
-.loteo-tree-connector {
-  width: 12px;
-  height: 12px;
-  margin-top: 2px;
-  border-left: 1.5px solid var(--border-color);
-  border-bottom: 1.5px solid var(--border-color);
-  border-bottom-left-radius: 4px;
+.inventario-shell .inventory-table tbody tr:hover {
+  background: var(--inv-subtle);
 }
 
-/* Badges de rol */
-.loteo-role-badge {
-  font-size: 0.66rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 2px 7px;
-  border-radius: 999px;
-  line-height: 1.4;
+.inventario-shell .inventory-table td {
+  padding: 9px var(--space-lg);
 }
-.loteo-role-badge.general {
-  background: rgba(197, 160, 89, 0.16);
+
+/* ── Headers ordenables (click para ordanar asc/desc) ── */
+.inventario-shell .inventory-table thead th.th-sortable {
+  padding: 0;
+}
+
+.inventario-shell .th-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 11px var(--space-lg);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  text-transform: inherit;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.inventario-shell .th-sort-btn:hover {
+  color: var(--text-main);
+}
+
+.inventario-shell .th-sortable.is-sorted .th-sort-btn {
   color: var(--accent-color);
 }
-.loteo-role-badge.etapa {
-  background: var(--bg-dark);
+
+/* Indicador inactivo: tenue, se revela al pasar el mouse por el header */
+.inventario-shell .th-sort-idle {
+  opacity: 0;
   color: var(--text-muted);
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.inventario-shell .th-sort-btn:hover .th-sort-idle {
+  opacity: 0.5;
+}
+
+.inventario-shell .th-sort-btn:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Acciones ghost (sólo tabla de lotes; loteos conserva su estilo) ── */
+.inventario-shell .inventory-table:not(.loteos-table) .td-actions .action-btn {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.inventario-shell .inventory-table:not(.loteos-table) .td-actions .action-btn.edit:hover {
+  background: var(--surface-hover);
+  color: var(--text-main);
+}
+
+.inventario-shell .inventory-table:not(.loteos-table) .td-actions .action-btn.delete:hover {
+  background: var(--badge-sold-bg);
+  color: var(--badge-sold);
+}
+
+/* Badges de estado → pill de ancho uniforme */
+.inventario-shell .badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 92px;
+  border-radius: var(--radius-full);
+}
+
+.inventario-shell .prospecto-tag {
+  border-radius: var(--radius-full);
+}
+
+/* ── Módulos bajo la tabla ── (superficie desde <Panel>; acá solo el padding) */
+.inventario-shell .inv-mod {
+  padding: var(--space-md) var(--space-lg);
+}
+
+/* Header de módulo secundario: usa <SectionHeader tier="aside"> (eyebrow + título).
+   Acá sólo aportamos el espaciado inferior; el resto lo maneja SectionHeader.css. */
+.inventario-shell .inv-mod-head {
+  margin-bottom: var(--space-md);
+}
+
+/* Distribución por loteo · mini-donuts en fila con scroll horizontal */
+.inventario-shell .inv-dgrid {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  cursor: ew-resize;
+}
+
+/* .inv-dcard*, .inv-ring--sm* → inventory/DonutCard.css */
+
+/* Leyenda de estados en el header del módulo */
+.inventario-shell .inv-dlegend {
+  display: flex;
+  gap: 14px;
+  padding-top: 2px;
+}
+
+.inventario-shell .inv-dlegend .inv-lk {
+  font-size: var(--text-sm);
+  gap: 6px;
+}
+
+/* Las cuatro filas ocupan en conjunto el alto disponible del panel, de modo
+   que el módulo acompaña a Actividad reciente sin dejar un vacío inferior. */
+.inventario-shell .inv-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+/* .inv-alert*, .inv-alert--* → inventory/AlertCard.css */
+
+/* Precio promedio · hero de KPIs + ranking horizontal por loteo */
+.inventario-shell .inv-prices {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: var(--space-lg);
+  align-items: stretch;
+}
+
+.inventario-shell .inv-prices-hero {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-right: var(--space-lg);
+  border-right: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+}
+
+.inventario-shell .inv-k {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.inventario-shell .inv-pv {
+  font-family: var(--font-primary);
+  font-weight: 700;
+  font-size: 2.4rem;
+  letter-spacing: -0.02em;
+  color: var(--text-main);
+  margin: 6px 0 2px;
+}
+
+.inventario-shell .inv-r {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.inventario-shell .inv-kpis {
+  display: flex;
+  gap: 22px;
+  margin-top: 18px;
+}
+
+.inventario-shell .inv-kpi-v {
+  font-family: var(--font-primary);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text-main);
+}
+
+.inventario-shell .inv-kpi-l {
+  font-size: 0.64rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+}
+
+.inventario-shell .inv-hbars {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  justify-content: center;
+}
+
+.inventario-shell .inv-hbar {
+  display: grid;
+  grid-template-columns: 110px 1fr 92px;
+  align-items: center;
+  gap: 14px;
+}
+
+.inventario-shell .inv-hbar-nm {
+  font-family: var(--font-primary);
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inventario-shell .inv-hbar-track {
+  height: 9px;
+  border-radius: 999px;
+  background: var(--inv-track);
+  overflow: hidden;
+}
+
+.inventario-shell .inv-hbar-track i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent-color) 55%, var(--panel-bg)), var(--accent-dark));
+}
+
+.inventario-shell .inv-hbar-v {
+  text-align: right;
+  font-family: var(--font-primary);
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--text-main);
+}
+
+/* ── Actividad reciente (fila inferior): feed sin card propia (la card la da
+   el <Panel> de .inv-activity). Mismo estilo compacto que tenía en el rail. ── */
+.inventario-shell .inv-activity .activity-feed {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  /* El flex:1 va en el .activity-feed-scroll (el que aloja la UL y el fade)
+     — el feed solo es el shell que hereda el alto del <Panel>. */
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.inventario-shell .inv-activity .activity-feed-header {
+  padding: 0;
+  margin-bottom: 14px;
+}
+
+/* El scroll interno se estira dentro del feed (que es flex-col). En
+   Inventario el feed vive como par lateral de "Requieren atención", así
+   que le damos un tope sano para que no domine la pantalla. */
+.inventario-shell .inv-activity .activity-feed-scroll {
+  flex: 1;
+  max-height: 460px;
+}
+
+.inventario-shell .inv-activity .activity-feed-subtitle {
+  display: none;
+}
+
+/* Ítems del feed al estilo del mockup (.ev): fila compacta, ícono cuadrado
+   chico, texto apilado sobre la hora, divisores finos sin barra lateral. */
+.inventario-shell .inv-activity .activity-item {
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: none;
+  border-left: none;
+}
+
+.inventario-shell .inv-activity .activity-item + .activity-item {
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
+}
+
+.inventario-shell .inv-activity .activity-item:hover {
+  background: transparent;
+}
+
+.inventario-shell .inv-activity .activity-item-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--accent-color) 14%, transparent);
+  color: var(--accent-dark);
+}
+
+.inventario-shell .inv-activity .activity-item-body {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.inventario-shell .inv-activity .activity-item-text {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.inventario-shell .inv-activity .activity-item-time {
+  font-size: 0.69rem;
+}
+
+/* ── Responsive ── */
+/* El layout base del shell (edge-to-edge, colapso a 1 columna) vive en
+   ShellLayout.css. Acá el colapso de las bandas internas de Inventario. */
+@media (max-width: 1080px) {
+  .inventario-shell .inv-row3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1180px) {
+  .inventario-shell .inv-dgrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .inventario-shell .inv-prices {
+    grid-template-columns: 1fr;
+  }
+  .inventario-shell .inv-prices-hero {
+    border-right: none;
+    padding-right: 0;
+    padding-bottom: var(--space-md);
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  }
+}
+
+@media (max-width: 560px) {
+  .inventario-shell .inv-dgrid {
+    grid-template-columns: 1fr;
+  }
+
+  .inventario-shell .inv-attention-filter {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .inventario-shell .inv-attention-filter-copy {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .inventario-shell .inv-attention-filter button {
+    margin-left: 0;
+  }
 }

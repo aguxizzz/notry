@@ -1,0 +1,229 @@
+/* ── Tabla base compartida ──────────────────────────────────────────────
+   Estructura común de las listas (.inventory-table) usada por Inventario,
+   Clientes y demás vistas. Antes estaba duplicada en cada *View.css.
+   Los overrides del rediseño viven scopeados por shell (.inventario-shell /
+   .clientes-shell) en cada archivo de vista y ganan por especificidad. */
+
+.inventory-table-wrapper {
+  overflow-x: auto;
+  padding: 0 var(--space-md) var(--space-md);
+}
+
+.fade-in {
+  animation: tableFadeIn 250ms ease forwards;
+}
+
+@keyframes tableFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.inventory-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.inventory-table thead tr {
+  border-bottom: 2px solid var(--border-color);
+}
+
+.inventory-table th {
+  text-align: left;
+  padding: var(--space-sm) var(--space-lg);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.inventory-table tbody tr {
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.15s ease;
+}
+
+.inventory-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.inventory-table tbody tr:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.inventory-table td {
+  padding: var(--space-md) var(--space-lg);
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.inventory-table button {
+  font-family: inherit;
+}
+
+/* Fila destacada al navegar hacia una entidad (ej. desde un lote a su prospecto) */
+@keyframes rowHighlight {
+  0%   { background: rgba(197, 160, 89, 0.22); }
+  65%  { background: rgba(197, 160, 89, 0.10); }
+  100% { background: transparent; }
+}
+
+.inventory-table tbody tr.row-highlight {
+  animation: rowHighlight 1.8s var(--ease-out) forwards;
+}
+
+/* ── Celdas genéricas ── */
+.td-name {
+  color: var(--text-main) !important;
+  font-weight: 700;
+}
+
+.td-muted {
+  color: var(--text-muted) !important;
+  font-size: 0.85rem !important;
+}
+
+.td-empty {
+  color: var(--border-color);
+  font-size: 1.1rem;
+}
+
+.td-empty-row {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 40px 20px !important;
+  font-size: 0.875rem;
+}
+
+/* ── Filas de relleno ──
+   Reservan el alto de las filas faltantes para que el pager no suba en la
+   última página. Alto igual al de una fila real (--btn-height-sm, el de los
+   botones de acción); content-box porque un <td> con el reset box-sizing:
+   border-box metería el padding dentro del alto y achicaría la fila. */
+.inventory-table tbody tr.table-filler-row {
+  border-bottom: none;
+}
+.inventory-table tbody tr.table-filler-row:hover {
+  background: transparent;
+}
+.table-filler-row td {
+  box-sizing: content-box;
+  height: var(--btn-height-sm);
+}
+
+/* ── Header ordenable (componente SortHeader) ── */
+.th-sortable {
+  padding: 0 !important;
+}
+
+.th-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: var(--space-sm) var(--space-lg);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.th-sort-btn:hover {
+  color: var(--text-main);
+}
+
+.th-sortable.is-sorted .th-sort-btn {
+  color: var(--accent-color);
+}
+
+.th-sort-idle {
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.th-sort-btn:hover .th-sort-idle {
+  opacity: 0.5;
+}
+
+.th-sort-btn:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: -2px;
+}
+
+/* ── Pager (componente TablePager) ── */
+.table-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  padding: var(--space-md) var(--space-lg);
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
+}
+
+.table-pager-info {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.table-pager-ctrls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.table-pager-btn,
+.table-pager-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--panel-bg);
+  color: var(--text-muted);
+  font-family: var(--font-primary);
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out);
+}
+
+.table-pager-btn:hover:not(:disabled),
+.table-pager-num:hover:not(.is-active) {
+  background: var(--surface-hover);
+  color: var(--text-main);
+  border-color: color-mix(in srgb, var(--accent-color) 40%, var(--border-color));
+}
+
+.table-pager-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.table-pager-num.is-active {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: #fff;
+}
+
+.table-pager-gap {
+  padding: 0 2px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  align-self: flex-end;
+}

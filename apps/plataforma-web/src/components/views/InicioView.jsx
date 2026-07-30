@@ -1,79 +1,110 @@
 import React from 'react';
-import StatCard from '../StatCard';
+import { BadgePercent, Boxes, Users } from 'lucide-react';
 import KanbanBoard from '../KanbanBoard';
 import ActivityFeed from '../ActivityFeed';
-import { ErrorBoundary } from '../../ui/components';
-import { BarChart3, LayoutGrid, TrendingUp, Columns } from 'lucide-react';
+import ShellLayout from '../ShellLayout';
+import {
+  ErrorBoundary,
+  PageHeader,
+  PageLayout,
+  Panel,
+  SectionHeader,
+  SummaryBand,
+  SummaryMetric,
+} from '../../ui/components';
 import './InicioView.css';
 
 export default function InicioView({
   dashboardSummary,
   allProspectosList,
   inventoryLoteos,
-  inventoryLots,
   advisorsList,
   token,
   onSessionExpired,
   onUpdateProspectCategory,
   activities = [],
+  apiFetch,
+  loteOwnerId,
+  addActivity,
 }) {
-
   return (
-    <>
-      <div className="stats-section">
-        <div className="stats-header has-deco-icon">
-          <BarChart3 className="section-deco-icon" size={72} />
-          <div className="stats-header-eyebrow">Dashboard</div>
-          <h2>Métricas Clave</h2>
-          <p className="stats-header-sub">Resumen de tu desempeño</p>
-        </div>
-        <div className="stats-grid">
-          <StatCard
-            label="Lotes Disponibles"
+    <ShellLayout className="inicio-shell">
+      <PageLayout className="inicio-page">
+        <PageHeader
+          eyebrow="Operación comercial"
+          title="Inicio"
+          description="El pulso de inventario, cartera y seguimiento para decidir qué mover hoy."
+        />
+
+        <SummaryBand
+          className="inicio-summary"
+          aria-label="Resumen operativo"
+          lead={
+            <div className="inicio-summary-lead">
+              <span className="inicio-summary-eyebrow">Panorama comercial</span>
+              <strong>Todo lo esencial, al día.</strong>
+              <p>Disponibilidad, contactos y conversión de tu operación.</p>
+            </div>
+          }
+        >
+          <SummaryMetric
+            className="inicio-summary-metric--available"
+            icon={<Boxes size={17} />}
+            label="Lotes disponibles"
+            hint="listos para venta"
             value={dashboardSummary?.lotes_disponibles ?? '—'}
-            subtitle="Lotes listos para venta"
-            color="#c5a059"
-            loading={!dashboardSummary}
           />
-          <StatCard
-            label="Total Prospectos"
+          <SummaryMetric
+            className="inicio-summary-metric--prospects"
+            icon={<Users size={17} />}
+            label="Total prospectos"
+            hint="en seguimiento"
             value={dashboardSummary?.total_prospectos ?? '—'}
-            subtitle="Clientes en seguimiento"
-            color="#3b82f6"
-            loading={!dashboardSummary}
           />
-          <StatCard
-            label="Tasa de Conversión"
+          <SummaryMetric
+            icon={<BadgePercent size={17} />}
+            label="Conversión"
+            hint="prospectos vendidos"
             value={
               allProspectosList && allProspectosList.length > 0
                 ? `${((allProspectosList.filter(p => p.category === 'vendido').length / allProspectosList.length) * 100).toFixed(1)}%`
                 : '—'
             }
-            subtitle="Vendidos"
-            color="#10b981"
-            loading={!allProspectosList}
           />
+        </SummaryBand>
+
+        <div className="inicio-grid">
+          <Panel className="kanban-section">
+            <SectionHeader
+              className="kanban-header"
+              eyebrow="Pipeline"
+              title="Gestión de prospectos"
+              sub="Arrastrá prospectos entre etapas para actualizar su seguimiento"
+            />
+            <ErrorBoundary label="Error en el tablero Kanban">
+              <KanbanBoard
+                token={token}
+                onSessionExpired={onSessionExpired}
+                prospectosList={allProspectosList}
+                loteos={inventoryLoteos}
+                advisorsList={advisorsList}
+                onUpdateProspectCategory={onUpdateProspectCategory}
+                apiFetch={apiFetch}
+                loteOwnerId={loteOwnerId}
+                addActivity={addActivity}
+              />
+            </ErrorBoundary>
+          </Panel>
+
+          <Panel className="inicio-activity">
+            <ActivityFeed
+              activities={activities}
+              sectionTitle="Actividad reciente"
+              sectionSubtitle="Últimos movimientos del equipo"
+            />
+          </Panel>
         </div>
-      </div>
-      <div className="kanban-section">
-        <div className="kanban-header has-deco-icon">
-          <Columns className="section-deco-icon" size={72} />
-          <div className="stats-header-eyebrow">Pipeline</div>
-          <h2>Gestión de Prospectos</h2>
-          <p className="kanban-header-sub">Arrastra prospectos entre etapas</p>
-        </div>
-        <ErrorBoundary label="Error en el tablero Kanban">
-          <KanbanBoard
-            token={token}
-            onSessionExpired={onSessionExpired}
-            prospectosList={allProspectosList}
-            loteos={inventoryLoteos}
-            advisorsList={advisorsList}
-            onUpdateProspectCategory={onUpdateProspectCategory}
-          />
-        </ErrorBoundary>
-      </div>
-      <ActivityFeed activities={activities} sectionTitle="Actividad Reciente" sectionEyebrow="Feed" sectionSubtitle="Últimas acciones del equipo" />
-    </>
+      </PageLayout>
+    </ShellLayout>
   );
 }

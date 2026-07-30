@@ -1,182 +1,24 @@
-.team-panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-lg);
-  width: 100%;
-}
-
 .team-panel-loading {
   color: var(--text-muted);
   font-size: 0.875rem;
 }
 
-/* ── Sección Organización (dentro de la card de configuración) ── */
-.org-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  width: 100%;
-}
-
-.org-section-head {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  padding-top: var(--space-sm);
-  border-top: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
-}
-
-.org-section-title {
-  margin: 0;
-  font-family: var(--font-primary);
-  font-size: var(--text-lg);
-  font-weight: var(--weight-black);
-  color: var(--text-main);
-}
-
-.org-edit-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  flex-shrink: 0;
-}
-
-.org-card-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: var(--space-xs);
-  padding: var(--space-sm) var(--space-md);
-  border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
-  border-radius: var(--radius-md);
-  background: var(--bg-card);
-}
-
-.org-card-field-label {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--text-base);
-  color: var(--text-muted);
-}
-
-.org-card-field-note {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  font-style: italic;
-  opacity: 0.85;
-}
-
-.org-card-field-value {
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.org-empty {
-  font-weight: 500;
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-.org-phone-view,
-.org-phone-edit {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  width: 100%;
-}
-
-.org-phone-input {
-  flex: 1;
-  min-width: 0;
-  width: 100%;
-  padding: calc(var(--space-xs) + 2px) var(--space-sm);
-  font-family: inherit;
-  font-size: var(--text-base);
-  color: var(--text-main);
-  background: var(--bg-dark);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  transition: border-color var(--duration-fast) var(--ease-out),
-              box-shadow var(--duration-fast) var(--ease-out);
-}
-
-.org-phone-input::placeholder {
-  color: var(--text-muted);
-}
-
-.org-phone-input:focus {
-  outline: none;
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 15%, transparent);
-}
-
-.org-icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--panel-bg);
-  color: var(--text-muted);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition:
-    background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out);
-}
-
-.org-icon-btn:hover:not(:disabled) {
-  background: var(--bg-hover);
-  color: var(--accent-dark);
-  border-color: color-mix(in srgb, var(--accent-color) 40%, transparent);
-}
-
-.org-icon-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.org-icon-save:hover:not(:disabled) {
-  color: var(--color-stat-available);
-  border-color: color-mix(in srgb, var(--color-stat-available) 40%, transparent);
-}
-
 /* Members list */
-.team-members-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
 .team-members-list {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: var(--panel-bg);
+  gap: 8px;
 }
 
 .team-member-row {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--bg-card);
-  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+  padding: 10px 12px;
+  background: var(--bg-surface);
+  border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  border-radius: 12px;
   transition: background var(--duration-fast) var(--ease-out);
-}
-
-.team-member-row:last-child {
-  border-bottom: none;
 }
 
 .team-member-row:hover {
@@ -187,14 +29,14 @@
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--accent-color) 18%, var(--panel-bg));
-  color: var(--accent-dark);
-  border: 1px solid color-mix(in srgb, var(--accent-color) 32%, transparent);
+  background: linear-gradient(135deg, var(--accent-color), var(--accent-dark));
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
-  font-weight: 800;
+  font-family: var(--font-primary);
+  font-size: 0.85rem;
+  font-weight: var(--weight-bold);
   flex-shrink: 0;
 }
 
@@ -229,17 +71,24 @@
 }
 
 .team-member-role {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 5px;
   font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
   color: var(--text-muted);
-  background: var(--bg-surface);
+  background: var(--panel-bg);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-full);
-  padding: 4px 10px;
+  padding: 5px 11px;
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+.team-member-role--owner {
+  color: var(--accent-dark);
+  background: color-mix(in srgb, var(--accent-color) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent-color) 35%, transparent);
 }
 
 .team-member-remove {
@@ -264,8 +113,7 @@
 }
 
 .team-member-remove:focus-visible,
-.team-invite-action:focus-visible,
-.team-invite-btn:focus-visible {
+.team-invite-action:focus-visible {
   outline: 2px solid var(--accent-color);
   outline-offset: 2px;
 }
@@ -281,36 +129,9 @@
   flex-direction: column;
 }
 
+/* Es un <Button variant="outline">; solo evita que se estire en la columna flex. */
 .team-invite-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-sm);
-  min-height: var(--btn-height-sm);
-  background: var(--panel-bg);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: var(--space-sm) var(--space-md);
-  font-family: var(--font-primary);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-bold);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-main);
-  cursor: pointer;
-  transition:
-    border-color var(--duration-fast) var(--ease-out),
-    background var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out);
   width: fit-content;
-}
-
-.team-invite-btn:hover {
-  border-color: var(--accent-color);
-  background: color-mix(in srgb, var(--accent-color) 10%, var(--panel-bg));
-  box-shadow: 0 3px 0 color-mix(in srgb, var(--accent-dark) 78%, transparent);
-  transform: translateY(-1px);
 }
 
 .team-invite-form {
@@ -347,58 +168,34 @@
 }
 
 /* Invitaciones pendientes */
-.team-invites-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.team-section-label {
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-muted);
-  font-weight: 700;
-}
-
 .team-invites-list {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: var(--panel-bg);
+  gap: 8px;
 }
 
 .team-invites-loading {
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: var(--panel-bg);
   color: var(--text-muted);
   font-size: var(--text-base);
-  padding: var(--space-md);
+  padding: var(--space-xs) 0;
 }
 
 .team-invite-row {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--bg-card);
-  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
-}
-
-.team-invite-row:last-child {
-  border-bottom: none;
+  padding: 10px 12px;
+  background: var(--panel-bg);
+  border: 1px dashed color-mix(in srgb, var(--accent-color) 30%, var(--border-color));
+  border-radius: 12px;
 }
 
 .team-invite-row-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--bg-dark);
-  border: 1px dashed var(--border-color);
-  color: var(--text-muted);
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-color) 16%, transparent);
+  color: var(--accent-dark);
   display: flex;
   align-items: center;
   justify-content: center;
