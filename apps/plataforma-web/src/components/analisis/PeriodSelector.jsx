@@ -9,6 +9,7 @@ export default function PeriodSelector({
   analisisLastDays,
   onAnalisisLastDaysChange,
   reportStats,
+  fadeState = 'visible',
 }) {
   return (
     <section className="period-block">
@@ -49,7 +50,7 @@ export default function PeriodSelector({
           <Loader size="sm" />
         </div>
       ) : (
-        <div className="period-metrics" aria-live="polite">
+        <div className={`period-metrics period-metrics--${fadeState}`} aria-live="polite">
           <div className="period-metric period-metric--prospects">
             <span className="period-metric-kicker"><span className="d" />Prospectos creados</span>
             <span className="period-metric-value">{reportStats.prospectos.toLocaleString('es-AR')}</span>

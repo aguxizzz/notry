@@ -148,6 +148,12 @@
   align-items: stretch;
 }
 
+/* El feed lateral comparte fila con el pipeline. Un piso de altura evita que
+   el panel de actividad quede reducido a una franja cuando hay pocas cards. */
+.inicio-shell .kanban-section {
+  min-height: clamp(440px, 48vh, 560px);
+}
+
 /* Actividad: panel (superficie de <Panel>) que iguala la altura del Kanban y
    scrollea internamente si sobra contenido.
    El problema: en un grid de fila `auto`, el tamaño de la fila se calcula con
@@ -238,6 +244,10 @@
 @media (max-width: 1080px) {
   .inicio-shell .inicio-grid {
     grid-template-columns: 1fr;
+  }
+
+  .inicio-shell .kanban-section {
+    min-height: 440px;
   }
 
   /* Apilado: la actividad ya no comparte fila con el kanban, así que el
