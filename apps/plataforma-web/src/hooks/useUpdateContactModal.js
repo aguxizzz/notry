@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { updateLastContact as updateLastContactService } from '../api/prospects';
 
-export function useUpdateContactModal({ apiFetch, addToast, onSuccess, loteOwnerId, setActivities }) {
+export function useUpdateContactModal({ apiFetch, addToast, onSuccess, loteOwnerId, addActivity }) {
   const [updateContactModalOpen, setUpdateContactModalOpen] = useState(false);
   const [selectedProspectId, setSelectedProspectId] = useState(null);
   const [selectedProspectName, setSelectedProspectName] = useState(null);
@@ -36,7 +36,7 @@ export function useUpdateContactModal({ apiFetch, addToast, onSuccess, loteOwner
       observationNotes,
       onUpdate: closeUpdateContactModal,
       loteOwnerId,
-      setActivities,
+      addActivity,
     });
   };
 

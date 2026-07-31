@@ -1,0 +1,47 @@
+/* StateRing — anillo segmentado de "Lotes por estado".
+   Las reglas base del ring (.inv-ring, .inv-ring-pie, .inv-ring-ctr) viven acá;
+   el modificador chico .inv-ring--sm está en DonutCard.css porque solo lo
+   usa la card de distribución. */
+
+.inventario-shell .inv-ring {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  flex: none;
+}
+
+.inventario-shell .inv-ring-pie {
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  background: conic-gradient(var(--ring-grad));
+  -webkit-mask: radial-gradient(circle, transparent 52%, #000 53%);
+  mask: radial-gradient(circle, transparent 52%, #000 53%);
+}
+
+.inventario-shell .inv-ring-ctr {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.inventario-shell .inv-ring-ctr b {
+  font-family: var(--font-primary);
+  font-weight: 700;
+  font-size: 1.35rem;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--text-main);
+}
+
+.inventario-shell .inv-ring-ctr span {
+  font-size: 0.56rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-top: 2px;
+}

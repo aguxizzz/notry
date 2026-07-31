@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Users } from 'lucide-react';
+import { SegmentRing } from '../ui/components';
 import './CategoryPieChart.css';
 
 const CATEGORY_META = {
@@ -9,15 +9,12 @@ const CATEGORY_META = {
   vendido:         { label: 'Vendido',           colorVar: '--color-cat-vendido' },
 };
 
-export default function CategoryPieChart({ prospects = [] }) {
-  const { segments, total, topSegment } = useMemo(() => {
+export default function CategoryPieChart({ prospects = [], embedded = false }) {
+  const { segments, total } = useMemo(() => {
     const counts = {};
     prospects.forEach(p => {
       if (p.category) counts[p.category] = (counts[p.category] || 0) + 1;
     });
-
-    const total = prospects.length;
-    if (total === 0) return { segments: [], total: 0, topSegment: null };
 
     const order = ['primer_contacto', 'seguimiento', 'negociacion', 'vendido'];
     const segs = order
@@ -25,62 +22,40 @@ export default function CategoryPieChart({ prospects = [] }) {
       .map(cat => ({
         category: cat,
         count: counts[cat],
-        pct: Math.round((counts[cat] / total) * 100),
         ...CATEGORY_META[cat],
       }));
 
     return {
       segments: segs,
-      total,
-      topSegment: [...segs].sort((a, b) => b.count - a.count)[0] ?? null,
+      total: segs.reduce((a, s) => a + s.count, 0),
     };
   }, [prospects]);
 
-  const isEmpty = total === 0;
+  const isEmpty = segments.length === 0;
 
   return (
-    <div className="category-chart">
-      <div className="chart-header">
-        <div className="chart-heading">
-          <div className="stats-header-eyebrow">Pipeline</div>
-          <h3 className="chart-title">Prospectos por Etapa</h3>
-          <p className="chart-subtitle">Distribución actual de prospectos</p>
-        </div>
-        <Users size={20} className="chart-total-icon" title={`${total} prospectos totales`} />
-      </div>
+    <div className={`category-chart${embedded ? ' category-chart--embedded' : ''}`}>
+      <span className="cpc-label">Composición por categoría</span>
 
       {isEmpty ? (
         <div className="chart-empty">
           <span>Sin datos de prospectos</span>
         </div>
       ) : (
-        <div className="chart-body">
-          <div className="chart-summary">
-            <div>
-              <span className="chart-summary-label">Etapa principal</span>
-              <strong>{topSegment.label}</strong>
-            </div>
-            <span>{topSegment.pct}%</span>
+        <div className="cpc-wrap">
+          <SegmentRing segments={segments.map(s => ({ color: `var(${s.colorVar})`, n: s.count }))}>
+            <b>{total}</b>
+            <span>{total === 1 ? 'contacto' : 'contactos'}</span>
+          </SegmentRing>
+          <div className="cpc-legend">
+            {segments.map(seg => (
+              <span key={seg.category} className="cpc-lk" style={{ '--c': `var(${seg.colorVar})` }}>
+                <span className="cpc-lk-d" />
+                {seg.label}
+                <b>{seg.count}</b>
+              </span>
+            ))}
           </div>
-          {segments.map((seg) => (
-            <div key={seg.category} className="chart-row">
-              <div className="chart-row-header">
-                <span className="chart-row-label">{seg.label}</span>
-                <div className="chart-row-meta">
-                  <span className="chart-row-count">{seg.count} {seg.count === 1 ? 'cliente' : 'clientes'} ({seg.pct}%)</span>
-                </div>
-              </div>
-              <div className="chart-bar-track">
-                <div
-                  className="chart-bar-fill"
-                  style={{
-                    width: `${seg.pct}%`,
-                    background: `var(${seg.colorVar})`,
-                  }}
-                />
-              </div>
-            </div>
-          ))}
         </div>
       )}
     </div>

@@ -9,6 +9,8 @@ export default function UpdateContactModal({ isOpen, isClosing, loading, onConfi
 
   useEffect(() => {
     if (!isOpen) {
+      // Reset the form when the modal closes so the next opening is clean.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setObservationNotes('');
     }
   }, [isOpen]);

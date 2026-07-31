@@ -1,28 +1,67 @@
-const ZOOM_IN_LABEL = 'Acercar';
-const ZOOM_OUT_LABEL = 'Alejar';
-const RESET_VIEW_LABEL = 'Centrar vista';
-const FULLSCREEN_LABEL = 'Pantalla completa';
+import { Maximize2, Minimize2, Minus, Plus, RotateCcw } from 'lucide-react';
 import './BlueprintControls.css';
 
-export default function BlueprintControls({ onZoomIn, onZoomOut, onReset, onFullscreen }) {
+const stopPan = (event) => {
+  event.stopPropagation();
+};
+
+export default function BlueprintControls({
+  onZoomIn,
+  onZoomOut,
+  onReset,
+  onFullscreen,
+  isFullscreen = false,
+}) {
   const handleFullscreen = (e) => {
     e.stopPropagation();
     onFullscreen();
   };
 
   return (
-    <div className="blueprint-controls">
-      <button className="blueprint-btn" onClick={onZoomOut} aria-label={ZOOM_IN_LABEL}>
-        -
+    <div className="blueprint-controls" role="toolbar" aria-label="Controles del plano">
+      <button
+        type="button"
+        className="blueprint-btn"
+        onMouseDown={stopPan}
+        onClick={onZoomOut}
+        aria-label="Alejar"
+        title="Alejar"
+      >
+        <Minus aria-hidden="true" />
       </button>
-      <button className="blueprint-btn" onClick={onZoomIn} aria-label={ZOOM_OUT_LABEL}>
-        +
+      <button
+        type="button"
+        className="blueprint-btn"
+        onMouseDown={stopPan}
+        onClick={onZoomIn}
+        aria-label="Acercar"
+        title="Acercar"
+      >
+        <Plus aria-hidden="true" />
       </button>
-      <button className="blueprint-btn blueprint-btn--wide" onClick={onReset} aria-label={RESET_VIEW_LABEL}>
-        RESET
+      <span className="blueprint-controls__divider" aria-hidden="true" />
+      <button
+        type="button"
+        className="blueprint-btn"
+        onMouseDown={stopPan}
+        onClick={onReset}
+        aria-label="Restablecer vista"
+        title="Restablecer vista"
+      >
+        <RotateCcw aria-hidden="true" />
       </button>
-      <button className="blueprint-btn blueprint-btn--wide" onClick={handleFullscreen} aria-label={FULLSCREEN_LABEL}>
-        ⛶
+      <button
+        type="button"
+        className="blueprint-btn"
+        onMouseDown={stopPan}
+        onClick={handleFullscreen}
+        aria-label={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+        title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+        aria-pressed={isFullscreen}
+      >
+        {isFullscreen
+          ? <Minimize2 aria-hidden="true" />
+          : <Maximize2 aria-hidden="true" />}
       </button>
     </div>
   );

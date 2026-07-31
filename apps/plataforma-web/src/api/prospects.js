@@ -1,7 +1,7 @@
 import { API_BASE } from '../config';
 import { logActivity } from './activityLogs';
 
-export async function createProspect({ apiFetch, addProspectForm, setAddProspectLoading, setAddProspectError, setAddProspectOpen, setAddProspectForm, addToast, onAddProspect, loteOwnerId, setActivities }) {
+export async function createProspect({ apiFetch, addProspectForm, setAddProspectLoading, setAddProspectError, setAddProspectOpen, setAddProspectForm, addToast, onAddProspect, loteOwnerId, addActivity }) {
   setAddProspectLoading(true);
   setAddProspectError(null);
   const body = {
@@ -22,7 +22,7 @@ export async function createProspect({ apiFetch, addProspectForm, setAddProspect
     addToast('Prospecto creado.', 'success');
     setAddProspectOpen(false);
     setAddProspectForm({ name: '', email: '', phone: '', category: 'primer_contacto', lote_id: '' });
-    logActivity({ apiFetch, activityType: 'prospect_created', entityType: 'prospect', entityId: res.id, loteOwnerId, description: `Prospecto "${res.name}" creado`, extraData: { prospect_name: res.name }, name: res.name, setActivities });
+    logActivity({ apiFetch, activityType: 'prospect_created', entityType: 'prospect', entityId: res.id, loteOwnerId, description: `Prospecto "${res.name}" creado`, extraData: { prospect_name: res.name }, name: res.name, addActivity });
   } catch (error) {
     addToast(error.message, 'error');
     setAddProspectError(error.message);
@@ -43,7 +43,7 @@ export async function fetchAdvisors({ apiFetch, setAdvisorsLoading, setAdvisorsL
   }
 }
 
-export async function saveEditProspect({ apiFetch, editingProspectId, editProspectForm, addToast, setEditProspectLoading, setEditProspectError, setEditProspectClosing, setEditProspectModalOpen, setEditingProspectId, onUpdateProspect, loteOwnerId, setActivities }) {
+export async function saveEditProspect({ apiFetch, editingProspectId, editProspectForm, addToast, setEditProspectLoading, setEditProspectError, setEditProspectClosing, setEditProspectModalOpen, setEditingProspectId, onUpdateProspect, loteOwnerId, addActivity }) {
   setEditProspectLoading(true);
   setEditProspectError(null);
   const body = { name: editProspectForm.name, category: editProspectForm.category };
@@ -66,7 +66,7 @@ export async function saveEditProspect({ apiFetch, editingProspectId, editProspe
     // once and the next poll reconciles it (protected by usePendingMutations).
     onUpdateProspect?.(editingProspectId, body);
     addToast('Prospecto actualizado.', 'success');
-    logActivity({ apiFetch, activityType: 'prospect_updated', entityType: 'prospect', entityId: editingProspectId, loteOwnerId, description: `Prospecto "${editProspectForm.name}" actualizado`, extraData: { prospect_name: editProspectForm.name }, name: editProspectForm.name, setActivities });
+    logActivity({ apiFetch, activityType: 'prospect_updated', entityType: 'prospect', entityId: editingProspectId, loteOwnerId, description: `Prospecto "${editProspectForm.name}" actualizado`, extraData: { prospect_name: editProspectForm.name }, name: editProspectForm.name, addActivity });
     setEditProspectClosing(true);
     setTimeout(() => {
       setEditProspectModalOpen(false);
@@ -80,8 +80,11 @@ export async function saveEditProspect({ apiFetch, editingProspectId, editProspe
   }
 }
 
-export async function updateLastContact({ apiFetch, setUpdatingContact, addToast, refreshSync, prospectId, prospectName, observationNotes, onUpdate, loteOwnerId, setActivities }) {
+export async function updateLastContact({ apiFetch, setUpdatingContact, addToast, refreshSync, prospectId, prospectName, observationNotes, onUpdate, loteOwnerId, addActivity }) {
   setUpdatingContact(true);
+  // Reflect the contact immediately. The next sync confirms it or restores
+  // the server value if the request fails.
+  onUpdate?.(prospectId);
   try {
     const body = {};
     if (observationNotes) body.observation_notes = observationNotes;
@@ -91,24 +94,26 @@ export async function updateLastContact({ apiFetch, setUpdatingContact, addToast
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    onUpdate?.(prospectId);
     addToast('Último contacto actualizado.', 'success');
-    logActivity({ apiFetch, activityType: 'prospect_contacted', entityType: 'prospect', entityId: prospectId, loteOwnerId, description: observationNotes || 'Contacto registrado', extraData: { prospect_name: prospectName }, name: prospectName, setActivities });
+    logActivity({ apiFetch, activityType: 'prospect_contacted', entityType: 'prospect', entityId: prospectId, loteOwnerId, description: observationNotes || 'Contacto registrado', extraData: { prospect_name: prospectName }, name: prospectName, addActivity });
     refreshSync();
   } catch (error) {
     addToast(error.message, 'error');
+    // Reconcile immediately so an optimistic timestamp does not linger after
+    // a failed request. The regular sync will also correct it if this fails.
+    refreshSync?.();
   } finally {
     setUpdatingContact(false);
   }
 }
 
-export async function handleDeleteProspectConfirm({ apiFetch, deleteProspectDialog, addToast, setDeleteProspectDialog, refreshSync, onRemoveProspect, loteOwnerId, setActivities }) {
+export async function handleDeleteProspectConfirm({ apiFetch, deleteProspectDialog, addToast, setDeleteProspectDialog, refreshSync, onRemoveProspect, loteOwnerId, addActivity }) {
   const prospect = deleteProspectDialog.prospect;
   if (!prospect) return;
   setDeleteProspectDialog(prev => ({ ...prev, loading: true }));
   try {
     // Log before deleting (entity still exists); also pushes to the feed optimistically.
-    logActivity({ apiFetch, activityType: 'prospect_deleted', entityType: 'prospect', entityId: prospect.id, loteOwnerId, description: `Prospecto "${prospect.name}" eliminado`, extraData: { prospect_name: prospect.name }, name: prospect.name, setActivities });
+    logActivity({ apiFetch, activityType: 'prospect_deleted', entityType: 'prospect', entityId: prospect.id, loteOwnerId, description: `Prospecto "${prospect.name}" eliminado`, extraData: { prospect_name: prospect.name }, name: prospect.name, addActivity });
     await apiFetch(`${API_BASE}/prospects/${prospect.id}`, { method: 'DELETE' });
     onRemoveProspect?.(prospect.id);
     addToast(`Prospecto "${prospect.name}" eliminado.`, 'success');
@@ -119,4 +124,3 @@ export async function handleDeleteProspectConfirm({ apiFetch, deleteProspectDial
     setDeleteProspectDialog(prev => ({ ...prev, loading: false }));
   }
 }
-

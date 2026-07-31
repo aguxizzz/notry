@@ -1,0 +1,102 @@
+/* AlertCard — fila de "Requieren atención" (número grande + label + chevron).
+   El contenedor vertical (.inv-alerts) queda en InventarioView.css porque
+   pertenece al layout del panel, no al componente individual. */
+
+.inventario-shell .inv-alert {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  background: var(--al-bg);
+  flex: 1;
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out),
+              transform var(--duration-fast) var(--ease-out);
+}
+
+.inventario-shell .inv-alert:hover {
+  border-color: color-mix(in srgb, var(--al-c) 45%, var(--border-color));
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.inventario-shell .inv-alert:focus-visible {
+  outline: 2px solid var(--al-c);
+  outline-offset: 2px;
+}
+
+.inventario-shell .inv-alert.is-active {
+  border-color: color-mix(in srgb, var(--al-c) 60%, var(--border-color));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--al-c) 16%, transparent);
+}
+
+.inventario-shell .inv-alert-n {
+  font-family: var(--font-primary);
+  font-weight: 700;
+  font-size: 2rem;
+  color: var(--al-c);
+  line-height: 1;
+  min-width: 44px;
+}
+
+.inventario-shell .inv-alert-l {
+  font-size: 0.9rem;
+  color: var(--text-main);
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.inventario-shell .inv-alert-l small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+.inventario-shell .inv-alert-go {
+  color: var(--al-c);
+  opacity: 0.55;
+  flex: none;
+  transition: opacity var(--duration-fast) var(--ease-out),
+              transform var(--duration-fast) var(--ease-out);
+}
+
+.inventario-shell .inv-alert:hover .inv-alert-go {
+  opacity: 1;
+  transform: translateX(2px);
+}
+
+/* Sin pendientes: se atenúa y deja de invitar al click. */
+.inventario-shell .inv-alert.is-zero {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.inventario-shell .inv-alert.is-zero:hover {
+  border-color: var(--border-color);
+  box-shadow: none;
+  transform: none;
+}
+
+.inventario-shell .inv-alert.is-zero .inv-alert-go {
+  visibility: hidden;
+}
+
+.inventario-shell .inv-alert.is-zero:hover .inv-alert-go {
+  transform: none;
+}
+/* Modificadores de tono — el padre (.inv-alerts) usa estos en el atributo class */
+.inventario-shell .inv-alert--warn { --al-c: var(--badge-reserved); --al-bg: var(--badge-reserved-bg); }
+.inventario-shell .inv-alert--info { --al-c: var(--inv-info); --al-bg: color-mix(in srgb, var(--inv-info) 11%, transparent); }
+.inventario-shell .inv-alert--accent { --al-c: var(--accent-dark); --al-bg: color-mix(in srgb, var(--accent-color) 12%, transparent); }
+.inventario-shell .inv-alert--muted { --al-c: var(--text-muted); --al-bg: var(--inv-subtle); }
+.inventario-shell .inv-alert--danger { --al-c: var(--badge-sold); --al-bg: var(--badge-sold-bg); }

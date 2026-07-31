@@ -2,20 +2,16 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import './TeamPanel.css';
 import '../ui/components/Modal.css';
-import { Phone, Pencil, UserPlus, Trash2, Crown, Shield, User, Link2, Copy, Check, MessageCircle, Clock } from 'lucide-react';
-import { Select, Button } from '../ui/components';
+import { Phone, Pencil, UserPlus, Trash2, User, Link2, Copy, Check, MessageCircle, Clock, Building2 } from 'lucide-react';
+import { Select, Button, Panel } from '../ui/components';
 import ConfirmModal from './ConfirmModal';
 import { createInvite, fetchInvites, revokeInvite, buildInviteUrl, removeMember, updateOrg, updateMemberRole } from '../api/organizations';
-
-// Roles con permiso para editar los datos de la organización (nombre, WhatsApp).
-const CAN_EDIT_ORG = ['owner', 'admin'];
-
-const ROLE_LABELS = { owner: 'Dueño', admin: 'Admin', member: 'Miembro' };
-const ROLE_ICONS = { owner: Crown, admin: Shield, member: User };
-const ROLE_OPTIONS = [
-  { value: 'member', label: 'Miembro' },
-  { value: 'admin', label: 'Administrador' },
-];
+import {
+  ORG_ROLE_LABELS,
+  ORG_ROLE_ICONS,
+  ORG_ROLE_OPTIONS,
+  CAN_EDIT_ORG_ROLES,
+} from '../constants/roles';
 
 function daysUntil(iso) {
   const diff = new Date(iso).getTime() - Date.now();
@@ -38,7 +34,7 @@ export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, s
   const [revoking, setRevoking] = useState(false);
 
   const isOwner = user?.org_role === 'owner';
-  const canEditOrg = CAN_EDIT_ORG.includes(user?.org_role);
+  const canEditOrg = CAN_EDIT_ORG_ROLES.includes(user?.org_role);
 
   // Datos de la organización (nombre + WhatsApp): edición por sección, un solo Guardar.
   const phone = org?.phone ?? '';
@@ -173,87 +169,94 @@ export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, s
   }
 
   if (orgLoading) {
-    return <div className="team-panel-loading">Cargando equipo...</div>;
+    return (
+      <Panel as="section" className="cfg-card team-panel" flush>
+        <div className="cfg-card-body">
+          <div className="team-panel-loading">Cargando equipo...</div>
+        </div>
+      </Panel>
+    );
   }
 
   const resultUrl = inviteResult ? buildInviteUrl(inviteResult.token) : '';
 
   return (
-    <div className="team-panel">
-      <div className="org-section">
-        <div className="org-section-head">
-          <h3 className="org-section-title">Organización</h3>
-          {canEditOrg && (!orgEditing ? (
-            <button type="button" className="btn-ghost btn-sm" onClick={startOrgEdit}>
-              <Pencil size={14} /> Editar
-            </button>
-          ) : (
-            <div className="org-edit-actions">
-              <button
-                type="button"
-                className="btn-primary btn-sm"
-                onClick={handleSaveOrg}
-                disabled={orgSaving || !orgNameDraft.trim()}
-              >
-                {orgSaving ? 'Guardando...' : 'Guardar'}
-              </button>
-              <button type="button" className="btn-ghost btn-sm" onClick={cancelOrgEdit} disabled={orgSaving}>
-                Cancelar
-              </button>
-            </div>
-          ))}
+    <Panel as="section" className="cfg-card team-panel" flush>
+      <div className="cfg-card-head">
+        <div className="cfg-card-head-title">
+          <span className="cfg-card-badge"><Building2 size={16} /></span>
+          <h3>Organización</h3>
         </div>
-
-        <div className="org-card-field">
-          <span className="org-card-field-label">Nombre</span>
-          {orgEditing ? (
-            <input
-              className="org-phone-input"
-              type="text"
-              value={orgNameDraft}
-              onChange={e => setOrgNameDraft(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleSaveOrg(); if (e.key === 'Escape') cancelOrgEdit(); }}
-              disabled={orgSaving}
-              autoFocus
-            />
-          ) : (
-            <span className={`org-card-field-value ${org?.org_name ? '' : 'org-empty'}`}>
-              {org?.org_name || 'Sin nombre'}
-            </span>
-          )}
-        </div>
-
-        <div className="org-card-field">
-          <span className="org-card-field-label">
-            <Phone size={14} /> WhatsApp
-            <span className="org-card-field-note">
-              Se usa para el botón del visor público
-            </span>
-          </span>
-          {orgEditing ? (
-            <input
-              className="org-phone-input"
-              type="tel"
-              inputMode="tel"
-              placeholder="+54 9 11 1234-5678"
-              value={phoneDraft}
-              onChange={e => setPhoneDraft(e.target.value)}
-              disabled={orgSaving}
-            />
-          ) : (
-            <span className={`org-card-field-value ${phone ? '' : 'org-empty'}`}>
-              {phone || 'Sin número configurado'}
-            </span>
-          )}
-        </div>
-
+        {canEditOrg && (!orgEditing ? (
+          <Button type="button" variant="outline" size="sm" onClick={startOrgEdit}>
+            <Pencil size={14} /> Editar
+          </Button>
+        ) : (
+          <div className="cfg-head-actions">
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleSaveOrg}
+              disabled={orgSaving || !orgNameDraft.trim()}
+            >
+              {orgSaving ? 'Guardando...' : 'Guardar'}
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={cancelOrgEdit} disabled={orgSaving}>
+              Cancelar
+            </Button>
+          </div>
+        ))}
       </div>
 
-      <div className="team-members-section">
-        <span className="team-section-label">Miembros de la organización</span>
-        <div className="team-members-list">
+      <div className="cfg-card-body">
+        <div className="cfg-fields">
+          <div className="cfg-field">
+            <span className="cfg-field-label">Nombre</span>
+            {orgEditing ? (
+              <input
+                className="cfg-input"
+                type="text"
+                value={orgNameDraft}
+                onChange={e => setOrgNameDraft(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSaveOrg(); if (e.key === 'Escape') cancelOrgEdit(); }}
+                disabled={orgSaving}
+                autoFocus
+              />
+            ) : (
+              <span className={`cfg-field-value ${org?.org_name ? '' : 'is-empty'}`}>
+                {org?.org_name || 'Sin nombre'}
+              </span>
+            )}
+          </div>
+
+          <div className="cfg-field">
+            <span className="cfg-field-label">
+              <Phone size={13} /> WhatsApp
+              <span className="cfg-field-note">— botón del visor público</span>
+            </span>
+            {orgEditing ? (
+              <input
+                className="cfg-input"
+                type="tel"
+                inputMode="tel"
+                placeholder="+54 9 11 1234-5678"
+                value={phoneDraft}
+                onChange={e => setPhoneDraft(e.target.value)}
+                disabled={orgSaving}
+              />
+            ) : (
+              <span className={`cfg-field-value ${phone ? '' : 'is-empty'}`}>
+                {phone || 'Sin número configurado'}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="cfg-block team-members-section">
+          <span className="cfg-section-label">Miembros de la organización</span>
+          <div className="team-members-list">
         {org?.members?.map(member => {
-          const RoleIcon = ROLE_ICONS[member.role] ?? User;
+          const RoleIcon = ORG_ROLE_ICONS[member.role] ?? User;
           const isSelf = member.user_id === user?.id;
           return (
             <div key={member.user_id} className="team-member-row">
@@ -272,14 +275,14 @@ export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, s
                   id={`role-${member.user_id}`}
                   value={optimisticRoles[member.user_id] ?? member.role}
                   onChange={e => handleChangeRole(member, e.target.value)}
-                  options={ROLE_OPTIONS}
+                  options={ORG_ROLE_OPTIONS}
                   disabled={updatingRoleId === member.user_id}
                   className="team-member-role-picker"
                 />
               ) : (
-                <div className="team-member-role">
+                <div className={`team-member-role team-member-role--${member.role}`}>
                   <RoleIcon size={13} />
-                  <span>{ROLE_LABELS[member.role] ?? member.role}</span>
+                  <span>{ORG_ROLE_LABELS[member.role] ?? member.role}</span>
                 </div>
               )}
               {isOwner && !isSelf && (
@@ -298,10 +301,10 @@ export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, s
         </div>
       </div>
 
-      {/* Invitaciones pendientes (aún no aceptadas) */}
-      {isOwner && (invitesLoading || invites.length > 0) && (
-        <div className="team-invites-section">
-          <span className="team-section-label">Invitaciones pendientes</span>
+        {/* Invitaciones pendientes (aún no aceptadas) */}
+        {isOwner && (invitesLoading || invites.length > 0) && (
+        <div className="cfg-block team-invites-section">
+          <span className="cfg-section-label">Invitaciones pendientes</span>
           {invitesLoading ? (
             <div className="team-invites-loading">Cargando invitaciones...</div>
           ) : (
@@ -314,7 +317,7 @@ export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, s
                   <div className="team-member-info">
                     <span className="team-member-name">{inv.email}</span>
                     <span className="team-member-email">
-                      {ROLE_LABELS[inv.role] ?? inv.role} · {left > 0 ? `vence en ${left} día${left !== 1 ? 's' : ''}` : 'vencida'}
+                      {ORG_ROLE_LABELS[inv.role] ?? inv.role} · {left > 0 ? `vence en ${left} día${left !== 1 ? 's' : ''}` : 'vencida'}
                     </span>
                   </div>
                   <button
@@ -346,13 +349,13 @@ export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, s
         </div>
       )}
 
-      {isOwner && (
-        <div className="team-invite-section">
+        {isOwner && (
+        <div className="cfg-block team-invite-section">
           {!showInviteForm ? (
-            <button className="team-invite-btn" onClick={() => setShowInviteForm(true)}>
+            <Button variant="outline" className="team-invite-btn" onClick={() => setShowInviteForm(true)}>
               <UserPlus size={15} />
               Invitar miembro
-            </button>
+            </Button>
           ) : (
             <form className="team-invite-form" onSubmit={handleInvite}>
               <h4>Invitar nuevo miembro</h4>
@@ -385,27 +388,28 @@ export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, s
                 label="Rol"
                 value={inviteForm.role}
                 onChange={e => setInviteForm(f => ({ ...f, role: e.target.value }))}
-                options={ROLE_OPTIONS}
+                options={ORG_ROLE_OPTIONS}
               />
               <p className="team-invite-hint">
                 Los administradores pueden gestionar el equipo. Los miembros acceden a la operación diaria.
               </p>
               <div className="team-invite-form-actions">
-                <button type="submit" className="btn-primary" disabled={inviting}>
+                <Button type="submit" disabled={inviting}>
                   {inviting ? 'Generando...' : 'Generar invitación'}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className="btn-ghost"
+                  variant="outline"
                   onClick={() => { setShowInviteForm(false); setInviteForm({ email: '', full_name: '', role: 'member' }); }}
                 >
                   Cancelar
-                </button>
+                </Button>
               </div>
             </form>
           )}
         </div>
-      )}
+        )}
+      </div>
 
       {inviteResult && createPortal(
         <div className="modal-overlay" onClick={() => setInviteResult(null)}>
@@ -459,6 +463,6 @@ export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, s
         onConfirm={handleRevokeConfirmed}
         onCancel={() => setInviteToRevoke(null)}
       />
-    </div>
+    </Panel>
   );
 }

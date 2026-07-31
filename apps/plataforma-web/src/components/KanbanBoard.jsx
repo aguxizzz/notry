@@ -14,7 +14,7 @@ const COL_META = {
   vendido:         { label: 'Vendido',           accentVar: '--kanban-vendido-accent' },
 };
 
-export default function KanbanBoard({ token, onSessionExpired, prospectosList = [], loteos = [], advisorsList = [], onUpdateProspectCategory, apiFetch, loteOwnerId, setActivities }) {
+export default function KanbanBoard({ token, onSessionExpired, prospectosList = [], loteos = [], advisorsList = [], onUpdateProspectCategory, apiFetch, loteOwnerId, addActivity }) {
   const [columns, setColumns] = useState({
     primer_contacto: [],
     seguimiento: [],
@@ -35,7 +35,7 @@ export default function KanbanBoard({ token, onSessionExpired, prospectosList = 
     },
     apiFetch,
     loteOwnerId,
-    setActivities,
+    addActivity,
   });
 
   const enrichedProspects = useMemo(() => {
@@ -66,6 +66,8 @@ export default function KanbanBoard({ token, onSessionExpired, prospectosList = 
     enrichedProspects.forEach(p => {
       if (grouped[p.category] !== undefined) grouped[p.category].push(p);
     });
+    // The board state mirrors the incoming prospect list after sync.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setColumns(grouped);
     setLoading(false);
   }, [enrichedProspects]);

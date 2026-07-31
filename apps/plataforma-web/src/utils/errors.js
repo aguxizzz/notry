@@ -8,6 +8,7 @@ const TRANSLATIONS = {
   'Only advisors or admins can manage contracts': 'Solo asesores o administradores pueden gestionar contratos.',
   'No access to this contract': 'Sin acceso a este contrato.',
   'Contract not found': 'Contrato no encontrado.',
+  'Cannot delete contract with registered payments': 'No se puede eliminar un contrato con pagos registrados.',
   'Invalid contract form': 'Datos del contrato inválidos.',
   'No access to lot': 'Sin acceso a este lote.',
   'Lot not found': 'Lote no encontrado.',
@@ -16,6 +17,12 @@ const TRANSLATIONS = {
   'Installment not found': 'Cuota no encontrada.',
   'No access to the specified lote_owner_id': 'Sin acceso al propietario especificado.',
   'Entity not found': 'Entidad no encontrada.',
+  'Loteo already exists': 'Ya existe un loteo con ese nombre o slug.',
+  'Loteo already exists with this name': 'Ya existe un loteo con ese nombre.',
+  'Loteo already exists with this slug': 'Ya existe un loteo con ese slug.',
+  'Duplicate loteo': 'Ya existe un loteo con esos datos.',
+  'At least one of email or phone is required': 'Se requiere al menos un email o teléfono.',
+  'At least email or phone is required': 'Se requiere al menos un email o teléfono.',
 
   // Reportes y activity logs
   'last_days must be one of: 1, 5, 10, 20, 30, 60': 'El parámetro last_days debe ser uno de: 1, 5, 10, 20, 30 o 60.',
@@ -66,6 +73,16 @@ export function getErrorMessage(rawDetail) {
   }
 
   if (typeof rawDetail !== 'string') return 'Error inesperado. Intentá de nuevo.';
+
+  // PostgreSQL/async drivers sometimes expose the constraint instead of the
+  // domain error. Keep this detail out of the UI and map it to an actionable
+  // message until the backend returns a stable 409 contract.
+  if (/duplicate key|unique constraint|already exists/i.test(rawDetail)) {
+    return 'Ya existe un loteo con ese nombre o slug.';
+  }
+  if (/email.*phone|phone.*email/i.test(rawDetail) && /required|requir|neces|at least/i.test(rawDetail)) {
+    return 'Se requiere al menos un email o teléfono.';
+  }
 
   const translated = translateSingleMsg(rawDetail);
   if (translated) return translated;

@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import BlueprintHeatmap from '../BlueprintHeatmap';
 import { Loader } from '../../ui/components';
-import { getHeatColor, getTextColor } from '../../utils/heatColor';
+import { getHeatColor, getHeatGradient, getTextColor } from '../../utils/heatColor';
 import './HeatmapCard.css';
 
 export default function HeatmapCard({
@@ -44,13 +44,18 @@ export default function HeatmapCard({
   return (
     <div className="heatmap-card">
       <div className="heatmap-header">
-        <span className="heatmap-title">
-          Mapa de calor — {selectedLoteo?.name ?? 'Selecciona un loteo'}
-        </span>
-        <div className="heatmap-legend">
-          <span className="legend-label">Menos</span>
-          <div className="legend-gradient"></div>
-          <span className="legend-label">Más</span>
+        <div className="heatmap-heading">
+          <span className="heatmap-kicker">Mapa de calor</span>
+          <h3 className="heatmap-title">{selectedLoteo?.name ?? 'Selecciona un loteo'}</h3>
+        </div>
+        <div className="heatmap-legend" aria-label="Escala de clics: de menor a mayor intensidad">
+          <span className="legend-label">Menor</span>
+          <span
+            className="legend-gradient"
+            aria-hidden="true"
+            style={{ backgroundImage: getHeatGradient() }}
+          />
+          <span className="legend-label">Mayor</span>
         </div>
       </div>
 
@@ -66,6 +71,7 @@ export default function HeatmapCard({
           annotations={annotationsWithCoords}
           clicksData={clicksData}
           missingCoordinatesCount={missingCoordinatesCount}
+          loteoName={selectedLoteo?.name}
         />
       ) : (
         <div

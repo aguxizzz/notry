@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Lock, User, Pencil } from 'lucide-react';
+import { Button, Panel } from '../ui/components';
 import { updateUser, changePassword } from '../api/auth';
 import './ProfileCard.css';
 
@@ -61,103 +62,114 @@ export default function ProfileCard({ user, setUser, apiFetch, addToast }) {
   }
 
   return (
-    <div className="profile-card">
-      <div className="profile-avatar">{initial}</div>
-
-      <div className="profile-head">
-        <span className="profile-head-title">Perfil</span>
+    <Panel as="section" className="cfg-card profile-card" flush>
+      <div className="cfg-card-head">
+        <div className="cfg-card-head-title">
+          <span className="cfg-card-badge"><User size={16} /></span>
+          <h3>Perfil</h3>
+        </div>
         {!editing ? (
-          <button type="button" className="btn-ghost btn-sm" onClick={startEdit}>
+          <Button type="button" variant="outline" size="sm" onClick={startEdit}>
             <Pencil size={14} /> Editar
-          </button>
+          </Button>
         ) : (
-          <div className="profile-head-actions">
-            <button
+          <div className="cfg-head-actions">
+            <Button
               type="button"
-              className="btn-primary btn-sm"
+              size="sm"
               onClick={handleSave}
               disabled={saving || !nameDraft.trim()}
             >
               {saving ? 'Guardando...' : 'Guardar'}
-            </button>
-            <button type="button" className="btn-ghost btn-sm" onClick={cancelEdit} disabled={saving}>
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={cancelEdit} disabled={saving}>
               Cancelar
-            </button>
+            </Button>
           </div>
         )}
       </div>
 
-      <div className="profile-fields">
-        {/* Nombre */}
-        <div className="profile-field">
-          <span className="profile-field-label">
-            <User size={14} /> Nombre
-          </span>
-          {editing ? (
-            <input
-              className="org-phone-input"
-              type="text"
-              value={nameDraft}
-              onChange={e => setNameDraft(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') cancelEdit(); }}
-              disabled={saving}
-              autoFocus
-            />
-          ) : (
-            <span className="profile-field-value">{user?.full_name ?? '—'}</span>
-          )}
+      <div className="cfg-card-body">
+        <div className="profile-top">
+          <div className="profile-avatar">{initial}</div>
+          <div className="profile-top-id">
+            <span className="profile-top-name">{user?.full_name ?? '—'}</span>
+            <span className="profile-top-email">{user?.email}</span>
+          </div>
         </div>
 
-        {/* Contraseña — acción propia, requiere la contraseña actual */}
-        <div className="profile-field">
-          <span className="profile-field-label">
-            <Lock size={14} /> Contraseña
-          </span>
-          {pwEditing ? (
-            <div className="profile-pw-form">
+        <div className="cfg-fields">
+          {/* Nombre */}
+          <div className="cfg-field">
+            <span className="cfg-field-label">
+              <User size={13} /> Nombre
+            </span>
+            {editing ? (
               <input
-                className="org-phone-input"
-                type="password"
-                placeholder="Contraseña actual"
-                value={currentPw}
-                onChange={e => setCurrentPw(e.target.value)}
-                disabled={pwSaving}
+                className="cfg-input"
+                type="text"
+                value={nameDraft}
+                onChange={e => setNameDraft(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') cancelEdit(); }}
+                disabled={saving}
                 autoFocus
               />
-              <input
-                className="org-phone-input"
-                type="password"
-                placeholder="Nueva contraseña (mín. 8 caracteres)"
-                value={newPw}
-                onChange={e => setNewPw(e.target.value)}
-                disabled={pwSaving}
-                onKeyDown={e => { if (e.key === 'Enter') handleSavePassword(); if (e.key === 'Escape') cancelPwEdit(); }}
-              />
-              {pwError && <p className="profile-pw-error">{pwError}</p>}
-              <div className="profile-pw-actions">
-                <button
-                  type="button"
-                  className="btn-primary btn-sm"
-                  onClick={handleSavePassword}
-                  disabled={pwSaving || !currentPw || !newPw}
-                >
-                  {pwSaving ? 'Guardando...' : 'Cambiar contraseña'}
-                </button>
-                <button type="button" className="btn-ghost btn-sm" onClick={cancelPwEdit} disabled={pwSaving}>
-                  Cancelar
-                </button>
+            ) : (
+              <span className="cfg-field-value">{user?.full_name ?? '—'}</span>
+            )}
+          </div>
+
+          {/* Contraseña — acción propia, requiere la contraseña actual */}
+          <div className="cfg-field">
+            <span className="cfg-field-label">
+              <Lock size={13} /> Contraseña
+            </span>
+            {pwEditing ? (
+              <div className="profile-pw-form">
+                <input
+                  className="cfg-input"
+                  type="password"
+                  placeholder="Contraseña actual"
+                  value={currentPw}
+                  onChange={e => setCurrentPw(e.target.value)}
+                  disabled={pwSaving}
+                  autoFocus
+                />
+                <input
+                  className="cfg-input"
+                  type="password"
+                  placeholder="Nueva contraseña (mín. 8 caracteres)"
+                  value={newPw}
+                  onChange={e => setNewPw(e.target.value)}
+                  disabled={pwSaving}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSavePassword(); if (e.key === 'Escape') cancelPwEdit(); }}
+                />
+                {pwError && <p className="profile-pw-error">{pwError}</p>}
+                <div className="profile-pw-actions">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleSavePassword}
+                    disabled={pwSaving || !currentPw || !newPw}
+                  >
+                    {pwSaving ? 'Guardando...' : 'Cambiar contraseña'}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={cancelPwEdit} disabled={pwSaving}>
+                    Cancelar
+                  </Button>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="profile-inline-view">
-              <span className="profile-field-value profile-password">••••••••</span>
-              <button type="button" className="btn-ghost btn-sm" onClick={startPwEdit}>
-                Cambiar contraseña
-              </button>
-            </div>
-          )}
+            ) : (
+              <div className="cfg-field-row">
+                <span className="cfg-field-value is-mono">••••••••</span>
+                <Button type="button" variant="outline" size="sm" onClick={startPwEdit}>
+                  Cambiar contraseña
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </Panel>
   );
 }

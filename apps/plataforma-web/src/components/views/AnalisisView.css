@@ -1,107 +1,104 @@
-/* ── Analisis View ── */
-.loteo-activity-block {
-  background: var(--panel-bg);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: var(--space-lg);
+/* ── Análisis: marco compartido + módulos de lectura específicos ── */
+.analisis-shell {
+  --shell-gap: var(--space-lg);
+  --skin-card-bg: var(--panel-bg);
+  --skin-card-border: var(--border-color);
+  --skin-card-shadow: var(--shadow-surface);
+  --skin-panel-radius: var(--radius-surface);
+}
+
+.analisis-shell .analisis-page {
+  --page-section-gap: var(--space-md);
+}
+
+.analisis-shell .analisis-feedback {
+  --feedback-min-height: 320px;
+}
+
+/* Bloque "Actividad por loteo" — el bloque que agrupa header + picker + activity */
+.analisis-shell .loteo-activity-block {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
-  margin-top: var(--space-lg);
 }
 
-/* Two-column layout: stats column (left) + heatmap column (right) */
-.loteo-activity-inner {
+.analisis-shell .analisis-activity-header {
+  padding: var(--space-md) var(--space-md) var(--space-sm);
+}
+
+/* Grilla interior: columna ranking (izq) + columna heatmap (der). */
+.analisis-shell .loteo-activity-inner {
   display: grid;
-  grid-template-columns: minmax(160px, 220px) 1fr;
-  gap: var(--space-md);
-  align-items: stretch;
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+  gap: 0;
 }
 
-@media (max-width: 767px) {
-  .loteo-activity-inner {
+@media (max-width: 1100px) {
+  .analisis-shell .loteo-activity-inner {
     grid-template-columns: 1fr;
   }
+}
 
-  .heatmap-card {
-    min-height: 200px;
+/* Columna izquierda: mini resumen + ranking apilados, con padding interno. */
+.analisis-shell .analisis-left-col {
+  padding: var(--space-md) var(--space-md) var(--space-lg);
+  border-right: 1px solid var(--color-border-warm);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 0;
+}
+
+@media (max-width: 1100px) {
+  .analisis-shell .analisis-left-col {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border-warm);
   }
 }
 
-/* Stats column — vertical stack with breathing room between cards */
-.analisis-summary {
+/* Mini resumen editorial — dos bloques centrados, separados por línea ink vertical.
+   Sin cards, sin fondo: solo tipografía tabular + label tracked en dorado. */
+.analisis-shell .analisis-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--color-border-warm);
+}
+
+.analisis-shell .analisis-stat {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
+  min-width: 0;
+  text-align: center;
+  align-items: center;
 }
 
-.analisis-stat {
-  background: var(--panel-bg);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: var(--space-md) var(--space-lg);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  position: relative;
-  transition: transform var(--duration-base) var(--ease-out), box-shadow var(--duration-base) var(--ease-out);
+.analisis-shell .analisis-stat + .analisis-stat {
+  padding-left: 24px;
+  border-left: 1px solid var(--color-border-warm);
 }
 
-.analisis-stat:hover {
-  transform: translateX(4px);
-  box-shadow: -4px 0 0 var(--accent-color), var(--shadow-sm);
-}
-
-.analisis-stat--primary {
-  border-left: 3px solid var(--accent-color);
-}
-
-.analisis-stat-value {
-  font-size: var(--text-2xl);
-  font-weight: 900;
-  color: var(--text-main);
+.analisis-shell .analisis-stat-value {
+  font-family: var(--font-primary);
+  font-weight: 700;
+  font-size: 32px;
+  letter-spacing: -0.02em;
   line-height: 1;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }
 
-.analisis-stat-label {
+.analisis-shell .analisis-stat-label {
   display: block;
-  font-size: var(--text-xs);
-  font-weight: var(--weight-bold);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-}
-
-.analisis-summary .analisis-stat:nth-child(1) { animation-delay: 0ms; }
-.analisis-summary .analisis-stat:nth-child(2) { animation-delay: 60ms; }
-.analisis-summary .analisis-stat:nth-child(3) { animation-delay: 120ms; }
-
-/* Left column: stats + ranking panel stacked */
-.analisis-left-col {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-height: 0;
-  flex: 1;
-}
-
-.analisis-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 300px;
-}
-
-.analisis-error {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-md);
-  min-height: 200px;
-  justify-content: center;
-  color: var(--text-muted);
-  font-size: var(--text-base);
-  padding: var(--space-xl);
+  color: var(--color-accent-dark);
+  text-align: center;
 }
 
 /* Note: heatmap grid/cell styles are in HeatmapCard.css (shared with HeatmapCard component) */

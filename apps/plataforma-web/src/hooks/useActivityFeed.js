@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 
-export function useActivityFeed({}) {
+export function useActivityFeed() {
   const [activities, setActivitiesState] = useState([]);
 
   // Normalize a raw item from the API
@@ -42,21 +42,28 @@ export function useActivityFeed({}) {
     });
   }, []);
 
-  // Expose setter so mutations can optimistically add new activities
-  const setActivities = useCallback((updater) => {
+  // High-level helper: optimistically push a single activity. Consumers should
+  // pass a partial entry (`{ type, name?, description? }`); id/ts/isOptimistic
+  // are filled here so callers can't get the wire format wrong.
+  //
+  // Replaces the old `setActivities` (raw setter) — that leaked React's state
+  // shape into every mutation site.
+  const addActivity = useCallback((entry) => {
+    if (!entry || !entry.type) return;
+    const full = {
+      id: entry.id ?? crypto.randomUUID(),
+      type: entry.type,
+      name: entry.name ?? '—',
+      description: entry.description ?? null,
+      ts: entry.ts ?? Date.now(),
+      isOptimistic: true,
+    };
     setActivitiesState(prev => {
-      const newItems = typeof updater === 'function' ? updater(prev) : updater;
-      const incoming = Array.isArray(newItems) ? newItems : [newItems];
-      const incomingWithFlag = incoming.map(item => ({
-        ...item,
-        isOptimistic: true, // Mark as optimistic
-      }));
-
       const existingIds = new Set(prev.map(a => a.id));
-      const unique = incomingWithFlag.filter(a => !existingIds.has(a.id));
-      return unique.length > 0 ? [...unique, ...prev] : prev;
+      if (existingIds.has(full.id)) return prev;
+      return [full, ...prev];
     });
   }, []);
 
-  return { activities, handleRawActivities, setActivities };
+  return { activities, handleRawActivities, addActivity };
 }

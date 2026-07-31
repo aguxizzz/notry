@@ -3,10 +3,9 @@ import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Button, Loader } from '../../ui/components';
 import LoginBackground from '../LoginBackground';
 import { validateInvite, acceptInvite } from '../../api/organizations';
+import { ORG_ROLE_LABELS } from '../../constants/roles';
 import './LoginView.css';
 import './AcceptInviteView.css';
-
-const ROLE_LABELS = { owner: 'Dueño', admin: 'Administrador', member: 'Miembro' };
 
 // Vuelve a la URL base (sin ?invite=) → la app bootea normal (login o dashboard).
 function goToBase() {
@@ -103,7 +102,7 @@ export default function AcceptInviteView({ token }) {
             </div>
             <p className="accept-greeting">
               Vas a unirte a <strong>{invite.org_name}</strong> como{' '}
-              <strong>{ROLE_LABELS[invite.role] ?? invite.role}</strong> con tu cuenta{' '}
+              <strong>{ORG_ROLE_LABELS[invite.role] ?? invite.role}</strong> con tu cuenta{' '}
               <strong>{invite.email}</strong>. Después iniciá sesión con tu contraseña habitual.
             </p>
             {submitError && (
