@@ -8,7 +8,10 @@ function generateThumbnail(file) {
     const objectUrl = URL.createObjectURL(file);
 
     img.onload = () => {
-      let { naturalWidth: w, naturalHeight: h } = img;
+      const width = img.naturalWidth;
+      const height = img.naturalHeight;
+      let w = width;
+      let h = height;
 
       if (w > THUMB_MAX_SIZE || h > THUMB_MAX_SIZE) {
         const ratio = Math.min(THUMB_MAX_SIZE / w, THUMB_MAX_SIZE / h);
@@ -29,7 +32,11 @@ function generateThumbnail(file) {
           img.src = '';
           if (!blob) { reject(new Error('No se pudo generar el thumbnail')); return; }
           const newName = file.name.replace(/\.[^.]+$/, '.webp');
-          resolve(new File([blob], newName, { type: 'image/webp' }));
+          resolve({
+            file: new File([blob], newName, { type: 'image/webp' }),
+            width,
+            height,
+          });
         },
         'image/webp',
         0.85
@@ -109,7 +116,7 @@ function uploadOriginalToR2(uploadUrl, file, onProgress) {
 
 export function createUploadFn(token, logout) {
   return async function uploadImage(file, { onConvertProgress, onUploadProgress } = {}) {
-    const thumbFile = await generateThumbnail(file);
+    const { file: thumbFile, width, height } = await generateThumbnail(file);
     onConvertProgress?.(40);
     const thumbResult = await uploadThumbnail(token, logout, thumbFile, (p) =>
       onConvertProgress?.(40 + Math.round(p * 0.6))
@@ -118,12 +125,25 @@ export function createUploadFn(token, logout) {
     const presign = await getPresignedUrl(token, logout, file);
     await uploadOriginalToR2(presign.upload_url, file, onUploadProgress);
 
-    return { url: presign.public_url, thumbnailUrl: thumbResult.thumbnail_url };
+    return { url: presign.public_url, thumbnailUrl: thumbResult.thumbnail_url, width, height };
   };
 }
 
 // Kept for backward compatibility with any callers that still use apiFetch
 export async function uploadImage(file, apiFetch) {
+  const dimensions = await new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      URL.revokeObjectURL(objectUrl);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Error al leer la imagen'));
+    };
+    img.src = objectUrl;
+  });
   const formData = new FormData();
   formData.append('file', file);
   const res = await apiFetch(`${API_BASE}/upload`, {
@@ -131,5 +151,5 @@ export async function uploadImage(file, apiFetch) {
     body: formData,
     retries: 1,
   });
-  return { url: res.url, thumbnailUrl: res.thumbnail_url };
+  return { url: res.url, thumbnailUrl: res.thumbnail_url, ...dimensions };
 }

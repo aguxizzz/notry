@@ -51,6 +51,7 @@ function App() {
   const [drawingPolygon, setDrawingPolygon] = useState([]);
 
   const [panoramaUrl, setPanoramaUrl] = useState(null);
+  const [panoramaDimensions, setPanoramaDimensions] = useState(null);
   const [blueprintUrl, setBlueprintUrl] = useState(null);
   const [mode, setMode] = useState('panorama'); // 'panorama' or 'blueprint'
 
@@ -80,7 +81,7 @@ function App() {
   // Snapshot of annotations as last saved/loaded — used to diff before saving
   const savedAnnotationsRef = useRef([]);
   const savedCalibrationRef = useRef([]);
-  const { pendingDraft, loadDraft, clearDraft } = useDraft({ annotations, loteoId, savedAnnotationsRef, calibrationPoints, savedCalibrationRef });
+  const { pendingDraft, loadDraft, clearDraft } = useDraft({ annotations, loteoId, savedAnnotationsRef, calibrationPoints, savedCalibrationRef, panoramaDimensions });
   const {
     isCreatingLote,
     isSavingLote,
@@ -171,10 +172,15 @@ function App() {
             savedAnnotationsRef.current = mappedAnnotations;
 
             // Check for draft from previous session
-            loadDraft(extractedLoteoId);
+            loadDraft(extractedLoteoId, data.panoramaWidth && data.panoramaHeight
+              ? { width: data.panoramaWidth, height: data.panoramaHeight }
+              : null);
           }
 
           if (data.panoramaUrl && typeof data.panoramaUrl === 'string') {
+            setPanoramaDimensions(data.panoramaWidth && data.panoramaHeight
+              ? { width: data.panoramaWidth, height: data.panoramaHeight }
+              : null);
             try {
               const imgRes = await fetch(data.panoramaUrl);
               if (imgRes.ok) {

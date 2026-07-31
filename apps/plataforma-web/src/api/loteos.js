@@ -48,13 +48,15 @@ export async function createLoteo({ apiFetch, createLoteoForm, setCreateLoteoLoa
         slug: createLoteoForm.slug,
         image_url: createLoteoForm.image_url,
         thumbnail_url: createLoteoForm.thumbnail_url || undefined,
+        panorama_width: createLoteoForm.panorama_width || undefined,
+        panorama_height: createLoteoForm.panorama_height || undefined,
         blueprint_url: createLoteoForm.blueprint_url,
         text_annotations: [],
       }),
     });
     onAddLoteo?.(res);
     setCreateLoteoOpen(false);
-    setCreateLoteoForm({ name: '', slug: '', image_url: '', thumbnail_url: '', blueprint_url: '' });
+    setCreateLoteoForm({ name: '', slug: '', image_url: '', thumbnail_url: '', blueprint_url: '', panorama_width: null, panorama_height: null });
     if (res?.id) {
       logActivity({ apiFetch, activityType: 'loteo_created', entityType: 'loteo', entityId: res.id, loteOwnerId, description: `Loteo "${res.name}" creado`, name: res.name, addActivity });
     }
@@ -100,6 +102,10 @@ export async function saveEditLoteo({ apiFetch, editingLoteoId, editLoteoForm, a
         slug: editLoteoForm.slug,
         image_url: editLoteoForm.image_url,
         thumbnail_url: editLoteoForm.thumbnail_url || undefined,
+        panorama_width: editLoteoForm.panorama_width || undefined,
+        panorama_height: editLoteoForm.panorama_height || undefined,
+        previous_panorama_width: editLoteoForm.previous_panorama_width || undefined,
+        previous_panorama_height: editLoteoForm.previous_panorama_height || undefined,
         blueprint_url: editLoteoForm.blueprint_url,
       }),
     });
