@@ -1,0 +1,110 @@
+/* ── App shell: contenido principal + aside ──
+   Layout reutilizable entre vistas (Inicio, Inventario y futuras). Las
+   diferencias por vista se controlan con vars, seteadas en la clase scope de
+   cada vista (ej. .inicio-shell):
+     --shell-gap            gap vertical de main y aside (default: space-lg)
+     --shell-aside-bg       fondo del aside (default: panel-bg)
+     --shell-aside-border   color del divisor del aside (default: border-color)
+   El edge-to-edge en desktop lo da .owner-layout--shell (clase en App.jsx).
+
+   Estructura: .shell-aside es la COLUMNA (panel + divisor, se estira a toda la
+   altura del contenido) y .shell-aside-inner es el CONTENIDO (que en desktop
+   queda sticky sobre la pantalla). Así el panel/divisor siempre llega hasta el
+   fondo de la página y, a la vez, el contenido acompaña el scroll sin necesitar
+   una segunda barra propia. */
+
+.shell-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  align-items: stretch;
+  min-height: 100vh;
+}
+
+/* Sin aside (vistas "sin rail"): una sola columna a ancho completo. El main
+   conserva su padding; el contenido secundario se reubica en bandas dentro. */
+.shell-layout--no-aside {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.shell-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--shell-gap, var(--space-lg));
+  min-width: 0;
+  padding: var(--space-lg);
+}
+
+.shell-aside {
+  min-width: 0;
+  background: var(--shell-aside-bg, var(--panel-bg));
+  border-left: 1px solid var(--shell-aside-border, var(--border-color));
+}
+
+.shell-aside-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--shell-gap, var(--space-lg));
+  padding: var(--space-lg) var(--space-md);
+}
+
+/* Desktop: edge-to-edge (el divisor del aside llega arriba y a la derecha). La
+   columna del aside se estira a la altura total del main (panel/divisor hasta
+   el fondo) y el contenido queda sticky: pegado arriba mientras se scrollea, y
+   si es más alto que el viewport acompaña el scroll único de la página (sin
+   barra interna, que era la que metía un segundo scroll a la derecha). */
+@media (min-width: 1081px) {
+  .owner-layout.owner-layout--shell {
+    padding: 0;
+  }
+
+  .shell-aside-inner {
+    position: sticky;
+    top: 0;
+    /* Scroll propio del aside, independiente del main: queda pegado al viewport
+       y, si su contenido no entra, scrollea solo (sin arrastrar el contenido
+       central). max-height:100vh en vez de height para no forzar la barra
+       cuando el contenido es corto. */
+    max-height: 100vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    /* Barra fina y sutil (Firefox) — no la barra gruesa del sistema. */
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--border-color) 85%, transparent) transparent;
+  }
+
+  /* Barra fina y sutil (Chromium/WebKit). */
+  .shell-aside-inner::-webkit-scrollbar {
+    width: 6px;
+  }
+  .shell-aside-inner::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .shell-aside-inner::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--border-color) 85%, transparent);
+    border-radius: 999px;
+  }
+  .shell-aside-inner::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--text-muted) 45%, transparent);
+  }
+}
+
+/* Colapso a una columna: el aside se apila debajo y el divisor vertical pasa
+   a horizontal. */
+@media (max-width: 1080px) {
+  .shell-layout {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+  .shell-main {
+    padding: 0;
+  }
+  .shell-aside {
+    background: transparent;
+    border-left: none;
+    border-top: 1px solid var(--shell-aside-border, var(--border-color));
+    margin-top: var(--space-sm);
+  }
+  .shell-aside-inner {
+    padding: var(--space-lg) 0 0;
+  }
+}

@@ -1,0 +1,12 @@
+.page-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--page-section-gap);
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .page-layout {
+    --page-section-gap: var(--space-sm);
+  }
+}

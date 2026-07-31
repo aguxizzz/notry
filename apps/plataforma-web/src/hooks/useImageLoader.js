@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export function useImageLoader(src) {
+export function useImageLoader() {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [imageDims, setImageDims] = useState(null);

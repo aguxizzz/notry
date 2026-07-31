@@ -1,96 +1,60 @@
 import { useMemo } from 'react';
-import { Clock, AlertCircle } from 'lucide-react';
-import { CATEGORY_DISPLAY } from '../constants';
+import { Panel, SectionHeader } from '../ui/components';
+import { CATEGORY_DISPLAY, ORIGIN_DISPLAY } from '../constants';
+import { daysSinceContact, NEGLECTED_THRESHOLD_DAYS } from '../utils/prospects';
 import './NeglectedProspectsPanel.css';
 
-const DAYS_THRESHOLDS = [
-  { min: 0,  max: 7,  colorVar: '--accent-color',      label: 'Ahora',     dotClass: 'urgency-low'    },
-  { min: 8,  max: 14, colorVar: '--color-warning',     label: '1–2 sem',  dotClass: 'urgency-low'    },
-  { min: 15, max: 30, colorVar: '--color-cat-seguimiento', label: '2 sem–1 mes', dotClass: 'urgency-mid' },
-  { min: 31, max: Infinity, colorVar: '--color-danger', label: '1+ mes',   dotClass: 'urgency-high'   },
-];
-
-function getUrgency(days) {
-  return DAYS_THRESHOLDS.find(t => days >= t.min && days <= t.max) ?? DAYS_THRESHOLDS[0];
+function initials(name = '') {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase();
 }
 
-function formatDaysAgo(isoDate) {
-  if (!isoDate) return Infinity;
-  const ms = Date.now() - new Date(isoDate).getTime();
-  return Math.floor(ms / (1000 * 60 * 60 * 24));
-}
-
-function formatDaysText(days) {
-  if (days === Infinity) return 'Nunca contactado';
-  if (days === 1) return 'Ultimo contacto hace: 1 día';
-  return `Ultimo contacto hace: ${days} días`;
-}
-
-export default function NeglectedProspectsPanel({ prospects = [] }) {
-  const staleProspects = useMemo(() => {
+// Hero de "seguimiento vencido": contactos sin actualizar hace más de
+// NEGLECTED_THRESHOLD_DAYS días. El conteo total (para la banda de stats de
+// ClientesView) se computa con el mismo umbral vía daysSinceContact, así los
+// números nunca divergen entre este panel y la banda.
+export default function NeglectedProspectsPanel({ prospects = [], onUpdateContact }) {
+  const stale = useMemo(() => {
     return prospects
-      .map(p => ({ ...p, days: formatDaysAgo(p.last_contact) }))
-      .filter(p => p.days !== 0)
+      .map(p => ({ ...p, days: daysSinceContact(p.last_contact) }))
+      .filter(p => p.days != null && p.days >= NEGLECTED_THRESHOLD_DAYS)
       .sort((a, b) => b.days - a.days)
       .slice(0, 5);
   }, [prospects]);
 
-  const hasNoProspects = prospects.length === 0;
-  const isEmpty = staleProspects.length === 0;
+  if (stale.length === 0) return null;
 
   return (
-    <div className="category-chart neglected-panel">
-      <div className="chart-header">
-        <div className="chart-heading">
-          <div className="stats-header-eyebrow">Seguimiento</div>
-          <h3 className="chart-title">Requieren Atención</h3>
-          <p className="chart-subtitle">Contactos con más tiempo sin actividad</p>
-        </div>
-        {!isEmpty && <AlertCircle size={20} className="chart-total-icon" title={`${staleProspects.length} pendientes`} />}
-      </div>
-
-      {isEmpty ? (
-        <div className="chart-empty neglected-empty">
-          {!hasNoProspects && (
-            <div className="neglected-empty-icon">
-              <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-                <circle cx="18" cy="18" r="16" stroke="var(--accent-color)" strokeWidth="1.5" strokeDasharray="4 3" />
-                <path d="M12 18.5l4 4 8-8" stroke="var(--accent-color)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+    <Panel as="section" className="cli-hero">
+      <SectionHeader
+        className="cli-hero-head"
+        eyebrow="Requiere acción"
+        title="Seguimiento vencido"
+        sub={`Contactos sin actualizar hace más de ${NEGLECTED_THRESHOLD_DAYS} días`}
+        actions={<span className="cli-hero-count">{stale.length}</span>}
+      />
+      <div className="cli-hero-list">
+        {stale.map((p, i) => (
+          <div className="cli-hero-item" key={p.id} style={{ animationDelay: `${i * 60}ms` }}>
+            <span className="cli-hero-avatar">{initials(p.name)}</span>
+            <div className="cli-hero-info">
+              <span className="cli-hero-name">{p.name}</span>
+              <span className="cli-hero-meta">
+                {CATEGORY_DISPLAY[p.category] ?? p.category?.replace(/_/g, ' ')} · {ORIGIN_DISPLAY[p.origin] ?? 'Origen desconocido'}
+              </span>
             </div>
-          )}
-          <span>{hasNoProspects ? 'Sin datos de prospectos.' : 'Todos tus prospectos han sido contactados recientemente.'}</span>
-        </div>
-      ) : (
-        <div className="chart-body neglected-list">
-          {staleProspects.map((p, i) => {
-            const urgency = getUrgency(p.days);
-            return (
-              <div
-                key={p.id}
-                className="neglected-row"
-                style={{ animationDelay: `${i * 60}ms` }}
-              >
-                <div className="neglected-row-left">
-                  <span className={`urgency-dot ${urgency.dotClass}`} />
-                  <div className="neglected-row-info">
-                    <span className="neglected-name">{p.name}</span>
-                    <span className={`badge category-${p.category} neglected-category-badge`}>
-                      {CATEGORY_DISPLAY[p.category] ?? p.category?.replace(/_/g, ' ')}
-                    </span>
-                  </div>
-                </div>
-                <div className="neglected-row-right">
-                  <div className="neglected-days">
-                    <Clock size={11} />
-                    <span>{formatDaysText(p.days)}</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
+            <span className={`cli-hero-days ${p.days >= NEGLECTED_THRESHOLD_DAYS * 2 ? 'cli-hero-days--critical' : p.days >= NEGLECTED_THRESHOLD_DAYS + 15 ? 'cli-hero-days--high' : ''}`}>
+              {p.days} días
+            </span>
+            {onUpdateContact && (
+              <button type="button" className="cli-hero-btn" onClick={() => onUpdateContact(p.id, p.name)}>
+                Actualizar
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </Panel>
   );
 }

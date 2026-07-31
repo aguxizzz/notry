@@ -20,7 +20,6 @@ export default function AddProspectModal({
   onSubmit,
   loading,
   error,
-  addToast,
   loteosList = [],
 }) {
   const modalRef = useRef(null);
@@ -34,6 +33,8 @@ export default function AddProspectModal({
 
   useEffect(() => {
     if (!isOpen) {
+      // Reset the form when the modal closes so the next opening is clean.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
         name: '',
         email: '',

@@ -108,14 +108,14 @@ export function useAuth() {
     setInventoryLots([]);
     setInventoryLotsHasMore(false);
     setInventorySearch('');
-    setInventoryStatusFilter('');
+    setInventoryStatusFilter?.('');
     setInventoryTab('lotes');
     setInventoryLoteos([]);
     setAllProspectosList([]);
     setProspectosCategoryFilter('');
-    setProspectosWithoutAdvisor(false);
-    setToasts([]);
-    setClicksCache({});
+    setProspectosWithoutAdvisor?.(false);
+    setToasts?.([]);
+    setClicksCache?.({});
     setVisorDataCache({});
     setReportsCache({});
     setDashboardSummary(null);

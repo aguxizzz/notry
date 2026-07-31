@@ -1,0 +1,19 @@
+.data-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--color-surface);
+}
+
+@media (max-width: 720px) {
+  .data-toolbar {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .data-toolbar > .search-field {
+    flex-basis: 100%;
+  }
+}

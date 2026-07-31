@@ -71,14 +71,16 @@ export default function AdminView({
                     <h4>{loteo.name}</h4>
                     <span>{loteo.id.substring(0, 8)}...</span>
                   </div>
-                  <a
+                  <Button
+                    as="a"
+                    size="sm"
+                    className="visor-link"
                     href={`${VISOR_URL}/?data=${API_BASE}/loteos/${loteo.id}/visor_data`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="visor-link"
                   >
                     👁️ Visor
-                  </a>
+                  </Button>
                 </div>
               ))}
             </div>

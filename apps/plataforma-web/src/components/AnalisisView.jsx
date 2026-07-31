@@ -1,6 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { API_BASE } from '../config';
-import { Loader } from '../ui/components';
+import {
+  Button,
+  FeedbackState,
+  PageHeader,
+  PageLayout,
+  Panel,
+  SectionHeader,
+} from '../ui/components';
+import ShellLayout from './ShellLayout';
 import PeriodSelector from './analisis/PeriodSelector';
 import LoteoSelector from './analisis/LoteoSelector';
 import TopLotsPanel from './analisis/TopLotsPanel';
@@ -10,7 +18,6 @@ import './views/AnalisisView.css';
 export default function AnalisisView({
   apiFetch,
   token,
-  onSessionExpired,
   prefetchedLoteos = [],
   cachedClicks = {},
   clicksLoadingIds = new Set(),
@@ -35,11 +42,15 @@ export default function AnalisisView({
     if (prevDaysRef.current === analisisLastDays) return;
     prevDaysRef.current = analisisLastDays;
     setFadeState('fading-out');
+    let inTimer;
     const outTimer = setTimeout(() => {
       setFadeState('fading-in');
-      const inTimer = setTimeout(() => setFadeState('visible'), 300);
+      inTimer = setTimeout(() => setFadeState('visible'), 300);
     }, 200);
-    return () => { clearTimeout(outTimer); };
+    return () => {
+      clearTimeout(outTimer);
+      clearTimeout(inTimer);
+    };
   }, [analisisLastDays]);
 
   useEffect(() => {
@@ -90,76 +101,92 @@ export default function AnalisisView({
 
   const topLots = [...clicksData].sort((a, b) => b.clicks - a.clicks).slice(0, 10);
 
-  if (loteosLoading) {
-    return (
-      <div className="analisis-loading">
-        <Loader />
-      </div>
-    );
-  }
-
-  if (loteosError) {
-    return (
-      <div className="analisis-error">
-        <p>{loteosError}</p>
-        <button className="outline-button" onClick={fetchLoteos}>Reintentar</button>
-      </div>
-    );
-  }
-
   return (
-    <div className="analisis-content">
-      <PeriodSelector
-        analisisLastDays={analisisLastDays}
-        onAnalisisLastDaysChange={onAnalisisLastDaysChange}
-        reportStats={reportStats}
-        fadeState={fadeState}
-      />
-
-      <div className="loteo-activity-block">
-        <span className="report-block-label">Actividad por loteo</span>
-
-        <LoteoSelector
-          loteos={loteos}
-          selectedLoteo={selectedLoteo}
-          onSelect={setSelectedLoteo}
+    <ShellLayout className="analisis-shell">
+      <PageLayout className="analisis-page">
+        <PageHeader
+          eyebrow="Inteligencia comercial"
+          title="Análisis"
+          description="Leé el rendimiento de tu operación y el interés que despierta cada loteo."
         />
 
-        <div className="loteo-activity-inner">
-          <div className="analisis-left-col">
-            <div className="analisis-summary">
-              <div className="analisis-stat analisis-stat--primary">
-                <span className="analisis-stat-value">{isLoadingClicks ? '—' : totalClicks}</span>
-                <span className="analisis-stat-label">Clics totales {isLoadingClicks && '(cargando...)'}</span>
-              </div>
-              <div className="analisis-stat">
-                <span className="analisis-stat-value">{isLoadingClicks ? '—' : clicksData.length}</span>
-                <span className="analisis-stat-label">Lotes con actividad</span>
-              </div>
-            </div>
-
-            <TopLotsPanel
-              topLots={topLots}
-              maxClicks={maxClicks}
-              topLotsFocusedIdx={topLotsFocusedIdx}
-              onFocusChange={setTopLotsFocusedIdx}
-              isLoading={isLoadingClicks}
-            />
-          </div>
-
-          <HeatmapCard
-            selectedLoteo={selectedLoteo}
-            visorData={visorData}
-            clicksData={clicksData}
-            shouldShowBlueprint={shouldShowBlueprint}
-            annotationsWithCoords={annotationsWithCoords}
-            missingCoordinatesCount={missingCoordinatesCount}
-            heatmapFocusedIdx={heatmapFocusedIdx}
-            onFocusChange={setHeatmapFocusedIdx}
-            isLoading={isLoadingVisorData || isLoadingClicks}
+        {loteosLoading ? (
+          <FeedbackState
+            className="analisis-feedback"
+            busy
+            title="Cargando análisis"
+            description="Preparando el rendimiento comercial y la actividad del visor…"
           />
-        </div>
-      </div>
-    </div>
+        ) : loteosError ? (
+          <FeedbackState
+            className="analisis-feedback"
+            role="alert"
+            tone="danger"
+            title="No pudimos cargar los loteos"
+            description={loteosError}
+            action={<Button variant="outline" onClick={fetchLoteos}>Reintentar</Button>}
+          />
+        ) : (
+          <>
+            <PeriodSelector
+              analisisLastDays={analisisLastDays}
+              onAnalisisLastDaysChange={onAnalisisLastDaysChange}
+              reportStats={reportStats}
+              fadeState={fadeState}
+            />
+
+            <Panel as="section" className="loteo-activity-block" flush>
+              <SectionHeader
+                className="analisis-activity-header"
+                eyebrow="Actividad por loteo"
+                title="Interés en el visor 360"
+                sub="Clics de visitantes sobre cada lote en el visor público"
+              />
+
+              <LoteoSelector
+                loteos={loteos}
+                selectedLoteo={selectedLoteo}
+                onSelect={setSelectedLoteo}
+              />
+
+              <div className="loteo-activity-inner">
+                <div className="analisis-left-col">
+                  <div className="analisis-summary" aria-live="polite">
+                    <div className="analisis-stat analisis-stat--primary">
+                      <span className="analisis-stat-value">{isLoadingClicks ? '—' : totalClicks}</span>
+                      <span className="analisis-stat-label">Clics totales {isLoadingClicks && '(cargando...)'}</span>
+                    </div>
+                    <div className="analisis-stat">
+                      <span className="analisis-stat-value">{isLoadingClicks ? '—' : clicksData.length}</span>
+                      <span className="analisis-stat-label">Lotes con actividad</span>
+                    </div>
+                  </div>
+
+                  <TopLotsPanel
+                    topLots={topLots}
+                    maxClicks={maxClicks}
+                    topLotsFocusedIdx={topLotsFocusedIdx}
+                    onFocusChange={setTopLotsFocusedIdx}
+                    isLoading={isLoadingClicks}
+                  />
+                </div>
+
+                <HeatmapCard
+                  selectedLoteo={selectedLoteo}
+                  visorData={visorData}
+                  clicksData={clicksData}
+                  shouldShowBlueprint={shouldShowBlueprint}
+                  annotationsWithCoords={annotationsWithCoords}
+                  missingCoordinatesCount={missingCoordinatesCount}
+                  heatmapFocusedIdx={heatmapFocusedIdx}
+                  onFocusChange={setHeatmapFocusedIdx}
+                  isLoading={isLoadingVisorData || isLoadingClicks}
+                />
+              </div>
+            </Panel>
+          </>
+        )}
+      </PageLayout>
+    </ShellLayout>
   );
 }

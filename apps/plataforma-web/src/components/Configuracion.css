@@ -1,0 +1,213 @@
+/* ── Configuración: layout de dos columnas + scaffold de cards ──
+   Perfil (columna izquierda) · Organización (columna derecha).
+   Las cards son <Panel> del sistema; acá viven la grilla, el head con badge
+   y las filas de datos (label + valor), compartidas entre ProfileCard,
+   y TeamPanel. */
+
+.configuracion-shell {
+  --shell-gap: var(--space-lg);
+  --skin-card-bg: var(--panel-bg);
+  --skin-card-border: var(--border-color);
+  --skin-card-shadow: var(--shadow-surface);
+  --skin-panel-radius: var(--radius-surface);
+}
+
+.configuracion-shell .configuracion-page {
+  --page-section-gap: var(--space-md);
+}
+
+/* ── Grilla ── */
+.configuracion-shell .cfg-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  gap: var(--space-md);
+  align-items: start;
+}
+
+.configuracion-shell .cfg-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+@media (max-width: 960px) {
+  .configuracion-shell .cfg-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Card scaffold (Panel aporta fondo/borde/radio/sombra) ── */
+.cfg-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.cfg-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 14px var(--space-md);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
+}
+
+.cfg-card-head-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cfg-card-head-title h3 {
+  margin: 0;
+  font-family: var(--font-primary);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-black);
+  letter-spacing: -0.01em;
+  color: var(--text-main);
+}
+
+.cfg-card-badge {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface);
+  border: 1px solid color-mix(in srgb, var(--accent-color) 22%, var(--border-color));
+  color: var(--accent-dark);
+}
+
+.cfg-card-head-note {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.cfg-head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.cfg-card-body {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* ── Filas de datos (label + valor + acción) ── */
+.cfg-fields {
+  display: flex;
+  flex-direction: column;
+}
+
+.cfg-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 0;
+}
+
+.cfg-field:first-child { padding-top: 0; }
+.cfg-field:last-child { padding-bottom: 0; }
+
+.cfg-field + .cfg-field {
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
+}
+
+.cfg-field-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.cfg-field-label svg {
+  color: color-mix(in srgb, var(--text-muted) 65%, transparent);
+  flex-shrink: 0;
+}
+
+.cfg-field-note {
+  font-size: 11px;
+  font-weight: 400;
+  font-style: italic;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-muted);
+  opacity: 0.9;
+}
+
+.cfg-field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.cfg-field-value {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.cfg-field-value.is-mono {
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+}
+
+.cfg-field-value.is-empty {
+  font-weight: 400;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+/* Input compartido de edición inline */
+.cfg-input {
+  width: 100%;
+  min-width: 0;
+  padding: calc(var(--space-xs) + 2px) var(--space-sm);
+  font-family: inherit;
+  font-size: var(--text-base);
+  color: var(--text-main);
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: border-color var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.cfg-input::placeholder { color: var(--text-muted); }
+
+.cfg-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 15%, transparent);
+}
+
+.cfg-input:disabled { opacity: 0.5; }
+
+/* ── Bloques dentro de la card de Organización ── */
+.cfg-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding-top: var(--space-md);
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
+}
+
+.cfg-section-label {
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-dark);
+}
