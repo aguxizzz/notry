@@ -82,9 +82,11 @@ export default function LoteoFormModal({
               label="Imagen de portada"
               value={formData.image_url}
               thumbnailUrl={formData.thumbnail_url}
-              onUpload={({ url, thumbnailUrl }) => {
+              onUpload={({ url, thumbnailUrl, width, height }) => {
                 onFieldChange('image_url', url);
                 onFieldChange('thumbnail_url', thumbnailUrl);
+                onFieldChange('panorama_width', width);
+                onFieldChange('panorama_height', height);
               }}
               apiFetch={apiFetch}
               uploadFn={uploadFn}
