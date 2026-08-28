@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
 const POLY_VAR = {
-  available: { fill: 'rgba(34,197,94,0.28)',  stroke: 'rgba(34,197,94,0.9)'  },
-  sold:      { fill: 'rgba(239,68,68,0.28)',  stroke: 'rgba(239,68,68,0.9)'  },
-  reserved:  { fill: 'rgba(59,130,246,0.28)', stroke: 'rgba(59,130,246,0.9)' },
+  available: { fill: 'rgba(34,197,94,0.24)',  stroke: 'rgba(34,197,94,0.9)'  },
+  unavailable: { fill: 'rgba(107,114,128,0.30)', stroke: 'rgba(75,85,99,0.95)' },
+  sold:      { fill: 'rgba(239,68,68,0.24)',  stroke: 'rgba(239,68,68,0.9)'  },
+  reserved:  { fill: 'rgba(59,130,246,0.24)', stroke: 'rgba(59,130,246,0.9)' },
   default:   { fill: 'rgba(0,100,255,0.28)',  stroke: 'rgba(0,100,255,0.9)'  },
+  recommended: { fill: 'rgba(197,160,89,0.42)', stroke: 'rgba(197,160,89,0.95)' },
+  muted: { fill: 'rgba(160,160,160,0.20)', stroke: 'rgba(255,255,255,0.6)' },
 };
 
 function getPolyVar(status) {
@@ -28,6 +31,8 @@ export default function BlueprintViewer({
   onMarkerSelect,
   onMarkerHover,
   hasStageSwitcher,
+  recommendedIds,
+  focusMode,
 }) {
   const containerRef = useRef(null);
   const transformRef = useRef(null);
@@ -168,8 +173,9 @@ export default function BlueprintViewer({
   };
 
   // Empty state: no annotations with valid blueprint_coordinates
-  const hasAnnotations = annotations.some(
-    a => (a.type === 'polygon' || a.type === 'poi') && a.blueprint_coordinates?.length >= 3
+  const hasAnnotations = annotations.some(a =>
+    a.type === 'polygon' && a.blueprint_coordinates?.length >= 3 ||
+    a.type === 'poi' && ((a.variant === 'callout' || a.marker_variant === 'callout') ? (a.blueprint_anchor ?? a.blueprint_coordinates?.[0]) : a.blueprint_coordinates?.length >= 3)
   );
 
   if (!blueprintUrl) {
@@ -263,13 +269,44 @@ export default function BlueprintViewer({
           {annotations.map((ann) => {
             const isPolygon = ann.type === 'polygon';
             const isPoi = ann.type === 'poi';
+            const isCallout = isPoi && (ann.variant === 'callout' || ann.marker_variant === 'callout');
+            if (isCallout) {
+              const anchor = ann.blueprint_anchor ?? ann.blueprint_coordinates?.[0];
+              if (!anchor) return null;
+              const point = normToSvg(anchor[0], anchor[1]);
+              const id = ann.uuid || ann.id;
+              const isFocused = hoveredId === id || selectedId === id;
+              const stem = Math.max(40, Math.min(260, Number(ann.callout_stem_height) || 96));
+              const isPhotoPin = Boolean(ann.image_url);
+              return (
+                <g key={id} role="button" tabIndex={0} aria-label={ann.tooltip ?? id}
+                  className={`bp-poly bp-callout${isFocused ? ' bp-poly--focused' : ''}`}
+                  onClick={(e) => handlePolygonClick(e, ann)} onKeyDown={(e) => handlePolygonKeyDown(e, ann)}
+                  onMouseEnter={() => handlePolygonHover(null, ann)} onMouseLeave={() => handlePolygonHover(null, null)}>
+                  {isPhotoPin ? (
+                    <>
+                      <path d={`M ${point.x} ${point.y} C ${point.x - 10} ${point.y - 13}, ${point.x - 12} ${point.y - 20}, ${point.x - 12} ${point.y - 25} A 12 12 0 1 1 ${point.x + 12} ${point.y - 25} C ${point.x + 12} ${point.y - 20}, ${point.x + 10} ${point.y - 13}, ${point.x} ${point.y}`} fill={ann.color || '#c5a059'} stroke="#fffdf8" strokeWidth="2" strokeLinejoin="round" />
+                      <circle cx={point.x} cy={point.y - 25} r="4" fill="#fffdf8" />
+                    </>
+                  ) : (
+                    <>
+                      <line x1={point.x} y1={point.y} x2={point.x} y2={Math.max(18, point.y - stem)} stroke="#fff" strokeWidth="1.5" />
+                      <text x={point.x + 8} y={Math.max(14, point.y - stem)} textAnchor="start" fill="#fff" fontSize="15" fontWeight="600" dominantBaseline="hanging" paintOrder="stroke" stroke="#171713" strokeWidth="4" strokeLinejoin="round">{ann.tooltip}</text>
+                    </>
+                  )}
+                </g>
+              );
+            }
             if ((!isPolygon && !isPoi) || !ann.blueprint_coordinates || ann.blueprint_coordinates.length < 3) {
               return null;
             }
 
+            const isRecommended = !isPoi && Boolean(recommendedIds?.has(ann.uuid || ann.id));
+            const isMuted = !isPoi && !isRecommended && Boolean(focusMode) && (recommendedIds?.size ?? 0) > 0;
             const polyVar = isPoi
               ? getPoiVar(ann.color)
-              : getPolyVar(ann.status || ann.estado);
+              : getPolyVar(isRecommended ? 'recommended' : isMuted ? 'muted' : (ann.status || ann.estado));
+            const statusKey = isRecommended ? 'recommended' : isMuted ? 'muted' : (ann.status || ann.estado || 'default');
             const isHovered = hoveredId === (ann.uuid || ann.id);
             const isSelected = selectedId === (ann.uuid || ann.id);
             const isFocused  = isHovered || isSelected;
@@ -284,7 +321,7 @@ export default function BlueprintViewer({
                 role="button"
                 tabIndex={0}
                 aria-label={ann.tooltip ?? (ann.uuid || ann.id)}
-                className={isFocused ? 'bp-poly bp-poly--focused' : 'bp-poly'}
+                className={`bp-poly bp-poly--${isPoi ? 'poi' : statusKey}${isFocused ? ' bp-poly--focused' : ''}`}
                 onClick={(e) => handlePolygonClick(e, ann)}
                 onKeyDown={(e) => handlePolygonKeyDown(e, ann)}
                 onMouseEnter={(e) => handlePolygonHover(e, ann)}

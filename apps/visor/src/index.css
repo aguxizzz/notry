@@ -27,11 +27,13 @@
   --viewer-error-sub:     #666666;
 
   /* Polygon fill/stroke per status */
-  --poly-available-fill:   rgba(34, 197, 94, 0.08);
+  --poly-available-fill:   rgba(34, 197, 94, 0.16);
   --poly-available-stroke: rgba(255, 255, 255, 0.9);
-  --poly-sold-fill:        rgba(239, 68, 68, 0.08);
+  --poly-unavailable-fill: rgba(107, 114, 128, 0.28);
+  --poly-unavailable-stroke: rgba(255, 255, 255, 0.9);
+  --poly-sold-fill:        rgba(239, 68, 68, 0.18);
   --poly-sold-stroke:      rgba(255, 255, 255, 0.9);
-  --poly-reserved-fill:    rgba(59, 130, 246, 0.08);
+  --poly-reserved-fill:    rgba(59, 130, 246, 0.24);
   --poly-reserved-stroke:  rgba(255, 255, 255, 0.9);
   --poly-default-fill:     rgba(0, 100, 255, 0.08);
   --poly-default-stroke:   rgba(255, 255, 255, 0.9);
@@ -39,6 +41,8 @@
   /* ── Status colors (used in InfoPanel & estado badges) ─── */
   --estado-available-accent:     #1e6e3e;
   --estado-available-accent-h:   #175c33;
+  --estado-unavailable-accent:   #4b5563;
+  --estado-unavailable-accent-h: #374151;
   --estado-sold-accent:          #a82828;
   --estado-sold-accent-h:        #8e2020;
   --estado-reserved-accent:      #1e4d8c;
@@ -49,6 +53,89 @@
    BLUEPRINT POLYGON MARKERS
    Matches .psv-marker--poly hover from panorama mode.
    ============================================= */
+.poi-callout {
+  position: relative;
+  width: 230px;
+  height: var(--poi-callout-stem);
+  color: rgba(255, 255, 255, 0.98);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.poi-callout__title {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(200px / var(--poi-callout-marker-scale, 1));
+  overflow: hidden;
+  color: inherit;
+  text-align: center;
+  font: 600 var(--poi-callout-font-size, 15px)/1.2 var(--font-body, sans-serif);
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.72);
+}
+
+/* El chip, el punto y la guía son piezas de tamaño fijo (no texto), así que
+   sin compensación PSV los encoge junto con todo el marcador al alejar la
+   cámara. Dividen por --poi-callout-marker-scale (la misma escala que PSV
+   les va a aplicar) para que su tamaño final en pantalla se mantenga
+   constante, igual que el título. */
+.poi-callout__stem {
+  position: absolute;
+  bottom: 0;
+  top: calc(var(--poi-callout-font-size, 15px) * 1.2 + (8px / var(--poi-callout-marker-scale, 1)));
+  left: 50%;
+  width: calc(1px / var(--poi-callout-marker-scale, 1));
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.poi-callout--photo .poi-callout__stem {
+  top: calc(var(--poi-callout-font-size, 15px) * 1.2 + (48px / var(--poi-callout-marker-scale, 1)));
+}
+
+.poi-callout__dot {
+  position: absolute;
+  bottom: calc(-3px / var(--poi-callout-marker-scale, 1));
+  left: 50%;
+  width: calc(6px / var(--poi-callout-marker-scale, 1));
+  height: calc(6px / var(--poi-callout-marker-scale, 1));
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: #fffdf8;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.poi-callout__chip {
+  position: absolute;
+  top: calc(var(--poi-callout-font-size, 15px) * 1.2 + (10px / var(--poi-callout-marker-scale, 1)));
+  left: 50%;
+  width: calc(30px / var(--poi-callout-marker-scale, 1));
+  height: calc(30px / var(--poi-callout-marker-scale, 1));
+  transform: translateX(-50%);
+  border-radius: calc(9px / var(--poi-callout-marker-scale, 1));
+  background: rgba(255, 253, 248, 0.94);
+  border: calc(1.5px / var(--poi-callout-marker-scale, 1)) solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+  display: grid;
+  place-items: center;
+}
+
+.poi-callout__chip svg {
+  width: calc(16px / var(--poi-callout-marker-scale, 1));
+  height: calc(16px / var(--poi-callout-marker-scale, 1));
+  display: block;
+}
+
 .bp-poly {
   cursor: pointer;
   outline: none;
@@ -60,6 +147,47 @@
 .bp-poly:focus-visible {
   filter: brightness(1.5) saturate(1.1);
   transition: filter var(--t-fast);
+}
+
+/* Keep state colors recognizable while interacting. A generic brightness
+   filter washes the reserved blue toward white and is almost imperceptible
+   on the low-opacity sold red over a panorama. */
+.bp-poly--sold:hover polygon,
+.bp-poly--sold.bp-poly--focused polygon,
+.bp-poly--sold:focus-visible polygon {
+  fill: rgba(239, 68, 68, 0.38);
+  stroke: rgba(248, 113, 113, 1);
+}
+.bp-poly--reserved:hover polygon,
+.bp-poly--reserved.bp-poly--focused polygon,
+.bp-poly--reserved:focus-visible polygon {
+  fill: rgba(59, 130, 246, 0.34);
+  stroke: rgba(96, 165, 250, 1);
+}
+.bp-poly--available:hover polygon,
+.bp-poly--available.bp-poly--focused polygon,
+.bp-poly--available:focus-visible polygon {
+  fill: rgba(34, 197, 94, 0.34);
+  stroke: rgba(74, 222, 128, 1);
+}
+.bp-poly--unavailable:hover polygon,
+.bp-poly--unavailable.bp-poly--focused polygon,
+.bp-poly--unavailable:focus-visible polygon {
+  fill: rgba(107, 114, 128, 0.42);
+  stroke: rgba(209, 213, 219, 1);
+}
+.bp-poly--recommended:hover polygon,
+.bp-poly--recommended.bp-poly--focused polygon,
+.bp-poly--recommended:focus-visible polygon {
+  fill: rgba(197, 160, 89, 0.42);
+  stroke: rgba(224, 194, 138, 1);
+  animation-play-state: paused;
+}
+.bp-poly--recommended polygon {
+  animation: lot-recommended-pulse 2.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bp-poly--recommended polygon { animation: none; }
 }
 
 /* ── BlueprintViewer — shared layout ─────────── */
@@ -222,6 +350,11 @@ html, body {
 #info-backdrop.visible #info-panel {
   transform: translateY(0);
   opacity: 1;
+}
+/* POI photo view — larger stage for the image, same panel chrome */
+#info-panel.info-panel-photo {
+  width: min(1100px, calc(100vw - 2rem));
+  max-height: min(92vh, 900px);
 }
 
 /* =============================================
@@ -418,14 +551,15 @@ html, body {
   padding: 0.25rem 0 0.5rem;
 }
 
-/* WhatsApp CTA button */
-.btn-whatsapp {
+/* Primary request CTA */
+.btn-request {
   width: 100%;
+  box-sizing: border-box;
   padding: 0.75rem 1.5rem;
-  background: #4CAF50;
+  background: var(--accent);
   color: #ffffff;
   border: none;
-  border-radius: 50px;
+  border-radius: var(--btn-radius);
   font-size: 15px;
   font-weight: 700;
   font-family: inherit;
@@ -435,14 +569,15 @@ html, body {
   align-items: center;
   justify-content: center;
   gap: 0.6rem;
+  text-decoration: none;
   transition: background var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
 }
-.btn-whatsapp:hover {
-  background: #43a047;
+.btn-request:hover {
+  background: var(--accent-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(76, 175, 80, 0.35);
+  box-shadow: 0 4px 16px rgba(197, 160, 89, 0.3);
 }
-.btn-whatsapp:active { transform: translateY(0); box-shadow: none; }
+.btn-request:active { transform: translateY(0); box-shadow: none; }
 
 /* Financing text */
 .lote-financing {
@@ -525,6 +660,7 @@ html, body {
 }
 /* Colored dot — green / red / blue by estado */
 .estado-badge[data-estado="available"] { color: var(--estado-available-accent); }
+.estado-badge[data-estado="unavailable"] { color: var(--estado-unavailable-accent); }
 .estado-badge[data-estado="sold"]      { color: var(--estado-sold-accent); }
 .estado-badge[data-estado="reserved"]  { color: var(--estado-reserved-accent); }
 
@@ -542,19 +678,30 @@ html, body {
 #info-content p:last-child { margin-bottom: 0; }
 #info-content strong { color: var(--text-primary); font-weight: 600; }
 
-#info-actions button {
+#info-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+#info-actions button,
+#info-actions a {
   width: 100%;
+  box-sizing: border-box;
   padding: 0.65rem 1rem;
-  background: var(--accent);
-  color: #ffffff;
-  border: none;
+  min-height: 42px;
   border-radius: var(--btn-radius);
   font-size: 14px;
   font-weight: 700;
   font-family: inherit;
+  text-decoration: none;
   cursor: pointer;
   letter-spacing: 0.02em;
   transition: background var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
+}
+#info-actions button {
+  background: var(--accent);
+  color: #ffffff;
+  border: none;
 }
 #info-actions button:hover {
   background: var(--accent-hover);
@@ -562,6 +709,26 @@ html, body {
   box-shadow: 0 4px 16px rgba(197, 160, 89, 0.3);
 }
 #info-actions button:active { transform: translateY(0); box-shadow: none; }
+
+/* Botón directo de WhatsApp (verde marca), secundario respecto al gold "Solicitar contacto" */
+#info-actions .btn-wa-direct {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  background: rgba(37, 211, 102, 0.08);
+  color: #168a43;
+  border: 1px solid rgba(37, 211, 102, 0.35);
+  border-radius: var(--btn-radius);
+}
+#info-actions .btn-wa-direct:hover {
+  background: rgba(37, 211, 102, 0.14);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.18);
+}
+#info-actions .btn-wa-direct:active { transform: translateY(0); box-shadow: none; }
 
 /* =============================================
    POI PANEL
@@ -609,6 +776,34 @@ html, body {
   padding: 2px 9px;
   text-transform: capitalize;
   width: fit-content;
+}
+
+.poi-photo-view {
+  margin: 0;
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  background: #f7f5f1;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.poi-photo-view img {
+  display: block;
+  width: 100%;
+  max-height: min(68vh, 620px);
+  object-fit: contain;
+}
+.info-panel-photo .poi-photo-view img {
+  max-height: min(82vh, 800px);
+}
+
+.poi-empty-state {
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
 }
 
 .poi-link-btn {
@@ -798,6 +993,80 @@ html, body {
   filter: brightness(1.5) saturate(1.1);
 }
 
+/* Status-aware hover for panorama polygons. Explicit fills preserve the
+   original semantic color instead of letting brightness shift the hue.
+   El fill va solo al polígono de relleno: el borde siempre debe quedar
+   con fill:none (JS), o el trazo pasa a ser una forma sólida con
+   pointer-events "auto" que tapa el lote entero y se come los clicks
+   (visto con lotes recomendados + estado reservado/vendido). */
+.psv-marker--lot-sold {
+  transition: filter var(--t-fast);
+}
+.psv-marker--lot-sold:hover:not(.psv-marker--lot-border) {
+  fill: rgba(239, 68, 68, 0.36);
+}
+.psv-marker--lot-sold:hover {
+  stroke: rgba(248, 113, 113, 1);
+  filter: drop-shadow(0 0 3px rgba(239, 68, 68, 0.55));
+}
+.psv-marker--lot-reserved {
+  transition: filter var(--t-fast);
+}
+.psv-marker--lot-reserved:hover:not(.psv-marker--lot-border) {
+  fill: rgba(59, 130, 246, 0.34);
+}
+.psv-marker--lot-reserved:hover {
+  stroke: rgba(96, 165, 250, 1);
+  filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.45));
+}
+.psv-marker--lot-available {
+  transition: filter var(--t-fast);
+}
+.psv-marker--lot-available:hover:not(.psv-marker--lot-border) {
+  fill: rgba(34, 197, 94, 0.34);
+}
+.psv-marker--lot-available:hover {
+  stroke: rgba(74, 222, 128, 1);
+  filter: drop-shadow(0 0 3px rgba(34, 197, 94, 0.45));
+}
+.psv-marker--lot-unavailable {
+  transition: filter var(--t-fast);
+}
+.psv-marker--lot-unavailable:hover:not(.psv-marker--lot-border) {
+  fill: rgba(107, 114, 128, 0.42);
+}
+.psv-marker--lot-unavailable:hover {
+  stroke: rgba(209, 213, 219, 1);
+  filter: drop-shadow(0 0 3px rgba(107, 114, 128, 0.55));
+}
+
+/* Recomendado por el simulador de compra: dorado, siempre por encima del
+   color de estado (los candidatos que llegan acá ya están filtrados a
+   disponibles, así que nunca convive con reservado/vendido). */
+.psv-marker--lot-recommended {
+  animation: lot-recommended-pulse 2.4s ease-in-out infinite;
+}
+/* El fill !important solo va en el polígono de relleno: aplicárselo también
+   al borde (que JS deja en fill:none) lo convierte en una forma sólida que
+   tapa todo el lote y se come los clicks destinados al relleno de abajo. */
+.psv-marker--lot-recommended:not(.psv-marker--lot-border) {
+  fill: rgba(197, 160, 89, 0.42) !important;
+}
+.psv-marker--lot-recommended:hover:not(.psv-marker--lot-border) {
+  fill: rgba(197, 160, 89, 0.58) !important;
+}
+.psv-marker--lot-recommended:hover {
+  animation-play-state: paused;
+  filter: drop-shadow(0 0 6px rgba(197, 160, 89, 0.85));
+}
+@keyframes lot-recommended-pulse {
+  0%, 100% { filter: drop-shadow(0 0 2px rgba(197, 160, 89, 0.35)); }
+  50%      { filter: drop-shadow(0 0 10px rgba(197, 160, 89, 0.95)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .psv-marker--lot-recommended { animation: none; }
+}
+
 /* =============================================
    PRECALIFICACIÓN: FEEDBACK DE ENVÍO
    ============================================= */
@@ -906,7 +1175,7 @@ html, body {
   /* Safe-area insets for iOS notch / home indicator */
   top: calc(16px + env(safe-area-inset-top));
   right: calc(16px + env(safe-area-inset-right));
-  z-index: 1000;
+  z-index: 90;
 
   /* 44px min touch target (WCAG AA / Apple HIG) */
   min-width: 44px;
@@ -939,6 +1208,73 @@ html, body {
 }
 
 /* =============================================
+   FILTRO "SOLO RECOMENDADOS" (simulador de compra)
+   ============================================= */
+.recommended-filter-toggle {
+  position: fixed;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 90;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  min-width: 212px;
+  padding: 10px 18px;
+
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 999px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(0.75rem, 1.5vw, 0.85rem);
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.14);
+  cursor: pointer;
+  transition: background var(--t-fast), transform var(--t-fast);
+}
+.recommended-filter-toggle--above-switcher {
+  bottom: calc(24px + 46px + 10px + env(safe-area-inset-bottom));
+}
+.recommended-filter-toggle:hover {
+  background: rgba(255, 255, 255, 1);
+}
+.recommended-filter-toggle:active {
+  transform: translateX(-50%) scale(0.97);
+}
+.recommended-filter-toggle:focus-visible {
+  outline: 2px solid #c5a059;
+  outline-offset: 2px;
+}
+.recommended-filter-toggle[aria-pressed='true'] {
+  border-color: rgba(197, 160, 89, 0.55);
+  color: #1a1a1a;
+}
+.recommended-filter-toggle__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #c5a059;
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .recommended-filter-toggle {
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    min-width: 188px;
+  }
+  .recommended-filter-toggle--above-switcher {
+    bottom: calc(16px + 40px + 8px + env(safe-area-inset-bottom));
+  }
+}
+
+/* =============================================
    FALLBACK OFFLINE BANNER
    ============================================= */
 .fallback-banner {
@@ -955,6 +1291,91 @@ html, body {
   z-index: 9999;
   pointer-events: none;
   white-space: nowrap;
+}
+
+/* =============================================
+   STAGE TRANSITION STATUS
+   ============================================= */
+.stage-transition-status,
+.stage-transition-error {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100vw - 32px);
+  padding: 9px 14px;
+  border-radius: 999px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.78rem;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.16);
+}
+
+.stage-transition-status {
+  bottom: calc(82px + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, 0.92);
+  color: #555;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.stage-transition-status--above-filter {
+  bottom: calc(82px + 46px + 10px + env(safe-area-inset-bottom));
+}
+
+.stage-transition-error {
+  bottom: calc(82px + env(safe-area-inset-bottom));
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+}
+.stage-transition-error--above-filter {
+  bottom: calc(82px + 46px + 10px + env(safe-area-inset-bottom));
+}
+
+.stage-transition-error button {
+  border: 0;
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: #c2410c;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.viewer-load-error {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  box-sizing: border-box;
+  background: #1a1a1a;
+  color: #f3f3f3;
+  text-align: center;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.viewer-load-error p {
+  max-width: 420px;
+  margin: 0;
+  color: #d1d1d1;
+}
+
+.viewer-load-error button {
+  border: 0;
+  border-radius: 999px;
+  padding: 9px 15px;
+  background: var(--accent);
+  color: #1a1a1a;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 /* =============================================

@@ -36,8 +36,17 @@ const IconDollar = () => (
 );
 
 const IconWhatsApp = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413"/>
+  </svg>
+);
+
+const IconRequest = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <path d="M14 2v6h6"/>
+    <path d="M9 15h6"/>
+    <path d="M9 18h4"/>
   </svg>
 );
 
@@ -81,12 +90,26 @@ const PRE_CALIFICACION_URL = 'https://notry-back.onrender.com/api/v1/public/pre-
 
 const ESTADO_CONFIG = {
   available: { accent: 'var(--estado-available-accent)', accentHover: 'var(--estado-available-accent-h)', label: 'Disponible' },
+  unavailable: { accent: 'var(--estado-unavailable-accent)', accentHover: 'var(--estado-unavailable-accent-h)', label: 'No disponible' },
   sold:      { accent: 'var(--estado-sold-accent)',      accentHover: 'var(--estado-sold-accent-h)',      label: 'Vendido'    },
   reserved:  { accent: 'var(--estado-reserved-accent)',  accentHover: 'var(--estado-reserved-accent-h)',  label: 'Reservado'  },
 };
 
 // Set to true to re-enable price display
 const SHOW_PRICE = false;
+const PHONE_ALLOWED = /^\+?[0-9][0-9\s().-]*$/;
+const PERSON_NAME_ALLOWED = /^[\p{L}][\p{L}\p{M}\s.'-]*$/u;
+
+const normalizePhoneInput = (value) => String(value ?? '').replace(/[^0-9+\s().-]/g, '');
+const isValidPhone = (value) => {
+  const phone = String(value ?? '').trim();
+  const digits = phone.replace(/\D/g, '');
+  return PHONE_ALLOWED.test(phone) && digits.length >= 7 && digits.length <= 15;
+};
+const isValidPersonName = (value) => {
+  const name = String(value ?? '').trim().replace(/\s+/g, ' ');
+  return name.length >= 2 && name.length <= 255 && PERSON_NAME_ALLOWED.test(name);
+};
 
 const formatPrice = (price) => {
   if (!price) return '';
@@ -103,6 +126,7 @@ const formatArea = (area) => {
 function PrecalificacionForm({ lotDetail, onClose, origin }) {
   const [nombre, setNombre] = useState('');
   const [numero, setNumero] = useState('');
+  const [formError, setFormError] = useState('');
   const [submitStatus, setSubmitStatus] = useState('idle'); // 'idle' | 'loading' | 'success' | 'error'
   const timeoutRef = useRef(null);
 
@@ -114,7 +138,16 @@ function PrecalificacionForm({ lotDetail, onClose, origin }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (lotDetail.estado === 'sold') { onClose(); return; }
+    if (lotDetail.estado !== 'available') { onClose(); return; }
+    if (!isValidPersonName(nombre)) {
+      setFormError('Ingresá un nombre válido, sin números ni símbolos.');
+      return;
+    }
+    if (!isValidPhone(numero)) {
+      setFormError('Ingresá un teléfono válido de entre 7 y 15 dígitos.');
+      return;
+    }
+    setFormError('');
     setSubmitStatus('loading');
     fetch(PRE_CALIFICACION_URL, {
       method: 'POST',
@@ -172,9 +205,11 @@ function PrecalificacionForm({ lotDetail, onClose, origin }) {
             name="nombre"
             placeholder="Ingrese su nombre completo"
             value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
+            onChange={(e) => setNombre(e.target.value.replace(/[^\p{L}\p{M}\s.'-]/gu, ''))}
             autoComplete="off"
             required
+            minLength={2}
+            maxLength={255}
             autoFocus
           />
           <label htmlFor="precal-numero">Número de teléfono</label>
@@ -184,10 +219,14 @@ function PrecalificacionForm({ lotDetail, onClose, origin }) {
             name="numero"
             placeholder="Ingrese su número de teléfono"
             value={numero}
-            onChange={(e) => setNumero(e.target.value)}
+            onChange={(e) => setNumero(normalizePhoneInput(e.target.value))}
             autoComplete="off"
             required
+            inputMode="tel"
+            maxLength={25}
+            pattern="\+?[0-9][0-9\s().-]*"
           />
+          {formError && <p className="precal-form-error" role="alert">{formError}</p>}
           <button type="submit" className="btn-enviar" disabled={submitStatus !== 'idle'}>
             {submitStatus === 'loading' ? 'Enviando...' : 'Enviar solicitud'}
           </button>
@@ -235,7 +274,7 @@ function PrecalificacionForm({ lotDetail, onClose, origin }) {
 // Duration must match --t in index.css (0.28s)
 const CLOSE_DURATION_MS = 280;
 
-export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origin, onClose, onGoToStage }) {
+export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origin, whatsappPhone, onClose, onGoToStage }) {
   const [showForm, setShowForm] = useState(false);
   const [transDir, setTransDir] = useState(null);
   const [isClosing, setIsClosing] = useState(false);
@@ -287,6 +326,7 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origi
   const estadoKey = display.detail?.estado;
   const estadoCfg = ESTADO_CONFIG[estadoKey] ?? null;
   const isPoi = display.detail?.type === 'poi';
+  const isPhotoPoi = isPoi && !!display.detail?.image_url;
 
   const lotDetail = {
     title: display.title ?? '',
@@ -303,6 +343,7 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origi
     icon_type: display.detail?.icon_type ?? null,
     link_url: display.detail?.link_url ?? null,
     color: display.detail?.color ?? '#14b8a6',
+    image_url: display.detail?.image_url ?? null,
     target_loteo_id: display.detail?.target_loteo_id ?? null,
     target_stage_name: display.detail?.target_stage_name ?? null,
     content: display.content ?? '',
@@ -318,7 +359,7 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origi
       className={isOpen ? 'visible' : ''}
       onClick={(e) => { if (e.target === e.currentTarget) { closingRef.current = true; onClose(); } }}
     >
-      <div id="info-panel" role="dialog" aria-modal="true" aria-live="polite" style={panelAccentStyle}>
+      <div id="info-panel" className={isPhotoPoi ? 'info-panel-photo' : undefined} role="dialog" aria-modal="true" aria-live="polite" style={panelAccentStyle}>
 
         <header id="info-panel-header">
           <div id="info-panel-header-left">
@@ -357,6 +398,12 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origi
             <PrecalificacionForm key={display.markerId} lotDetail={lotDetail} origin={origin} onClose={wrappedOnClose} />
           ) : isPoi ? (
             <div id="info-panel-view">
+              {poiDetail.image_url ? (
+                <figure className="poi-photo-view">
+                  <img src={poiDetail.image_url} alt={poiDetail.title || 'Foto del lugar'} />
+                </figure>
+              ) : (
+                <>
               <div className="poi-header">
                 {poiDetail.icon_type && POI_ICON_MARKERS[poiDetail.icon_type] && (
                   <div className="poi-icon-wrap" style={{ background: poiDetail.color }}>
@@ -397,7 +444,11 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origi
                     Visitar enlace
                   </a>
                 </div>
+              ) : !poiDetail.content ? (
+                <div className="poi-empty-state">Sin información adicional.</div>
               ) : null}
+                </>
+              )}
             </div>
           ) : (
             <div
@@ -433,10 +484,21 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origi
                     ¡Este lote está disponible! Solicita más información y te contactamos pronto.
                   </div>
                   <div id="info-actions">
-                    <button type="button" onClick={goToForm} className="btn-whatsapp">
-                      <IconWhatsApp />
-                      <span>Quiero más info</span>
+                    <button type="button" onClick={goToForm} className="btn-request">
+                      <IconRequest />
+                      <span>Solicitar contacto</span>
                     </button>
+                    {whatsappPhone && (
+                      <a
+                        href={`https://wa.me/${whatsappPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola, me interesa el lote ${display.title}`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-wa-direct"
+                      >
+                        <IconWhatsApp />
+                        <span>Escribir por WhatsApp</span>
+                      </a>
+                    )}
                   </div>
                   {/*
                   <div className="lote-financing">
@@ -482,9 +544,13 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origi
                 </div>
               )}
 
-              {display.detail?.estado === 'sold' || display.detail?.estado === 'reserved' ? (
+              {display.detail?.estado === 'sold' || display.detail?.estado === 'reserved' || display.detail?.estado === 'unavailable' ? (
                 <div className="lote-status-unavailable">
-                  {display.detail?.estado === 'sold' ? 'Este lote ya fue vendido' : 'Este lote está reservado'}
+                  {display.detail?.estado === 'sold'
+                    ? 'Este lote ya fue vendido'
+                    : display.detail?.estado === 'reserved'
+                      ? 'Este lote está reservado'
+                      : 'Este lote aún no está disponible.'}
                 </div>
               ) : null}
             </div>
