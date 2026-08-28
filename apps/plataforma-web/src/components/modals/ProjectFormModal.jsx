@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import ImageUploadField from '../ImageUploadField';
 import { Button } from '../../ui/components';
+import { SIMULADOR_URL } from '../../config';
 import '../../ui/components/Modal.css';
 
 // Fuentes del selector de tipografía que no carga la app por defecto.
@@ -32,6 +33,7 @@ const EMPTY_BRANDING = {
 
 export default function ProjectFormModal({ isOpen, onClose, onSubmit, loading, error, initialData = null, apiFetch, uploadFn, onUploadEvent }) {
   const [name, setName] = useState(initialData?.name ?? '');
+  const [slug, setSlug] = useState(initialData?.slug ?? '');
   const [branding, setBranding] = useState({
     ...EMPTY_BRANDING,
     ...(initialData?.branding ?? {}),
@@ -60,7 +62,7 @@ export default function ProjectFormModal({ isOpen, onClose, onSubmit, loading, e
     const brandingPayload = Object.fromEntries(
       Object.entries(branding).filter(([, v]) => v !== '')
     );
-    onSubmit({ name, branding: Object.keys(brandingPayload).length ? brandingPayload : null });
+    onSubmit({ name, slug: slug.trim() || null, branding: Object.keys(brandingPayload).length ? brandingPayload : null });
   }
 
   return createPortal(
@@ -79,6 +81,20 @@ export default function ProjectFormModal({ isOpen, onClose, onSubmit, loading, e
               placeholder="Ej: Paseo Berlin"
               required
             />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Slug del simulador</label>
+            <input
+              className="form-input"
+              type="text"
+              value={slug}
+              onChange={e => setSlug(e.target.value)}
+              placeholder="Se genera del nombre si lo dejás vacío"
+            />
+            <p className="form-hint">
+              URL pública: {SIMULADOR_URL}/{slug.trim() || '(slug)'}
+            </p>
           </div>
 
           <div className="form-section-title">Branding visual</div>
