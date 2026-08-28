@@ -22,11 +22,11 @@ export default function ProjectsView({ apiFetch, uploadFn, onUploadEvent, allLot
   const [projectToDelete, setProjectToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  async function handleCreate({ name, slug, branding }) {
+  async function handleCreate({ name, slug, branding, finance_config }) {
     setSaving(true);
     setSaveError(null);
     try {
-      const created = await createProject({ apiFetch, name, slug, branding });
+      const created = await createProject({ apiFetch, name, slug, branding, finance_config });
       setProjects(prev => [...prev, created]);
       setModalOpen(false);
       addToast?.('Proyecto creado', 'success');
@@ -37,11 +37,11 @@ export default function ProjectsView({ apiFetch, uploadFn, onUploadEvent, allLot
     }
   }
 
-  async function handleEdit({ name, slug, branding }) {
+  async function handleEdit({ name, slug, branding, finance_config }) {
     setSaving(true);
     setSaveError(null);
     try {
-      const updated = await updateProject({ apiFetch, projectId: editingProject.id, name, slug, branding });
+      const updated = await updateProject({ apiFetch, projectId: editingProject.id, name, slug, branding, finance_config });
       setProjects(prev => prev.map(p => p.id === updated.id ? updated : p));
       setEditingProject(null);
       addToast?.('Proyecto actualizado', 'success');
@@ -236,6 +236,7 @@ export default function ProjectsView({ apiFetch, uploadFn, onUploadEvent, allLot
           apiFetch={apiFetch}
           uploadFn={uploadFn}
           onUploadEvent={onUploadEvent}
+          allLoteos={allLoteos}
         />
 
         <ProjectFormModal
@@ -249,6 +250,7 @@ export default function ProjectsView({ apiFetch, uploadFn, onUploadEvent, allLot
           apiFetch={apiFetch}
           uploadFn={uploadFn}
           onUploadEvent={onUploadEvent}
+          allLoteos={allLoteos}
         />
 
         <ConfirmModal
