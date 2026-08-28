@@ -60,6 +60,11 @@
   color: #1a1a1a;
 }
 
+.stage-switcher-btn:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
 .stage-switcher-btn.active {
   color: #1a1a1a;
   font-weight: 700;

@@ -98,7 +98,7 @@ function App() {
 
     if (!project.viewerLoteoId) return;
     const dataUrl = `${API_BASE}/loteos/${project.viewerLoteoId}/group_visor_data`;
-    window.open(`${VISOR_URL}/?data=${dataUrl}&recommended=${lotIds.join(',')}`, '_blank', 'noopener,noreferrer');
+    window.open(`${VISOR_URL}/?data=${encodeURIComponent(dataUrl)}&recommended=${lotIds.join(',')}`, '_blank', 'noopener,noreferrer');
   };
 
   return (

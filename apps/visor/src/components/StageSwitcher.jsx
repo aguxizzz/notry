@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import './StageSwitcher.css';
 
-export default function StageSwitcher({ stages, currentStageId, onSelect }) {
+export default function StageSwitcher({ stages, currentStageId, onSelect, disabled = false }) {
   if (!stages || stages.length < 2) return null;
 
   const containerRef = useRef(null);
@@ -63,6 +63,7 @@ export default function StageSwitcher({ stages, currentStageId, onSelect }) {
             type="button"
             role="tab"
             aria-selected={isActive}
+            disabled={disabled}
             className={`stage-switcher-btn${isActive ? ' active' : ''}${stage.tipo === 'general' ? ' is-general' : ''}`}
             onClick={() => onSelect(stage.id)}
             title={label}

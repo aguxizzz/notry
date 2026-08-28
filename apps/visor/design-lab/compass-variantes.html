@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Brújula del visor · variantes</title>
+  <style>
+    :root {
+      --ink: #f4efe5;
+      --ink-muted: rgba(244, 239, 229, .66);
+      --paper: #f4efe5;
+      --paper-deep: #e8dfd0;
+      --night: #17201f;
+      --night-soft: #23302e;
+      --gold: #c5a059;
+      --gold-light: #e0bd79;
+      --line: rgba(244, 239, 229, .18);
+      --line-dark: rgba(23, 32, 31, .14);
+      --shadow: 0 22px 50px rgba(0, 0, 0, .26);
+      --heading: 28deg;
+      --font-display: "Space Grotesk", "Avenir Next", sans-serif;
+      --font-body: "Outfit", "Avenir Next", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--paper); }
+    body {
+      margin: 0;
+      color: var(--night);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(197, 160, 89, .14), transparent 28rem),
+        var(--paper);
+      font-family: var(--font-body);
+      padding: clamp(24px, 5vw, 72px) clamp(18px, 5vw, 80px) 80px;
+    }
+
+    .lab-shell { max-width: 1240px; margin: 0 auto; }
+    .eyebrow {
+      color: #8e7343;
+      font-family: var(--font-display);
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      margin: 0 0 12px;
+    }
+    h1 {
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 4vw, 4.2rem);
+      letter-spacing: -.065em;
+      line-height: .96;
+      max-width: 9ch;
+      margin: 0;
+    }
+    .intro {
+      align-items: end;
+      border-bottom: 1px solid var(--line-dark);
+      display: flex;
+      gap: 32px;
+      justify-content: space-between;
+      padding-bottom: clamp(28px, 5vw, 58px);
+    }
+    .intro-copy { max-width: 42rem; }
+    .intro-copy p {
+      color: #5d5a52;
+      font-size: clamp(.95rem, 1.3vw, 1.08rem);
+      line-height: 1.55;
+      margin: 0 0 18px;
+    }
+    .principle {
+      border-left: 2px solid var(--gold);
+      color: #756d60;
+      font-size: .83rem;
+      line-height: 1.45;
+      margin: 0;
+      max-width: 35rem;
+      padding-left: 14px;
+    }
+
+    .controls {
+      align-items: center;
+      background: rgba(255, 255, 255, .34);
+      border: 1px solid rgba(23, 32, 31, .1);
+      border-radius: 8px;
+      display: flex;
+      gap: 16px;
+      margin: 26px 0 48px;
+      padding: 12px 14px;
+    }
+    .controls label { color: #5d5a52; font-size: .76rem; font-weight: 600; white-space: nowrap; }
+    input[type="range"] { accent-color: var(--gold); flex: 1; min-width: 120px; }
+    output {
+      color: var(--night);
+      font-family: var(--font-display);
+      font-size: .86rem;
+      font-weight: 700;
+      min-width: 55px;
+      text-align: right;
+    }
+    .control-button {
+      background: transparent;
+      border: 1px solid rgba(23, 32, 31, .2);
+      border-radius: 5px;
+      color: #5d5a52;
+      cursor: pointer;
+      font: 600 .73rem var(--font-body);
+      padding: 7px 10px;
+      transition: background .18s ease, color .18s ease, border-color .18s ease;
+    }
+    .control-button:hover { background: var(--night); border-color: var(--night); color: var(--paper); }
+
+    .variants { display: grid; gap: 22px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .variant {
+      background: var(--night);
+      border: 1px solid rgba(23, 32, 31, .12);
+      box-shadow: 0 12px 30px rgba(23, 32, 31, .08);
+      min-height: 380px;
+      overflow: hidden;
+      position: relative;
+    }
+    .variant::after {
+      background: linear-gradient(140deg, rgba(197, 160, 89, .15), transparent 42%);
+      content: "";
+      inset: 0;
+      pointer-events: none;
+      position: absolute;
+    }
+    .variant-head { padding: 22px 24px 0; position: relative; z-index: 2; }
+    .variant-index { color: var(--gold-light); font: 700 .68rem var(--font-display); letter-spacing: .15em; }
+    .variant h2 { color: var(--ink); font: 700 1.2rem var(--font-display); letter-spacing: -.03em; margin: 8px 0 7px; }
+    .variant-note { color: var(--ink-muted); font-size: .78rem; line-height: 1.45; margin: 0; max-width: 30rem; }
+    .mock-viewer {
+      background-color: #2b3933;
+      background-image: linear-gradient(180deg, rgba(9, 15, 14, .03), rgba(9, 15, 14, .48)), url("../fotos_equirrectangulares/exterior_occidente.jpg");
+      background-position: center;
+      background-size: cover;
+      height: 230px;
+      margin-top: 20px;
+      overflow: hidden;
+      position: relative;
+    }
+    .mock-viewer::before {
+      background: linear-gradient(90deg, rgba(23, 32, 31, .34), transparent 34%, transparent 68%, rgba(23, 32, 31, .24));
+      content: "";
+      inset: 0;
+      position: absolute;
+    }
+    .mock-label {
+      bottom: 15px;
+      color: rgba(255,255,255,.78);
+      font: 600 .65rem var(--font-display);
+      left: 18px;
+      letter-spacing: .12em;
+      position: absolute;
+      text-transform: uppercase;
+    }
+    .mock-brand { color: rgba(255,255,255,.88); font: 700 .72rem var(--font-display); letter-spacing: .08em; position: absolute; right: 18px; top: 17px; }
+    .compass { color: var(--ink); position: absolute; z-index: 1; }
+    .compass svg { display: block; overflow: visible; }
+    .compass .rotating { transform-origin: 50% 50%; transform: rotate(var(--heading)); transition: transform .18s cubic-bezier(.22, 1, .36, 1); }
+    .compass text { fill: currentColor; font: 700 9px var(--font-display); text-anchor: middle; dominant-baseline: middle; }
+    .compass .north { fill: var(--gold-light); font-size: 10px; }
+    .compass .north-fill { fill: var(--gold); }
+    .compass .south-fill { fill: rgba(244,239,229,.34); }
+
+    /* A · rosa editorial: borde fino, puntero fijo y separación entre escala y fondo. */
+    .variant-a .compass { left: 18px; top: 16px; }
+    .compass-a-frame { fill: rgba(23, 32, 31, .67); stroke: rgba(244,239,229,.7); stroke-width: 1.2; }
+    .compass-a-ticks { fill: none; stroke: rgba(244,239,229,.3); stroke-width: 1; }
+    .compass-a-pointer { fill: var(--gold-light); }
+    .compass-a-pointer-shadow { fill: rgba(23,32,31,.88); }
+    .compass-a-cap { fill: var(--paper); stroke: rgba(23,32,31,.38); stroke-width: 1; }
+    .variant-a .heading-pointer { fill: var(--gold-light); }
+    .variant-a .heading-pointer-shadow { fill: rgba(23,32,31,.68); }
+
+    /* B · cápsula: útil cuando el visor está muy cargado de anotaciones. */
+    .variant-b .compass { bottom: 18px; left: 18px; }
+    .compass-b-shell { fill: rgba(23,32,31,.82); stroke: rgba(244,239,229,.36); stroke-width: 1; }
+    .compass-b-track { fill: none; stroke: rgba(244,239,229,.2); stroke-width: 2; }
+    .compass-b-track-active { fill: none; stroke: var(--gold); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 38 126; transform-origin: 50% 50%; transform: rotate(var(--heading)); transition: transform .18s ease; }
+    .compass-b-tick { stroke: rgba(244,239,229,.55); stroke-width: 1.3; }
+    .compass-b-degree { fill: var(--ink); font-size: 15px !important; letter-spacing: .02em; }
+    .compass-b-sub { fill: rgba(244,239,229,.63) !important; font-size: 6px !important; letter-spacing: .14em; }
+
+    /* C · técnica: más informativa, con lectura de grados sin parecer un HUD. */
+    .variant-c .compass { right: 18px; top: 16px; }
+    .compass-c-disc { fill: rgba(23,32,31,.78); stroke: rgba(244,239,229,.54); stroke-width: 1; }
+    .compass-c-ring { fill: none; stroke: rgba(244,239,229,.22); stroke-width: 1; }
+    .compass-c-ring-inner { fill: none; stroke: rgba(197,160,89,.44); stroke-dasharray: 1 5; stroke-width: 2; }
+    .compass-c-tick { stroke: rgba(244,239,229,.52); stroke-width: 1; }
+    .compass-c-tick-major { stroke: var(--gold-light); stroke-width: 1.5; }
+    .compass-c-needle-n { fill: var(--gold-light); }
+    .compass-c-needle-s { fill: rgba(244,239,229,.27); }
+    .compass-c-azimuth { fill: var(--ink); font-size: 8px !important; }
+    .compass-c-caption { fill: rgba(244,239,229,.62) !important; font-size: 5.5px !important; letter-spacing: .13em; }
+
+    /* D · control integrado: el dial comparte superficie con zoom y vista. */
+    .variant-d .mock-viewer { height: 230px; }
+    .variant-d .compass { bottom: 14px; left: 14px; }
+    .control-dock { align-items: center; background: rgba(23,32,31,.82); border: 1px solid rgba(244,239,229,.25); border-radius: 7px; bottom: 14px; display: flex; gap: 10px; padding: 6px 8px 6px 6px; position: absolute; right: 14px; z-index: 2; }
+    .control-d button { background: transparent; border: 0; color: rgba(244,239,229,.78); font: 600 .63rem var(--font-display); padding: 6px; }
+    .control-d button + button { border-left: 1px solid rgba(244,239,229,.18); padding-left: 12px; }
+    .compass-d-shell { fill: rgba(23,32,31,.82); stroke: rgba(244,239,229,.35); stroke-width: 1; }
+    .compass-d-ring { fill: none; stroke: rgba(244,239,229,.22); stroke-width: 1.5; }
+    .compass-d-needle { fill: var(--gold-light); }
+    .compass-d-center { fill: var(--paper); }
+
+    .comparison {
+      border-top: 1px solid var(--line-dark);
+      margin-top: 54px;
+      padding-top: 24px;
+    }
+    .comparison h2 { font: 700 1rem var(--font-display); letter-spacing: -.02em; margin: 0 0 14px; }
+    .comparison p { color: #6b665d; font-size: .8rem; line-height: 1.5; margin: 0; max-width: 65ch; }
+    .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+    .tag { border: 1px solid rgba(23,32,31,.18); border-radius: 99px; color: #625b4f; font-size: .7rem; padding: 7px 10px; }
+
+    @media (max-width: 760px) {
+      body { padding-bottom: 46px; }
+      .intro { align-items: start; flex-direction: column; gap: 20px; }
+      .controls { align-items: stretch; flex-wrap: wrap; }
+      input[type="range"] { flex-basis: 100%; order: 3; }
+      .variants { grid-template-columns: 1fr; }
+      .variant { min-height: 360px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .compass .rotating, .compass-b-track-active { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="lab-shell">
+    <header class="intro">
+      <div class="intro-copy">
+        <p class="eyebrow">Visor 360° · exploración de componente</p>
+        <h1>Una brújula más clara.</h1>
+      </div>
+      <div>
+        <p class="intro-copy" style="font-size:.95rem; max-width:36rem; margin:0 0 14px; color:#5d5a52; line-height:1.55;">Cuatro alternativas para comparar dentro del panorama. El control de abajo rota todas las rosas con el mismo rumbo, como ocurriría al mover la cámara.</p>
+        <p class="principle">La dirección debe entenderse en menos de un segundo y seguir siendo secundaria frente al paisaje y los lotes.</p>
+      </div>
+    </header>
+
+    <section class="controls" aria-label="Controles de la exploración">
+      <label for="heading">Simular giro</label>
+      <input id="heading" type="range" min="-180" max="180" value="28" step="1">
+      <output id="heading-value" for="heading">028°</output>
+      <button class="control-button" id="reset" type="button">Reiniciar</button>
+    </section>
+
+    <section class="variants" aria-label="Variantes de brújula">
+      <article class="variant variant-a">
+        <div class="variant-head">
+          <span class="variant-index">01 · RECOMENDADA</span>
+          <h2>Rosa editorial</h2>
+          <p class="variant-note">Mantiene el lenguaje de la brújula actual, pero agrega escala, puntero fijo y mejor contraste.</p>
+        </div>
+        <div class="mock-viewer">
+          <span class="mock-brand">LAS ACACIAS</span>
+          <div class="compass" aria-label="Rosa editorial">
+            <svg width="96" height="96" viewBox="0 0 100 100" aria-hidden="true">
+              <circle class="compass-a-frame" cx="50" cy="50" r="45"/>
+              <circle class="compass-a-ticks" cx="50" cy="50" r="39"/>
+              <g class="rotating">
+                <text class="north" x="50" y="17">N</text><text x="50" y="87">S</text><text x="15" y="53">O</text><text x="85" y="53">E</text>
+                <path class="compass-a-pointer-shadow" d="M50 23 54 50 50 45 46 50Z"/>
+                <path class="compass-a-pointer" d="M50 23 54 50 50 45 46 50Z"/>
+                <path class="compass-a-pointer-shadow" d="M50 77 54 50 50 55 46 50Z"/>
+                <circle class="compass-a-cap" cx="50" cy="50" r="4"/>
+              </g>
+              <path class="heading-pointer-shadow" d="M50 4 54 12 50 10 46 12Z"/>
+              <path class="heading-pointer" d="M50 5 53 11 50 10 47 11Z"/>
+            </svg>
+          </div>
+          <span class="mock-label">Vista panorámica · rumbo activo</span>
+        </div>
+      </article>
+
+      <article class="variant variant-b">
+        <div class="variant-head">
+          <span class="variant-index">02 · COMPACTA</span>
+          <h2>Cápsula de rumbo</h2>
+          <p class="variant-note">Ocupa menos espacio y convierte la orientación en un dato directo: cardinal + grados.</p>
+        </div>
+        <div class="mock-viewer">
+          <span class="mock-brand">LAS ACACIAS</span>
+          <div class="compass" aria-label="Cápsula de rumbo">
+            <svg width="168" height="58" viewBox="0 0 168 58" aria-hidden="true">
+              <rect class="compass-b-shell" x=".5" y=".5" width="167" height="57" rx="29"/>
+              <circle class="compass-b-track" cx="29" cy="29" r="18"/>
+              <circle class="compass-b-track-active" cx="29" cy="29" r="18"/>
+              <g class="rotating">
+                <path class="compass-b-tick" d="M29 8v5M29 45v5M8 29h5M45 29h5"/>
+                <text class="north" x="29" y="17">N</text><text x="29" y="42">S</text><text x="17" y="31">O</text><text x="41" y="31">E</text>
+              </g>
+              <circle class="compass-a-cap" cx="29" cy="29" r="3"/>
+              <text class="compass-b-degree" x="100" y="27">028°</text>
+              <text class="compass-b-sub" x="100" y="41">RUMBO ACTUAL</text>
+            </svg>
+          </div>
+          <span class="mock-label">Vista panorámica · rumbo activo</span>
+        </div>
+      </article>
+
+      <article class="variant variant-c">
+        <div class="variant-head">
+          <span class="variant-index">03 · TÉCNICA</span>
+          <h2>Rosa con escala</h2>
+          <p class="variant-note">Para usuarios que necesitan una referencia más precisa sin caer en una estética de panel técnico.</p>
+        </div>
+        <div class="mock-viewer">
+          <span class="mock-brand">LAS ACACIAS</span>
+          <div class="compass" aria-label="Rosa con escala">
+            <svg width="112" height="112" viewBox="0 0 112 112" aria-hidden="true">
+              <circle class="compass-c-disc" cx="56" cy="56" r="51"/>
+              <circle class="compass-c-ring" cx="56" cy="56" r="43"/>
+              <circle class="compass-c-ring-inner" cx="56" cy="56" r="37"/>
+              <g class="rotating">
+                <path class="compass-c-tick-major" d="M56 10v8M56 94v8M10 56h8M94 56h8"/>
+                <path class="compass-c-tick" d="M33 16l4 7M79 16l-4 7M33 96l4-7M79 96l-4-7M16 33l7 4M96 33l-7 4M16 79l7-4M96 79l-7-4"/>
+                <text class="north" x="56" y="27">N</text><text x="56" y="86">S</text><text x="27" y="59">O</text><text x="85" y="59">E</text>
+                <path class="compass-c-needle-n" d="M56 31 60 56 56 52 52 56Z"/>
+                <path class="compass-c-needle-s" d="M56 81 60 56 56 60 52 56Z"/>
+                <circle class="compass-a-cap" cx="56" cy="56" r="4"/>
+              </g>
+              <text class="compass-c-azimuth" x="56" y="56">028°</text>
+              <text class="compass-c-caption" x="56" y="68">NORTE</text>
+            </svg>
+          </div>
+          <span class="mock-label">Vista panorámica · rumbo activo</span>
+        </div>
+      </article>
+
+      <article class="variant variant-d">
+        <div class="variant-head">
+          <span class="variant-index">04 · INTEGRADA</span>
+          <h2>Control de navegación</h2>
+          <p class="variant-note">La brújula deja de competir con el logo y pasa a vivir junto a las acciones del visor.</p>
+        </div>
+        <div class="mock-viewer">
+          <span class="mock-brand">LAS ACACIAS</span>
+          <div class="compass" aria-label="Brújula integrada">
+            <svg width="58" height="58" viewBox="0 0 58 58" aria-hidden="true">
+              <circle class="compass-d-shell" cx="29" cy="29" r="28"/>
+              <circle class="compass-d-ring" cx="29" cy="29" r="21"/>
+              <g class="rotating">
+                <text class="north" x="29" y="14">N</text><text x="29" y="46">S</text><text x="14" y="31">O</text><text x="44" y="31">E</text>
+                <path class="compass-d-needle" d="M29 17 32 29 29 27 26 29Z"/>
+                <path class="compass-d-needle" opacity=".38" d="M29 41 32 29 29 31 26 29Z"/>
+              </g>
+              <circle class="compass-d-center" cx="29" cy="29" r="3"/>
+            </svg>
+          </div>
+          <div class="control-dock" aria-label="Controles del visor">
+            <button type="button">−</button><button type="button">100%</button><button type="button">Vista mapa</button>
+          </div>
+          <span class="mock-label">Vista panorámica · rumbo activo</span>
+        </div>
+      </article>
+    </section>
+
+    <section class="comparison">
+      <h2>Lectura rápida</h2>
+      <p>La variante 01 es la más equilibrada para el visor actual: conserva reconocimiento, suma un puntero fijo que marca el centro de la vista y no introduce información que el usuario no pidió. La 02 es la mejor si hay que liberar espacio para anotaciones; la 03 solo conviene si el rumbo numérico tiene valor real para el recorrido.</p>
+      <div class="tags" aria-label="Criterios de comparación">
+        <span class="tag">Jerarquía sobre decoración</span>
+        <span class="tag">Lectura en 1 segundo</span>
+        <span class="tag">Contraste sobre fotografía</span>
+        <span class="tag">Funciona en móvil</span>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const range = document.querySelector('#heading');
+    const output = document.querySelector('#heading-value');
+    const root = document.documentElement;
+    const formatHeading = (value) => `${String((Number(value) + 360) % 360).padStart(3, '0')}°`;
+
+    function updateHeading(value) {
+      const numericValue = Number(value);
+      root.style.setProperty('--heading', `${numericValue}deg`);
+      output.textContent = formatHeading(numericValue);
+      document.querySelectorAll('.compass-b-degree, .compass-c-azimuth').forEach((element) => {
+        element.textContent = formatHeading(numericValue);
+      });
+    }
+
+    range.addEventListener('input', (event) => updateHeading(event.target.value));
+    document.querySelector('#reset').addEventListener('click', () => {
+      range.value = 0;
+      updateHeading(0);
+    });
+    updateHeading(range.value);
+  </script>
+</body>
+</html>
