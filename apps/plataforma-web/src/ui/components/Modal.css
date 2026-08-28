@@ -258,6 +258,12 @@
   color: var(--text-muted);
 }
 
+.form-hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
 .form-group textarea {
   width: 100%;
   background: var(--bg-dark);

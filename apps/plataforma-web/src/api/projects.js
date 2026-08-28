@@ -4,19 +4,19 @@ export async function fetchProjects({ apiFetch }) {
   return apiFetch(`${API_BASE}/projects`);
 }
 
-export async function createProject({ apiFetch, name, branding }) {
+export async function createProject({ apiFetch, name, slug, branding }) {
   return apiFetch(`${API_BASE}/projects`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, branding }),
+    body: JSON.stringify({ name, slug, branding }),
   });
 }
 
-export async function updateProject({ apiFetch, projectId, name, branding }) {
+export async function updateProject({ apiFetch, projectId, name, slug, branding }) {
   return apiFetch(`${API_BASE}/projects/${projectId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, branding }),
+    body: JSON.stringify({ name, slug, branding }),
   });
 }
 

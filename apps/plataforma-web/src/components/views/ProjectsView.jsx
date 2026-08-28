@@ -22,11 +22,11 @@ export default function ProjectsView({ apiFetch, uploadFn, onUploadEvent, allLot
   const [projectToDelete, setProjectToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  async function handleCreate({ name, branding }) {
+  async function handleCreate({ name, slug, branding }) {
     setSaving(true);
     setSaveError(null);
     try {
-      const created = await createProject({ apiFetch, name, branding });
+      const created = await createProject({ apiFetch, name, slug, branding });
       setProjects(prev => [...prev, created]);
       setModalOpen(false);
       addToast?.('Proyecto creado', 'success');
@@ -37,11 +37,11 @@ export default function ProjectsView({ apiFetch, uploadFn, onUploadEvent, allLot
     }
   }
 
-  async function handleEdit({ name, branding }) {
+  async function handleEdit({ name, slug, branding }) {
     setSaving(true);
     setSaveError(null);
     try {
-      const updated = await updateProject({ apiFetch, projectId: editingProject.id, name, branding });
+      const updated = await updateProject({ apiFetch, projectId: editingProject.id, name, slug, branding });
       setProjects(prev => prev.map(p => p.id === updated.id ? updated : p));
       setEditingProject(null);
       addToast?.('Proyecto actualizado', 'success');
