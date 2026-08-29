@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Layers, Plus, Pencil, Trash2, X } from 'lucide-react';
+import { Layers, Plus, Pencil, Trash2, X, ExternalLink } from 'lucide-react';
 import ProjectFormModal from '../modals/ProjectFormModal';
 import ConfirmModal from '../ConfirmModal';
 import ShellLayout from '../ShellLayout';
@@ -12,6 +12,7 @@ import {
   Select,
 } from '../../ui/components';
 import { createProject, updateProject, deleteProject, assignLoteos, unassignLoteo } from '../../api/projects';
+import { SIMULADOR_URL } from '../../config';
 import './ProjectsView.css';
 
 export default function ProjectsView({ apiFetch, uploadFn, onUploadEvent, allLoteos = [], addToast, projects, projectsLoading, setProjects }) {
@@ -211,6 +212,17 @@ export default function ProjectsView({ apiFetch, uploadFn, onUploadEvent, allLot
                     )}
                   </div>
                   <div className="project-foot-actions">
+                    {project.slug && (
+                      <a
+                        className="project-link"
+                        href={`${SIMULADOR_URL}/${project.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <ExternalLink size={14} />
+                        Abrir simulador
+                      </a>
+                    )}
                     <button className="project-link" onClick={() => { setSaveError(null); setEditingProject(project); }}>
                       <Pencil size={14} />
                       Editar proyecto
