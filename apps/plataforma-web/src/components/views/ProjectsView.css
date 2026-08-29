@@ -259,6 +259,7 @@
   font-weight: var(--weight-bold);
   font-size: var(--text-sm);
   color: var(--text-main);
+  text-decoration: none;
   transition: opacity var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
 }
 
@@ -273,14 +274,34 @@
 
 /* Project form modal extras */
 .project-form-modal {
-  max-width: 560px;
-  width: 90%;
+  max-width: 860px;
+  width: 92%;
 }
 
-.project-form {
+.modal-card form.project-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  row-gap: var(--space-md);
+}
+
+.project-form-col {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.project-form-col--left {
+  padding-right: var(--space-lg);
+  border-right: 1px solid var(--border-color);
+}
+
+.project-form-col--right {
+  padding-left: var(--space-lg);
+}
+
+.project-form-full {
+  grid-column: 1 / -1;
 }
 
 .form-section-title {
@@ -291,6 +312,11 @@
   font-weight: var(--weight-bold);
   padding-top: var(--space-sm);
   border-top: 1px solid var(--border-color);
+}
+
+.project-form-col > .form-section-title:first-child {
+  padding-top: 0;
+  border-top: none;
 }
 
 .project-colors-row {
@@ -320,14 +346,175 @@
   flex: 1;
 }
 
+.project-logos-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+}
+
+/* Plazos: chip input, reemplaza el texto separado por comas */
+.plazo-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 6px 8px;
+  transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.plazo-box:focus-within {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.15);
+}
+
+.plazo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(197, 160, 89, 0.14);
+  color: var(--accent-dark);
+  border: 1px solid rgba(197, 160, 89, 0.3);
+  border-radius: var(--radius-full);
+  padding: 4px 6px 4px 11px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  white-space: nowrap;
+}
+
+.plazo-chip-unit {
+  font-weight: var(--weight-regular);
+  opacity: 0.75;
+  margin-left: 2px;
+}
+
+.plazo-chip button {
+  all: unset;
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-dark);
+  opacity: 0.55;
+  font-size: 0.9rem;
+  line-height: 1;
+  transition: background var(--duration-fast) var(--ease-out), opacity var(--duration-fast) var(--ease-out);
+}
+
+.plazo-chip button:hover:not(:disabled) {
+  opacity: 1;
+  background: rgba(197, 160, 89, 0.28);
+}
+
+.plazo-chip button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.form-group--disabled {
+  opacity: 0.55;
+}
+
+.plazo-box .plazo-add {
+  all: unset;
+  flex: 1;
+  min-width: 84px;
+  font-family: inherit;
+  font-size: var(--text-base);
+  color: var(--text-main);
+  padding: 4px 2px;
+}
+
+.plazo-box .plazo-add::placeholder {
+  color: var(--text-muted);
+}
+
+.plazo-add-btn {
+  all: unset;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  color: #fff;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--duration-fast) var(--ease-out), opacity var(--duration-fast) var(--ease-out);
+}
+
+.plazo-add-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.plazo-add-btn:disabled {
+  background: var(--border-color);
+  color: var(--text-muted);
+  cursor: default;
+}
+
+/* Sin flechas de incremento/decremento en los inputs numéricos de este modal */
+.project-form-modal input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.project-form-modal input[type="number"]::-webkit-inner-spin-button,
+.project-form-modal input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Footer del modal: barra separada, botones alineados a la izquierda (como en el artefacto) */
+.project-form-modal .modal-actions {
+  display: flex;
+  justify-content: flex-start;
+  gap: var(--space-sm);
+  margin: var(--space-md) calc(var(--space-lg) * -1) calc(var(--space-md) * -1);
+  padding: var(--space-sm) var(--space-lg);
+  border-top: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-dark) 55%, var(--panel-bg));
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
 @media (max-width: 1000px) {
   .projects-shell .projects-grid {
     grid-template-columns: 1fr;
   }
 }
 
+@media (max-width: 720px) {
+  .project-form-modal {
+    width: 95%;
+  }
+
+  .modal-card form.project-form {
+    grid-template-columns: 1fr;
+  }
+
+  .project-form-col--left {
+    padding-right: 0;
+    padding-bottom: var(--space-md);
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .project-form-col--right {
+    padding-left: 0;
+  }
+}
+
 @media (max-width: 640px) {
-  .project-colors-row {
+  .project-colors-row,
+  .project-logos-row {
     grid-template-columns: 1fr;
   }
 }

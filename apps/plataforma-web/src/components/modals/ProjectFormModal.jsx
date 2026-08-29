@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import ImageUploadField from '../ImageUploadField';
-import { Button } from '../../ui/components';
+import { Button, Select } from '../../ui/components';
 import { SIMULADOR_URL } from '../../config';
 import '../../ui/components/Modal.css';
 
@@ -18,7 +18,10 @@ const FONT_OPTIONS = [
   { value: 'Playfair Display, serif', label: 'Playfair Display' },
   { value: 'Montserrat, sans-serif', label: 'Montserrat' },
   { value: 'Lato, sans-serif', label: 'Lato' },
-];
+].map(f => ({
+  ...f,
+  label: <span style={{ fontFamily: f.value || undefined }}>{f.label}</span>,
+}));
 
 const DEFAULT_PLANS = [
   { id: '120', installments: 120 },
@@ -47,12 +50,36 @@ export default function ProjectFormModal({ isOpen, onClose, onSubmit, loading, e
 
   const initialFinance = initialData?.finance_config ?? null;
   const [viewerLoteoId, setViewerLoteoId] = useState(initialFinance?.viewer_loteo_id ?? '');
-  const [installmentsInput, setInstallmentsInput] = useState(
-    (initialFinance?.plans ?? DEFAULT_PLANS).map(p => p.installments).join(', ')
+  const [plazos, setPlazos] = useState(
+    (initialFinance?.plans ?? DEFAULT_PLANS).map(p => p.installments)
   );
+  const [plazoDraft, setPlazoDraft] = useState('');
   const [writingThresholdPercent, setWritingThresholdPercent] = useState(
     initialFinance?.writing_threshold_percent ?? 10
   );
+
+  function addPlazo(raw) {
+    const n = parseInt(raw, 10);
+    if (!Number.isFinite(n) || n <= 0 || plazos.includes(n)) return;
+    setPlazos(p => [...p, n].sort((a, b) => a - b));
+  }
+
+  function removePlazo(n) {
+    setPlazos(p => p.filter(x => x !== n));
+  }
+
+  function handleAddPlazoClick() {
+    if (!plazoDraft.trim()) return;
+    addPlazo(plazoDraft);
+    setPlazoDraft('');
+  }
+
+  function handlePlazoDraftKeyDown(e) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      handleAddPlazoClick();
+    }
+  }
 
   const projectLoteoIds = new Set((initialData?.loteo_ids ?? []).map(String));
   const assignedLoteos = allLoteos.filter(l => projectLoteoIds.has(String(l.id)));
@@ -80,13 +107,9 @@ export default function ProjectFormModal({ isOpen, onClose, onSubmit, loading, e
     const brandingPayload = Object.fromEntries(
       Object.entries(branding).filter(([, v]) => v !== '')
     );
-    const installments = installmentsInput
-      .split(',')
-      .map(s => parseInt(s.trim(), 10))
-      .filter(n => Number.isFinite(n) && n > 0);
     const financeConfig = viewerLoteoId ? {
       viewer_loteo_id: viewerLoteoId,
-      plans: installments.map(n => ({ id: String(n), installments: n })),
+      plans: plazos.map(n => ({ id: String(n), installments: n })),
       writing_threshold_percent: Number(writingThresholdPercent) || 10,
     } : null;
     onSubmit({
@@ -103,67 +126,95 @@ export default function ProjectFormModal({ isOpen, onClose, onSubmit, loading, e
         <h3 className="modal-title">{initialData ? 'Editar proyecto' : 'Nuevo proyecto'}</h3>
 
         <form onSubmit={handleSubmit} className="project-form">
-          <div className="form-group">
-            <label className="form-label">Nombre del proyecto</label>
-            <input
-              className="form-input"
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="Ej: Paseo Berlin"
-              required
-            />
-          </div>
+          <div className="project-form-col project-form-col--left">
+            <div className="form-row-2">
+              <div className="form-group">
+                <label className="form-label">Nombre del proyecto</label>
+                <input
+                  className="form-input"
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="Ej: Paseo Berlin"
+                  required
+                />
+              </div>
 
-          <div className="form-group">
-            <label className="form-label">Slug del simulador</label>
-            <input
-              className="form-input"
-              type="text"
-              value={slug}
-              onChange={e => setSlug(e.target.value)}
-              placeholder="Se genera del nombre si lo dejás vacío"
-            />
+              <div className="form-group">
+                <label className="form-label">Slug del simulador</label>
+                <input
+                  className="form-input"
+                  type="text"
+                  value={slug}
+                  onChange={e => setSlug(e.target.value)}
+                  placeholder="Se genera del nombre si lo dejás vacío"
+                />
+              </div>
+            </div>
             <p className="form-hint">
               URL pública: {SIMULADOR_URL}/{slug.trim() || '(slug)'}
             </p>
-          </div>
 
-          <div className="form-section-title">Simulador de compra</div>
+            <div className="form-section-title">Simulador de compra</div>
 
-          {assignedLoteos.length === 0 ? (
-            <p className="form-hint">
-              Asigná al menos un loteo a este proyecto (desde la lista de Proyectos) y volvé a editarlo para configurar el simulador.
-            </p>
-          ) : (
-            <>
-              <div className="form-group">
-                <label className="form-label">Loteo del visor 360</label>
-                <select
-                  className="form-input"
-                  value={viewerLoteoId}
-                  onChange={e => setViewerLoteoId(e.target.value)}
-                >
-                  <option value="">Sin configurar (el simulador no va a funcionar)</option>
-                  {assignedLoteos.map(l => (
-                    <option key={l.id} value={l.id}>{l.name}</option>
-                  ))}
-                </select>
-                <p className="form-hint">A dónde se abre el visor al hacer clic en "Ver lotes compatibles".</p>
-              </div>
-
-              <div className="project-colors-row">
+            {assignedLoteos.length === 0 ? (
+              <p className="form-hint">
+                Asigná al menos un loteo a este proyecto (desde la lista de Proyectos) y volvé a editarlo para configurar el simulador.
+              </p>
+            ) : (
+              <>
                 <div className="form-group">
-                  <label className="form-label">Plazos (cuotas)</label>
-                  <input
+                  <label className="form-label">Loteo del visor 360</label>
+                  <select
                     className="form-input"
-                    type="text"
-                    value={installmentsInput}
-                    onChange={e => setInstallmentsInput(e.target.value)}
-                    placeholder="120, 144, 180"
-                  />
+                    value={viewerLoteoId}
+                    onChange={e => setViewerLoteoId(e.target.value)}
+                  >
+                    <option value="">Sin configurar (el simulador no va a funcionar)</option>
+                    {assignedLoteos.map(l => (
+                      <option key={l.id} value={l.id}>{l.name}</option>
+                    ))}
+                  </select>
+                  <p className="form-hint">
+                    {viewerLoteoId
+                      ? 'A dónde se abre el visor al hacer clic en "Ver lotes compatibles".'
+                      : 'Elegí un loteo para poder configurar los plazos y el umbral de escrituración.'}
+                  </p>
                 </div>
-                <div className="form-group">
+
+                <div className={`form-group${viewerLoteoId ? '' : ' form-group--disabled'}`}>
+                  <label className="form-label">Plazos (cuotas)</label>
+                  <div className="plazo-box">
+                    {plazos.map(n => (
+                      <span className="plazo-chip" key={n}>
+                        {n}<span className="plazo-chip-unit">cuotas</span>
+                        <button type="button" disabled={!viewerLoteoId} aria-label={`Quitar plazo de ${n} cuotas`} onClick={() => removePlazo(n)}>×</button>
+                      </span>
+                    ))}
+                    <input
+                      className="plazo-add"
+                      type="number"
+                      inputMode="numeric"
+                      min="1"
+                      placeholder="Cuotas"
+                      value={plazoDraft}
+                      disabled={!viewerLoteoId}
+                      onChange={e => setPlazoDraft(e.target.value)}
+                      onKeyDown={handlePlazoDraftKeyDown}
+                    />
+                    <button
+                      type="button"
+                      className="plazo-add-btn"
+                      disabled={!viewerLoteoId || !plazoDraft.trim()}
+                      aria-label="Agregar plazo"
+                      onClick={handleAddPlazoClick}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                <div className={`form-group${viewerLoteoId ? '' : ' form-group--disabled'}`}>
                   <label className="form-label">Umbral de escrituración (%)</label>
                   <input
                     className="form-input"
@@ -172,77 +223,68 @@ export default function ProjectFormModal({ isOpen, onClose, onSubmit, loading, e
                     max="100"
                     step="0.5"
                     value={writingThresholdPercent}
+                    disabled={!viewerLoteoId}
                     onChange={e => setWritingThresholdPercent(e.target.value)}
                   />
                 </div>
-              </div>
-            </>
-          )}
-
-          <div className="form-section-title">Branding visual</div>
-
-          <div className="project-colors-row">
-            <div className="form-group">
-              <label className="form-label">Color principal</label>
-              <div className="color-input-row">
-                <input type="color" value={branding.primary_color || DEFAULT_PRIMARY_COLOR} onChange={e => setBrandingField('primary_color', e.target.value)} />
-                <input className="form-input" type="text" value={branding.primary_color} onChange={e => setBrandingField('primary_color', e.target.value)} placeholder="#c5a059" maxLength={9} />
-              </div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Color de acento</label>
-              <div className="color-input-row">
-                <input type="color" value={branding.accent_color || DEFAULT_ACCENT_COLOR} onChange={e => setBrandingField('accent_color', e.target.value)} />
-                <input className="form-input" type="text" value={branding.accent_color} onChange={e => setBrandingField('accent_color', e.target.value)} placeholder="#b38a3f" maxLength={9} />
-              </div>
-            </div>
+              </>
+            )}
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Tipografía</label>
-            <select
-              className="form-input"
+          <div className="project-form-col project-form-col--right">
+            <div className="form-section-title">Branding visual</div>
+
+            <div className="project-colors-row">
+              <div className="form-group">
+                <label className="form-label">Color principal</label>
+                <div className="color-input-row">
+                  <input type="color" value={branding.primary_color || DEFAULT_PRIMARY_COLOR} onChange={e => setBrandingField('primary_color', e.target.value)} />
+                  <input className="form-input" type="text" value={branding.primary_color} onChange={e => setBrandingField('primary_color', e.target.value)} placeholder="#c5a059" maxLength={9} />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Color de acento</label>
+                <div className="color-input-row">
+                  <input type="color" value={branding.accent_color || DEFAULT_ACCENT_COLOR} onChange={e => setBrandingField('accent_color', e.target.value)} />
+                  <input className="form-input" type="text" value={branding.accent_color} onChange={e => setBrandingField('accent_color', e.target.value)} placeholder="#b38a3f" maxLength={9} />
+                </div>
+              </div>
+            </div>
+
+            <Select
+              id="project-font-family"
+              label="Tipografía"
               value={branding.font_family}
               onChange={e => setBrandingField('font_family', e.target.value)}
-              style={{ fontFamily: branding.font_family || undefined }}
-            >
-              {FONT_OPTIONS.map(f => (
-                <option key={f.value} value={f.value} style={{ fontFamily: f.value || undefined }}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Logo principal</label>
-            <ImageUploadField
-              value={branding.logo_primary}
-              onUpload={result => setBrandingField('logo_primary', result?.url ?? result)}
-              label="Logo principal"
-              showLabel={false}
-              apiFetch={apiFetch}
-              uploadFn={uploadFn}
-              onUploadEvent={onUploadEvent}
+              options={FONT_OPTIONS}
             />
+
+            <div className="form-group">
+              <label className="form-label">Logos</label>
+              <div className="project-logos-row">
+                <ImageUploadField
+                  value={branding.logo_primary}
+                  onUpload={result => setBrandingField('logo_primary', result?.url ?? result)}
+                  label="Logo principal"
+                  apiFetch={apiFetch}
+                  uploadFn={uploadFn}
+                  onUploadEvent={onUploadEvent}
+                />
+                <ImageUploadField
+                  value={branding.logo_secondary}
+                  onUpload={result => setBrandingField('logo_secondary', result?.url ?? result)}
+                  label="Logo secundario"
+                  apiFetch={apiFetch}
+                  uploadFn={uploadFn}
+                  onUploadEvent={onUploadEvent}
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Logo secundario</label>
-            <ImageUploadField
-              value={branding.logo_secondary}
-              onUpload={result => setBrandingField('logo_secondary', result?.url ?? result)}
-              label="Logo secundario"
-              showLabel={false}
-              apiFetch={apiFetch}
-              uploadFn={uploadFn}
-              onUploadEvent={onUploadEvent}
-            />
-          </div>
+          {error && <p className="form-error project-form-full">{error}</p>}
 
-          {error && <p className="form-error">{error}</p>}
-
-          <div className="modal-actions">
+          <div className="modal-actions project-form-full">
             <Button type="submit" disabled={loading || !name.trim()}>
               {loading ? 'Guardando...' : initialData ? 'Guardar cambios' : 'Crear proyecto'}
             </Button>
