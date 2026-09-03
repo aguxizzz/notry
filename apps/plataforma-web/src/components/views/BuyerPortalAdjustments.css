@@ -1,0 +1,66 @@
+.buyer-cuota-hero { background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border-warm); box-shadow: var(--shadow-surface); }
+.buyer-cuota-hero .buyer-label { color: var(--color-accent-dark); }
+.buyer-cuota-hero .buyer-status { color: var(--color-success); background: var(--color-success-bg); border-color: color-mix(in srgb, var(--color-success) 28%, transparent); }
+.buyer-cuota-hero .buyer-status--overdue { color: var(--color-danger); background: var(--color-danger-bg); border-color: color-mix(in srgb, var(--color-danger) 28%, transparent); }
+.buyer-cuota-hero__amount { color: var(--color-text); }
+.buyer-cuota-hero__equiv { color: var(--color-text-muted); }
+.buyer-cuota-hero__equiv b { color: var(--color-text); }
+.buyer-cuota-hero__dot { background: var(--color-border); }
+.buyer-cuota-hero__due { color: var(--color-text-muted); }
+.buyer-cuota-hero__action { color: color-mix(in srgb, var(--color-text-muted) 85%, transparent); background: var(--color-surface-subtle); border: 1px solid var(--color-border); }
+.buyer-cuota-hero__contour { opacity: .45; }
+.buyer-cuota-hero__contour i { border-color: var(--color-accent); }
+.buyer-balance,
+.buyer-activity {
+  margin-top: 24px;
+  padding: 18px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-surface);
+}
+.buyer-balance { border-bottom: 1px solid var(--color-border); }
+.buyer-balance .buyer-section-heading h2 { display: none; }
+.buyer-balance .buyer-section-heading { align-items: center; }
+.buyer-balance .buyer-section-heading > strong { align-self: center; }
+.buyer-balance .buyer-section-heading .buyer-label { font-size: var(--text-base); }
+.buyer-progress { margin-top: 14px; }
+.buyer-balance__caption { margin: 10px 0 0; }
+.buyer-balance__caption + .buyer-balance__metrics { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--color-border); }
+
+@media (min-width: 1024px) {
+  .buyer-progress { margin-top: 16px; }
+  .buyer-balance__caption + .buyer-balance__metrics { margin-top: 20px; padding-top: 16px; }
+}
+.buyer-brand-mark {
+  display: block;
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border-radius: 2px;
+  background: var(--color-accent);
+  box-shadow: 5px 5px 0 color-mix(in srgb, var(--color-accent) 38%, transparent);
+  transform: translateY(-2px);
+}
+
+.buyer-brand-mark i { display: none; }
+
+@media (min-width: 1024px) {
+  .buyer-icon-button {
+    display: inline-flex;
+    width: auto;
+    height: 38px;
+    gap: 7px;
+    padding: 0 12px 0 10px;
+    color: var(--color-text-muted);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
+    border-radius: var(--radius-control);
+    box-shadow: none;
+    transition: background-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+  }
+
+  .buyer-icon-button::after { content: 'Salir'; }
+  .buyer-icon-button:hover { color: var(--color-danger); background: var(--color-danger-bg); border-color: color-mix(in srgb, var(--color-danger) 24%, var(--color-border)); }
+}

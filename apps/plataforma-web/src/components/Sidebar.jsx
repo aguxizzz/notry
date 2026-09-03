@@ -4,19 +4,20 @@ import {
   Package,
   Users,
   BarChart2,
-  Settings,
-  LogOut,
   Menu,
   X,
   Layers,
   CreditCard,
 } from 'lucide-react';
 import { PLATFORM_ROLE_LABELS } from '../constants/roles';
+import logo from '../assets/logo-paseo-berlin.png';
 import './Sidebar.css';
 
-const Sidebar = ({ user, activeItem, onItemClick, onLogout, isOpen, onToggle }) => {
+const Sidebar = ({ user, activeItem, onItemClick, onOpenAccount, isOpen, onToggle }) => {
   const firstLetter = user?.full_name?.charAt(0).toUpperCase() || '?';
   const roleLabel = PLATFORM_ROLE_LABELS[user?.role] || 'Cuenta';
+  const nameWords = user?.full_name?.trim().split(/\s+/) || [];
+  const displayName = nameWords.length >= 3 ? nameWords.slice(0, 2).join(' ') : user?.full_name || 'Mi cuenta';
 
   const menuSections = [
     {
@@ -41,7 +42,6 @@ const Sidebar = ({ user, activeItem, onItemClick, onLogout, isOpen, onToggle }) 
       label: 'Organización',
       items: [
         { id: 'proyectos', label: 'Proyectos', icon: <Layers size={20} /> },
-        { id: 'configuracion', label: 'Configuración', icon: <Settings size={20} /> },
       ],
     },
   ];
@@ -52,13 +52,7 @@ const Sidebar = ({ user, activeItem, onItemClick, onLogout, isOpen, onToggle }) 
         <button className="sidebar-hamburger" onClick={onToggle} aria-label={isOpen ? 'Cerrar menú' : 'Abrir menú'}>
           {isOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
-        <div className="user-avatar">
-          {firstLetter}
-        </div>
-        <div className="sidebar-user-meta">
-          <span className="sidebar-user-name">{user?.full_name || 'Mi cuenta'}</span>
-          <span className="sidebar-user-role">{roleLabel}</span>
-        </div>
+        <img src={logo} alt="Paseo Berlín" className="sidebar-logo" />
       </div>
 
       <nav className="sidebar-nav">
@@ -93,9 +87,12 @@ const Sidebar = ({ user, activeItem, onItemClick, onLogout, isOpen, onToggle }) 
       </nav>
 
       <div className="sidebar-bottom">
-        <button onClick={onLogout} className="sidebar-item logout-item">
-          <span className="sidebar-icon"><LogOut size={20} /></span>
-          <span className="sidebar-label">Salir</span>
+        <button onClick={onOpenAccount} className="sidebar-item account-item">
+          <div className="user-avatar user-avatar--sm">{firstLetter}</div>
+          <div className="sidebar-user-meta">
+            <span className="sidebar-user-name">{displayName}</span>
+            <span className="sidebar-user-role">{roleLabel}</span>
+          </div>
         </button>
       </div>
     </aside>

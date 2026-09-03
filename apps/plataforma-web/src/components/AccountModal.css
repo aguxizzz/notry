@@ -1,0 +1,180 @@
+/* ── Modal de cuenta: ventana grande con sidebar propia + contenido ──
+   Distinto del resto de los modales (form modals chicos, centrados) —
+   este es una "app dentro de la app" para Perfil/Equipo/Salir. */
+
+@keyframes accountModalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes accountModalSlideIn {
+  from { opacity: 0; transform: scale(0.97) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.account-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-overlay-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  z-index: var(--z-modal);
+  animation: accountModalFadeIn var(--duration-slow) var(--ease-out) forwards;
+}
+
+.account-modal {
+  position: relative;
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  width: 100%;
+  max-width: 980px;
+  height: min(720px, 88vh);
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  animation: accountModalSlideIn var(--duration-slow) var(--ease-out) forwards;
+}
+
+.account-modal-close {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  cursor: pointer;
+  z-index: 1;
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+}
+
+.account-modal-close:hover {
+  background: var(--surface-hover);
+  color: var(--text-main);
+}
+
+.account-modal-nav {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  border-right: 1px solid var(--border-color);
+  padding: var(--space-lg) var(--space-sm) var(--space-sm);
+}
+
+.account-modal-nav-user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 0 var(--space-sm) var(--space-lg);
+  min-width: 0;
+}
+
+.account-modal-nav-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.account-modal-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  min-height: 40px;
+  padding: 8px var(--space-sm);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--duration-base) var(--ease-out-quart),
+              color var(--duration-base) var(--ease-out-quart);
+}
+
+.account-modal-nav-item:hover {
+  background: var(--surface-hover);
+  color: var(--text-main);
+}
+
+.account-modal-nav-item.active {
+  background: rgba(197, 160, 89, 0.12);
+  color: var(--color-accent);
+}
+
+.account-modal-nav-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.account-modal-logout {
+  margin-top: var(--space-sm);
+  border-top: 1px solid var(--border-color);
+  border-radius: 0;
+  padding-top: 14px;
+}
+
+.account-modal-logout:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--color-danger);
+}
+
+.account-modal-content {
+  padding: var(--space-lg);
+  overflow-y: auto;
+}
+
+@media (max-width: 720px) {
+  .account-modal-overlay {
+    padding: 0;
+  }
+
+  .account-modal {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100%;
+    max-width: 100%;
+    border-radius: 0;
+  }
+
+  .account-modal-nav {
+    flex-direction: row;
+    align-items: center;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+    padding: var(--space-sm);
+    gap: var(--space-sm);
+  }
+
+  .account-modal-nav-user {
+    padding: 0;
+  }
+
+  .account-modal-nav-items {
+    flex-direction: row;
+    flex: 1;
+  }
+
+  .account-modal-logout {
+    margin-top: 0;
+    border-top: none;
+    padding-top: 8px;
+  }
+}

@@ -34,6 +34,7 @@
   padding: var(--space-md) var(--space-md) var(--space-sm);
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-sm);
   margin-bottom: 0;
 }
@@ -54,6 +55,8 @@
 .sidebar-user-meta {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
   min-width: 0;
   line-height: 1.2;
 }
@@ -117,8 +120,8 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: #c5a059;
-  color: #1a1a2a;
+  background: var(--color-accent);
+  color: var(--color-text);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -127,6 +130,20 @@
   box-shadow: 0 4px 10px rgba(197, 160, 89, 0.25);
   transition: transform 0.3s ease;
   flex-shrink: 0;
+}
+
+.user-avatar--sm {
+  width: 32px;
+  height: 32px;
+  font-size: var(--text-base);
+  box-shadow: none;
+}
+
+.sidebar-logo {
+  max-width: 100%;
+  height: 40px;
+  width: auto;
+  object-fit: contain;
 }
 
 .sidebar-nav {
@@ -182,31 +199,9 @@
   outline-offset: 2px;
 }
 
-.sidebar-item::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 0;
-  background: var(--color-accent);
-  border-radius: 0 2px 2px 0;
-  transition: height var(--duration-base) var(--ease-out-quart);
-}
-
 .sidebar-item:hover {
   background: var(--surface-hover);
   color: var(--text-main);
-}
-
-.sidebar-item:hover::before {
-  height: 55%;
-}
-
-/* Nudge del ícono hacia adentro: feedback táctil sutil al pasar el mouse */
-.sidebar-item:hover .sidebar-icon {
-  transform: translateX(2px);
 }
 
 /* Press: micro-compresión para acuse de click */
@@ -217,10 +212,6 @@
 .sidebar-item.active {
   background: rgba(197, 160, 89, 0.12);
   color: var(--color-accent);
-}
-
-.sidebar-item.active::before {
-  height: 80%;
 }
 
 .sidebar-item.active .sidebar-icon {
@@ -252,22 +243,21 @@
   border-top: 1px solid var(--border-color);
 }
 
-/* Respeta reduce-motion: sin nudge/press ni transiciones de transform */
+/* Respeta reduce-motion: sin press ni transiciones de transform */
 @media (prefers-reduced-motion: reduce) {
   .sidebar-item { transition: background-color var(--duration-base) var(--ease-out); }
-  .sidebar-item:active,
-  .sidebar-item:hover .sidebar-icon { transform: none; }
+  .sidebar-item:active { transform: none; }
+  .sidebar-item::after { transition: opacity var(--duration-base) var(--ease-out); }
   .sidebar-icon { transition: color var(--duration-fast) var(--ease-out); }
 }
 
-.logout-item:hover {
-  background: rgba(239, 68, 68, 0.12);
-  color: var(--color-danger);
+.account-item {
+  padding: 8px var(--space-sm);
 }
 
-.logout-item:hover::before {
-  background: var(--color-danger);
-  height: 60%;
+.account-item .sidebar-user-meta {
+  flex: 1;
+  min-width: 0;
 }
 
 /* Mobile overlay backdrop */

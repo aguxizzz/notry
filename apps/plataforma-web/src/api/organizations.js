@@ -16,10 +16,12 @@ export async function fetchInvites({ apiFetch }) {
   return apiFetch(`${API_BASE}/organizations/invites`);
 }
 
-export async function updateOrg({ apiFetch, phone, org_name }) {
+export async function updateOrg({ apiFetch, phone, org_name, cement_bag_rate_ars, usd_ars_rate }) {
   const body = {};
   if (org_name !== undefined) body.org_name = org_name;
   if (phone !== undefined) body.phone = phone;
+  if (cement_bag_rate_ars !== undefined) body.cement_bag_rate_ars = cement_bag_rate_ars;
+  if (usd_ars_rate !== undefined) body.usd_ars_rate = usd_ars_rate;
   return apiFetch(`${API_BASE}/organizations/me`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },

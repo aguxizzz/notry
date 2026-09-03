@@ -205,6 +205,36 @@
   color: var(--color-success);
 }
 
+.buyer-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  color: var(--color-text-muted);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+}
+
+.buyer-loading-spinner {
+  width: 34px;
+  height: 34px;
+  color: var(--color-accent);
+}
+
+.is-spinning {
+  animation: loginSpin 1s linear infinite;
+}
+
+@keyframes loginSpin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-spinning {
+    animation: none;
+  }
+}
+
 .login-support-spacer {
   height: 1.2em;
   margin: 30px 0 0;
