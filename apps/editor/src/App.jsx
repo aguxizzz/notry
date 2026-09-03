@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { API_BASE, fetchWithTimeout } from './api/config';
+import { createUploadFn } from './api/upload';
 import { useAuth } from './hooks/useAuth';
 import { useDraft } from './hooks/useDraft';
 import { useHistory } from './hooks/useHistory';
@@ -7,9 +8,11 @@ import { useLotOperations } from './hooks/useLotOperations';
 import { usePoiOperations } from './hooks/usePoiOperations';
 import { useSaveAll } from './hooks/useSaveAll';
 import { useDisplayAnnotations } from './hooks/useDisplayAnnotations';
-import { computeHomography, applyHomography, isHomographyValid } from './utils/homography';
-import { CALIBRATION_ENABLED } from './config/features';
-import { Image as ImageIcon } from 'lucide-react';
+import { computeProjector, isProjectorValid } from './utils/panoramaProjection';
+import { projectPolygon, projectLotAnnotations, unimportLotAnnotations } from './utils/projection';
+import { isCalibrationPairTooClose } from './utils/calibration';
+import { useUIFeedback } from './hooks/useUIFeedback';
+import { Check, Image as ImageIcon, X } from 'lucide-react';
 import EditorViewer from './components/EditorViewer';
 import BlueprintEditor from './components/BlueprintEditor';
 import LoginScreen from './components/LoginScreen';
@@ -18,78 +21,73 @@ import DraftBanner from './components/DraftBanner';
 import SessionExpiredBanner from './components/SessionExpiredBanner';
 import Toolbar from './components/Toolbar';
 import InspectorPanel from './components/InspectorPanel';
-import LoteoSettingsModal from './components/LoteoSettingsModal';
+import DocumentBar from './components/DocumentBar';
+import ProjectPanel from './components/ProjectPanel';
+import CalibrationOverlay from './components/CalibrationOverlay';
 import './App.css';
 
-// Map annotations to the right coordinate system based on mode
-const getAnnotationsForMode = (annotations, currentMode) => {
-  return annotations.map(ann => {
-    if ((ann.type === 'polygon' || ann.type === 'poi') && (ann.panorama_coordinates || ann.blueprint_coordinates)) {
-      const coords = currentMode === 'blueprint'
-        ? ann.blueprint_coordinates
-        : ann.panorama_coordinates;
-      return { ...ann, polygonPixels: coords || [] };
-    }
-    return ann;
-  });
-};
-
-
 function App() {
+  const { confirm, notify } = useUIFeedback();
   const [activeTool, setActiveTool] = useState('select');
   const [annotations, setAnnotations] = useState([]);
   // Calibration: correspondence points between blueprint and panorama spaces
   // Each entry: { blueprint: [nx, ny], panorama: [textureX, textureY] }
   // Declared before useHistory so undo/redo can snapshot calibration too.
   const [calibrationPoints, setCalibrationPoints] = useState([]);
-  const { pushHistory, undo, redo, canUndo, canRedo } = useHistory({ annotations, setAnnotations, calibrationPoints, setCalibrationPoints });
+  const [calibrationNotice, setCalibrationNotice] = useState('');
+  // Blueprint points clicked in the current calibration batch, queued up
+  // waiting to be matched (in order) against panorama clicks. Batch size is
+  // 4 minus however many pairs already exist (so the first pass collects up
+  // to 4 points before switching views), or 1 for later ad-hoc additions.
+  const [pendingBlueprintPoints, setPendingBlueprintPoints] = useState([]);
+  const { pushHistory, undo, redo, canUndo, canRedo, removeAnnotationFromHistory } = useHistory({ annotations, setAnnotations, calibrationPoints, setCalibrationPoints });
   const isDraggingPolygonRef = useRef(false);
   const preDragAnnotationsRef = useRef(null);
   const isDraggingCalibrationRef = useRef(false);
   const keyboardStateRef = useRef(null);
   const [selectedId, setSelectedId] = useState(null);
   const [drawingPolygon, setDrawingPolygon] = useState([]);
+  // Rectángulo de 2 clicks: guarda la primera esquina mientras se espera la opuesta
+  const [rectStart, setRectStart] = useState(null);
 
   const [panoramaUrl, setPanoramaUrl] = useState(null);
   const [panoramaDimensions, setPanoramaDimensions] = useState(null);
   const [blueprintUrl, setBlueprintUrl] = useState(null);
   const [mode, setMode] = useState('panorama'); // 'panorama' or 'blueprint'
 
-  // During a calibration click sequence: holds the pending blueprint point
-  // { pendingBlueprint: [nx, ny] } while waiting for the panorama click
-  const [calibrationStep, setCalibrationStep] = useState(null);
-
-  // Derived homography — recomputed whenever calibrationPoints changes
+  // Derived projector — recomputed whenever calibration points or panorama
+  // dimensions change. Fits the homography in gnomonic (rectilinear) space,
+  // not directly in equirectangular texture space — see panoramaProjection.js.
   const homography = useMemo(() => {
-    if (calibrationPoints.length < 4) return null;
-    const H = computeHomography(
-      calibrationPoints.map(c => ({ src: c.blueprint, dst: c.panorama }))
+    if (calibrationPoints.length < 4 || !panoramaDimensions) return null;
+    const projector = computeProjector(
+      calibrationPoints.map(c => ({ src: c.blueprint, dst: c.panorama })),
+      panoramaDimensions
     );
-    return isHomographyValid(H) ? H : null;
-  }, [calibrationPoints]);
+    return isProjectorValid(projector) ? projector : null;
+  }, [calibrationPoints, panoramaDimensions]);
   const [snapThreshold, setSnapThreshold] = useState(5);
   const [homePosition, setHomePosition] = useState(null);
-  const [loteoSettingsOpen, setLoteoSettingsOpen] = useState(false);
+  const [northOffset, setNorthOffset] = useState(null);
   const getViewerPositionRef = useRef(null);
   const [viewerReady, setViewerReady] = useState(false);
   const [isLoadingDefault, setIsLoadingDefault] = useState(true);
   const [loteoId, setLoteoId] = useState(null);
   const [siblingStages, setSiblingStages] = useState([]);
   const { token: accessToken, handleLogin, handleLogout } = useAuth();
+  const uploadFn = useMemo(() => createUploadFn(accessToken, handleLogout), [accessToken, handleLogout]);
   const [selectedLoteo, setSelectedLoteo] = useState(null);
-  const [poiForm, setPoiForm] = useState({ title: '', icon_type: '', description: '', link_url: '', color: '#14b8a6' });
+  const [loteoAccessDenied, setLoteoAccessDenied] = useState(false);
   // Snapshot of annotations as last saved/loaded — used to diff before saving
   const savedAnnotationsRef = useRef([]);
   const savedCalibrationRef = useRef([]);
   const { pendingDraft, loadDraft, clearDraft } = useDraft({ annotations, loteoId, savedAnnotationsRef, calibrationPoints, savedCalibrationRef, panoramaDimensions });
   const {
     isCreatingLote,
-    isSavingLote,
     pendingMode, setPendingMode,
     assignTargetId, setAssignTargetId,
     isAssigning,
     handleCreateLote,
-    handleSaveLote,
     handleAssignToExistingLot,
     handleRemoveLot,
   } = useLotOperations({
@@ -100,26 +98,22 @@ function App() {
     onAuthError: handleLogout,
     onAfterCreate: clearDraft,
   });
-  const {
-    isCreatingPoi,
-    isSavingPoi,
-    handleCreatePoi,
-    handleSavePoi,
-    handleDeletePoi,
-  } = usePoiOperations({
+  const { handleDeletePoi } = usePoiOperations({
     setAnnotations, selectedId, setSelectedId,
     token: accessToken, loteoId, mode,
     onAfterCreate: clearDraft,
     onAuthError: handleLogout,
   });
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [projectPanelOpen, setProjectPanelOpen] = useState(true);
+  const [projectPanelTab, setProjectPanelTab] = useState('project');
   // Track blob URLs to revoke and prevent memory leak
   const prevPanoramaUrlRef = useRef(null);
   const {
     isSavingAll,
     sessionExpiredDuringSave, clearSessionExpired,
     handleSaveAll,
-  } = useSaveAll({ annotations, token: accessToken, loteoId, savedAnnotationsRef, onAuthError: handleLogout, onAfterSave: clearDraft, calibrationPoints, savedCalibrationRef });
+  } = useSaveAll({ annotations, setAnnotations, token: accessToken, loteoId, savedAnnotationsRef, onAfterSave: clearDraft, calibrationPoints, savedCalibrationRef });
 
 
 
@@ -129,12 +123,12 @@ function App() {
     fetch(`${API_BASE}/loteos/${loteoId}`, {
       headers: { 'Authorization': `Bearer ${accessToken}` },
     })
-      .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data) setSelectedLoteo(data); })
-      .catch(() => {});
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(data => setSelectedLoteo(data))
+      .catch(() => setLoteoAccessDenied(true));
   }, [loteoId, selectedLoteo, accessToken]);
 
-  // Carga datos desde ?data=URL o desde el panorama.jpg del proyecto padre
+  // Carga los datos del loteo desde la URL recibida por query string.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const dataUrl = params.get('data');
@@ -144,6 +138,7 @@ function App() {
       const match = dataUrl.match(/\/loteos\/([^/?]+)/);
       if (match) {
         extractedLoteoId = match[1];
+        // Initialize route-derived editor state once on mount.
         setLoteoId(extractedLoteoId);
       }
     }
@@ -161,7 +156,11 @@ function App() {
               // Keep both coordinate systems for mode switching
               // Store panorama_coordinates/blueprint_coordinates as-is for later retrieval
               // For initial display, use panorama mode as default
-              if ((ann.type === 'polygon' || ann.type === 'poi') && ann.panorama_coordinates) {
+              ann.variant = ann.marker_variant ?? ann.variant ?? 'area';
+              if (ann.type === 'poi' && ann.variant === 'callout') {
+                const anchor = ann.panorama_anchor ?? ann.panorama_coordinates?.[0];
+                if (anchor) ann.position = { textureX: anchor[0], textureY: anchor[1] };
+              } else if ((ann.type === 'polygon' || ann.type === 'poi') && ann.panorama_coordinates) {
                 ann.polygonPixels = ann.panorama_coordinates;
               } else if ((ann.type === 'polygon' || ann.type === 'poi') && ann.blueprint_coordinates) {
                 ann.polygonPixels = ann.blueprint_coordinates;
@@ -203,8 +202,11 @@ function App() {
             setBlueprintUrl(data.blueprintUrl);
           }
           if (Array.isArray(data.calibrationPoints) && data.calibrationPoints.length > 0) {
-            setCalibrationPoints(data.calibrationPoints);
-            savedCalibrationRef.current = data.calibrationPoints;
+            const withIds = data.calibrationPoints.map(p =>
+              p._id ? p : { ...p, _id: crypto.randomUUID() }
+            );
+            setCalibrationPoints(withIds);
+            savedCalibrationRef.current = withIds;
           }
           if (data.snapThreshold != null) {
             setSnapThreshold(data.snapThreshold);
@@ -212,27 +214,23 @@ function App() {
           if (data.homeYaw != null && data.homePitch != null) {
             setHomePosition({ yaw: data.homeYaw, pitch: data.homePitch });
           }
+          if (data.northOffset != null) {
+            setNorthOffset(data.northOffset);
+          }
         })
         .catch(err => {
-          alert(`No se pudo cargar el JSON desde la URL: ${err.message}`);
+          notify(`No se pudo cargar el JSON desde la URL: ${err.message}`, { variant: 'error' });
         })
         .finally(() => setIsLoadingDefault(false));
       return;
     }
 
-    fetch('/panorama.jpg', { method: 'HEAD' })
-      .then(res => {
-        if (res.ok) {
-          setPanoramaUrl('/panorama.jpg');
-        }
-      })
-      .catch((err) => console.warn('Fallback panorama.jpg not available:', err))
-      .finally(() => setIsLoadingDefault(false));
-  }, []);
+    setIsLoadingDefault(false);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Etapas hermanas del grupo (para que un POI pueda navegar a otra etapa).
   useEffect(() => {
-    if (!loteoId || !accessToken) { setSiblingStages([]); return; }
+    if (!loteoId || !accessToken) return;
     let cancelled = false;
     fetchWithTimeout(`${API_BASE}/loteos?limit=100`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -256,28 +254,83 @@ function App() {
   useEffect(() => {
     setPendingMode('create');
     setAssignTargetId('');
-  }, [selectedId]);
+  }, [selectedId, setAssignTargetId, setPendingMode]);
 
 
 
-  const handleViewerClick = (textureX, textureY) => {
-    // Calibration is hidden in production via CALIBRATION_ENABLED (VITE_CALIBRATION).
-    // Guard here too so a calibrate click can never mutate state where the tool is off.
-    if (CALIBRATION_ENABLED && activeTool === 'calibrate') {
-      if (!calibrationStep) {
-        // Step 1: we're in blueprint — save point and switch to panorama silently
-        setCalibrationStep({ pendingBlueprint: [textureX, textureY] });
-        handleModeChange('panorama', { silent: true });
-      } else {
-        // Step 2: we're in panorama — complete the pair
+  const handleViewerClick = async (textureX, textureY) => {
+    if (activeTool === 'calibrate') {
+      if (mode === 'blueprint') {
+        // 4 pairs is the hard cap — the projection is precise enough by then,
+        // and beyond that more points added ad-hoc do more harm than good.
+        // Delete a pair first (dropping below 4) to replace it.
+        if (calibrationPoints.length >= 4) return;
+        // Collecting phase: queue this point. Batch size is whatever's left
+        // to reach 4 pairs — fixed for the whole collecting phase since
+        // calibrationPoints only changes during the matching phase below.
+        const batchSize = 4 - calibrationPoints.length;
+        const nextPending = [...pendingBlueprintPoints, [textureX, textureY]];
+        setPendingBlueprintPoints(nextPending);
+        if (nextPending.length >= batchSize) {
+          handleModeChange('panorama', { silent: true });
+        }
+      } else if (pendingBlueprintPoints.length > 0) {
+        // Matching phase: match this panorama click against the oldest
+        // still-queued blueprint point, in the same order they were placed.
+        const pendingBp = pendingBlueprintPoints[0];
+        const panoramaPoint = [textureX, textureY];
+        const tooClose = calibrationPoints.some(pair =>
+          isCalibrationPairTooClose(pair, pendingBp, panoramaPoint)
+        );
+        if (tooClose && !(await confirm(
+          'Este punto está muy cerca de uno existente.\nPuede afectar la estabilidad de la calibración. ¿Agregar de todas formas?',
+          { title: 'Punto de calibración cercano', confirmLabel: 'Agregar de todas formas' }
+        ))) return;
+
         const newPair = {
-          blueprint: calibrationStep.pendingBlueprint,
-          panorama: [textureX, textureY],
+          _id: crypto.randomUUID(),
+          blueprint: pendingBp,
+          panorama: panoramaPoint,
         };
         setCalibrationPoints(prev => [...prev, newPair]);
-        setCalibrationStep(null);
-        // Go back to blueprint for the next pair, silently
-        handleModeChange('blueprint', { silent: true });
+        const remainingPending = pendingBlueprintPoints.slice(1);
+        setPendingBlueprintPoints(remainingPending);
+        const completedPairCount = calibrationPoints.length + 1;
+        if (remainingPending.length === 0) {
+          // Batch done. Return to the blueprint and Select mode so the user
+          // can immediately straighten the reference points without needing
+          // another tool change.
+          handleModeChange('blueprint', { silent: true });
+          if (completedPairCount === 4) {
+            setActiveTool('select');
+            setCalibrationNotice('Calibración lista. Ajustá los puntos en el plano si hace falta.');
+          }
+        }
+      }
+      return;
+    }
+
+    if (activeTool === 'rect') {
+      if (!rectStart) {
+        setRectStart([textureX, textureY]);
+      } else {
+        const [x1, y1] = rectStart;
+        const polygonPixels = [[x1, y1], [textureX, y1], [textureX, textureY], [x1, textureY]];
+        const newId = `polygon-${crypto.randomUUID()}`;
+        const newAnn = {
+          id: newId,
+          type: 'polygon',
+          pending: true,
+          polygonPixels,
+          tooltip: '',
+          svgStyle: { fill: 'rgba(255,165,0,0.15)', stroke: '#ffa500', strokeWidth: '2', strokeDasharray: '8,4' },
+        };
+        pushHistory(annotations);
+        setAnnotations([...annotations, newAnn]);
+        setRectStart(null);
+        setSelectedId(newId);
+        setActiveTool('select');
+        setInspectorOpen(true);
       }
       return;
     }
@@ -287,12 +340,12 @@ function App() {
       return;
     }
 
-    if (activeTool === 'polygon' || activeTool === 'poi') {
+    if (activeTool === 'polygon') {
       setDrawingPolygon([...drawingPolygon, [textureX, textureY]]);
       return;
     }
 
-    const newId = `${activeTool}-${Date.now()}`;
+    const newId = `${activeTool}-${crypto.randomUUID()}`;
     const newAnn = {
       id: newId,
       type: activeTool,
@@ -307,39 +360,45 @@ function App() {
       newAnn.bgColor = "#ffffff";
       newAnn.bgOpacity = 0;
       newAnn.fontSize = 14;
-      newAnn.size = { width: 100, height: 30 };
+    }
+
+    if (activeTool === 'poi') {
+      newAnn.variant = 'callout';
+      newAnn.pending = true;
+      newAnn.tooltip = 'Nuevo lugar';
+      newAnn.color = '#c5a059';
+      newAnn.callout_stem_height = 96;
+      if (mode === 'blueprint') newAnn.blueprint_anchor = [textureX, textureY];
+      else newAnn.panorama_anchor = [textureX, textureY];
     }
 
     pushHistory(annotations);
     setAnnotations([...annotations, newAnn]);
     setSelectedId(newId);
     setActiveTool('select');
-    setInspectorOpen(activeTool === 'text');
+    setInspectorOpen(activeTool === 'text' || activeTool === 'poi');
   };
 
   const finishPolygon = () => {
     if (drawingPolygon.length < 3) {
-      alert("El polígono necesita al menos 3 puntos");
+      notify('El polígono necesita al menos 3 puntos', { variant: 'error' });
       return;
     }
     const newId = `${activeTool}-${Date.now()}`;
-    const isPoi = activeTool === 'poi';
     const newAnn = {
       id: newId,
       type: activeTool,
       pending: true,
       polygonPixels: drawingPolygon,
-      tooltip: isPoi ? 'Nuevo POI (sin guardar)' : '',
-      svgStyle: isPoi
-        ? { fill: 'rgba(20,184,166,0.15)', stroke: '#14b8a6', strokeWidth: '2', strokeDasharray: '8,4' }
-        : { fill: 'rgba(255,165,0,0.15)', stroke: '#ffa500', strokeWidth: '2', strokeDasharray: '8,4' },
-      color: isPoi ? '#14b8a6' : undefined,
+      tooltip: '',
+      svgStyle: { fill: 'rgba(255,165,0,0.15)', stroke: '#ffa500', strokeWidth: '2', strokeDasharray: '8,4' },
     };
     pushHistory(annotations);
     setAnnotations([...annotations, newAnn]);
     setDrawingPolygon([]);
     setSelectedId(newId);
     setActiveTool('select');
+    setInspectorOpen(true);
   };
 
   const cancelPolygon = () => {
@@ -347,9 +406,27 @@ function App() {
     setActiveTool('select');
   };
 
-  const cancelCalibration = () => {
-    setCalibrationStep(null);
+  const cancelRect = () => {
+    setRectStart(null);
     setActiveTool('select');
+  };
+
+  const cancelCalibration = () => {
+    setPendingBlueprintPoints([]);
+    setActiveTool('select');
+  };
+
+  // Escape while in calibrate tool: discard the pending batch and go back to
+  // blueprint to pick again (without exiting the tool). Already-completed
+  // pairs are untouched — undo separately with Ctrl+Z if needed. If there's
+  // no pending batch, exit the tool entirely.
+  const handleEscapeCalibration = () => {
+    if (pendingBlueprintPoints.length > 0) {
+      setPendingBlueprintPoints([]);
+      handleModeChange('blueprint', { silent: true });
+    } else {
+      cancelCalibration();
+    }
   };
 
   const handleDeleteCalibrationPoint = (index) => {
@@ -358,12 +435,15 @@ function App() {
     setCalibrationPoints(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleClearCalibration = () => {
+  const handleClearCalibration = async () => {
     if (calibrationPoints.length === 0) return;
-    if (!window.confirm('¿Borrar toda la calibración? (podés deshacer con Ctrl+Z)')) return;
+    const ok = await confirm('¿Borrar toda la calibración? (podés deshacer con Ctrl+Z)', {
+      title: 'Borrar calibración', danger: true, confirmLabel: 'Borrar',
+    });
+    if (!ok) return;
     pushHistory(annotations);
     setCalibrationPoints([]);
-    setCalibrationStep(null);
+    setActiveTool('select');
   };
 
   const handleCaptureHome = async () => {
@@ -377,48 +457,140 @@ function App() {
     if (!res.ok) throw new Error(`Error ${res.status}`);
     const saved = await res.json();
     setHomePosition({ yaw: saved.home_yaw, pitch: saved.home_pitch });
+    return saved;
   };
 
-  const handleModeChange = (nextMode, { silent = false } = {}) => {
+  const handleSetNorth = async () => {
+    const pos = getViewerPositionRef.current?.();
+    if (!pos) throw new Error('El visor no está listo');
+    const res = await fetchWithTimeout(`${API_BASE}/loteos/${loteoId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      body: JSON.stringify({ north_offset: pos.yaw }),
+    });
+    if (!res.ok) throw new Error(`Error ${res.status}`);
+    const saved = await res.json();
+    setNorthOffset(saved.north_offset);
+    return saved;
+  };
+
+  const handleResetHome = async () => {
+    const res = await fetchWithTimeout(`${API_BASE}/loteos/${loteoId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      body: JSON.stringify({ home_yaw: null, home_pitch: null }),
+    });
+    if (!res.ok) throw new Error('No se pudo restablecer la vista inicial.');
+    const saved = await res.json();
+    setHomePosition(null);
+    return saved;
+  };
+
+  const handleResetNorth = async () => {
+    const res = await fetchWithTimeout(`${API_BASE}/loteos/${loteoId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      body: JSON.stringify({ north_offset: null }),
+    });
+    if (!res.ok) throw new Error('No se pudo restablecer el norte.');
+    const saved = await res.json();
+    setNorthOffset(null);
+    return saved;
+  };
+
+  const handleSaveProjectSettings = async ({ name, snapThreshold: nextSnapThreshold }) => {
+    if (!loteoId) throw new Error('No se encontró el loteo que querés configurar.');
+    const res = await fetchWithTimeout(`${API_BASE}/loteos/${loteoId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      body: JSON.stringify({
+        ...(name ? { name } : {}),
+        snap_threshold: nextSnapThreshold,
+      }),
+    });
+    if (!res.ok) throw new Error('No se pudo guardar la configuración del loteo.');
+    const saved = await res.json();
+    if (saved.snap_threshold != null) setSnapThreshold(saved.snap_threshold);
+    setSelectedLoteo(prev => prev
+      ? { ...prev, name: saved.name ?? prev.name }
+      : { ...saved, name: saved.name ?? name });
+    return saved;
+  };
+
+  const handleModeChange = async (nextMode, { silent = false } = {}) => {
     if (nextMode === mode) return;
     if (!silent) {
-      const polygons = annotations.filter(a => (a.type === 'polygon' || a.type === 'poi') && !a.pending);
+      const spatialAnnotations = annotations.filter(a => (
+        !a.pending
+        && (a.type === 'polygon' || (nextMode === 'panorama' && a.type === 'poi'))
+      ));
       const coordKey = nextMode === 'blueprint' ? 'blueprint_coordinates' : 'panorama_coordinates';
-      const missing = polygons.filter(a => !a[coordKey] || a[coordKey].length === 0);
+      const anchorKey = nextMode === 'blueprint' ? 'blueprint_anchor' : 'panorama_anchor';
+      const missing = spatialAnnotations.filter(a =>
+        a.type === 'poi' && a.variant === 'callout'
+          ? !a[anchorKey]
+          : !a[coordKey] || a[coordKey].length === 0
+      );
       if (missing.length > 0) {
-        const ok = window.confirm(
-          `${missing.length} polígono(s) no tienen coordenadas en modo ${nextMode === 'blueprint' ? 'Blueprint' : 'Panorama'}.\n` +
-          `Aparecerán vacíos. ¿Continuar de todas formas?`
+        const ok = await confirm(
+          `${missing.length} marcador(es) no tienen ubicación en la vista ${nextMode === 'blueprint' ? 'Plano' : 'Panorama'}.\n` +
+          `Aparecerán vacíos. ¿Continuar de todas formas?`,
+          { title: 'Marcadores sin ubicación', confirmLabel: 'Continuar' }
         );
         if (!ok) return;
       }
     }
+    setSelectedId(null);
     setMode(nextMode);
   };
 
+  // Keep tool activation in one place so contextual panels always follow the
+  // selected tool, regardless of whether it was chosen from the toolbar or
+  // from the project panel.
+  const handleToolChange = (tool) => {
+    setActiveTool(tool);
+    if (tool === 'calibrate') setCalibrationNotice('');
+    if (tool !== 'polygon') setDrawingPolygon([]);
+    if (tool !== 'rect') setRectStart(null);
+    if (tool === 'calibrate') {
+      setProjectPanelOpen(true);
+      setProjectPanelTab('project');
+    }
+  };
+
   // Clear in-progress drawing when switching modes — coordinates are not transferable between spaces
-  // Exception: calibrate tool drives mode changes intentionally, so don't reset it
+  // Exception: calibrate drives mode changes intentionally, so don't reset it
   useEffect(() => {
     if (activeTool === 'calibrate') return;
+    // Mode changes invalidate an in-progress polygon because the coordinate spaces differ.
     setDrawingPolygon([]);
+    setRectStart(null);
     setActiveTool('select');
   }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When calibrate tool is activated, start in blueprint so the user picks the reference there first
   useEffect(() => {
     if (activeTool === 'calibrate' && blueprintUrl) {
-      setCalibrationStep(null);
+      // Entering calibration intentionally resets its pending batch.
+      setPendingBlueprintPoints([]);
+      setSelectedId(null);
       setMode('blueprint');
+      setProjectPanelOpen(true);
+      setProjectPanelTab('project');
     }
-    // When leaving calibrate tool, clean up any pending step
+    // When leaving calibrate tool, clean up any pending batch
     if (activeTool !== 'calibrate') {
-      setCalibrationStep(null);
+      setPendingBlueprintPoints([]);
     }
   }, [activeTool]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // If blueprintUrl disappears while in blueprint mode, fall back to panorama
   useEffect(() => {
-    if (!blueprintUrl && mode === 'blueprint') setMode('panorama');
+    // Keep the selected view usable if its source image is removed externally.
+    if (!blueprintUrl && mode === 'blueprint') {
+      setSelectedId(null);
+      setMode('panorama');
+    }
   }, [blueprintUrl, mode]);
 
   // Commit polygon drag to history on pointerup (handlePolygonUpdate fires on every pointermove)
@@ -438,10 +610,23 @@ function App() {
   useEffect(() => {
     const onKeyDown = (e) => {
       const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable;
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        keyboardStateRef.current?.saveAll();
+        return;
+      }
+
       if (isInput) return;
 
       if (e.key === 'Escape') {
-        keyboardStateRef.current?.cancelPolygon();
+        if (keyboardStateRef.current?.activeTool === 'calibrate') {
+          keyboardStateRef.current?.handleEscapeCalibration();
+        } else if (keyboardStateRef.current?.activeTool === 'rect') {
+          keyboardStateRef.current?.cancelRect();
+        } else {
+          keyboardStateRef.current?.cancelPolygon();
+        }
         return;
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -459,9 +644,19 @@ function App() {
         keyboardStateRef.current?.redo();
         return;
       }
+      if (e.key.toLowerCase() === 'v') { keyboardStateRef.current?.setActiveTool('select'); return; }
       if (e.key === '1') { keyboardStateRef.current?.setActiveTool('polygon'); return; }
-      if (e.key === '2') { keyboardStateRef.current?.setActiveTool('text');    return; }
-      if (e.key === '3') { keyboardStateRef.current?.setActiveTool('poi');     return; }
+      if (e.key === '2') {
+        // '2' es "Lugar" en panorama, pero ese tool no existe en plano — ahí lo
+        // reutilizamos para "Rectángulo", que tampoco existe en panorama.
+        const nextTool = keyboardStateRef.current?.mode === 'blueprint' ? 'rect' : 'poi';
+        keyboardStateRef.current?.setActiveTool(nextTool);
+        return;
+      }
+      if (e.key === '3' && keyboardStateRef.current?.mode === 'panorama') {
+        keyboardStateRef.current.setActiveTool('text');
+        return;
+      }
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
@@ -469,7 +664,7 @@ function App() {
 
   const { displayAnnotations, selectedMarker } = useDisplayAnnotations({
     annotations, selectedId, mode, drawingPolygon,
-    calibrationPoints, calibrationStep, homography,
+    calibrationPoints, pendingBlueprintPoints, homography,
   });
 
 
@@ -492,8 +687,7 @@ function App() {
   // Live calibration drag (panorama): update calibrationPoints on every move so
   // the homography recomputes and ghost polygons reproject in real time.
   const handleCalibrationDragLive = (markerId, x, y) => {
-    const i = parseInt(markerId.replace('calib-pt-', ''), 10);
-    if (Number.isNaN(i)) return;
+    const ptId = markerId.replace('calib-pt-', '');
     if (!isDraggingCalibrationRef.current) {
       isDraggingCalibrationRef.current = true;
       // Snapshot on first move while calibrationPoints is still pre-drag, so a
@@ -501,8 +695,18 @@ function App() {
       pushHistory(annotations);
     }
     const coordKey = mode === 'blueprint' ? 'blueprint' : 'panorama';
-    setCalibrationPoints(prev => prev.map((p, idx) =>
-      idx === i ? { ...p, [coordKey]: [x, y] } : p
+    // Panorama coords are PSV pixel coordinates — do NOT clamp to [0,1].
+    // Blueprint coords are normalized [0,1] and need clamping.
+    let cx, cy;
+    if (coordKey === 'blueprint') {
+      cx = Math.max(0, Math.min(1, x));
+      cy = Math.max(0, Math.min(1, y));
+    } else {
+      cx = x;
+      cy = y;
+    }
+    setCalibrationPoints(prev => prev.map(p =>
+      p._id === ptId ? { ...p, [coordKey]: [cx, cy] } : p
     ));
   };
 
@@ -516,11 +720,13 @@ function App() {
         return;
       }
       // Blueprint (no live drag): snapshot then apply on drop.
-      const i = parseInt(markerId.replace('calib-pt-', ''), 10);
+      const ptId = markerId.replace('calib-pt-', '');
       const coordKey = mode === 'blueprint' ? 'blueprint' : 'panorama';
+      const cx = Math.max(0, Math.min(1, textureX));
+      const cy = Math.max(0, Math.min(1, textureY));
       pushHistory(annotations);
-      setCalibrationPoints(prev => prev.map((p, idx) =>
-        idx === i ? { ...p, [coordKey]: [textureX, textureY] } : p
+      setCalibrationPoints(prev => prev.map(p =>
+        p._id === ptId ? { ...p, [coordKey]: [cx, cy] } : p
       ));
       return;
     }
@@ -528,6 +734,11 @@ function App() {
     pushHistory(annotations);
     setAnnotations(prevAnnotations => prevAnnotations.map(a => {
       if (a.id === markerId) {
+        if (a.type === 'poi' && a.variant === 'callout') {
+          return mode === 'blueprint'
+            ? { ...a, position: { textureX, textureY }, blueprint_anchor: [textureX, textureY] }
+            : { ...a, position: { textureX, textureY }, panorama_anchor: [textureX, textureY] };
+        }
         return { ...a, position: { textureX, textureY } };
       }
       return a;
@@ -535,16 +746,76 @@ function App() {
   };
 
   const handleImportFromBlueprint = () => {
-    if (!selectedMarker?.blueprint_coordinates?.length || !homography) return;
-    const newPanoCoords = selectedMarker.blueprint_coordinates.map(
-      ([nx, ny]) => applyHomography(homography, [nx, ny])
-    );
+    const newPanoCoords = projectPolygon(selectedMarker?.blueprint_coordinates, homography);
+    if (!newPanoCoords) return;
     pushHistory(annotations);
     setAnnotations(prev => prev.map(a =>
       a.id === selectedId
         ? { ...a, panorama_coordinates: newPanoCoords, polygonPixels: mode === 'panorama' ? newPanoCoords : a.polygonPixels }
         : a
     ));
+  };
+
+  const importPolygonsFromBlueprint = async ({ overwrite }) => {
+    if (!homography) return;
+    const candidates = annotations.filter(annotation => (
+      annotation.type === 'polygon'
+      && !annotation.pending
+      && annotation.blueprint_coordinates?.length >= 3
+      && (overwrite || !annotation.panorama_coordinates?.length)
+    ));
+    if (candidates.length === 0) {
+      notify(overwrite
+        ? 'No hay lotes del plano disponibles para reproyectar.'
+        : 'Todos los lotes del plano ya tienen ubicación en el panorama.', { variant: 'info' });
+      return;
+    }
+    if (overwrite) {
+      const ok = await confirm(
+        `¿Reproyectar ${candidates.length} lote(s)? Se reemplazará su ubicación actual en el panorama.`,
+        { title: 'Reproyectar lotes', confirmLabel: 'Reproyectar' }
+      );
+      if (!ok) return;
+    }
+
+    const projected = projectLotAnnotations(annotations, homography, { overwrite, mode });
+    if (projected.count === 0) {
+      notify('No se pudo proyectar ningún lote con la calibración actual.', { variant: 'error' });
+      return;
+    }
+
+    pushHistory(annotations);
+    setAnnotations(projected.annotations);
+    notify(`${projected.count} lote(s) ${overwrite ? 'reproyectados' : 'proyectados'} al panorama.`, { variant: 'success' });
+  };
+
+  const handleUnimportSelected = async () => {
+    if (!selectedMarker?.panorama_coordinates?.length) return;
+    const ok = await confirm(
+      `¿Quitar "${selectedMarker.tooltip || 'este lote'}" del panorama? El polígono del plano se conservará.`,
+      { title: 'Quitar del panorama', confirmLabel: 'Quitar' }
+    );
+    if (!ok) return;
+    pushHistory(annotations);
+    setAnnotations(prev => unimportLotAnnotations(prev, [selectedId], mode));
+  };
+
+  const handleUnimportAll = async () => {
+    const imported = annotations.filter(annotation => (
+      annotation.type === 'polygon' && !annotation.pending && annotation.panorama_coordinates?.length
+    ));
+    if (imported.length === 0) {
+      notify('No hay lotes importados en el panorama.', { variant: 'info' });
+      return;
+    }
+    const ok = await confirm(
+      `¿Quitar ${imported.length} lote(s) del panorama? Sus polígonos del plano se conservarán.`,
+      { title: 'Quitar todos del panorama', confirmLabel: 'Quitar' }
+    );
+    if (!ok) return;
+    const importedIds = new Set(imported.map(annotation => annotation.id));
+    pushHistory(annotations);
+    setAnnotations(prev => unimportLotAnnotations(prev, importedIds, mode));
   };
 
   const updateSelected = (key, value) => {
@@ -562,20 +833,49 @@ function App() {
   const removeSelected = async () => {
     if (!selectedMarker) return;
 
+    if (selectedMarker.type === 'calibration-point') {
+      const ptId = selectedId.replace('calib-pt-', '');
+      const idx = calibrationPoints.findIndex(p => p._id === ptId);
+      if (idx !== -1) handleDeleteCalibrationPoint(idx);
+      setSelectedId(null);
+      return;
+    }
+
     if (selectedMarker.type === 'polygon') {
-      const snapshot = annotations;
+      const isPersisted = Boolean(selectedMarker.uuid);
       const ok = await handleRemoveLot(selectedMarker);
       if (!ok) return;
-      pushHistory(snapshot);
+      if (!isPersisted) pushHistory(annotations);
       setAnnotations(annotations.filter(a => a.id !== selectedId));
+      if (isPersisted) {
+        savedAnnotationsRef.current = savedAnnotationsRef.current.filter(a =>
+          a.id !== selectedMarker.id && a.uuid !== selectedMarker.uuid
+        );
+        removeAnnotationFromHistory(selectedMarker.id, selectedMarker.uuid);
+      }
       setSelectedId(null);
       return;
     }
 
     if (selectedMarker.type === 'poi') {
-      // handleDeletePoi handles DB delete + local annotation cleanup + selectedId reset
-      pushHistory(annotations);
-      await handleDeletePoi(selectedMarker.uuid);
+      const isPersisted = Boolean(selectedMarker.uuid);
+      if (isPersisted) {
+        const confirmed = await confirm(
+          `¿Eliminar el POI "${selectedMarker.tooltip || selectedMarker.uuid}"? Esta acción no se puede deshacer.`,
+          { title: 'Eliminar POI', danger: true, confirmLabel: 'Eliminar' }
+        );
+        if (!confirmed) return;
+      } else {
+        pushHistory(annotations);
+      }
+
+      const deleted = await handleDeletePoi(selectedMarker.uuid);
+      if (deleted && isPersisted) {
+        savedAnnotationsRef.current = savedAnnotationsRef.current.filter(a =>
+          a.id !== selectedMarker.id && a.uuid !== selectedMarker.uuid
+        );
+        removeAnnotationFromHistory(selectedMarker.id, selectedMarker.uuid);
+      }
       return;
     }
 
@@ -584,8 +884,22 @@ function App() {
     setSelectedId(null);
   };
 
-  // Keep keyboard handler ref fresh every render (must be after removeSelected is defined)
-  keyboardStateRef.current = { removeSelected, undo, redo, setActiveTool, cancelPolygon };
+  // Keep keyboard shortcuts synced with the latest state without mutating refs during render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    keyboardStateRef.current = {
+      removeSelected,
+      undo,
+      redo,
+      setActiveTool,
+      cancelPolygon,
+      cancelRect,
+      handleEscapeCalibration,
+      activeTool,
+      mode,
+      saveAll: handleSaveAll,
+    };
+  });
 
 
 
@@ -609,6 +923,29 @@ function App() {
     return <LoteoList token={accessToken} onSelect={handleLoteoSelect} onAuthError={handleLogout} />;
   }
 
+  if (loteoAccessDenied) {
+    return (
+      <div className="access-screen">
+        <h2>No tenés acceso a este loteo</h2>
+        <p>Este loteo no pertenece a tu cuenta. Pedile el acceso al dueño o volvé al listado.</p>
+      </div>
+    );
+  }
+
+  if (hasDataParam && !selectedLoteo) {
+    return (
+      <div className="access-screen">
+        <div className="access-screen__spinner" />
+        <p>Verificando acceso…</p>
+      </div>
+    );
+  }
+
+  const hasUnsavedChanges = (
+    JSON.stringify(annotations) !== JSON.stringify(savedAnnotationsRef.current)
+    || JSON.stringify(calibrationPoints) !== JSON.stringify(savedCalibrationRef.current)
+  );
+
   return (
     <div className="editor-container">
       <DraftBanner
@@ -622,149 +959,213 @@ function App() {
         onLogin={() => { clearSessionExpired(); handleLogout(); }}
       />
 
-      <div className="viewer-pane">
-        <Toolbar
-          activeTool={activeTool}
-          onToolChange={(tool) => {
-            setActiveTool(tool);
-            if (tool !== 'polygon' && tool !== 'poi') setDrawingPolygon([]);
-          }}
-          mode={mode}
-          onModeChange={handleModeChange}
+      <DocumentBar
+        projectName={selectedLoteo?.name}
+        hasUnsavedChanges={hasUnsavedChanges}
+        isSaving={isSavingAll}
+        onSave={handleSaveAll}
+        onBack={fromList
+          ? () => { window.location.href = window.location.origin + window.location.pathname; }
+          : () => { window.opener?.focus(); window.close(); }
+        }
+        backTitle={fromList ? 'Volver al listado' : 'Volver a la plataforma'}
+        onLogout={handleLogout}
+        projectPanelOpen={projectPanelOpen}
+        onToggleProjectPanel={() => setProjectPanelOpen(open => !open)}
+        inspectorOpen={inspectorOpen}
+        onToggleInspector={() => setInspectorOpen(open => !open)}
+      />
+
+      <div className="editor-workspace">
+        {activeTool === 'calibrate' ? (
+          <CalibrationOverlay
+            mode={mode}
+            panoramaUrl={panoramaUrl}
+            blueprintUrl={blueprintUrl}
+            annotations={displayAnnotations}
+            selectedId={selectedId}
+            onClick={handleViewerClick}
+            onMarkerSelect={(id) => setSelectedId(id.startsWith('ghost-') ? id.slice('ghost-'.length) : id)}
+            onPolygonUpdate={handlePolygonUpdate}
+            onMarkerDragEnd={handleMarkerDragEnd}
+            onMarkerDrag={handleCalibrationDragLive}
+            getPositionRef={getViewerPositionRef}
+            onViewerReadyChange={setViewerReady}
+            onPanoramaDimensions={setPanoramaDimensions}
+            calibrationPoints={calibrationPoints}
+            pendingBlueprintPoints={pendingBlueprintPoints}
+            onCancelCalibration={cancelCalibration}
+            onDeleteCalibrationPoint={handleDeleteCalibrationPoint}
+            onClearCalibration={handleClearCalibration}
+          />
+        ) : (
+        <>
+        <ProjectPanel
+          open={projectPanelOpen}
+          onClose={() => setProjectPanelOpen(false)}
+          activeTab={projectPanelTab}
+          onTabChange={setProjectPanelTab}
+          projectName={selectedLoteo?.name ?? ''}
+          snapThreshold={snapThreshold}
+          onSaveSettings={handleSaveProjectSettings}
           panoramaUrl={panoramaUrl}
           blueprintUrl={blueprintUrl}
-          drawingPolygon={drawingPolygon}
-          onFinishPolygon={finishPolygon}
-          onCancelPolygon={cancelPolygon}
-          inspectorOpen={inspectorOpen}
-          onToggleInspector={() => setInspectorOpen(o => !o)}
-          onLogout={handleLogout}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          onUndo={undo}
-          onRedo={redo}
+          mode={mode}
+          annotations={annotations}
+          selectedId={selectedId}
+          onSelectAnnotation={(id) => {
+            setSelectedId(id);
+            setInspectorOpen(true);
+          }}
           calibrationPoints={calibrationPoints}
-          calibrationStep={calibrationStep}
+          pendingBlueprintPoints={pendingBlueprintPoints}
+          homography={homography}
+          calibrationNotice={calibrationNotice}
+          activeTool={activeTool}
+          onEnterCalibration={() => handleToolChange('calibrate')}
           onCancelCalibration={cancelCalibration}
           onDeleteCalibrationPoint={handleDeleteCalibrationPoint}
           onClearCalibration={handleClearCalibration}
-          onBack={fromList
-            ? () => { window.location.href = window.location.origin + window.location.pathname; }
-            : () => { window.opener?.focus(); window.close(); }
-          }
-          backTitle={fromList ? 'Volver al listado' : 'Volver a la plataforma'}
-          onOpenLoteoSettings={loteoId ? () => setLoteoSettingsOpen(true) : undefined}
-          onCaptureHome={loteoId ? handleCaptureHome : undefined}
-          canCaptureHome={!!panoramaUrl && mode === 'panorama' && viewerReady}
+          onProjectMissing={() => importPolygonsFromBlueprint({ overwrite: false })}
+          onReprojectAll={() => importPolygonsFromBlueprint({ overwrite: true })}
+          onRemoveAllFromPanorama={handleUnimportAll}
+          homePosition={homePosition}
+          northOffset={northOffset}
+          onCaptureHome={handleCaptureHome}
+          onResetHome={handleResetHome}
+          onSetNorth={handleSetNorth}
+          onResetNorth={handleResetNorth}
+          canOrientPanorama={!!loteoId && !!panoramaUrl && mode === 'panorama' && viewerReady}
         />
 
-        <div style={{ width: '100%', height: '100%' }}>
-          {isLoadingDefault ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#aaa' }}>
-              Cargando...
-            </div>
-          ) : mode === 'blueprint' && blueprintUrl ? (
-            <BlueprintEditor
-              blueprintUrl={blueprintUrl}
-              activeTool={activeTool}
-              annotations={displayAnnotations}
-              selectedId={selectedId}
-              onClick={handleViewerClick}
-              onMarkerSelect={(id) => {
-                if ((activeTool === 'polygon' || activeTool === 'poi') && id === 'temp-pt-0') {
-                  finishPolygon();
-                } else {
-                  setSelectedId(id);
-                  setInspectorOpen(false);
-                }
-              }}
-              onPolygonUpdate={handlePolygonUpdate}
-              onMarkerDragEnd={handleMarkerDragEnd}
-            />
-          ) : mode === 'panorama' && panoramaUrl ? (
-            <EditorViewer
-              panoramaUrl={panoramaUrl}
-              activeTool={activeTool}
-              annotations={displayAnnotations}
-              onClick={handleViewerClick}
-              onMarkerSelect={(id) => {
-                // Ghost polygons and calibration markers are non-interactive
-                if (id.startsWith('ghost-') || id.startsWith('calib-')) return;
-                if ((activeTool === 'polygon' || activeTool === 'poi') && id === 'temp-pt-0') {
-                  finishPolygon();
-                } else {
-                  setSelectedId(id);
-                  setInspectorOpen(false);
-                }
-              }}
-              onPolygonUpdate={handlePolygonUpdate}
-              onMarkerDragEnd={handleMarkerDragEnd}
-              onMarkerDrag={handleCalibrationDragLive}
-              getPositionRef={getViewerPositionRef}
-              onViewerReadyChange={setViewerReady}
-            />
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#aaa', textAlign: 'center', padding: '2rem' }}>
-              <ImageIcon size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-              <h2>{mode === 'blueprint' ? 'No hay blueprint cargado' : 'No hay imagen panorámica cargada'}</h2>
-              <p style={{ maxWidth: '400px', lineHeight: '1.5' }}>Usa el botón <b>"Cargar Imagen"</b> en el panel derecho para subir tu fotografía equirrectangular (JPG/PNG) localmente y empezar a mapear.</p>
+        <main className="viewer-pane">
+          <Toolbar
+            activeTool={activeTool}
+            onToolChange={handleToolChange}
+            mode={mode}
+            onModeChange={handleModeChange}
+            panoramaUrl={panoramaUrl}
+            blueprintUrl={blueprintUrl}
+            drawingPolygon={drawingPolygon}
+            onFinishPolygon={finishPolygon}
+            onCancelPolygon={cancelPolygon}
+            rectStart={rectStart}
+            onCancelRect={cancelRect}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onUndo={undo}
+            onRedo={redo}
+            calibrationPoints={calibrationPoints}
+          />
+
+          <div className="viewer-surface">
+            {isLoadingDefault ? (
+              <div className="viewer-feedback">Cargando loteo…</div>
+            ) : mode === 'blueprint' && blueprintUrl ? (
+              <BlueprintEditor
+                blueprintUrl={blueprintUrl}
+                activeTool={activeTool}
+                annotations={displayAnnotations}
+                selectedId={selectedId}
+                rectStart={rectStart}
+                onClick={handleViewerClick}
+                onMarkerSelect={(id) => {
+                  if (activeTool === 'polygon' && id === 'temp-pt-0') finishPolygon();
+                  else {
+                    setSelectedId(id);
+                    if (!id.startsWith('calib-')) setInspectorOpen(true);
+                  }
+                }}
+                onPolygonUpdate={handlePolygonUpdate}
+                onMarkerDragEnd={handleMarkerDragEnd}
+              />
+            ) : mode === 'panorama' && panoramaUrl ? (
+              <EditorViewer
+                panoramaUrl={panoramaUrl}
+                activeTool={activeTool}
+                annotations={displayAnnotations}
+                onClick={handleViewerClick}
+                onMarkerSelect={(id) => {
+                  if (activeTool === 'polygon' && id === 'temp-pt-0') finishPolygon();
+                  else {
+                    setSelectedId(id.startsWith('ghost-') ? id.slice('ghost-'.length) : id);
+                    if (!id.startsWith('calib-')) setInspectorOpen(true);
+                  }
+                }}
+                onPolygonUpdate={handlePolygonUpdate}
+                onMarkerDragEnd={handleMarkerDragEnd}
+                onMarkerDrag={handleCalibrationDragLive}
+                getPositionRef={getViewerPositionRef}
+                onViewerReadyChange={setViewerReady}
+                onPanoramaDimensions={setPanoramaDimensions}
+              />
+            ) : (
+              <div className="viewer-feedback viewer-feedback--empty">
+                <ImageIcon size={40} />
+                <h2>{mode === 'blueprint' ? 'Este loteo no tiene plano' : 'Falta cargar el panorama'}</h2>
+                <p>Administrá las imágenes desde la ficha del loteo en el CRM.</p>
+              </div>
+            )}
+          </div>
+
+          {calibrationNotice && (
+            <div className="calibration-complete-overlay" role="dialog" aria-modal="true" aria-labelledby="calibration-complete-title">
+              <div className="calibration-complete-overlay__card">
+                <div className="calibration-complete-overlay__icon"><Check size={20} /></div>
+                <div className="calibration-complete-overlay__copy">
+                  <strong id="calibration-complete-title">Calibración lista</strong>
+                  <span>Ajustá los puntos en el plano si hace falta.</span>
+                </div>
+                <button
+                  type="button"
+                  className="editor-icon-btn"
+                  onClick={() => setCalibrationNotice('')}
+                  aria-label="Cerrar aviso de calibración"
+                >
+                  <X size={16} />
+                </button>
+                <button type="button" className="editor-btn editor-btn--primary" onClick={() => setCalibrationNotice('')}>
+                  Entendido
+                </button>
+              </div>
             </div>
           )}
-        </div>
+        </main>
+
+        <InspectorPanel
+          inspectorOpen={inspectorOpen}
+          onClose={() => setInspectorOpen(false)}
+          annotations={annotations}
+          selectedMarker={selectedMarker}
+          mode={mode}
+          homography={homography}
+          onImportFromBlueprint={handleImportFromBlueprint}
+          onUnimportSelected={handleUnimportSelected}
+          onDelete={removeSelected}
+          updateSelected={updateSelected}
+          updateNestedSelected={updateNestedSelected}
+          pendingMode={pendingMode}
+          onPendingModeChange={setPendingMode}
+          isCreatingLote={isCreatingLote}
+          onCreateLote={() => handleCreateLote(selectedMarker)}
+          assignTargetId={assignTargetId}
+          onAssignTargetChange={setAssignTargetId}
+          isAssigning={isAssigning}
+          onAssign={() => handleAssignToExistingLot(selectedMarker)}
+          siblingStages={siblingStages}
+          accessToken={accessToken}
+          uploadFn={uploadFn}
+          onPoiFieldChange={(field, value) => {
+            setAnnotations(annotations.map(annotation =>
+              annotation.id === selectedId
+                ? { ...annotation, [field]: value, ...(field === 'title' ? { tooltip: value } : {}) }
+                : annotation
+            ));
+          }}
+        />
+        </>
+        )}
       </div>
-
-      <InspectorPanel
-        inspectorOpen={inspectorOpen}
-        annotations={annotations}
-        selectedMarker={selectedMarker}
-        mode={mode}
-        homography={homography}
-        onImportFromBlueprint={handleImportFromBlueprint}
-        onDelete={removeSelected}
-        updateSelected={updateSelected}
-        updateNestedSelected={updateNestedSelected}
-        pendingMode={pendingMode}
-        onPendingModeChange={setPendingMode}
-        isCreatingLote={isCreatingLote}
-        onCreateLote={() => handleCreateLote(selectedMarker)}
-        assignTargetId={assignTargetId}
-        onAssignTargetChange={setAssignTargetId}
-        isAssigning={isAssigning}
-        onAssign={() => handleAssignToExistingLot(selectedMarker)}
-        isSavingLote={isSavingLote}
-        onSaveLote={() => handleSaveLote(selectedMarker)}
-        onCreatePoi={handleCreatePoi}
-        onSavePoi={handleSavePoi}
-        siblingStages={siblingStages}
-        onDeletePoi={handleDeletePoi}
-        onDeselectPoi={() => { setSelectedId(null); setInspectorOpen(false); }}
-        onPoiFieldChange={(field, value) => {
-          setAnnotations(annotations.map(a =>
-            a.id === selectedId
-              ? { ...a, [field]: value, ...(field === 'title' ? { tooltip: value } : {}) }
-              : a
-          ));
-        }}
-        isCreatingPoi={isCreatingPoi}
-        isSavingPoi={isSavingPoi}
-        isSavingAll={isSavingAll}
-        onSaveAll={handleSaveAll}
-      />
-
-      <LoteoSettingsModal
-        isOpen={loteoSettingsOpen}
-        onClose={() => setLoteoSettingsOpen(false)}
-        loteoId={loteoId}
-        token={accessToken}
-        initialName={selectedLoteo?.name ?? ''}
-        initialSnapThreshold={snapThreshold}
-        onSaved={(saved) => {
-          if (saved.snap_threshold != null) setSnapThreshold(saved.snap_threshold);
-          if (saved.home_yaw != null) setHomePosition({ yaw: saved.home_yaw, pitch: saved.home_pitch });
-          else if (saved.home_yaw === null) setHomePosition(null);
-          setSelectedLoteo(prev => prev ? { ...prev, name: saved.name ?? prev.name } : prev);
-        }}
-      />
     </div>
   );
 }

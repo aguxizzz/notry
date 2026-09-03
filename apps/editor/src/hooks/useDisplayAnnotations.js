@@ -1,17 +1,19 @@
 import { useMemo } from 'react';
-import { applyHomography } from '../utils/homography';
+import { projectPolygonDense } from '../utils/projection';
 
-export function useDisplayAnnotations({ annotations, selectedId, mode, drawingPolygon, calibrationPoints, calibrationStep, homography }) {
+export function useDisplayAnnotations({ annotations, selectedId, mode, drawingPolygon, calibrationPoints, pendingBlueprintPoints, homography }) {
   const modeAdjustedAnnotations = useMemo(() => {
-    return annotations.map(ann => {
-      if ((ann.type === 'polygon' || ann.type === 'poi') && (ann.panorama_coordinates || ann.blueprint_coordinates)) {
-        const coords = mode === 'blueprint'
-          ? (ann.blueprint_coordinates || [])
-          : (ann.panorama_coordinates || []);
-        return { ...ann, polygonPixels: coords };
-      }
-      return ann;
-    });
+    return annotations
+      .filter(ann => mode !== 'blueprint' || (ann.type !== 'poi' && ann.type !== 'text'))
+      .map(ann => {
+        if ((ann.type === 'polygon' || ann.type === 'poi') && (ann.panorama_coordinates || ann.blueprint_coordinates)) {
+          const coords = mode === 'blueprint'
+            ? (ann.blueprint_coordinates || [])
+            : (ann.panorama_coordinates || []);
+          return { ...ann, polygonPixels: coords };
+        }
+        return ann;
+      });
   }, [annotations, mode]);
 
   const selectedMarker = useMemo(
@@ -27,7 +29,7 @@ export function useDisplayAnnotations({ annotations, selectedId, mode, drawingPo
         id: 'temp-drawing',
         type: 'polyline',
         polylinePixels: [...drawingPolygon, drawingPolygon[drawingPolygon.length - 1]],
-        svgStyle: { stroke: '#ff0', strokeWidth: '3', strokeDasharray: '5,5' },
+        svgStyle: { stroke: '#ffa500', strokeWidth: '3', strokeDasharray: '5,5' },
       });
       drawingPolygon.forEach((pt, i) => {
         result.push({
@@ -35,7 +37,7 @@ export function useDisplayAnnotations({ annotations, selectedId, mode, drawingPo
           type: 'point',
           position: { textureX: pt[0], textureY: pt[1] },
           radius: i === 0 ? 4 : 3,
-          svgStyle: { fill: '#ff0' },
+          svgStyle: { fill: '#ffa500' },
         });
       });
     }
@@ -111,11 +113,9 @@ export function useDisplayAnnotations({ annotations, selectedId, mode, drawingPo
         if (!ann.blueprint_coordinates?.length) return;
         if (ann.panorama_coordinates?.length) return; // already has panorama coords — skip ghost
 
-        const projectedPixels = ann.blueprint_coordinates
-          .map(([nx, ny]) => applyHomography(homography, [nx, ny]))
-          .filter(([tx, ty]) => Number.isFinite(tx) && Number.isFinite(ty));
+        const projectedPixels = projectPolygonDense(ann.blueprint_coordinates, homography);
 
-        if (projectedPixels.length < 3) return;
+        if (!projectedPixels || projectedPixels.length < 3) return;
 
         result.push({
           id: `ghost-${ann.id}`,
@@ -154,7 +154,7 @@ export function useDisplayAnnotations({ annotations, selectedId, mode, drawingPo
         const coord = mode === 'blueprint' ? pair.blueprint : pair.panorama;
         if (!coord) return;
         result.push({
-          id: `calib-pt-${i}`,
+          id: `calib-pt-${pair._id}`,
           type: 'calibration-point',
           position: { textureX: coord[0], textureY: coord[1] },
           label: String(i + 1),
@@ -169,23 +169,23 @@ export function useDisplayAnnotations({ annotations, selectedId, mode, drawingPo
       });
     }
 
-    // Pending blueprint point (waiting for panorama click) — only shown in blueprint mode
-    if (calibrationStep?.pendingBlueprint && mode === 'blueprint') {
-      result.push({
-        id: 'calib-pending',
-        type: 'calibration-point',
-        position: {
-          textureX: calibrationStep.pendingBlueprint[0],
-          textureY: calibrationStep.pendingBlueprint[1],
-        },
-        label: String((calibrationPoints?.length ?? 0) + 1),
-        radius: 7,
-        svgStyle: { fill: '#3b82f6', stroke: '#fff', strokeWidth: '2', opacity: 0.5 },
+    // Pending blueprint points (queued, waiting for their panorama match) —
+    // only shown in blueprint mode, numbered continuing from committed pairs.
+    if (pendingBlueprintPoints?.length > 0 && mode === 'blueprint') {
+      pendingBlueprintPoints.forEach((pt, i) => {
+        result.push({
+          id: `calib-pending-${i}`,
+          type: 'calibration-point',
+          position: { textureX: pt[0], textureY: pt[1] },
+          label: String((calibrationPoints?.length ?? 0) + i + 1),
+          radius: 7,
+          svgStyle: { fill: '#3b82f6', stroke: '#fff', strokeWidth: '2', opacity: 0.5 },
+        });
       });
     }
 
     return result;
-  }, [modeAdjustedAnnotations, selectedMarker, drawingPolygon, calibrationPoints, calibrationStep, mode, homography, annotations]);
+  }, [modeAdjustedAnnotations, selectedMarker, drawingPolygon, calibrationPoints, pendingBlueprintPoints, mode, homography, annotations]);
 
   return { displayAnnotations, selectedMarker };
 }

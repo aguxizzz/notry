@@ -1,5 +1,4 @@
 import { useRef, useEffect } from 'react';
-import { Download } from 'lucide-react';
 import POIInspector from './POIInspector';
 import PendingPolygonInspector from './PendingPolygonInspector';
 import LoteInspector from './LoteInspector';
@@ -11,6 +10,7 @@ export default function InspectorPanel({
   mode,
   homography,
   onImportFromBlueprint,
+  onUnimportSelected,
   onDelete,
   updateSelected,
   updateNestedSelected,
@@ -19,21 +19,20 @@ export default function InspectorPanel({
   isCreatingLote, onCreateLote,
   assignTargetId, onAssignTargetChange,
   isAssigning, onAssign,
-  // Lot — existing
-  isSavingLote, onSaveLote,
   // POI
-  onCreatePoi, onSavePoi, onDeletePoi, siblingStages,
-  onDeselectPoi, onPoiFieldChange,
-  isCreatingPoi, isSavingPoi,
-  // Save
-  isSavingAll, onSaveAll,
+  siblingStages, onPoiFieldChange,
+  uploadFn,
 }) {
   const textInputRef = useRef(null);
   useEffect(() => {
     if (selectedMarker?.type === 'text') {
-      setTimeout(() => { textInputRef.current?.focus(); textInputRef.current?.select(); }, 50);
+      const timeoutId = setTimeout(() => {
+        textInputRef.current?.focus();
+        textInputRef.current?.select();
+      }, 50);
+      return () => clearTimeout(timeoutId);
     }
-  }, [selectedMarker?.id]);
+  }, [selectedMarker?.id, selectedMarker?.type]);
 
   const lotsWithEmptyCoords = annotations.filter(a =>
     a.type === 'polygon' && !a.pending && a.uuid &&
@@ -44,11 +43,6 @@ export default function InspectorPanel({
 
   return (
     <div className={`inspector-pane${inspectorOpen ? ' open' : ''}`}>
-      <div className="inspector-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span>Inspector</span>
-        <span style={{ fontSize: 'var(--text-base)', color: '#aaa' }}>{annotations.length} capas</span>
-      </div>
-
       <div className="inspector-body">
         {!selectedMarker ? (
           <div style={{ color: '#888', fontSize: 'var(--text-lg)' }}>
@@ -68,7 +62,7 @@ export default function InspectorPanel({
               </div>
             )}
 
-            {selectedMarker.type !== 'polygon' && selectedMarker.type !== 'poi' && (
+            {selectedMarker.type !== 'polygon' && selectedMarker.type !== 'poi' && selectedMarker.type !== 'text' && (
               <div className="inspector-section">
                 <span className="inspector-section-title">General</span>
                 <span className="inspector-label">ID</span>
@@ -138,10 +132,9 @@ export default function InspectorPanel({
                 <LoteInspector
                   selectedMarker={selectedMarker}
                   onUpdateSelected={updateSelected}
-                  isSavingLote={isSavingLote}
-                  onSaveLote={onSaveLote}
                   homography={homography}
                   onImportFromBlueprint={onImportFromBlueprint}
+                  onUnimportSelected={onUnimportSelected}
                 />
               )
             )}
@@ -149,28 +142,14 @@ export default function InspectorPanel({
             {selectedMarker.type === 'poi' && (
               <POIInspector
                 poi={selectedMarker}
-                onCreatePoi={onCreatePoi}
-                onSavePoi={onSavePoi}
-                onDeletePoi={onDeletePoi}
+                onDelete={onDelete}
                 siblingStages={siblingStages}
-                onDeselect={onDeselectPoi}
                 onFieldChange={onPoiFieldChange}
-                isSaving={isCreatingPoi || isSavingPoi}
+                uploadFn={uploadFn}
               />
             )}
           </>
         )}
-      </div>
-
-      <div className="inspector-footer">
-        <button
-          className="btn-primary"
-          onClick={onSaveAll}
-          disabled={isSavingAll}
-          style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: isSavingAll ? '#555' : '#28a745' }}
-        >
-          <Download size={18} /> {isSavingAll ? 'Guardando...' : 'Guardar Todo'}
-        </button>
       </div>
     </div>
   );

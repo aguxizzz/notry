@@ -1,13 +1,16 @@
-import { useRef, useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export function useHistory({ annotations, setAnnotations, calibrationPoints, setCalibrationPoints }) {
   // Each history entry is a composite snapshot: { annotations, calibrationPoints }
   const past = useRef([]);
   const future = useRef([]);
   const annotationsRef = useRef(annotations);
-  annotationsRef.current = annotations;
   const calibrationRef = useRef(calibrationPoints);
-  calibrationRef.current = calibrationPoints;
+
+  useEffect(() => {
+    annotationsRef.current = annotations;
+    calibrationRef.current = calibrationPoints;
+  }, [annotations, calibrationPoints]);
 
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
@@ -54,5 +57,20 @@ export function useHistory({ annotations, setAnnotations, calibrationPoints, set
     setCanRedo(future.current.length > 0);
   }, [setAnnotations, setCalibrationPoints]);
 
-  return { pushHistory, undo, redo, canUndo, canRedo };
+  const removeAnnotationFromHistory = useCallback((...annotationIds) => {
+    const targetIds = new Set(annotationIds.filter(Boolean));
+    if (targetIds.size === 0) return;
+
+    const withoutDeletedAnnotation = entry => ({
+      ...entry,
+      annotations: entry.annotations.filter(annotation => (
+        !targetIds.has(annotation.id) && !targetIds.has(annotation.uuid)
+      )),
+    });
+
+    past.current = past.current.map(withoutDeletedAnnotation);
+    future.current = future.current.map(withoutDeletedAnnotation);
+  }, []);
+
+  return { pushHistory, undo, redo, canUndo, canRedo, removeAnnotationFromHistory };
 }

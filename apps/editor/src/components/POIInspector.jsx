@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { createElement } from 'react';
 import {
   DoorOpen, Dumbbell, Waves, Car, Utensils, ShoppingBag,
   Eye, TreePine, Landmark, HelpCircle
 } from 'lucide-react';
+import ImageUploadField from './ImageUploadField';
 
 const POI_ICON_OPTIONS = [
   { value: 'entrance',    Icon: DoorOpen,    label: 'Entrada' },
@@ -39,7 +40,7 @@ const IconGrid = ({ value: selected, onChange }) => (
           whiteSpace: 'nowrap',
         }}
       >
-        <Icon size={15} style={{ flexShrink: 0 }} />
+        {createElement(Icon, { size: 15, style: { flexShrink: 0 } })}
         <span style={{ fontSize: '11px' }}>{label}</span>
       </button>
     ))}
@@ -48,46 +49,32 @@ const IconGrid = ({ value: selected, onChange }) => (
 
 export default function POIInspector({
   poi,
-  onCreatePoi,
-  onSavePoi,
-  onDeletePoi,
+  onDelete,
   siblingStages = [],
-  onDeselect,
   onFieldChange,
-  isSaving,
+  uploadFn,
 }) {
   const isPending = poi.pending === true;
 
-  const [form, setForm] = useState({
+  const form = {
     title: poi.tooltip || '',
     icon_type: poi.icon_type || '',
     description: poi.description || '',
     link_url: poi.link_url || '',
+    image_url: poi.image_url || '',
     color: poi.color || '#14b8a6',
     target_loteo_id: poi.target_loteo_id || '',
-  });
-
-  useEffect(() => {
-    setForm({
-      title: poi.tooltip || '',
-      icon_type: poi.icon_type || '',
-      description: poi.description || '',
-      link_url: poi.link_url || '',
-      color: poi.color || '#14b8a6',
-      target_loteo_id: poi.target_loteo_id || '',
-    });
-  }, [poi.id]);
+    callout_stem_height: poi.callout_stem_height ?? 96,
+  };
 
   const handleChange = (field, value) => {
-    setForm(prev => ({ ...prev, [field]: value }));
-    if (onFieldChange) onFieldChange(field, value);
+    onFieldChange?.(field, value);
   };
 
-  const handleDelete = () => {
-    if (!poi.uuid) { onDeletePoi(null); return; }
-    if (!confirm(`¿Eliminar el POI "${poi.tooltip}"? Esta acción no se puede deshacer.`)) return;
-    onDeletePoi(poi.uuid);
-  };
+  const hasImage = !!form.image_url;
+
+  const fieldGroupStyle = { display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' };
+  const disabledFieldStyle = { ...fieldGroupStyle, opacity: 0.4, pointerEvents: 'none' };
 
   const formFields = (
     <>
@@ -99,26 +86,47 @@ export default function POIInspector({
         placeholder="Ej: Pileta climatizada"
       />
 
-      <span className="inspector-label">Tipo de icono</span>
-      <IconGrid value={form.icon_type} onChange={v => handleChange('icon_type', v)} />
-
-      <span className="inspector-label">Descripción</span>
-      <textarea
-        className="inspector-input"
-        value={form.description}
-        onChange={e => handleChange('description', e.target.value)}
-        placeholder="Descripción del lugar..."
-        rows={3}
-        style={{ resize: 'vertical' }}
+      <span className="inspector-label">Imagen</span>
+      <ImageUploadField
+        showLabel={false}
+        value={form.image_url}
+        uploadFn={uploadFn}
+        onUpload={({ url }) => handleChange('image_url', url)}
+        onRemove={() => handleChange('image_url', '')}
       />
 
+      {hasImage && (
+        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', margin: 0 }}>
+          Con imagen cargada, el visor muestra solo la foto: el ícono, la descripción, la URL y "ir a etapa" no se ven. Quitá la imagen para volver a usarlos.
+        </p>
+      )}
+
+      <div style={hasImage ? disabledFieldStyle : fieldGroupStyle}>
+        <span className="inspector-label">Tipo de icono</span>
+        <IconGrid value={form.icon_type} onChange={v => handleChange('icon_type', v)} />
+      </div>
+
+      <div style={hasImage ? disabledFieldStyle : fieldGroupStyle}>
+        <span className="inspector-label">Descripción</span>
+        <textarea
+          className="inspector-input"
+          value={form.description}
+          onChange={e => handleChange('description', e.target.value)}
+          placeholder="Descripción del lugar..."
+          rows={3}
+          style={{ resize: 'vertical' }}
+          disabled={hasImage}
+        />
+      </div>
+
       {siblingStages.length > 0 && (
-        <>
+        <div style={hasImage ? disabledFieldStyle : fieldGroupStyle}>
           <span className="inspector-label">Ir a etapa (opcional)</span>
           <select
             className="inspector-input"
             value={form.target_loteo_id}
             onChange={e => handleChange('target_loteo_id', e.target.value)}
+            disabled={hasImage}
           >
             <option value="">— Ninguna —</option>
             {siblingStages.map(s => (
@@ -127,17 +135,29 @@ export default function POIInspector({
               </option>
             ))}
           </select>
-        </>
+        </div>
       )}
 
-      <span className="inspector-label">URL (opcional)</span>
+      <div style={hasImage ? disabledFieldStyle : fieldGroupStyle}>
+        <span className="inspector-label">URL (opcional)</span>
+        <input
+          className="inspector-input"
+          value={form.link_url}
+          onChange={e => handleChange('link_url', e.target.value)}
+          placeholder="https://..."
+          disabled={hasImage || !!form.target_loteo_id}
+          title={form.target_loteo_id ? 'Deshabilitado: el POI ya navega a una etapa' : undefined}
+        />
+      </div>
+
+      <span className="inspector-label">Alto de línea — <strong>{form.callout_stem_height}px</strong></span>
       <input
-        className="inspector-input"
-        value={form.link_url}
-        onChange={e => handleChange('link_url', e.target.value)}
-        placeholder="https://..."
-        disabled={!!form.target_loteo_id}
-        title={form.target_loteo_id ? 'Deshabilitado: el POI ya navega a una etapa' : undefined}
+        type="range"
+        value={form.callout_stem_height}
+        onChange={e => handleChange('callout_stem_height', Number(e.target.value))}
+        min={40}
+        max={260}
+        step={4}
       />
 
       <span className="inspector-label">Color</span>
@@ -166,44 +186,19 @@ export default function POIInspector({
           POI
         </h3>
         <button
-          onClick={handleDelete}
+          onClick={onDelete}
           style={{ background: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', padding: '4px 10px', cursor: 'pointer', fontSize: 'var(--text-base)' }}
         >
           Borrar
         </button>
       </div>
 
-      {isPending ? (
-        <>
-          <div className="inspector-section">
-            <span className="inspector-section-title" style={{ color: '#ffa500' }}>Crear POI</span>
-            {formFields}
-          </div>
-          <button
-            onClick={() => onCreatePoi(form, poi.polygonPixels)}
-            disabled={isSaving}
-            className="btn-primary"
-            style={{ marginTop: '4px', background: isSaving ? '#555' : '#28a745' }}
-          >
-            {isSaving ? 'Creando...' : 'Crear POI'}
-          </button>
-        </>
-      ) : (
-        <>
-          <div className="inspector-section">
-            <span className="inspector-section-title">Datos del POI</span>
-            {formFields}
-          </div>
-          <button
-            onClick={() => onSavePoi(poi.uuid, form, poi.polygonPixels)}
-            disabled={isSaving}
-            className="btn-primary"
-            style={{ marginTop: '4px' }}
-          >
-            {isSaving ? 'Guardando...' : 'Guardar POI'}
-          </button>
-        </>
-      )}
+      <div className="inspector-section">
+        <span className="inspector-section-title" style={isPending ? { color: '#ffa500' } : undefined}>
+          {isPending ? 'Crear POI' : 'Datos del POI'}
+        </span>
+        {formFields}
+      </div>
     </>
   );
 }
