@@ -131,6 +131,76 @@
   animation: cob-spin 0.8s linear infinite;
 }
 
+.cob-rate-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--cob-paper);
+  color: var(--cob-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  cursor: default;
+}
+
+.cob-rate-chip--editable {
+  color: var(--cob-ink);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.cob-rate-chip--editable:hover,
+.cob-rate-chip--editable:focus-visible {
+  border-color: var(--accent-dark);
+  background: color-mix(in srgb, var(--accent-color) 7%, var(--cob-paper));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 16%, transparent);
+  outline: none;
+}
+
+.cob-rate-chip--editable svg {
+  color: var(--accent-dark);
+}
+
+.cob-rate-chip--editable:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.cob-cement-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.cob-cement-modal__head h2 {
+  margin: 0;
+  font-family: var(--font-primary);
+  font-size: 1.2rem;
+  letter-spacing: -0.025em;
+}
+
+.cob-rates-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+}
+
+.cob-cement-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-xs);
+  margin-top: var(--space-lg);
+}
+
 .cob-portfolio-lead > span {
   color: var(--cob-muted);
   font-size: 0.72rem;
@@ -722,7 +792,8 @@
 .cob-section-heading h2,
 .cob-payment-head h3,
 .cob-form-section-title h2,
-.cob-plan-preview h2 {
+.cob-plan-preview h2,
+.cob-installments-modal__header h2 {
   margin: 4px 0 0;
   font-family: var(--font-primary);
   letter-spacing: -0.03em;
@@ -769,6 +840,46 @@
 
 .cob-installment-row.is-paid {
   color: color-mix(in srgb, var(--cob-muted) 80%, transparent);
+}
+
+.cob-installment-row.is-current {
+  box-shadow: inset 3px 0 0 var(--accent-color);
+  background: color-mix(in srgb, var(--accent-color) 8%, var(--cob-paper));
+}
+
+.cob-installment-window-note {
+  margin: 0 0 var(--space-sm);
+  padding: 0 22px;
+  color: var(--cob-muted);
+  font-size: 0.72rem;
+}
+
+.cob-installments-modal {
+  max-width: 760px;
+  width: 100%;
+  max-height: min(720px, 86vh);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-md) 0 0;
+}
+
+.cob-installments-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 0 var(--space-lg) var(--space-md);
+}
+
+.cob-installments-modal__body {
+  overflow-y: auto;
+  border-top: 1px solid var(--cob-line);
+}
+
+.cob-installments-modal .cob-installment-row--head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .cob-installment-number,
@@ -1402,6 +1513,11 @@
   font-weight: var(--weight-medium);
 }
 
+.cob-field-help.is-error {
+  color: var(--cob-danger);
+  font-weight: var(--weight-medium);
+}
+
 .cob-unit-switch {
   margin-bottom: var(--space-md);
   --segmented-bg: var(--cob-cream);
@@ -1674,6 +1790,11 @@
 
   .cob-refresh span {
     display: none;
+  }
+
+  .cob-rate-chip {
+    flex: 1;
+    justify-content: center;
   }
 
   .cob-due-grid,

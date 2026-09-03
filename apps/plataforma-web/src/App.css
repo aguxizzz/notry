@@ -28,33 +28,57 @@
 }
 
 .toast {
-  padding: 12px 16px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  animation: slideInUp 0.3s ease-out;
+  padding: 11px 14px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: var(--weight-medium);
+  line-height: 1.4;
+  animation: slideInUp 0.3s var(--ease-out-quart);
   cursor: pointer;
   pointer-events: auto;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 9px;
   word-wrap: break-word;
-  background-color: #1a1a1a;
-  color: #f5f5f5;
-  border-left: 4px solid #d4a574;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+.toast svg {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  flex: 0 0 auto;
 }
 
 .toast--success {
-  border-left-color: #d4a574;
+  background-color: var(--color-success-bg);
+  border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+  color: color-mix(in srgb, var(--color-success) 55%, var(--color-text));
+}
+
+.toast--success svg {
+  color: var(--color-success);
 }
 
 .toast--error {
-  border-left-color: #d4a574;
+  background-color: var(--color-danger-bg);
+  border-color: color-mix(in srgb, var(--color-danger) 30%, transparent);
+  color: color-mix(in srgb, var(--color-danger) 55%, var(--color-text));
+}
+
+.toast--error svg {
+  color: var(--color-danger);
 }
 
 .toast--info {
-  border-left-color: #d4a574;
+  background-color: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+.toast--info svg {
+  color: var(--color-accent);
 }
 
 @keyframes slideInUp {
@@ -79,8 +103,8 @@
 @media (prefers-reduced-motion: reduce) {
   .modal-overlay,
   .modal-card,
-  .kanban-col,
-  .kanban-card,
+  .kanban-lane,
+  .kanban-row,
   .kanban-error-banner,
   .stat-spinner,
   .toast {

@@ -4,36 +4,6 @@
    y las filas de datos (label + valor), compartidas entre ProfileCard,
    y TeamPanel. */
 
-.configuracion-shell {
-  --shell-gap: var(--space-lg);
-  --skin-card-bg: var(--panel-bg);
-  --skin-card-border: var(--border-color);
-  --skin-card-shadow: var(--shadow-surface);
-  --skin-panel-radius: var(--radius-surface);
-}
-
-.configuracion-shell .configuracion-page {
-  --page-section-gap: var(--space-md);
-}
-
-/* ── Grilla ── */
-.configuracion-shell .cfg-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
-  gap: var(--space-md);
-  align-items: start;
-}
-
-.configuracion-shell .cfg-col {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-
-@media (max-width: 960px) {
-  .configuracion-shell .cfg-grid { grid-template-columns: 1fr; }
-}
-
 /* ── Card scaffold (Panel aporta fondo/borde/radio/sombra) ── */
 .cfg-card {
   display: flex;

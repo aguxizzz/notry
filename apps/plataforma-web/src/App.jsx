@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Copy, Search, SlidersHorizontal, Pencil, Trash2, Check, X, AlertCircle, Menu, Eye } from 'lucide-react';
+import { Copy, Search, SlidersHorizontal, Pencil, Trash2, Check, X, AlertCircle, Menu, Eye, CircleCheck, CircleAlert, Info } from 'lucide-react';
 import Sidebar from './components/Sidebar';
+import AccountModal from './components/AccountModal';
 import StatCard from './components/StatCard';
 import LoginView from './components/views/LoginView';
+import BuyerPortalDataView from './components/views/BuyerPortalDataView';
+import BuyerAccessView from './components/views/BuyerAccessView';
 import AcceptInviteView from './components/views/AcceptInviteView';
 import InicioView from './components/views/InicioView';
 import AdminView from './components/views/AdminView';
@@ -11,7 +14,6 @@ import ClientesView from './components/views/ClientesView';
 import CobranzasView from './components/views/CobranzasView';
 import KanbanBoard from './components/KanbanBoard';
 import AnalisisView from './components/AnalisisView';
-import ConfiguracionView from './components/views/ConfiguracionView';
 import ProjectsView from './components/views/ProjectsView';
 import CategoryPieChart from './components/CategoryPieChart';
 import ConfirmDialog from './components/ConfirmDialog';
@@ -22,6 +24,7 @@ import GroupLoteoModal from './components/modals/GroupLoteoModal';
 import AddProspectModal from './components/modals/AddProspectModal';
 import UpdateContactModal from './components/modals/UpdateContactModal';
 import { Badge, Button, ErrorBoundary, Loader, Select, EditEntityModal } from './ui/components';
+import { CAN_EDIT_ORG_ROLES } from './constants/roles';
 import { API_BASE, EDITOR_URL, VISOR_URL } from './config';
 import { useSync } from './hooks/useSync';
 import { useActivityFeed } from './hooks/useActivityFeed';
@@ -56,6 +59,18 @@ import './components/Layout.css';
 // Link de invitación al equipo: ?invite=<token>. Si está presente, la app
 // muestra la pantalla de aceptación antes de cualquier gate de auth.
 const INVITE_TOKEN = new URLSearchParams(window.location.search).get('invite');
+const IS_BUYER_PORTAL = new URLSearchParams(window.location.search).get('portal') === 'buyer';
+const BUYER_INVITATION_TOKEN = new URLSearchParams(window.location.search).get('buyer_invite');
+const IS_BUYER_ACCESS = IS_BUYER_PORTAL && (
+  Boolean(BUYER_INVITATION_TOKEN)
+  || new URLSearchParams(window.location.search).get('access') === 'login'
+);
+
+const TOAST_ICONS = {
+  success: CircleCheck,
+  error: CircleAlert,
+  info: Info,
+};
 
 const OWNER_VIEW_HEADERS = {
   inicio: {
@@ -82,17 +97,17 @@ const OWNER_VIEW_HEADERS = {
     title: 'Proyectos',
     subtitle: 'Agrupá loteos bajo una identidad visual compartida para el visor público.',
   },
-  configuracion: {
-    title: 'Mi cuenta',
-    subtitle: 'Gestioná tu perfil y tu equipo de trabajo.',
-  },
 };
 
-function App() {
+function PlatformApp() {
   const [view, setView] = useState('login'); // 'login' | 'lote_owner' | 'super_admin'
   const [adminSubView, setAdminSubView] = useState('lotes'); // 'lotes' | 'loteos'
   const [adminLoading, setAdminLoading] = useState(false);
-  const [ownerSubView, setOwnerSubView] = useState(() => localStorage.getItem('owner_sub_view') || 'inicio');
+  const [ownerSubView, setOwnerSubView] = useState(() => {
+    const stored = localStorage.getItem('owner_sub_view');
+    return stored && stored !== 'configuracion' ? stored : 'inicio';
+  });
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
   const { token, user, setUser, isInitializing, handleLogin: authLogin, logout: authLogout } = useAuth();
   const [lots, setLots] = useState(null);
   const [loteos, setLoteos] = useState(null);
@@ -515,7 +530,7 @@ function App() {
   const { handleAnalisisRequestClicks, handleAnalisisRequestVisorData } = buildAnalisisCallbacks({ apiFetch, setClicksCache, setVisorDataCache, setClicksLoadingIds, setVisorDataLoadingIds });
 
   // ── Combined sync hook (must be after apiFetch and addToast) ─────────────────
-  const { syncLoading, syncError, refresh: refreshSync } = useSync(token, apiFetch, {
+  const { syncLoading, syncError, refresh: refreshSync, clearSyncError } = useSync(token, apiFetch, {
     setInventoryLots,
     setInventoryLoteos,
     setAllProspectosList,
@@ -582,6 +597,15 @@ function App() {
     loteOwnerId: user?.lote_owner_id,
     addActivity,
   });
+
+  const openBuyerEmailEditor = (prospect) => {
+    if (!prospect?.id) return;
+    setProspectosSearch('');
+    setProspectosCategoryFilter('');
+    setHighlightedProspectId(prospect.id);
+    setOwnerSubView('clientes');
+    editProspectModal.openEditProspectModal(prospect);
+  };
 
   const updateContactModal = useUpdateContactModal({
     apiFetch,
@@ -676,7 +700,7 @@ function App() {
             user={user}
             activeItem={ownerSubView}
             onItemClick={(id) => { setOwnerSubView(id); setSidebarOpen(false); }}
-            onLogout={logout}
+            onOpenAccount={() => { setAccountModalOpen(true); setSidebarOpen(false); }}
             isOpen={sidebarOpen}
             onToggle={() => setSidebarOpen(v => !v)}
           />
@@ -697,9 +721,9 @@ function App() {
             copyToClipboard={copyToClipboard}
           />
         ) : (
-          <div className={`owner-layout${ownerSubView === 'inicio' || ownerSubView === 'inventario' || ownerSubView === 'clientes' || ownerSubView === 'analisis' || ownerSubView === 'proyectos' || ownerSubView === 'configuracion' ? ' owner-layout--shell' : ''}${ownerSubView === 'inicio' ? ' owner-layout--inicio' : ''}`}>
+          <div className={`owner-layout${ownerSubView === 'inicio' || ownerSubView === 'inventario' || ownerSubView === 'clientes' || ownerSubView === 'analisis' || ownerSubView === 'proyectos' ? ' owner-layout--shell' : ''}${ownerSubView === 'inicio' ? ' owner-layout--inicio' : ''}`}>
             <div key={ownerSubView} className="view-content">
-              {ownerSubView !== 'inicio' && ownerSubView !== 'inventario' && ownerSubView !== 'clientes' && ownerSubView !== 'cobranzas' && ownerSubView !== 'analisis' && ownerSubView !== 'proyectos' && ownerSubView !== 'configuracion' && (
+              {ownerSubView !== 'inicio' && ownerSubView !== 'inventario' && ownerSubView !== 'clientes' && ownerSubView !== 'cobranzas' && ownerSubView !== 'analisis' && ownerSubView !== 'proyectos' && (
                 <header className="owner-header owner-header--compact">
                   <h1 className="view-title">{ownerViewHeader.title}</h1>
                   <h2>{ownerViewSubtitle}</h2>
@@ -785,6 +809,11 @@ function App() {
                     allProspectosList={allProspectosList}
                     advisorsList={advisorsList}
                     contractsState={contractsState}
+                    onAddBuyerEmail={openBuyerEmailEditor}
+                    org={org}
+                    orgLoading={orgLoading}
+                    setOrg={setOrg}
+                    canEditCementRate={CAN_EDIT_ORG_ROLES.includes(user?.org_role)}
                   />
                 </ErrorBoundary>
               )}
@@ -809,18 +838,6 @@ function App() {
                 </ErrorBoundary>
               )}
 
-              {ownerSubView === 'configuracion' && (
-                <ConfiguracionView
-                  user={user}
-                  setUser={setUser}
-                  apiFetch={apiFetch}
-                  addToast={addToast}
-                  org={org}
-                  orgLoading={orgLoading}
-                  setOrg={setOrg}
-                />
-              )}
-
               {ownerSubView === 'proyectos' && (
                 <ProjectsView
                   apiFetch={apiFetch}
@@ -834,7 +851,7 @@ function App() {
                 />
               )}
 
-              {ownerSubView !== 'inventario' && ownerSubView !== 'clientes' && ownerSubView !== 'cobranzas' && ownerSubView !== 'analisis' && ownerSubView !== 'inicio' && ownerSubView !== 'configuracion' && ownerSubView !== 'proyectos' && (
+              {ownerSubView !== 'inventario' && ownerSubView !== 'clientes' && ownerSubView !== 'cobranzas' && ownerSubView !== 'analisis' && ownerSubView !== 'inicio' && ownerSubView !== 'proyectos' && (
                 <div className="owner-panel">
                   <p>Tu dashboard de {ownerSubView} está siendo preparado.</p>
                 </div>
@@ -843,6 +860,19 @@ function App() {
           </div>
         )}
       </main>
+
+      <AccountModal
+        open={accountModalOpen}
+        onClose={() => setAccountModalOpen(false)}
+        user={user}
+        setUser={setUser}
+        apiFetch={apiFetch}
+        addToast={addToast}
+        org={org}
+        orgLoading={orgLoading}
+        setOrg={setOrg}
+        onLogout={logout}
+      />
 
       <LoteoFormModal
         mode="create"
@@ -989,23 +1019,35 @@ function App() {
           <div
             key="sync-error"
             className="toast toast--error"
-            onClick={() => {}}
+            onClick={clearSyncError}
           >
-            Error de sincronización: {syncError}
+            <CircleAlert aria-hidden="true" />
+            <span>Error de sincronización: {syncError}</span>
           </div>
         )}
-        {toasts.map(toast => (
-          <div
-            key={toast.id}
-            className={`toast toast--${toast.type ?? 'success'}`}
-            onClick={() => removeToast(toast.id)}
-          >
-            {toast.message}
-          </div>
-        ))}
+        {toasts.map(toast => {
+          const type = toast.type ?? 'success';
+          const ToastIcon = TOAST_ICONS[type] ?? TOAST_ICONS.info;
+          return (
+            <div
+              key={toast.id}
+              className={`toast toast--${type}`}
+              onClick={() => removeToast(toast.id)}
+            >
+              <ToastIcon aria-hidden="true" />
+              <span>{toast.message}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
+}
+
+function App() {
+  if (IS_BUYER_ACCESS) return <BuyerAccessView invitationToken={BUYER_INVITATION_TOKEN} />;
+  if (IS_BUYER_PORTAL) return <BuyerPortalDataView />;
+  return <PlatformApp />;
 }
 
 export default App;

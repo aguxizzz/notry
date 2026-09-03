@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowLeft,
   CalendarDays,
   Check,
-  ChevronDown,
   CircleDollarSign,
   History,
+  KeyRound,
   Landmark,
   MessageCircle,
   ReceiptText,
@@ -24,6 +25,12 @@ import {
   unitLabel,
 } from './contractsFormat';
 import FormattedNumberInput from './FormattedNumberInput';
+import BuyerAccessPanel from './BuyerAccessPanel';
+import '../../ui/components/Modal.css';
+
+const INSTALLMENTS_BEFORE_CURRENT = 3;
+const INSTALLMENTS_AFTER_CURRENT = 6;
+const VISIBLE_PAYMENT_HISTORY_LIMIT = 5;
 
 const localDateTimeInputValue = () => {
   const now = new Date();
@@ -53,11 +60,10 @@ const formatPaymentDate = (value) => {
   }).format(date);
 };
 
-function PaymentPanel({ installment, unitType, maxPayable, loading, onCancel, onConfirm }) {
+function PaymentPanel({ installment, unitType, maxPayable, orgRate, loading, onCancel, onConfirm }) {
   const installmentRemaining = installmentRemainingAmount(installment);
   const [amount, setAmount] = useState(String(installmentRemaining));
   const [paidAt, setPaidAt] = useState(localDateTimeInputValue);
-  const [rate, setRate] = useState('');
   const [error, setError] = useState('');
   const isQuotedUnit = unitType === 'dolares' || unitType === 'cemento';
   const availableAmount = Number(maxPayable ?? installmentRemaining);
@@ -110,14 +116,12 @@ function PaymentPanel({ installment, unitType, maxPayable, loading, onCancel, on
       amount: parsedAmount,
       paid_at: new Date(paidAt).toISOString(),
     };
-    if (rate) {
-      const parsedRate = Number(rate);
-      if (!Number.isFinite(parsedRate) || parsedRate <= 0) {
-        setError('Ingresá una cotización válida.');
-        return;
+    if (isQuotedUnit) {
+      const parsedRate = Number(orgRate);
+      if (Number.isFinite(parsedRate) && parsedRate > 0) {
+        if (unitType === 'dolares') body.rate_ars_per_usd = parsedRate;
+        if (unitType === 'cemento') body.rate_ars_per_cement_bag = parsedRate;
       }
-      if (unitType === 'dolares') body.rate_ars_per_usd = parsedRate;
-      if (unitType === 'cemento') body.rate_ars_per_cement_bag = parsedRate;
     }
 
     setError('');
@@ -171,22 +175,6 @@ function PaymentPanel({ installment, unitType, maxPayable, loading, onCancel, on
           />
         </div>
 
-        {isQuotedUnit && (
-          <div className="cob-field">
-            <label htmlFor="payment-rate">
-              {unitType === 'dolares' ? 'Cotización ARS por USD' : 'Valor ARS por bolsa'}
-              <span>Opcional</span>
-            </label>
-            <FormattedNumberInput
-              id="payment-rate"
-              value={rate}
-              onChange={event => setRate(event.target.value)}
-              placeholder="0,00"
-              disabled={loading}
-            />
-          </div>
-        )}
-
         {paymentImpact && (
           <div
             key={`${paymentImpact.tone}-${paymentImpact.copy}`}
@@ -213,7 +201,40 @@ function PaymentPanel({ installment, unitType, maxPayable, loading, onCancel, on
   );
 }
 
-function PaymentHistory({ payments, unitType }) {
+function PaymentHistoryRow({ payment, unitType }) {
+  const sequences = payment.allocations
+    .map(allocation => allocation.sequenceNumber)
+    .filter(sequence => sequence != null);
+  const allocationLabel = sequences.length === 1
+    ? `Cuota #${sequences[0]}`
+    : `Cuotas ${sequences.map(sequence => `#${sequence}`).join(', ')}`;
+  const rate = payment.allocations.find(allocation => allocation.rate)?.rate;
+
+  return (
+    <article className="cob-payment-history-row">
+      <span className="cob-payment-history-icon" aria-hidden="true">
+        <Check size={15} />
+      </span>
+      <div className="cob-payment-history-main">
+        <strong>{allocationLabel}</strong>
+        <span>{formatPaymentDate(payment.paidAt)}</span>
+      </div>
+      <div className="cob-payment-history-value">
+        <strong>{formatContractAmount(payment.amount, unitType)}</strong>
+        {rate && (
+          <span>
+            Cotización: {formatContractAmount(rate, 'pesos')}
+          </span>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function PaymentHistory({ payments, unitType, onShowAll }) {
+  const visiblePayments = payments.slice(0, VISIBLE_PAYMENT_HISTORY_LIMIT);
+  const hasMore = payments.length > visiblePayments.length;
+
   return (
     <section className="cob-payment-history" aria-labelledby="payment-history-title">
       <div className="cob-section-heading">
@@ -228,42 +249,66 @@ function PaymentHistory({ payments, unitType }) {
         <p className="cob-payment-history-empty">Todavía no hay pagos registrados.</p>
       ) : (
         <div className="cob-payment-history-list">
-          {payments.map((payment) => {
-            const sequences = payment.allocations
-              .map(allocation => allocation.sequenceNumber)
-              .filter(sequence => sequence != null);
-            const allocationLabel = sequences.length === 1
-              ? `Cuota #${sequences[0]}`
-              : `Cuotas ${sequences.map(sequence => `#${sequence}`).join(', ')}`;
-            const rate = payment.allocations.find(allocation => allocation.rate)?.rate;
-
-            return (
-              <article className="cob-payment-history-row" key={payment.id}>
-                <span className="cob-payment-history-icon" aria-hidden="true">
-                  <Check size={15} />
-                </span>
-                <div className="cob-payment-history-main">
-                  <strong>{allocationLabel}</strong>
-                  <span>{formatPaymentDate(payment.paidAt)}</span>
-                </div>
-                <div className="cob-payment-history-value">
-                  <strong>{formatContractAmount(payment.amount, unitType)}</strong>
-                  {rate && (
-                    <span>
-                      Cotización: {formatContractAmount(rate, 'pesos')}
-                    </span>
-                  )}
-                </div>
-              </article>
-            );
-          })}
+          {visiblePayments.map(payment => (
+            <PaymentHistoryRow key={payment.id} payment={payment} unitType={unitType} />
+          ))}
         </div>
+      )}
+
+      {hasMore && (
+        <button type="button" className="cob-show-all" onClick={onShowAll}>
+          Ver historial completo
+        </button>
       )}
     </section>
   );
 }
 
-function InstallmentRow({ installment, contract, onSelect }) {
+function PaymentHistoryModal({ isOpen, onClose, payments, unitType }) {
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div className="modal-overlay" onMouseDown={onClose}>
+      <section
+        className="modal-card modal-card--wide cob-installments-modal cobranzas-view"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="payment-history-modal-title"
+        onMouseDown={event => event.stopPropagation()}
+      >
+        <header className="cob-installments-modal__header">
+          <div>
+            <span className="cob-detail-eyebrow">Movimientos registrados</span>
+            <h2 id="payment-history-modal-title">Historial completo ({payments.length})</h2>
+          </div>
+          <button type="button" className="cob-icon-btn" onClick={onClose} aria-label="Cerrar historial completo">
+            <X size={18} />
+          </button>
+        </header>
+
+        <div className="cob-installments-modal__body">
+          <div className="cob-payment-history-list">
+            {payments.map(payment => (
+              <PaymentHistoryRow key={payment.id} payment={payment} unitType={unitType} />
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
+function InstallmentRow({ installment, contract, isCurrent, onSelect }) {
   const overdue = isInstallmentOverdue(installment);
   const paid = installment.status === 'paid';
   const paidOnInstallment = installmentPaidAmount(installment);
@@ -274,7 +319,7 @@ function InstallmentRow({ installment, contract, onSelect }) {
 
   return (
     <div
-      className={`cob-installment-row${overdue ? ' is-overdue' : ''}${paid ? ' is-paid' : ''}${partial ? ' is-partial' : ''}`}
+      className={`cob-installment-row${overdue ? ' is-overdue' : ''}${paid ? ' is-paid' : ''}${partial ? ' is-partial' : ''}${isCurrent ? ' is-current' : ''}`}
       role="row"
     >
       <span role="cell" className="cob-installment-number">#{installment.sequence_number}</span>
@@ -291,7 +336,7 @@ function InstallmentRow({ installment, contract, onSelect }) {
         </span>
       </span>
       <span role="cell" className="cob-installment-action">
-        {!paid && contract.status !== 'cancelled' && (
+        {isCurrent && contract.status !== 'cancelled' && (
           <button
             type="button"
             onClick={() => onSelect(installment)}
@@ -306,6 +351,64 @@ function InstallmentRow({ installment, contract, onSelect }) {
   );
 }
 
+function InstallmentsModal({ isOpen, onClose, installments, contract, currentInstallmentId, onSelect }) {
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div className="modal-overlay" onMouseDown={onClose}>
+      <section
+        className="modal-card modal-card--wide cob-installments-modal cobranzas-view"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="installments-modal-title"
+        onMouseDown={event => event.stopPropagation()}
+      >
+        <header className="cob-installments-modal__header">
+          <div>
+            <span className="cob-detail-eyebrow">Plan completo</span>
+            <h2 id="installments-modal-title">Todas las cuotas ({installments.length})</h2>
+          </div>
+          <button type="button" className="cob-icon-btn" onClick={onClose} aria-label="Cerrar plan completo">
+            <X size={18} />
+          </button>
+        </header>
+
+        <div className="cob-installments-modal__body">
+          <div className="cob-installment-table" role="table" aria-label="Todas las cuotas del contrato">
+            <div className="cob-installment-row cob-installment-row--head" role="row">
+              <span role="columnheader">Cuota</span>
+              <span role="columnheader">Vencimiento</span>
+              <span role="columnheader">Importe</span>
+              <span role="columnheader">Estado</span>
+              <span role="columnheader">Acción</span>
+            </div>
+
+            {installments.map(installment => (
+              <InstallmentRow
+                key={installment.id}
+                installment={installment}
+                contract={contract}
+                isCurrent={installment.id === currentInstallmentId}
+                onSelect={onSelect}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
 export default function ContractDetail({
   contract,
   lot,
@@ -314,8 +417,14 @@ export default function ContractDetail({
   onBack,
   onDelete,
   onPayInstallment,
+  apiFetch,
+  onAddBuyerEmail,
+  orgCementRate,
+  orgUsdRate,
 }) {
-  const [showAll, setShowAll] = useState(false);
+  const [installmentsModalOpen, setInstallmentsModalOpen] = useState(false);
+  const [paymentHistoryModalOpen, setPaymentHistoryModalOpen] = useState(false);
+  const [buyerAccessOpen, setBuyerAccessOpen] = useState(false);
   const [selectedInstallment, setSelectedInstallment] = useState(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const progress = contractProgress(contract);
@@ -324,8 +433,21 @@ export default function ContractDetail({
     () => [...(contract.installments || [])].sort((a, b) => a.sequence_number - b.sequence_number),
     [contract.installments],
   );
-  const primaryInstallments = installments.slice(0, 8);
-  const extraInstallments = installments.slice(8);
+  const currentInstallmentIndex = installments.findIndex(item => item.status !== 'paid');
+  const currentInstallmentId = currentInstallmentIndex >= 0 ? installments[currentInstallmentIndex].id : null;
+  const windowStart = currentInstallmentIndex === -1
+    ? Math.max(0, installments.length - (INSTALLMENTS_BEFORE_CURRENT + INSTALLMENTS_AFTER_CURRENT + 1))
+    : Math.max(0, currentInstallmentIndex - INSTALLMENTS_BEFORE_CURRENT);
+  const windowEnd = currentInstallmentIndex === -1
+    ? installments.length
+    : Math.min(installments.length, currentInstallmentIndex + INSTALLMENTS_AFTER_CURRENT + 1);
+  const isWindowed = windowStart > 0 || windowEnd < installments.length;
+  const displayedInstallments = installments.slice(windowStart, windowEnd);
+  const orgRate = contract.unit_type === 'dolares'
+    ? orgUsdRate
+    : contract.unit_type === 'cemento'
+      ? orgCementRate
+      : null;
   const pendingAmount = contract.total_pending_amount
     ?? installments.reduce((sum, item) => sum + installmentRemainingAmount(item), 0);
   const paidAmount = Math.max(Number(contract.total_amount || 0) - Number(pendingAmount || 0), 0);
@@ -404,6 +526,15 @@ export default function ContractDetail({
             type="button"
             variant="outline"
             size="sm"
+            onClick={() => setBuyerAccessOpen(true)}
+          >
+            <KeyRound size={15} aria-hidden="true" />
+            Portal comprador
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
             className="btn-danger"
             onClick={onDelete}
           >
@@ -453,6 +584,12 @@ export default function ContractDetail({
             <i style={{ transform: `scaleX(${progress.percentage / 100})` }} />
           </div>
 
+          {isWindowed && (
+            <p className="cob-installment-window-note">
+              Mostrando cuotas {windowStart + 1}–{windowEnd} de {installments.length}.
+            </p>
+          )}
+
           <div className="cob-installment-table" role="table" aria-label="Cuotas del contrato">
             <div className="cob-installment-row cob-installment-row--head" role="row">
               <span role="columnheader">Cuota</span>
@@ -462,46 +599,24 @@ export default function ContractDetail({
               <span role="columnheader">Acción</span>
             </div>
 
-            {primaryInstallments.map(installment => (
+            {displayedInstallments.map(installment => (
               <InstallmentRow
                 key={installment.id}
                 installment={installment}
                 contract={contract}
+                isCurrent={installment.id === currentInstallmentId}
                 onSelect={setSelectedInstallment}
               />
             ))}
-            {extraInstallments.length > 0 && (
-              <div
-                id="contract-extra-installments"
-                className={`cob-installment-extra${showAll ? ' is-open' : ''}`}
-                role="rowgroup"
-                aria-hidden={!showAll}
-                inert={!showAll}
-              >
-                <div>
-                  {extraInstallments.map(installment => (
-                    <InstallmentRow
-                      key={installment.id}
-                      installment={installment}
-                      contract={contract}
-                      onSelect={setSelectedInstallment}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
-          {installments.length > 8 && (
+          {installments.length > windowEnd - windowStart && (
             <button
               type="button"
               className="cob-show-all"
-              onClick={() => setShowAll(value => !value)}
-              aria-expanded={showAll}
-              aria-controls="contract-extra-installments"
+              onClick={() => setInstallmentsModalOpen(true)}
             >
-              <ChevronDown size={16} />
-              {showAll ? 'Ver menos' : `Ver las ${installments.length} cuotas`}
+              Ver plan completo
             </button>
           )}
 
@@ -518,6 +633,7 @@ export default function ContractDetail({
             installment={selectedInstallment}
             unitType={contract.unit_type}
             maxPayable={selectedMaxPayable}
+            orgRate={orgRate}
             loading={paymentLoading}
             onCancel={() => setSelectedInstallment(null)}
             onConfirm={handlePayment}
@@ -525,7 +641,11 @@ export default function ContractDetail({
         )}
       </div>
 
-      <PaymentHistory payments={paymentHistory} unitType={contract.unit_type} />
+      <PaymentHistory
+        payments={paymentHistory}
+        unitType={contract.unit_type}
+        onShowAll={() => setPaymentHistoryModalOpen(true)}
+      />
 
       <section className="cob-contract-meta">
         <div className="cob-meta-block">
@@ -566,6 +686,35 @@ export default function ContractDetail({
           )}
         </div>
       </section>
+
+      <BuyerAccessPanel
+        isOpen={buyerAccessOpen}
+        onClose={() => setBuyerAccessOpen(false)}
+        apiFetch={apiFetch}
+        contract={contract}
+        lot={lot}
+        prospect={prospect}
+        onAddBuyerEmail={onAddBuyerEmail}
+      />
+
+      <InstallmentsModal
+        isOpen={installmentsModalOpen}
+        onClose={() => setInstallmentsModalOpen(false)}
+        installments={installments}
+        contract={contract}
+        currentInstallmentId={currentInstallmentId}
+        onSelect={(installment) => {
+          setInstallmentsModalOpen(false);
+          setSelectedInstallment(installment);
+        }}
+      />
+
+      <PaymentHistoryModal
+        isOpen={paymentHistoryModalOpen}
+        onClose={() => setPaymentHistoryModalOpen(false)}
+        payments={paymentHistory}
+        unitType={contract.unit_type}
+      />
     </div>
   );
 }

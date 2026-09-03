@@ -167,5 +167,7 @@ export function useSync(token, apiFetch, setters, addToast) {
 
   const refresh = useCallback(() => doSync(false), [doSync]);
 
-  return { syncLoading, syncError, refresh };
+  const clearSyncError = useCallback(() => setSyncError(null), []);
+
+  return { syncLoading, syncError, refresh, clearSyncError };
 }
