@@ -23,7 +23,7 @@ export default function LoginScreen({ onLogin }) {
       }
       const data = await res.json();
       onLogin(data.access_token);
-    } catch (err) {
+    } catch {
       setError('Credenciales inválidas o error de conexión.');
     } finally {
       setLoading(false);

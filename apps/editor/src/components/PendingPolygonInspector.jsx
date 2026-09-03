@@ -13,7 +13,6 @@ export default function PendingPolygonInspector({
   editorMode,
 }) {
   const name     = selectedMarker.tooltip || '';
-  const slug     = selectedMarker.slug || '';
   const status   = selectedMarker.status || 'available';
   const price    = selectedMarker.price != null ? String(selectedMarker.price) : '';
   const area     = selectedMarker.area_m2 != null ? String(selectedMarker.area_m2) : '';
@@ -53,8 +52,6 @@ export default function PendingPolygonInspector({
           <span className="inspector-section-title" style={{ color: '#ffa500' }}>Crear Lote</span>
           <span className="inspector-label">Nombre *</span>
           <input className="inspector-input" value={name} onChange={e => onUpdateSelected('tooltip', e.target.value)} placeholder="Ej: Lote 07" />
-          <span className="inspector-label">Slug</span>
-          <input className="inspector-input" value={slug} onChange={e => onUpdateSelected('slug', e.target.value)} placeholder="Ej: lote-07" />
           <span className="inspector-label">Estado</span>
           <select className="inspector-input" value={status} onChange={e => onUpdateSelected('status', e.target.value)}>
             <option value="available">Disponible</option>
@@ -62,9 +59,23 @@ export default function PendingPolygonInspector({
             <option value="sold">Vendido</option>
           </select>
           <span className="inspector-label">Precio</span>
-          <input className="inspector-input" type="number" value={price} onChange={e => onUpdateSelected('price', e.target.value)} placeholder="Ej: 150000" />
+          <input
+            className="inspector-input"
+            type="number"
+            value={price}
+            onChange={e => onUpdateSelected('price', e.target.value)}
+            onBlur={() => { if (price === '') onUpdateSelected('price', 0); }}
+            placeholder="Ej: 150000"
+          />
           <span className="inspector-label">Área (m²)</span>
-          <input className="inspector-input" type="number" value={area} onChange={e => onUpdateSelected('area_m2', e.target.value)} placeholder="Ej: 150" />
+          <input
+            className="inspector-input"
+            type="number"
+            value={area}
+            onChange={e => onUpdateSelected('area_m2', e.target.value)}
+            onBlur={() => { if (area === '') onUpdateSelected('area_m2', 0); }}
+            placeholder="Ej: 150"
+          />
           <span className="inspector-label">Observaciones</span>
           <textarea
             className="inspector-input"

@@ -6,9 +6,9 @@ import '@photo-sphere-viewer/core/index.css';
 import '@photo-sphere-viewer/markers-plugin/index.css';
 
 // Tools that draw a polygon by clicking points and snapping to close
-const isPolyDrawTool = (t) => t === 'polygon' || t === 'poi';
+const isPolyDrawTool = (t) => t === 'polygon';
 
-export default function EditorViewer({ panoramaUrl, annotations, activeTool, onClick, onMarkerSelect, onPolygonUpdate, onMarkerDragEnd, onMarkerDrag, getPositionRef, onViewerReadyChange }) {
+export default function EditorViewer({ panoramaUrl, annotations, activeTool, onClick, onMarkerSelect, onPolygonUpdate, onMarkerDragEnd, onMarkerDrag, getPositionRef, onViewerReadyChange, onPanoramaDimensions }) {
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
   const markersPluginRef = useRef(null);
@@ -21,6 +21,7 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
   const onMarkerDragRef = useRef(onMarkerDrag);
   const activeToolRef = useRef(activeTool);
   const annotationsRef = useRef(annotations);
+  const onPanoramaDimensionsRef = useRef(onPanoramaDimensions);
 
   useEffect(() => {
     onClickRef.current = onClick;
@@ -30,7 +31,25 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
     onMarkerDragRef.current = onMarkerDrag;
     activeToolRef.current = activeTool;
     annotationsRef.current = annotations;
-  }, [onClick, onMarkerSelect, onPolygonUpdate, onMarkerDragEnd, onMarkerDrag, activeTool, annotations]);
+    onPanoramaDimensionsRef.current = onPanoramaDimensions;
+  }, [onClick, onMarkerSelect, onPolygonUpdate, onMarkerDragEnd, onMarkerDrag, activeTool, annotations, onPanoramaDimensions]);
+
+  // The panorama's real pixel size is the authoritative source for
+  // texture-pixel <-> spherical conversions (see spherical.js) — more
+  // reliable than backend-reported width/height, which may be stale, absent,
+  // or (for a re-encoded/resized asset) simply wrong.
+  useEffect(() => {
+    if (!panoramaUrl) return;
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (!cancelled && img.naturalWidth && img.naturalHeight) {
+        onPanoramaDimensionsRef.current?.({ width: img.naturalWidth, height: img.naturalHeight });
+      }
+    };
+    img.src = panoramaUrl;
+    return () => { cancelled = true; };
+  }, [panoramaUrl]);
 
   // Init viewer
   useEffect(() => {
@@ -46,7 +65,7 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
       panorama: panoramaUrl,
       adapter: EquirectangularAdapter,
       plugins: [pluginConfig],
-      navbar: 'zoom move fullscreen',
+      navbar: false,
       defaultZoomLvl: 50,
       minFov: 5,
       mousewheel: true,
@@ -78,7 +97,7 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
       onViewerReadyChange?.(false);
       viewerRef.current.destroy();
     };
-  }, [panoramaUrl]);
+  }, [panoramaUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Manejar el toggle entre exploración 3D y dibujo en canvas
   useEffect(() => {
@@ -93,6 +112,7 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
 
     let draggingCorner = null;
     let draggingMarker = null;
+    let draggingPolygon = null;
     let isSnappedToFirstPoint = false;
 
     const blockLeftDrag = (e) => {
@@ -155,9 +175,10 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
       if (markerEl) {
         const markerId = markerEl.id.replace('psv-marker-', '');
 
-        // Calibration points are only draggable with the Select tool; in other
-        // tools let the click flow through (e.g. placing new calibration points)
-        if (markerId.startsWith('calib-') && activeToolRef.current !== 'select') {
+        // Calibration points are only draggable with the Select tool or while
+        // calibrating; in other tools let the click flow through (e.g. placing
+        // new calibration points)
+        if (markerId.startsWith('calib-') && activeToolRef.current !== 'select' && activeToolRef.current !== 'calibrate') {
           return;
         }
 
@@ -166,14 +187,29 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
         onMarkerSelectRef.current && onMarkerSelectRef.current(markerId);
 
         const marker = markersPluginRef.current?.getMarker(markerId);
-        if (marker && !marker.isPoly()) {
+        if (marker && marker.isPoly() && activeToolRef.current === 'select' && !markerId.startsWith('ghost-')) {
+          const rect = containerRef.current.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          const spherical = viewerRef.current.dataHelper.viewerCoordsToSphericalCoords({ x, y });
+          if (spherical && marker.config.polygonPixels) {
+            const texture = viewerRef.current.dataHelper.sphericalCoordsToTextureCoords(spherical);
+            draggingPolygon = {
+              markerId,
+              startTexture: texture,
+              originalPixels: marker.config.polygonPixels.map(pt => [...pt]),
+              lastPixels: null,
+              isDrag: false,
+            };
+          }
+        } else if (marker && !marker.isPoly()) {
           draggingMarker = { markerId, lastTexture: null, isDrag: false };
         }
       }
     };
 
     const handlePointerMove = (e) => {
-      if (!draggingCorner && !draggingMarker && !isPolyDrawTool(activeToolRef.current)) return;
+      if (!draggingCorner && !draggingMarker && !draggingPolygon && !isPolyDrawTool(activeToolRef.current)) return;
       
       const viewer = viewerRef.current;
       const markersPlugin = markersPluginRef.current;
@@ -246,6 +282,16 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
           }
           
           draggingCorner.lastTexture = texture;
+        } else if (draggingPolygon) {
+          draggingPolygon.isDrag = true;
+          const dx = texture.textureX - draggingPolygon.startTexture.textureX;
+          const dy = texture.textureY - draggingPolygon.startTexture.textureY;
+          const newPixels = draggingPolygon.originalPixels.map(([px, py]) => [px + dx, py + dy]);
+          markersPlugin.updateMarker({
+            id: draggingPolygon.markerId,
+            polygonPixels: newPixels,
+          });
+          draggingPolygon.lastPixels = newPixels;
         } else if (draggingMarker) {
           draggingMarker.isDrag = true;
           markersPlugin.updateMarker({
@@ -270,11 +316,16 @@ export default function EditorViewer({ panoramaUrl, annotations, activeTool, onC
           }
         }
         draggingCorner = null;
+      } else if (draggingPolygon) {
+        if (draggingPolygon.isDrag && draggingPolygon.lastPixels && onPolygonUpdateRef.current) {
+          onPolygonUpdateRef.current(draggingPolygon.markerId, draggingPolygon.lastPixels);
+        }
+        draggingPolygon = null;
       } else if (draggingMarker) {
         if (draggingMarker.isDrag && draggingMarker.lastTexture && onMarkerDragEndRef.current) {
           onMarkerDragEndRef.current(
-            draggingMarker.markerId, 
-            draggingMarker.lastTexture.textureX, 
+            draggingMarker.markerId,
+            draggingMarker.lastTexture.textureX,
             draggingMarker.lastTexture.textureY
           );
         }

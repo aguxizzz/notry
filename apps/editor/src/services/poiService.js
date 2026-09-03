@@ -73,7 +73,9 @@ export async function deletePoi(accessToken, poiId) {
   });
   if (!res.ok) {
     const msg = await res.text().catch(() => '');
-    throw new Error(`deletePoi failed: ${res.status} ${msg}`);
+    const error = new Error(`deletePoi failed: ${res.status} ${msg}`);
+    error.status = res.status;
+    throw error;
   }
 }
 

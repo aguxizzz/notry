@@ -1,3 +1,54 @@
+const POI_PHOTO_CHIP_ICON = `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2.4" stroke="#8e7343" stroke-width="1.7"/><circle cx="12" cy="13" r="3.4" stroke="#8e7343" stroke-width="1.7"/><path d="M8 6l1.2-2h5.6L16 6" stroke="#8e7343" stroke-width="1.7" stroke-linejoin="round"/></svg>`;
+
+const escapeHtml = value => String(value).replace(
+  /[&<>"']/g,
+  character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]
+);
+
+const sanitizeHexColor = (value, fallback) => (
+  typeof value === 'string' && /^#[\da-f]{6}$/i.test(value) ? value : fallback
+);
+
+const clampNumber = (value, fallback, min, max) => {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue)
+    ? Math.max(min, Math.min(max, numericValue))
+    : fallback;
+};
+
+// Ported from apps/visor/src/annotations.js — keeps the editor's panorama
+// preview of a callout POI in sync with how it actually renders in the
+// public viewer (stem + title label, optional photo chip).
+function getPoiMarkerElement(title, stemHeight, hasPhoto, color) {
+  const safeTitle = escapeHtml(title || (hasPhoto ? 'Ver foto' : 'Lugar'));
+  const height = Math.max(40, Math.min(260, Number(stemHeight) || 96));
+  const element = document.createElement('div');
+  element.className = hasPhoto ? 'poi-callout poi-callout--photo' : 'poi-callout';
+  element.style.setProperty('--poi-callout-stem', `${height}px`);
+  element.style.setProperty('--poi-callout-color', sanitizeHexColor(color, '#ffffff'));
+  element.innerHTML = `${hasPhoto ? `<span class="poi-callout__chip">${POI_PHOTO_CHIP_ICON}</span>` : ''}<span class="poi-callout__stem"></span><span class="poi-callout__dot"></span><span class="poi-callout__title">${safeTitle}</span>`;
+
+  let previousFontSize = null;
+  let previousMarkerScale = null;
+  element.updateMarker = ({ zoomLevel }) => {
+    const normalizedZoom = Math.max(0, Math.min(1, zoomLevel / 100));
+    const markerScale = 0.5 + normalizedZoom ** 2;
+    const zoomOutBoost = 0.7 * (1 - normalizedZoom) ** 2;
+    const visibleFontSize = 16.5 + zoomOutBoost;
+    const fontSize = `${(visibleFontSize / markerScale).toFixed(2)}px`;
+    if (fontSize !== previousFontSize) {
+      element.style.setProperty('--poi-callout-font-size', fontSize);
+      previousFontSize = fontSize;
+    }
+    const markerScaleStr = markerScale.toFixed(3);
+    if (markerScaleStr !== previousMarkerScale) {
+      element.style.setProperty('--poi-callout-marker-scale', markerScaleStr);
+      previousMarkerScale = markerScaleStr;
+    }
+  };
+  return element;
+}
+
 export function annotationsToMarkers(annotations) {
   if (!Array.isArray(annotations)) return [];
 
@@ -5,7 +56,7 @@ export function annotationsToMarkers(annotations) {
     if (!ann || typeof ann !== 'object') return null;
     const base = {
       id: ann.id ?? ann.uuid,
-      tooltip: ann.tooltip ?? null,
+      tooltip: ann.tooltip == null ? null : escapeHtml(ann.tooltip),
       visible: ann.visible !== false,
       ...(ann.svgStyle && { svgStyle: ann.svgStyle }),
       ...(ann.style && { style: ann.style }),
@@ -46,6 +97,22 @@ export function annotationsToMarkers(annotations) {
         return { ...base, svgStyle, polygonPixels: points };
       }
       case 'poi': {
+        if (ann.variant === 'callout' || ann.marker_variant === 'callout') {
+          const anchor = ann.panorama_anchor;
+          if (!anchor) return null;
+          const hasPhoto = !!ann.image_url;
+          return {
+            ...base,
+            element: getPoiMarkerElement(ann.tooltip, ann.callout_stem_height, hasPhoto, ann.color),
+            position: { textureX: anchor[0], textureY: anchor[1] },
+            size: { width: 230, height: Math.max(40, Math.min(260, Number(ann.callout_stem_height) || 96)) },
+            anchor: 'bottom center',
+            scale: [0.5, 1.5],
+            hoverScale: false,
+            tooltip: null,
+            className: hasPhoto ? 'psv-marker--poi-photo' : 'psv-marker--poi-callout',
+          };
+        }
         const points = (ann.polygonPixels ?? ann.polygon ?? []).filter(
           pt => Array.isArray(pt) && pt.length === 2 && typeof pt[0] === 'number' && typeof pt[1] === 'number'
         );
@@ -74,20 +141,18 @@ export function annotationsToMarkers(annotations) {
         const position = ann.position && ('textureX' in ann.position || 'textureY' in ann.position)
           ? { textureX: ann.position.textureX, textureY: ann.position.textureY }
           : undefined;
-        const displayContent = ann.tooltip || '&nbsp;';
+        const displayContent = ann.tooltip ? escapeHtml(ann.tooltip) : '&nbsp;';
 
-        // Interpretar opacidad (HEX a RGBA opcional para fondo)
-        const hexBg = ann.bgColor || '#ffffff';
-        const bgOpa = ann.bgOpacity !== undefined ? ann.bgOpacity : 1;
-        const rgbaBg = hexBg.length === 7 ? `rgba(${parseInt(hexBg.slice(1,3),16)}, ${parseInt(hexBg.slice(3,5),16)}, ${parseInt(hexBg.slice(5,7),16)}, ${bgOpa})` : hexBg;
+        const hexBg = sanitizeHexColor(ann.bgColor, '#ffffff');
+        const bgOpacity = clampNumber(ann.bgOpacity, 1, 0, 1);
+        const rgbaBg = `rgba(${parseInt(hexBg.slice(1,3), 16)}, ${parseInt(hexBg.slice(3,5), 16)}, ${parseInt(hexBg.slice(5,7), 16)}, ${bgOpacity})`;
 
-        const textColor = ann.textColor || '#000000';
-        const fontSize = ann.fontSize ?? 14;
+        const textColor = sanitizeHexColor(ann.textColor, '#000000');
+        const fontSize = clampNumber(ann.fontSize, 14, 8, 200);
         const generatedHtml = `<div style='background:${rgbaBg};padding:5px;border-radius:4px;color:${textColor};white-space:nowrap;text-align:center;font-family:var(--font-body),system-ui,sans-serif;font-weight:600;font-size:${fontSize}px;'>${displayContent}</div>`;
         return {
           ...base,
           html: generatedHtml,
-          ...(ann.size ? { size: ann.size } : {}),
           position,
           style: { ...(ann.style || {}), cursor: 'pointer' },
         };
@@ -143,7 +208,7 @@ export function annotationsToMarkers(annotations) {
           font-size:10px;font-weight:700;color:#fff;
           box-shadow:0 1px 4px rgba(0,0,0,0.5);
           opacity:${opacity};
-        ">${ann.label ?? ''}</div>`;
+        ">${escapeHtml(ann.label ?? '')}</div>`;
         return { ...base, html, size: { width: 20, height: 20 }, position, style: { cursor: 'grab' } };
       }
       default:
