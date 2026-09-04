@@ -1,7 +1,7 @@
-import KanbanCard from './KanbanCard';
-import './KanbanColumn.css';
+import KanbanRow from './KanbanRow';
+import './KanbanLane.css';
 
-export default function KanbanColumn({
+export default function KanbanLane({
   meta,
   prospects,
   isDragOver,
@@ -12,40 +12,39 @@ export default function KanbanColumn({
   onDragLeave,
   onDragStart,
   onDragEnd,
-  AdvisorAvatarComponent,
 }) {
   const { label, accentVar } = meta;
 
   return (
-    <div
-      className={`kanban-col${isDragOver ? ' drag-over' : ''}`}
+    <section
+      className={`kanban-lane${isDragOver ? ' drag-over' : ''}`}
       style={{ '--col-accent': `var(${accentVar})` }}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      <div className="kanban-col-header">
-        <span className="kanban-col-label">{label}</span>
-        <span className="kanban-col-count">{prospects.length}</span>
-      </div>
+      <header className="kanban-lane-head">
+        <span className="kanban-lane-dot" />
+        <span className="kanban-lane-label">{label}</span>
+        <span className="kanban-lane-count">{prospects.length}</span>
+      </header>
 
-      <div className="kanban-col-body">
+      <div className="kanban-lane-body">
         {prospects.length === 0 ? (
           <div className="kanban-empty">sin clientes en esta categoria</div>
         ) : (
           prospects.map((p) => (
-            <KanbanCard
+            <KanbanRow
               key={p.id}
               prospect={p}
               isDragging={draggingId === p.id}
               isPatching={patchingIds.has(p.id)}
               onDragStart={(e) => onDragStart(e, p.id)}
               onDragEnd={onDragEnd}
-              AdvisorAvatarComponent={AdvisorAvatarComponent}
             />
           ))
         )}
       </div>
-    </div>
+    </section>
   );
 }

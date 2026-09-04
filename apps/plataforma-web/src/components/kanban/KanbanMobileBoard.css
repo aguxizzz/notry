@@ -1,0 +1,105 @@
+/* ── Kanban Mobile · tabs por etapa + lista plana (sin drag-and-drop) ── */
+.kanban-mobile {
+  display: none;
+}
+
+.kanban-mobile-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: var(--space-sm);
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.kanban-mobile-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.kanban-mobile-tab {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-body);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-xs);
+  padding: 7px 12px;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--border-color);
+  background: var(--panel-bg);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.kanban-mobile-tab-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--col-accent);
+  flex-shrink: 0;
+}
+
+.kanban-mobile-tab-count {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+.kanban-mobile-tab.active {
+  border-color: var(--col-accent);
+  color: var(--text-main);
+  background: color-mix(in srgb, var(--col-accent) 12%, var(--panel-bg));
+}
+
+.kanban-mobile-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.kanban-mobile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--panel-bg);
+}
+
+.kanban-mobile-row:last-child {
+  border-bottom: none;
+}
+
+.kanban-mobile-row-id {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.kanban-mobile-row-name {
+  font-weight: var(--weight-bold);
+  font-size: var(--text-base);
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kanban-mobile-row-contact {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.kanban-mobile-row-contact svg {
+  flex-shrink: 0;
+  opacity: 0.55;
+}

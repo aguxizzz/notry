@@ -263,15 +263,6 @@
   }
 }
 
-/* En móvil cada etapa conserva un ancho operativo; el wrapper del Kanban ya
-   provee scroll horizontal, así que se puede recorrer sin comprimir títulos,
-   contadores ni tarjetas. */
-@media (max-width: 720px) {
-  .inicio-shell .kanban-board {
-    min-width: 640px;
-  }
-}
-
 /* ═══════════════════════════════════════════════════════════════════
    POLISH · acercar los elementos de Inicio al mockup HTML
    (todo scopeado a .inicio-shell; no afecta otras vistas)
@@ -290,48 +281,35 @@
 /* Los estilos del panel de stats (superficie, celdas, punto de color) viven
    en StatCard.css y toman los tokens de superficie definidos arriba. */
 
-/* ── Kanban: columnas como cards suaves, header liviano con punto ── */
-.inicio-shell .kanban-board { gap: var(--space-sm); }
+/* ── Kanban: lanes como cards suaves, header liviano con punto ── */
+.inicio-shell .kanban-lanes { gap: var(--space-sm); }
 
-.inicio-shell .kanban-col {
+.inicio-shell .kanban-lane {
   background: var(--skin-subtle-bg);
   border: 1px solid var(--skin-card-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
-.inicio-shell .kanban-col-header {
-  border-top: none;
+.inicio-shell .kanban-lane-head {
   border-bottom: 1px solid var(--skin-card-border);
   padding: var(--space-sm) var(--space-sm) var(--space-xs);
   align-items: center;
+  gap: var(--space-xs);
 }
 
-.inicio-shell .kanban-col-header { gap: var(--space-xs); }
-
-.inicio-shell .kanban-col-label {
+.inicio-shell .kanban-lane-label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
-  padding-left: 0;
   font-size: var(--text-sm);
   font-weight: var(--weight-bold);
   line-height: 1.2;
   color: var(--text-main);
-  text-decoration: none;
 }
 
-.inicio-shell .kanban-col-label::before {
-  content: '';
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--col-accent);
-  flex: none;
-}
-
-.inicio-shell .kanban-col-count {
+.inicio-shell .kanban-lane-count {
   font-size: var(--text-md);
   font-weight: var(--weight-bold);
   color: var(--text-muted);
@@ -345,12 +323,25 @@
   opacity: 0.7;
 }
 
-.inicio-shell .kanban-card {
+.inicio-shell .kanban-row {
   background: var(--skin-card-bg);
-  border-radius: var(--radius-md);
 }
 
-.inicio-shell .kanban-col.drag-over {
+.inicio-shell .kanban-lane.drag-over {
   background: color-mix(in srgb, var(--col-accent) 8%, var(--skin-subtle-bg));
   border-color: var(--col-accent);
+}
+
+.inicio-shell .kanban-mobile-tab {
+  background: var(--skin-subtle-bg);
+  border-color: var(--skin-card-border);
+}
+
+.inicio-shell .kanban-mobile-list {
+  border-color: var(--skin-card-border);
+}
+
+.inicio-shell .kanban-mobile-row {
+  background: var(--skin-card-bg);
+  border-color: var(--skin-card-border);
 }

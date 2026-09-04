@@ -137,8 +137,8 @@
 @media (prefers-reduced-motion: reduce) {
   .modal-overlay,
   .modal-card,
-  .kanban-col,
-  .kanban-card,
+  .kanban-lane,
+  .kanban-row,
   .kanban-error-banner,
   .stat-spinner {
     animation-duration: 0.01ms !important;

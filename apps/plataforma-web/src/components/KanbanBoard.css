@@ -40,14 +40,19 @@
   flex-direction: column;
   min-height: 0;
   padding: 0 var(--space-lg) var(--space-lg);
-  overflow-x: auto;
+  overflow-y: auto;
 }
 
-.kanban-board {
+/* Contexto de container queries: las filas (KanbanRow.css) degradan su
+   contenido según el ancho real de este panel, no el del viewport — el
+   Kanban comparte fila con Actividad reciente y su ancho varía con eso. */
+.kanban-lanes {
+  container-type: inline-size;
+  container-name: kanban;
   display: flex;
-  gap: 0;
+  flex-direction: column;
+  gap: var(--space-sm);
   min-height: 0;
-  flex: 1;
 }
 
 .kanban-loading {
@@ -58,4 +63,18 @@
   min-height: 300px;
 }
 
-/* Column styles moved to kanban/KanbanColumn.css */
+/* Debajo de 768px la sidebar ya pasa a topbar (ver Sidebar.css) — mismo
+   punto de quiebre: a ese ancho el board de lanes deja de tener sentido,
+   así que el kanban conscientemente deja de ser un kanban (ver
+   KanbanMobileBoard: tabs por etapa + lista plana, sin drag-and-drop). */
+@media (max-width: 768px) {
+  .kanban-lanes {
+    display: none;
+  }
+
+  .kanban-mobile {
+    display: block;
+  }
+}
+
+/* Lane/row styles moved to kanban/KanbanLane.css and kanban/KanbanRow.css */
