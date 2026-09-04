@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Loader } from '../ui/components';
 import { usePatchProspect } from '../hooks/usePatchProspect';
-import KanbanColumn from './kanban/KanbanColumn';
-import AdvisorAvatar from '../ui/components/AdvisorAvatar';
+import KanbanLane from './kanban/KanbanLane';
+import KanbanMobileBoard from './kanban/KanbanMobileBoard';
 import './KanbanBoard.css';
 
 const CATEGORIES = ['primer_contacto', 'seguimiento', 'negociacion', 'vendido'];
@@ -25,6 +25,7 @@ export default function KanbanBoard({ token, onSessionExpired, prospectosList = 
   const [dragOverCol, setDragOverCol] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
   const [kanbanError, setKanbanError] = useState(null);
+  const [activeMobileStage, setActiveMobileStage] = useState(CATEGORIES[0]);
 
   const { patchProspect, patchingIds } = usePatchProspect({
     token,
@@ -75,7 +76,8 @@ export default function KanbanBoard({ token, onSessionExpired, prospectosList = 
   const handleDragStart = (e, id) => {
     e.dataTransfer.setData('prospectId', id);
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setDragImage(e.currentTarget, 0, 0);
+    const rect = e.currentTarget.getBoundingClientRect();
+    e.dataTransfer.setDragImage(e.currentTarget, e.clientX - rect.left, e.clientY - rect.top);
     setDraggingId(id);
   };
 
@@ -133,16 +135,16 @@ export default function KanbanBoard({ token, onSessionExpired, prospectosList = 
 
   return (
     <div className="kanban-board-wrapper">
-      <div className="kanban-board">
-        {kanbanError && (
-          <div className="kanban-error-banner">
-            {kanbanError}
-          </div>
-        )}
+      {kanbanError && (
+        <div className="kanban-error-banner">
+          {kanbanError}
+        </div>
+      )}
+
+      <div className="kanban-lanes">
         {CATEGORIES.map(cat => (
-          <KanbanColumn
+          <KanbanLane
             key={cat}
-            category={cat}
             meta={COL_META[cat]}
             prospects={columns[cat]}
             isDragOver={dragOverCol === cat}
@@ -153,10 +155,17 @@ export default function KanbanBoard({ token, onSessionExpired, prospectosList = 
             onDrop={(e) => handleDrop(e, cat)}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
-            AdvisorAvatarComponent={AdvisorAvatar}
           />
         ))}
       </div>
+
+      <KanbanMobileBoard
+        categories={CATEGORIES}
+        colMeta={COL_META}
+        columns={columns}
+        activeStage={activeMobileStage}
+        onSelectStage={setActiveMobileStage}
+      />
     </div>
   );
 }

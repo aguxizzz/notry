@@ -26,8 +26,11 @@ export default function Select({
   useEffect(() => {
     if (!open || !triggerRef.current) return;
 
-    const closeInstant = () => {
+    const closeInstant = (event) => {
       const el = document.getElementById(listboxId);
+      // Scroll dentro del propio listbox (lista larga de opciones) no debe
+      // cerrarlo: el panel es position:fixed y no se desalinea del trigger.
+      if (el && event.target instanceof Node && el.contains(event.target)) return;
       if (el) el.classList.add('select-dropdown--instant');
       setOpen(false);
       setActiveIdx(-1);

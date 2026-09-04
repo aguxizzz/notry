@@ -1,0 +1,83 @@
+/* ── Kanban Lane · una etapa, en fila ─────────── */
+.kanban-lane {
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: kanban-lane-enter 400ms var(--ease-out-quart) forwards;
+}
+
+.kanban-lanes .kanban-lane:nth-child(1) { animation-delay: 0ms; }
+.kanban-lanes .kanban-lane:nth-child(2) { animation-delay: 60ms; }
+.kanban-lanes .kanban-lane:nth-child(3) { animation-delay: 120ms; }
+.kanban-lanes .kanban-lane:nth-child(4) { animation-delay: 180ms; }
+
+@keyframes kanban-lane-enter {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.kanban-lane.drag-over {
+  background: color-mix(in srgb, var(--col-accent) 4%, var(--panel-bg));
+  border-color: var(--col-accent);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--col-accent) 20%, transparent);
+}
+
+.kanban-lane-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  background: color-mix(in srgb, var(--col-accent) 8%, var(--panel-bg));
+  border-bottom: 1px solid color-mix(in srgb, var(--col-accent) 20%, var(--border-color));
+}
+
+.kanban-lane-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--col-accent);
+  flex-shrink: 0;
+}
+
+.kanban-lane-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  color: var(--col-accent);
+  letter-spacing: -0.01em;
+}
+
+.kanban-lane-count {
+  margin-left: auto;
+  font-size: var(--text-md);
+  font-weight: var(--weight-black);
+  color: color-mix(in srgb, var(--col-accent) 45%, var(--color-text-muted));
+  font-variant-numeric: tabular-nums;
+}
+
+.kanban-lane-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.kanban-lane-body .kanban-row {
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+}
+
+.kanban-lane-body .kanban-row:last-child {
+  border-bottom: none;
+}
+
+.kanban-empty {
+  padding: var(--space-md);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: var(--weight-medium);
+  text-align: center;
+}
