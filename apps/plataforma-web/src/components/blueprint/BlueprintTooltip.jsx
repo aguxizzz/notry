@@ -11,7 +11,7 @@ export default function BlueprintTooltip({ hoveredLoteId, annotations, clicksMap
       style={{
         left: `${tooltipPos.x}px`,
         top: `${tooltipPos.y}px`,
-        transform: 'translateX(-50%)',
+        transform: 'translate(-50%, -100%) translateY(-12px)',
         zIndex: 10,
       }}
     >
