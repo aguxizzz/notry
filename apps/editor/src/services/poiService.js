@@ -1,4 +1,4 @@
-import { API_BASE, fetchWithTimeout } from '../api/config';
+import { API_BASE, fetchWithTimeout, authHeaders } from '../api/config';
 
 /**
  * Fetch all POIs for a given loteo.
@@ -10,7 +10,7 @@ export async function fetchPois(accessToken, loteoId) {
   const res = await fetchWithTimeout(
     `${API_BASE}/pois?loteo_id=${encodeURIComponent(loteoId)}&limit=100`,
     {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: authHeaders(accessToken),
     }
   );
   if (!res.ok) throw new Error(`fetchPois failed: ${res.status}`);
@@ -26,10 +26,7 @@ export async function fetchPois(accessToken, loteoId) {
 export async function createPoi(accessToken, payload) {
   const res = await fetchWithTimeout(`${API_BASE}/pois`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
+    headers: authHeaders(accessToken, { 'Content-Type': 'application/json' }),
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
@@ -48,10 +45,7 @@ export async function createPoi(accessToken, payload) {
 export async function updatePoi(accessToken, poiId, payload) {
   const res = await fetchWithTimeout(`${API_BASE}/pois/${poiId}`, {
     method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
+    headers: authHeaders(accessToken, { 'Content-Type': 'application/json' }),
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
@@ -69,7 +63,7 @@ export async function updatePoi(accessToken, poiId, payload) {
 export async function deletePoi(accessToken, poiId) {
   const res = await fetchWithTimeout(`${API_BASE}/pois/${poiId}`, {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: authHeaders(accessToken),
   });
   if (!res.ok) {
     const msg = await res.text().catch(() => '');
@@ -88,10 +82,7 @@ export async function deletePoi(accessToken, poiId) {
 export async function updatePoiCoordinates(accessToken, poiId, polygonPoints) {
   const res = await fetchWithTimeout(`${API_BASE}/pois/update-coordinates`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
+    headers: authHeaders(accessToken, { 'Content-Type': 'application/json' }),
     body: JSON.stringify({ uuid: poiId, polygonPoints }),
   });
   if (!res.ok) {
@@ -110,10 +101,7 @@ export async function updatePoiCoordinates(accessToken, poiId, polygonPoints) {
 export async function updatePoiBlueprintCoordinates(accessToken, poiId, polygonPoints) {
   const res = await fetchWithTimeout(`${API_BASE}/pois/update-blueprint-coordinates`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
+    headers: authHeaders(accessToken, { 'Content-Type': 'application/json' }),
     body: JSON.stringify({ uuid: poiId, polygonPoints }),
   });
   if (!res.ok) {

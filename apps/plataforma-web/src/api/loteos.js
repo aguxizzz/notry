@@ -1,19 +1,6 @@
 import { API_BASE } from '../config';
 import { logActivity } from './activityLogs';
 
-export async function fetchLoteos({ apiFetch, setLoading, setLoteos, setAdminSubView, addToast }) {
-  setLoading(true);
-  setAdminSubView('loteos');
-  try {
-    const data = await apiFetch(`${API_BASE}/loteos?include_lotes=false&limit=50&offset=0`);
-    setLoteos(data.items);
-  } catch (error) {
-    addToast(error.message, 'error');
-  } finally {
-    setLoading(false);
-  }
-}
-
 export async function fetchInventoryLoteos({ apiFetch, setInventoryLoteosLoading, setInventoryLoteos }) {
   setInventoryLoteosLoading(true);
   try {

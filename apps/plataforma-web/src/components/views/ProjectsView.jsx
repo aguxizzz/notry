@@ -15,7 +15,7 @@ import { createProject, updateProject, deleteProject, assignLoteos, unassignLote
 import { SIMULADOR_URL } from '../../config';
 import './ProjectsView.css';
 
-export default function ProjectsView({ apiFetch, uploadFn, onUploadEvent, allLoteos = [], addToast, projects, projectsLoading, setProjects }) {
+export default function ProjectsView({ apiFetch, uploadFn, onUploadEvent, allLoteos = [], addToast, projects, projectsLoading, setProjects, isVisorOnly = false }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -212,7 +212,7 @@ export default function ProjectsView({ apiFetch, uploadFn, onUploadEvent, allLot
                     )}
                   </div>
                   <div className="project-foot-actions">
-                    {project.slug && (
+                    {!isVisorOnly && project.slug && (
                       <a
                         className="project-link"
                         href={`${SIMULADOR_URL}/${project.slug}`}
@@ -249,6 +249,7 @@ export default function ProjectsView({ apiFetch, uploadFn, onUploadEvent, allLot
           uploadFn={uploadFn}
           onUploadEvent={onUploadEvent}
           allLoteos={allLoteos}
+          isVisorOnly={isVisorOnly}
         />
 
         <ProjectFormModal
@@ -263,6 +264,7 @@ export default function ProjectsView({ apiFetch, uploadFn, onUploadEvent, allLot
           uploadFn={uploadFn}
           onUploadEvent={onUploadEvent}
           allLoteos={allLoteos}
+          isVisorOnly={isVisorOnly}
         />
 
         <ConfirmModal

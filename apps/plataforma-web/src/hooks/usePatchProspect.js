@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { API_BASE } from '../config';
 import { logActivity } from '../api/activityLogs';
 
-export function usePatchProspect({ token, onSessionExpired, onError, apiFetch, loteOwnerId, addActivity }) {
+export function usePatchProspect({ onError, apiFetch, loteOwnerId, addActivity }) {
   const [patchingIds, setPatchingIds] = useState(new Set());
   // Tracks the latest in-flight request per prospect id, so that if the same
   // prospect is moved again before a previous PATCH resolves, the stale
@@ -17,61 +17,36 @@ export function usePatchProspect({ token, onSessionExpired, onError, apiFetch, l
     setPatchingIds(prev => new Set([...prev, id]));
 
     try {
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          const res = await fetch(`${API_BASE}/prospects/${id}`, {
-            method: 'PATCH',
-            headers: {
-              accept: 'application/json',
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ category }),
-          });
+      // apiFetch already retries with backoff, sets Authorization/X-Active-Org-Id,
+      // and calls logout() on a 401 — no need to duplicate any of that here.
+      await apiFetch(`${API_BASE}/prospects/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category }),
+      });
 
-          if (res.status === 401) {
-            onSessionExpired?.();
-            throw new Error('401');
-          }
+      if (isStale()) return; // superseded by a newer move of the same prospect
 
-          if (res.ok) {
-            if (isStale()) return; // superseded by a newer move of the same prospect
-
-            // Log activity for category change
-            logActivity({
-              apiFetch,
-              activityType: 'prospect_updated',
-              entityType: 'prospect',
-              entityId: id,
-              loteOwnerId,
-              description: `Prospecto "${prospectName || 'Sin nombre'}" actualizado`,
-              extraData: { prospect_name: prospectName || 'Sin nombre' },
-              name: prospectName || 'Sin nombre',
-              addActivity,
-            });
-            onSuccess?.();
-            return;
-          }
-
-          if (res.status >= 400 && res.status < 500) {
-            throw new Error('Error al actualizar prospecto');
-          }
-
-          throw new Error(`HTTP ${res.status}`);
-        } catch (err) {
-          const isLastAttempt = attempt === 3;
-          if (isLastAttempt || err.name === 'AbortError') {
-            console.error(err);
-            if (!isStale()) {
-              setColumns(previousColumns);
-              onError?.('No se pudo mover el prospecto');
-            }
-            if (err.message === '401' && onSessionExpired) onSessionExpired();
-            throw err;
-          }
-          await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt - 1)));
-        }
+      // Log activity for category change
+      logActivity({
+        apiFetch,
+        activityType: 'prospect_updated',
+        entityType: 'prospect',
+        entityId: id,
+        loteOwnerId,
+        description: `Prospecto "${prospectName || 'Sin nombre'}" actualizado`,
+        extraData: { prospect_name: prospectName || 'Sin nombre' },
+        name: prospectName || 'Sin nombre',
+        addActivity,
+      });
+      onSuccess?.();
+    } catch (err) {
+      console.error(err);
+      if (!isStale()) {
+        setColumns(previousColumns);
+        onError?.('No se pudo mover el prospecto');
       }
+      throw err;
     } finally {
       if (!isStale()) {
         setPatchingIds(prev => {
@@ -81,7 +56,7 @@ export function usePatchProspect({ token, onSessionExpired, onError, apiFetch, l
         });
       }
     }
-  }, [token, onSessionExpired, onError, apiFetch, loteOwnerId, addActivity]);
+  }, [apiFetch, onError, loteOwnerId, addActivity]);
 
   return { patchProspect, patchingIds };
 }

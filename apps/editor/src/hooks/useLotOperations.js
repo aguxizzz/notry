@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { API_BASE } from '../api/config';
+import { API_BASE, authHeaders } from '../api/config';
 import { parseNumberOrZero } from '../utils/saveAllUtils';
 import { useUIFeedback } from './useUIFeedback';
 
@@ -30,7 +30,7 @@ export function useLotOperations({
       const endpoint = mode === 'blueprint' ? 'update-blueprint-coordinates' : 'update-coordinates';
       const response = await fetch(`${API_BASE}/lots/${endpoint}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: authHeaders(token, { 'Content-Type': 'application/json' }),
         body: JSON.stringify({ uuid: targetLot.uuid, polygonPoints: selectedMarker.polygonPixels || [] }),
       });
       if (response.status === 401) { onAuthError(); return; }
@@ -64,7 +64,7 @@ export function useLotOperations({
     try {
       const res = await fetch(`${API_BASE}/lots`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: authHeaders(token, { 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           name: selectedMarker.tooltip.trim(),
           status: selectedMarker.status || 'available',
@@ -117,7 +117,7 @@ export function useLotOperations({
     try {
       const res = await fetch(`${API_BASE}/lots/${marker.uuid}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: authHeaders(token),
       });
       if (res.status === 401) { onAuthError(); return false; }
       if (!res.ok) { notify(`Error al eliminar el lote: ${res.status}`, { variant: 'error' }); return false; }

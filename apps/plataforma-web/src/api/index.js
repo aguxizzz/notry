@@ -6,9 +6,11 @@ import { getErrorMessage } from '../utils/errors';
  *
  * @param {string} token - Current auth token
  * @param {Function} logout - No-argument logout function (called on 401)
+ * @param {string|null} [activeOrgId] - Org que un super_admin eligió operar (sin membership propia).
+ *   Se manda como X-Active-Org-Id; el backend lo ignora para cualquier rol que no sea super_admin.
  * @returns {Function} Bound apiFetch(url, opts)
  */
-export function createApiFetch(token, logout) {
+export function createApiFetch(token, logout, activeOrgId) {
   return async function apiFetch(url, opts = {}) {
     const { retries = 3, retryDelay = 500, ...fetchOpts } = opts;
 
@@ -19,6 +21,7 @@ export function createApiFetch(token, logout) {
           headers: {
             accept: 'application/json',
             Authorization: `Bearer ${token}`,
+            ...(activeOrgId ? { 'X-Active-Org-Id': activeOrgId } : {}),
             ...fetchOpts.headers,
           },
         });

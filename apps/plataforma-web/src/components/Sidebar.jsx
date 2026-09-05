@@ -11,20 +11,24 @@ import {
 } from 'lucide-react';
 import { PLATFORM_ROLE_LABELS } from '../constants/roles';
 import logo from '../assets/logo-paseo-berlin.png';
+import OrgSwitcher from './OrgSwitcher';
 import './Sidebar.css';
 
-const Sidebar = ({ user, activeItem, onItemClick, onOpenAccount, isOpen, onToggle }) => {
+const Sidebar = ({ user, activeItem, onItemClick, onOpenAccount, isOpen, onToggle, apiFetch, activeOrgId, onChangeOrg, isVisorOnly }) => {
+  const isSuperAdmin = user?.role === 'super_admin';
   const firstLetter = user?.full_name?.charAt(0).toUpperCase() || '?';
   const roleLabel = PLATFORM_ROLE_LABELS[user?.role] || 'Cuenta';
   const nameWords = user?.full_name?.trim().split(/\s+/) || [];
   const displayName = nameWords.length >= 3 ? nameWords.slice(0, 2).join(' ') : user?.full_name || 'Mi cuenta';
 
+  // Orgs visor_only (tier "solo visor") solo administran Proyectos/Loteos/Lotes
+  // y ven Análisis; sin Inicio (Kanban), Clientes ni Cobranzas.
   const menuSections = [
     {
       id: 'panorama',
       label: 'Panorama',
       items: [
-        { id: 'inicio', label: 'Inicio', icon: <Home size={20} /> },
+        ...(isVisorOnly ? [] : [{ id: 'inicio', label: 'Inicio', icon: <Home size={20} /> }]),
         { id: 'analisis', label: 'Análisis', icon: <BarChart2 size={20} /> },
       ],
     },
@@ -33,8 +37,10 @@ const Sidebar = ({ user, activeItem, onItemClick, onOpenAccount, isOpen, onToggl
       label: 'Operación',
       items: [
         { id: 'inventario', label: 'Inventario', icon: <Package size={20} /> },
-        { id: 'clientes', label: 'Clientes', icon: <Users size={20} /> },
-        { id: 'cobranzas', label: 'Cobranzas', icon: <CreditCard size={20} /> },
+        ...(isVisorOnly ? [] : [
+          { id: 'clientes', label: 'Clientes', icon: <Users size={20} /> },
+          { id: 'cobranzas', label: 'Cobranzas', icon: <CreditCard size={20} /> },
+        ]),
       ],
     },
     {
@@ -52,7 +58,11 @@ const Sidebar = ({ user, activeItem, onItemClick, onOpenAccount, isOpen, onToggl
         <button className="sidebar-hamburger" onClick={onToggle} aria-label={isOpen ? 'Cerrar menú' : 'Abrir menú'}>
           {isOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
-        <img src={logo} alt="Paseo Berlín" className="sidebar-logo" />
+        {isSuperAdmin ? (
+          <OrgSwitcher apiFetch={apiFetch} activeOrgId={activeOrgId} onChangeOrg={onChangeOrg} />
+        ) : (
+          <img src={logo} alt="Paseo Berlín" className="sidebar-logo" />
+        )}
       </div>
 
       <nav className="sidebar-nav">

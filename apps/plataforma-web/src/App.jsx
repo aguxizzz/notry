@@ -8,7 +8,6 @@ import BuyerPortalDataView from './components/views/BuyerPortalDataView';
 import BuyerAccessView from './components/views/BuyerAccessView';
 import AcceptInviteView from './components/views/AcceptInviteView';
 import InicioView from './components/views/InicioView';
-import AdminView from './components/views/AdminView';
 import InventarioView from './components/views/InventarioView';
 import ClientesView from './components/views/ClientesView';
 import CobranzasView from './components/views/CobranzasView';
@@ -48,8 +47,8 @@ import { PAGE_SIZE, STATUS_DISPLAY, CATEGORY_DISPLAY, getProspectFields, getLotF
 import { createApiFetch } from './api';
 import { createUploadFn } from './api/upload';
 import UploadProgressCard from './components/UploadProgressCard';
-import { fetchLots as fetchLotsService, fetchInventoryBg as fetchInventoryBgService } from './api/lots';
-import { fetchLoteos as fetchLoteosService, fetchInventoryLoteos as fetchInventoryLoteosService, fetchInventoryLoteosBg as fetchInventoryLoteosBgService, deleteLoteo } from './api/loteos';
+import { fetchInventoryBg as fetchInventoryBgService } from './api/lots';
+import { fetchInventoryLoteos as fetchInventoryLoteosService, fetchInventoryLoteosBg as fetchInventoryLoteosBgService, deleteLoteo } from './api/loteos';
 import { buildAnalisisCallbacks } from './api/reports';
 import { fetchMyOrg } from './api/organizations';
 import { fetchProjects } from './api/projects';
@@ -99,19 +98,20 @@ const OWNER_VIEW_HEADERS = {
   },
 };
 
+// Orgs con plan `visor_only` (Fase 3 del tier de visor standalone) no ven el
+// CRM completo: solo Proyectos → Loteos/Lotes + Análisis.
+const HIDDEN_VIEWS_VISOR_ONLY = ['inicio', 'clientes', 'cobranzas'];
+
 function PlatformApp() {
-  const [view, setView] = useState('login'); // 'login' | 'lote_owner' | 'super_admin'
-  const [adminSubView, setAdminSubView] = useState('lotes'); // 'lotes' | 'loteos'
-  const [adminLoading, setAdminLoading] = useState(false);
+  // 'lote_owner' cubre tanto cuentas lote_owner como super_admin: ambas ven la
+  // misma UI, super_admin elige con qué org operar desde el OrgSwitcher.
+  const [view, setView] = useState('login'); // 'login' | 'lote_owner'
   const [ownerSubView, setOwnerSubView] = useState(() => {
     const stored = localStorage.getItem('owner_sub_view');
     return stored && stored !== 'configuracion' ? stored : 'inicio';
   });
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const { token, user, setUser, isInitializing, handleLogin: authLogin, logout: authLogout } = useAuth();
-  const [lots, setLots] = useState(null);
-  const [loteos, setLoteos] = useState(null);
-  const [selectedLot, setSelectedLot] = useState(null);
   const [inventoryLots, setInventoryLots] = useState([]);
   const {
     inventoryLoading,
@@ -147,8 +147,27 @@ function PlatformApp() {
   const [selectedLoteoId, setSelectedLoteoId] = useState(null);
   const [org, setOrg] = useState(null);
   const [orgLoading, setOrgLoading] = useState(false);
+  const isVisorOnly = org?.plan === 'visor_only';
   const [projects, setProjects] = useState([]);
   const [projectsLoading, setProjectsLoading] = useState(false);
+  // Org que un super_admin eligió operar (no tiene membership propia). Se
+  // persiste para sobrevivir reloads; la setea el OrgSwitcher del Sidebar.
+  const [activeOrgId, setActiveOrgId] = useState(() => {
+    try {
+      return localStorage.getItem('notry_active_org_id') || null;
+    } catch {
+      return null;
+    }
+  });
+
+  React.useEffect(() => {
+    try {
+      if (activeOrgId) localStorage.setItem('notry_active_org_id', activeOrgId);
+      else localStorage.removeItem('notry_active_org_id');
+    } catch {
+      // localStorage puede no estar disponible (ej. modo privado)
+    }
+  }, [activeOrgId]);
 
   const filtersRef = React.useRef({
     inventorySearch,
@@ -185,9 +204,7 @@ function PlatformApp() {
   // Restore view when session is recovered from localStorage
   React.useEffect(() => {
     if (isInitializing || !user) return;
-    if (user.role === 'super_admin' || user.role === 'admin') {
-      setView('super_admin');
-    } else if (user.role === 'lote_owner') {
+    if (['super_admin', 'admin', 'lote_owner'].includes(user.role)) {
       setView('lote_owner');
     }
   }, [user, isInitializing]);
@@ -196,6 +213,14 @@ function PlatformApp() {
   React.useEffect(() => {
     localStorage.setItem('owner_sub_view', ownerSubView);
   }, [ownerSubView]);
+
+  // Orgs visor_only no tienen Inicio/Clientes/Cobranzas: si el usuario venía
+  // de una sección ahora oculta (ej. persistida de un plan anterior), caer a Inventario.
+  React.useLayoutEffect(() => {
+    if (isVisorOnly && HIDDEN_VIEWS_VISOR_ONLY.includes(ownerSubView)) {
+      setOwnerSubView('inventario');
+    }
+  }, [isVisorOnly, ownerSubView]);
 
   // Note: All background polling is now handled by the useSync hook above.
   // It fires immediately on login and every 60 seconds thereafter.
@@ -252,14 +277,6 @@ function PlatformApp() {
     }
   };
 
-  async function fetchLots() {
-    fetchLotsService({ apiFetch, setLoading: setAdminLoading, setLots, setSelectedLot, setAdminSubView });
-  }
-
-  const fetchLoteos = async () => {
-    fetchLoteosService({ apiFetch, setLoading: setAdminLoading, setLoteos, setAdminSubView, addToast });
-  };
-
   async function fetchInventoryLoteos() {
     fetchInventoryLoteosService({ apiFetch, setInventoryLoteosLoading, setInventoryLoteos });
   }
@@ -270,7 +287,11 @@ function PlatformApp() {
 
   const openEditor = (loteoId) => {
     const dataUrl = `${API_BASE}/loteos/${loteoId}/visor_data`;
-    window.open(`${EDITOR_URL}/?data=${encodeURIComponent(dataUrl)}&token=${encodeURIComponent(token)}`, '_blank');
+    // super_admin no tiene org propia — el editor la necesita para mandar
+    // X-Active-Org-Id en sus propios requests (lots/pois/bulk-save), así que
+    // viaja la ya elegida en el OrgSwitcher en vez de pedirla de nuevo ahí.
+    const orgIdParam = (user?.role === 'super_admin' && activeOrgId) ? `&orgId=${encodeURIComponent(activeOrgId)}` : '';
+    window.open(`${EDITOR_URL}/?data=${encodeURIComponent(dataUrl)}&token=${encodeURIComponent(token)}${orgIdParam}`, '_blank');
 
     // Refresh data when user returns from editor.
     // Reads current filter values at event time via filtersRef to avoid stale closure.
@@ -404,7 +425,7 @@ function PlatformApp() {
     if (!loteo) return;
     setDeleteLoteoDialog(prev => ({ ...prev, loading: true }));
     try {
-      await deleteLoteo({ apiFetch, loteoId: loteo.id, loteoName: loteo.name, loteOwnerId: user?.lote_owner_id, addActivity });
+      await deleteLoteo({ apiFetch, loteoId: loteo.id, loteoName: loteo.name, loteOwnerId: activeLoteOwnerId, addActivity });
       addToast(`Loteo "${loteo.name}" eliminado.`, 'success');
       setDeleteLoteoDialog({ open: false, loteo: null, loading: false });
       removeLoteoFromList(loteo.id);
@@ -422,33 +443,44 @@ function PlatformApp() {
   // contract through the wrapper. Keep this callback stable for apiFetch.
   // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const logout = useCallback(() => authLogout({
-    setView, setLots, setLoteos, setSelectedLot,
-    setAdminSubView, setInventoryLots, setInventoryLotsHasMore, setInventorySearch,
+    setView, setInventoryLots, setInventoryLotsHasMore, setInventorySearch,
     setInventoryTab, setInventoryLoteos,
     setAllProspectosList, setProspectosCategoryFilter,
     setProspectosWithoutAdvisor, setClicksCache, setVisorDataCache,
     setReportsCache, setDashboardSummary,
-    setOrg, setProjects,
+    setOrg, setProjects, setActiveOrgId,
   }), []);
+
+  // Solo super_admin manda X-Active-Org-Id; el backend lo ignora para cualquier
+  // otro rol, pero no lo mandamos ni así para no depender de esa garantía.
+  const effectiveActiveOrgId = user?.role === 'super_admin' ? activeOrgId : null;
+  // Para cualquier fetch org-scoped: un lote_owner siempre tiene contexto (su
+  // propia org, vía membership); un super_admin lo tiene recién cuando eligió
+  // una org en el OrgSwitcher. Sin esto, dispararíamos requests que el backend
+  // rechaza con 400 (falta X-Active-Org-Id) antes de que elija una.
+  const hasUsableOrgContext = Boolean(token && (user?.role !== 'super_admin' || effectiveActiveOrgId));
+  // Para lote_owner, user.lote_owner_id (fijo, seteado al login) y org.lote_owner_id
+  // (de la org activa) son el mismo valor. Para super_admin, user.lote_owner_id es
+  // siempre null (no está atado a ninguna org por relación) — org.lote_owner_id es
+  // el único valor válido, y depende de qué org eligió en el OrgSwitcher.
+  const activeLoteOwnerId = org?.lote_owner_id ?? user?.lote_owner_id;
 
   // apiFetch uses logout (no-arg) as the 401 handler
   // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  const apiFetch = useMemo(() => createApiFetch(token, logout), [token, logout]);
-
-  // Auto-fetch admin data and inventory loteos when their views become active.
-  React.useEffect(() => {
-    if (view === 'super_admin' && !lots) fetchLots();
-  }, [view, lots]);
+  const apiFetch = useMemo(
+    () => createApiFetch(token, logout, effectiveActiveOrgId),
+    [token, logout, effectiveActiveOrgId]
+  );
 
   React.useEffect(() => {
-    if (ownerSubView !== 'inventario' || inventoryTab !== 'loteos' || !token) return;
+    if (ownerSubView !== 'inventario' || inventoryTab !== 'loteos' || !hasUsableOrgContext) return;
     if (inventoryLoteos.length === 0) fetchInventoryLoteos();
-  }, [ownerSubView, inventoryTab, token, inventoryLoteos.length]);
+  }, [ownerSubView, inventoryTab, hasUsableOrgContext, inventoryLoteos.length]);
 
   React.useEffect(() => {
-    if (ownerSubView !== 'proyectos' || !token) return;
+    if (ownerSubView !== 'proyectos' || !hasUsableOrgContext) return;
     if (inventoryLoteos.length === 0) fetchInventoryLoteos();
-  }, [ownerSubView, token, inventoryLoteos.length]);
+  }, [ownerSubView, hasUsableOrgContext, inventoryLoteos.length]);
 
   // uploadFn: XHR-based upload with WebP conversion + progress events
   const uploadFn = useMemo(() => createUploadFn(token, logout), [token, logout]);
@@ -459,7 +491,7 @@ function PlatformApp() {
   const contractsState = useContracts({
     apiFetch,
     addToast,
-    enabled: Boolean(token && user?.role === 'lote_owner'),
+    enabled: hasUsableOrgContext,
   });
 
   const [uploadJobs, setUploadJobs] = useState([]);
@@ -485,7 +517,7 @@ function PlatformApp() {
       addToast('Lote actualizado.', 'success');
     },
     onUpdateLot: updateLot,
-    loteOwnerId: user?.lote_owner_id,
+    loteOwnerId: activeLoteOwnerId,
     addActivity,
   });
 
@@ -497,7 +529,7 @@ function PlatformApp() {
       fetchInventoryBg(inventorySearch);
     },
     onAddLot: addLot,
-    loteOwnerId: user?.lote_owner_id,
+    loteOwnerId: activeLoteOwnerId,
     addActivity,
   });
 
@@ -509,7 +541,7 @@ function PlatformApp() {
       fetchInventoryLoteosBg();
     },
     onAddLoteo: addLoteo,
-    loteOwnerId: user?.lote_owner_id,
+    loteOwnerId: activeLoteOwnerId,
     addActivity,
     existingLoteos: inventoryLoteos,
   });
@@ -523,7 +555,7 @@ function PlatformApp() {
     // the next sync (reconciled) confirms it.
     addActivity,
     onUpdateLoteo: updateLoteo,
-    loteOwnerId: user?.lote_owner_id,
+    loteOwnerId: activeLoteOwnerId,
   });
 
   // Callbacks passed to AnalisisView so it can request data through the shared cache
@@ -548,24 +580,26 @@ function PlatformApp() {
   //   - both datasets change rarely; two extra parallel requests at login are negligible
   // See discussion 2026-06-18 — "Option B" over extending /sync
   useEffect(() => {
-    if (!token) return;
+    if (!hasUsableOrgContext) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setOrgLoading(true);
     fetchMyOrg({ apiFetch })
       .then(setOrg)
       .catch(() => addToast('No se pudo cargar la organización', 'error'))
       .finally(() => setOrgLoading(false));
-  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+    // effectiveActiveOrgId (not just hasUsableOrgContext) so switching between
+    // two already-selected orgs refetches too, not just the first selection.
+  }, [hasUsableOrgContext, effectiveActiveOrgId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!token) return;
+    if (!hasUsableOrgContext) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setProjectsLoading(true);
     fetchProjects({ apiFetch })
       .then(setProjects)
       .catch(() => addToast('No se pudieron cargar los proyectos', 'error'))
       .finally(() => setProjectsLoading(false));
-  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hasUsableOrgContext, effectiveActiveOrgId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Group Loteo Modal ─────────────────────────────────────────────────────────
   const groupLoteoModal = useGroupLoteoModal({
@@ -581,7 +615,7 @@ function PlatformApp() {
     onSuccess: refreshSync,
     addToast,
     onAddProspect: addProspect,
-    loteOwnerId: user?.lote_owner_id,
+    loteOwnerId: activeLoteOwnerId,
     addActivity,
   });
 
@@ -594,7 +628,7 @@ function PlatformApp() {
     onSuccess: refreshSync,
     onUpdateProspect: updateProspect,
     onUpdateLastContact: updateProspectLastContact,
-    loteOwnerId: user?.lote_owner_id,
+    loteOwnerId: activeLoteOwnerId,
     addActivity,
   });
 
@@ -611,7 +645,7 @@ function PlatformApp() {
     apiFetch,
     addToast,
     onSuccess: refreshSync,
-    loteOwnerId: user?.lote_owner_id,
+    loteOwnerId: activeLoteOwnerId,
     addActivity,
   });
 
@@ -621,13 +655,9 @@ function PlatformApp() {
     addToast,
     onSuccess: refreshSync,
     onRemoveProspect: removeProspect,
-    loteOwnerId: user?.lote_owner_id,
+    loteOwnerId: activeLoteOwnerId,
     addActivity,
   });
-
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-  };
 
   // TODO: Replace regex check with URL constructor for stricter validation:
   //   const parsed = new URL(url);
@@ -664,63 +694,40 @@ function PlatformApp() {
     : ownerViewHeader.subtitle;
 
   return (
-    <div className={`dashboard-container ${view === 'lote_owner' ? 'with-sidebar' : ''}`}>
-      {view !== 'lote_owner' && (
-        <nav className="dashboard-nav">
-          <div className="nav-brand">NOTRY / {view.replace('_', ' ').toUpperCase()}</div>
-          <div className="nav-user">
-            <span>{user?.full_name}</span>
-            <Button variant="outline" onClick={logout}>Salir</Button>
-          </div>
-        </nav>
-      )}
-
-      {view === 'lote_owner' && (
-        <>
-          <div
-            className={`sidebar-overlay ${sidebarOpen ? 'visible' : ''}`}
-            onClick={() => setSidebarOpen(false)}
-          />
-          <div className="mobile-topbar">
-            <button
-              className="mobile-topbar-hamburger"
-              onClick={() => setSidebarOpen(v => !v)}
-              aria-label={sidebarOpen ? 'Cerrar menú' : 'Abrir menú'}
-            >
-              {sidebarOpen ? (
-                <X size={20} />
-              ) : (
-                <Menu size={20} />
-              )}
-            </button>
-            <span className="mobile-topbar-brand">NOTRY</span>
-            <span className="mobile-topbar-user">{user?.full_name?.split(' ')[0]}</span>
-          </div>
-          <Sidebar
-            user={user}
-            activeItem={ownerSubView}
-            onItemClick={(id) => { setOwnerSubView(id); setSidebarOpen(false); }}
-            onOpenAccount={() => { setAccountModalOpen(true); setSidebarOpen(false); }}
-            isOpen={sidebarOpen}
-            onToggle={() => setSidebarOpen(v => !v)}
-          />
-        </>
-      )}
+    <div className="dashboard-container with-sidebar">
+      <div
+        className={`sidebar-overlay ${sidebarOpen ? 'visible' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+      />
+      <div className="mobile-topbar">
+        <button
+          className="mobile-topbar-hamburger"
+          onClick={() => setSidebarOpen(v => !v)}
+          aria-label={sidebarOpen ? 'Cerrar menú' : 'Abrir menú'}
+        >
+          {sidebarOpen ? (
+            <X size={20} />
+          ) : (
+            <Menu size={20} />
+          )}
+        </button>
+        <span className="mobile-topbar-brand">NOTRY</span>
+        <span className="mobile-topbar-user">{user?.full_name?.split(' ')[0]}</span>
+      </div>
+      <Sidebar
+        user={user}
+        activeItem={ownerSubView}
+        onItemClick={(id) => { setOwnerSubView(id); setSidebarOpen(false); }}
+        onOpenAccount={() => { setAccountModalOpen(true); setSidebarOpen(false); }}
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(v => !v)}
+        apiFetch={apiFetch}
+        activeOrgId={activeOrgId}
+        onChangeOrg={setActiveOrgId}
+        isVisorOnly={isVisorOnly}
+      />
 
       <main className="dashboard-content">
-        {view === 'super_admin' ? (
-          <AdminView
-            lots={lots}
-            loteos={loteos}
-            selectedLot={selectedLot}
-            loading={adminLoading}
-            adminSubView={adminSubView}
-            onSelectLot={setSelectedLot}
-            onFetchLots={fetchLots}
-            onFetchLoteos={fetchLoteos}
-            copyToClipboard={copyToClipboard}
-          />
-        ) : (
           <div className={`owner-layout${ownerSubView === 'inicio' || ownerSubView === 'inventario' || ownerSubView === 'clientes' || ownerSubView === 'analisis' || ownerSubView === 'proyectos' ? ' owner-layout--shell' : ''}${ownerSubView === 'inicio' ? ' owner-layout--inicio' : ''}`}>
             <div key={ownerSubView} className="view-content">
               {ownerSubView !== 'inicio' && ownerSubView !== 'inventario' && ownerSubView !== 'clientes' && ownerSubView !== 'cobranzas' && ownerSubView !== 'analisis' && ownerSubView !== 'proyectos' && (
@@ -737,12 +744,10 @@ function PlatformApp() {
                   inventoryLoteos={inventoryLoteos}
                   inventoryLots={inventoryLots}
                   advisorsList={advisorsList}
-                  token={token}
-                  onSessionExpired={logout}
                   onUpdateProspectCategory={updateProspectCategory}
                   activities={activities}
                   apiFetch={apiFetch}
-                  loteOwnerId={user?.lote_owner_id}
+                  loteOwnerId={activeLoteOwnerId}
                   addActivity={addActivity}
                 />
               )}
@@ -848,6 +853,7 @@ function PlatformApp() {
                   projects={projects}
                   projectsLoading={projectsLoading}
                   setProjects={setProjects}
+                  isVisorOnly={isVisorOnly}
                 />
               )}
 
@@ -858,7 +864,6 @@ function PlatformApp() {
               )}
             </div>
           </div>
-        )}
       </main>
 
       <AccountModal

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { API_BASE, fetchWithTimeout } from '../api/config';
+import { API_BASE, fetchWithTimeout, authHeaders } from '../api/config';
 import { coordsEqual, parseNumberOrZero } from '../utils/saveAllUtils';
 import { useUIFeedback } from './useUIFeedback';
 
@@ -174,7 +174,7 @@ export function useSaveAll({ annotations, setAnnotations, token, loteoId, savedA
 
       const response = await fetchWithTimeout(`${API_BASE}/loteos/${loteoId}/bulk-save`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: authHeaders(token, { 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload),
       });
 
