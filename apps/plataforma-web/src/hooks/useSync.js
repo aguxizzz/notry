@@ -143,7 +143,10 @@ export function useSync(token, apiFetch, setters, addToast) {
     } finally {
       setSyncLoading(false);
     }
-  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+    // apiFetch must stay in the deps: it changes when a super_admin switches
+    // the active org (X-Active-Org-Id header), and this callback needs the
+    // fresh closure so the next sync actually hits the newly selected org.
+  }, [token, apiFetch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!token) {

@@ -40,7 +40,7 @@ const EMPTY_BRANDING = {
   logo_secondary: '',
 };
 
-export default function ProjectFormModal({ isOpen, onClose, onSubmit, loading, error, initialData = null, apiFetch, uploadFn, onUploadEvent, allLoteos = [] }) {
+export default function ProjectFormModal({ isOpen, onClose, onSubmit, loading, error, initialData = null, apiFetch, uploadFn, onUploadEvent, allLoteos = [], isVisorOnly = false }) {
   const [name, setName] = useState(initialData?.name ?? '');
   const [slug, setSlug] = useState(initialData?.slug ?? '');
   const [branding, setBranding] = useState({
@@ -127,7 +127,7 @@ export default function ProjectFormModal({ isOpen, onClose, onSubmit, loading, e
 
         <form onSubmit={handleSubmit} className="project-form">
           <div className="project-form-col project-form-col--left">
-            <div className="form-row-2">
+            <div className={isVisorOnly ? undefined : 'form-row-2'}>
               <div className="form-group">
                 <label className="form-label">Nombre del proyecto</label>
                 <input
@@ -140,93 +140,100 @@ export default function ProjectFormModal({ isOpen, onClose, onSubmit, loading, e
                 />
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Slug del simulador</label>
-                <input
-                  className="form-input"
-                  type="text"
-                  value={slug}
-                  onChange={e => setSlug(e.target.value)}
-                  placeholder="Se genera del nombre si lo dejás vacío"
-                />
-              </div>
-            </div>
-            <p className="form-hint">
-              URL pública: {SIMULADOR_URL}/{slug.trim() || '(slug)'}
-            </p>
-
-            <div className="form-section-title">Simulador de compra</div>
-
-            {assignedLoteos.length === 0 ? (
-              <p className="form-hint">
-                Asigná al menos un loteo a este proyecto (desde la lista de Proyectos) y volvé a editarlo para configurar el simulador.
-              </p>
-            ) : (
-              <>
+              {!isVisorOnly && (
                 <div className="form-group">
-                  <label className="form-label">Loteo del visor 360</label>
-                  <select
-                    className="form-input"
-                    value={viewerLoteoId}
-                    onChange={e => setViewerLoteoId(e.target.value)}
-                  >
-                    <option value="">Sin configurar (el simulador no va a funcionar)</option>
-                    {assignedLoteos.map(l => (
-                      <option key={l.id} value={l.id}>{l.name}</option>
-                    ))}
-                  </select>
-                  <p className="form-hint">
-                    {viewerLoteoId
-                      ? 'A dónde se abre el visor al hacer clic en "Ver lotes compatibles".'
-                      : 'Elegí un loteo para poder configurar los plazos y el umbral de escrituración.'}
-                  </p>
-                </div>
-
-                <div className={`form-group${viewerLoteoId ? '' : ' form-group--disabled'}`}>
-                  <label className="form-label">Plazos (cuotas)</label>
-                  <div className="plazo-box">
-                    {plazos.map(n => (
-                      <span className="plazo-chip" key={n}>
-                        {n}<span className="plazo-chip-unit">cuotas</span>
-                        <button type="button" disabled={!viewerLoteoId} aria-label={`Quitar plazo de ${n} cuotas`} onClick={() => removePlazo(n)}>×</button>
-                      </span>
-                    ))}
-                    <input
-                      className="plazo-add"
-                      type="number"
-                      inputMode="numeric"
-                      min="1"
-                      placeholder="Cuotas"
-                      value={plazoDraft}
-                      disabled={!viewerLoteoId}
-                      onChange={e => setPlazoDraft(e.target.value)}
-                      onKeyDown={handlePlazoDraftKeyDown}
-                    />
-                    <button
-                      type="button"
-                      className="plazo-add-btn"
-                      disabled={!viewerLoteoId || !plazoDraft.trim()}
-                      aria-label="Agregar plazo"
-                      onClick={handleAddPlazoClick}
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-
-                <div className={`form-group${viewerLoteoId ? '' : ' form-group--disabled'}`}>
-                  <label className="form-label">Umbral de escrituración (%)</label>
+                  <label className="form-label">Slug del simulador</label>
                   <input
                     className="form-input"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.5"
-                    value={writingThresholdPercent}
-                    disabled={!viewerLoteoId}
-                    onChange={e => setWritingThresholdPercent(e.target.value)}
+                    type="text"
+                    value={slug}
+                    onChange={e => setSlug(e.target.value)}
+                    placeholder="Se genera del nombre si lo dejás vacío"
                   />
                 </div>
+              )}
+            </div>
+
+            {!isVisorOnly && (
+              <>
+                <p className="form-hint">
+                  URL pública: {SIMULADOR_URL}/{slug.trim() || '(slug)'}
+                </p>
+
+                <div className="form-section-title">Simulador de compra</div>
+
+                {assignedLoteos.length === 0 ? (
+                  <p className="form-hint">
+                    Asigná al menos un loteo a este proyecto (desde la lista de Proyectos) y volvé a editarlo para configurar el simulador.
+                  </p>
+                ) : (
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">Loteo del visor 360</label>
+                      <select
+                        className="form-input"
+                        value={viewerLoteoId}
+                        onChange={e => setViewerLoteoId(e.target.value)}
+                      >
+                        <option value="">Sin configurar (el simulador no va a funcionar)</option>
+                        {assignedLoteos.map(l => (
+                          <option key={l.id} value={l.id}>{l.name}</option>
+                        ))}
+                      </select>
+                      <p className="form-hint">
+                        {viewerLoteoId
+                          ? 'A dónde se abre el visor al hacer clic en "Ver lotes compatibles".'
+                          : 'Elegí un loteo para poder configurar los plazos y el umbral de escrituración.'}
+                      </p>
+                    </div>
+
+                    <div className={`form-group${viewerLoteoId ? '' : ' form-group--disabled'}`}>
+                      <label className="form-label">Plazos (cuotas)</label>
+                      <div className="plazo-box">
+                        {plazos.map(n => (
+                          <span className="plazo-chip" key={n}>
+                            {n}<span className="plazo-chip-unit">cuotas</span>
+                            <button type="button" disabled={!viewerLoteoId} aria-label={`Quitar plazo de ${n} cuotas`} onClick={() => removePlazo(n)}>×</button>
+                          </span>
+                        ))}
+                        <input
+                          className="plazo-add"
+                          type="number"
+                          inputMode="numeric"
+                          min="1"
+                          placeholder="Cuotas"
+                          value={plazoDraft}
+                          disabled={!viewerLoteoId}
+                          onChange={e => setPlazoDraft(e.target.value)}
+                          onKeyDown={handlePlazoDraftKeyDown}
+                        />
+                        <button
+                          type="button"
+                          className="plazo-add-btn"
+                          disabled={!viewerLoteoId || !plazoDraft.trim()}
+                          aria-label="Agregar plazo"
+                          onClick={handleAddPlazoClick}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className={`form-group${viewerLoteoId ? '' : ' form-group--disabled'}`}>
+                      <label className="form-label">Umbral de escrituración (%)</label>
+                      <input
+                        className="form-input"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.5"
+                        value={writingThresholdPercent}
+                        disabled={!viewerLoteoId}
+                        onChange={e => setWritingThresholdPercent(e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
               </>
             )}
           </div>

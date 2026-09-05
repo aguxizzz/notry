@@ -1,0 +1,28 @@
+.org-switcher {
+  width: 100%;
+}
+
+.org-switcher .form-group {
+  margin: 0;
+}
+
+.org-switcher--loading,
+.org-switcher--error {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.org-switcher--error {
+  color: var(--color-danger, #c0392b);
+}
+
+@media (max-width: 768px) {
+  .org-switcher {
+    flex: 1;
+    min-width: 0;
+  }
+}

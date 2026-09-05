@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { API_BASE, fetchWithTimeout } from './api/config';
+import { API_BASE, fetchWithTimeout, authHeaders } from './api/config';
 import { createUploadFn } from './api/upload';
 import { useAuth } from './hooks/useAuth';
 import { useDraft } from './hooks/useDraft';
@@ -74,7 +74,31 @@ function App() {
   const [isLoadingDefault, setIsLoadingDefault] = useState(true);
   const [loteoId, setLoteoId] = useState(null);
   const [siblingStages, setSiblingStages] = useState([]);
-  const { token: accessToken, handleLogin, handleLogout } = useAuth();
+  const { token: accessToken, user, handleLogin, handleLogout, activeOrgId, setActiveOrgId } = useAuth();
+  const hasDataParam = new URLSearchParams(window.location.search).has('data');
+  // super_admin sin org resuelta (ver useAuth: pasa cuando hay ?data= sin un
+  // ?orgId= que lo acompañe — link viejo, o esta misma pestaña reusada tras
+  // cambiar de cuenta) no puede confiar en el loteo del link: no hay forma de
+  // saber a qué org pertenece sin abrirlo. Se lo trata como si no hubiera
+  // ?data= — cae al listado en vez de arriesgarse a mostrar un loteo ajeno.
+  const untrustedDirectLink = user?.role === 'super_admin' && hasDataParam && !activeOrgId;
+  // Gatea los fetches org-scoped (loteos, siblingStages) hasta que se sepa el
+  // rol y, si es super_admin, ya eligió (o el link trajo) una org — evita
+  // 400s del backend (falta X-Active-Org-Id).
+  const hasOrgContext = Boolean(user) && (user.role !== 'super_admin' || Boolean(activeOrgId));
+
+  // Si el link no es confiable, se limpia ?data=/&from= de la URL — así, una
+  // vez elegida una org en el listado, no queda un ?data= viejo compitiendo
+  // por mostrarse (ver bug reportado 2026-09-04: se abría un loteo de la org
+  // anterior al elegir la nueva).
+  useEffect(() => {
+    if (!untrustedDirectLink) return;
+    const params = new URLSearchParams(window.location.search);
+    params.delete('data');
+    params.delete('from');
+    const cleaned = window.location.pathname + (params.toString() ? `?${params.toString()}` : '');
+    window.history.replaceState({}, '', cleaned);
+  }, [untrustedDirectLink]);
   const uploadFn = useMemo(() => createUploadFn(accessToken, handleLogout), [accessToken, handleLogout]);
   const [selectedLoteo, setSelectedLoteo] = useState(null);
   const [loteoAccessDenied, setLoteoAccessDenied] = useState(false);
@@ -119,14 +143,14 @@ function App() {
 
   // Cuando se carga vía ?data=URL, selectedLoteo queda null — lo cargamos aparte
   useEffect(() => {
-    if (!loteoId || selectedLoteo || !accessToken) return;
+    if (!loteoId || selectedLoteo || !accessToken || !hasOrgContext) return;
     fetch(`${API_BASE}/loteos/${loteoId}`, {
-      headers: { 'Authorization': `Bearer ${accessToken}` },
+      headers: authHeaders(accessToken),
     })
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => setSelectedLoteo(data))
       .catch(() => setLoteoAccessDenied(true));
-  }, [loteoId, selectedLoteo, accessToken]);
+  }, [loteoId, selectedLoteo, accessToken, hasOrgContext]);
 
   // Carga los datos del loteo desde la URL recibida por query string.
   useEffect(() => {
@@ -230,10 +254,10 @@ function App() {
 
   // Etapas hermanas del grupo (para que un POI pueda navegar a otra etapa).
   useEffect(() => {
-    if (!loteoId || !accessToken) return;
+    if (!loteoId || !accessToken || !hasOrgContext) return;
     let cancelled = false;
     fetchWithTimeout(`${API_BASE}/loteos?limit=100`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: authHeaders(accessToken),
     })
       .then(res => (res.ok ? res.json() : null))
       .then(data => {
@@ -248,7 +272,7 @@ function App() {
       })
       .catch(() => { if (!cancelled) setSiblingStages([]); });
     return () => { cancelled = true; };
-  }, [loteoId, accessToken]);
+  }, [loteoId, accessToken, hasOrgContext]);
 
   // Reset pending panel state when selection changes
   useEffect(() => {
@@ -451,7 +475,7 @@ function App() {
     if (!pos) throw new Error('El visor no está listo');
     const res = await fetchWithTimeout(`${API_BASE}/loteos/${loteoId}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      headers: authHeaders(accessToken, { 'Content-Type': 'application/json' }),
       body: JSON.stringify({ home_yaw: pos.yaw, home_pitch: pos.pitch }),
     });
     if (!res.ok) throw new Error(`Error ${res.status}`);
@@ -465,7 +489,7 @@ function App() {
     if (!pos) throw new Error('El visor no está listo');
     const res = await fetchWithTimeout(`${API_BASE}/loteos/${loteoId}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      headers: authHeaders(accessToken, { 'Content-Type': 'application/json' }),
       body: JSON.stringify({ north_offset: pos.yaw }),
     });
     if (!res.ok) throw new Error(`Error ${res.status}`);
@@ -477,7 +501,7 @@ function App() {
   const handleResetHome = async () => {
     const res = await fetchWithTimeout(`${API_BASE}/loteos/${loteoId}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      headers: authHeaders(accessToken, { 'Content-Type': 'application/json' }),
       body: JSON.stringify({ home_yaw: null, home_pitch: null }),
     });
     if (!res.ok) throw new Error('No se pudo restablecer la vista inicial.');
@@ -489,7 +513,7 @@ function App() {
   const handleResetNorth = async () => {
     const res = await fetchWithTimeout(`${API_BASE}/loteos/${loteoId}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      headers: authHeaders(accessToken, { 'Content-Type': 'application/json' }),
       body: JSON.stringify({ north_offset: null }),
     });
     if (!res.ok) throw new Error('No se pudo restablecer el norte.');
@@ -502,7 +526,7 @@ function App() {
     if (!loteoId) throw new Error('No se encontró el loteo que querés configurar.');
     const res = await fetchWithTimeout(`${API_BASE}/loteos/${loteoId}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      headers: authHeaders(accessToken, { 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         ...(name ? { name } : {}),
         snap_threshold: nextSnapThreshold,
@@ -907,20 +931,36 @@ function App() {
 
   const handleLoteoSelect = (loteo) => {
     const dataUrl = `${API_BASE}/loteos/${loteo.id}/visor_data`;
-    const editorUrl = `${window.location.origin}${window.location.pathname}?data=${encodeURIComponent(dataUrl)}&from=list`;
+    // Lleva la org activa al link para que, si se refresca o reabre esa
+    // pestaña, siga sabiendo con qué org corresponde ese loteo (ver useAuth).
+    const orgIdParam = activeOrgId ? `&orgId=${encodeURIComponent(activeOrgId)}` : '';
+    const editorUrl = `${window.location.origin}${window.location.pathname}?data=${encodeURIComponent(dataUrl)}&from=list${orgIdParam}`;
     window.open(editorUrl, '_blank');
   };
 
   const params = new URLSearchParams(window.location.search);
-  const hasDataParam = params.has('data');
   const fromList = params.get('from') === 'list';
 
   if (!accessToken) {
     return <LoginScreen onLogin={handleLogin} />;
   }
 
-  if (!selectedLoteo && !hasDataParam) {
-    return <LoteoList token={accessToken} onSelect={handleLoteoSelect} onAuthError={handleLogout} />;
+  // user === undefined mientras /auth/me todavía no respondió.
+  if (user === undefined) {
+    return null;
+  }
+
+  if (!selectedLoteo && (!hasDataParam || untrustedDirectLink)) {
+    return (
+      <LoteoList
+        token={accessToken}
+        onSelect={handleLoteoSelect}
+        onAuthError={handleLogout}
+        user={user}
+        activeOrgId={activeOrgId}
+        onOrgChange={setActiveOrgId}
+      />
+    );
   }
 
   if (loteoAccessDenied) {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, MapPin, Check } from 'lucide-react';
-import { API_BASE, fetchWithTimeout } from '../api/config';
+import { API_BASE, fetchWithTimeout, authHeaders } from '../api/config';
 
 export default function LoteoSettingsModal({
   isOpen,
@@ -38,7 +38,7 @@ export default function LoteoSettingsModal({
       };
       const res = await fetchWithTimeout(`${API_BASE}/loteos/${loteoId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: authHeaders(token, { 'Content-Type': 'application/json' }),
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(`Error ${res.status}`);

@@ -14,7 +14,7 @@ const COL_META = {
   vendido:         { label: 'Vendido',           accentVar: '--kanban-vendido-accent' },
 };
 
-export default function KanbanBoard({ token, onSessionExpired, prospectosList = [], loteos = [], advisorsList = [], onUpdateProspectCategory, apiFetch, loteOwnerId, addActivity }) {
+export default function KanbanBoard({ prospectosList = [], loteos = [], advisorsList = [], onUpdateProspectCategory, apiFetch, loteOwnerId, addActivity }) {
   const [columns, setColumns] = useState({
     primer_contacto: [],
     seguimiento: [],
@@ -28,8 +28,6 @@ export default function KanbanBoard({ token, onSessionExpired, prospectosList = 
   const [activeMobileStage, setActiveMobileStage] = useState(CATEGORIES[0]);
 
   const { patchProspect, patchingIds } = usePatchProspect({
-    token,
-    onSessionExpired,
     onError: (msg) => {
       setKanbanError(msg);
       setTimeout(() => setKanbanError(null), 3000);

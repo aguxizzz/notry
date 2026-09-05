@@ -29,9 +29,9 @@ export function useAuth() {
   /**
    * @param {string} email
    * @param {string} password
-   * @param {Object} opts - { setLoading, setStatus, setView, fetchLots }
+   * @param {Object} opts - { setLoading, setStatus, setView }
    */
-  async function handleLogin(email, password, { setLoading, setStatus, setView, fetchLots }) {
+  async function handleLogin(email, password, { setLoading, setStatus, setView }) {
     setLoading(true);
     setStatus(null);
 
@@ -62,10 +62,9 @@ export function useAuth() {
       const meData = await fetchCurrentUser(accessToken);
       setUser(meData);
 
-      if (meData.role === 'super_admin' || meData.role === 'admin') {
-        setView('super_admin');
-        setTimeout(() => fetchLots(), 0);
-      } else if (meData.role === 'lote_owner') {
+      // super_admin opera la misma UI que lote_owner, eligiendo la org activa
+      // con el selector del Sidebar (no tiene membership propia).
+      if (['super_admin', 'admin', 'lote_owner'].includes(meData.role)) {
         setView('lote_owner');
       } else {
         setStatus({ type: 'error', message: `Rol no reconocido: ${meData.role}` });
@@ -86,25 +85,23 @@ export function useAuth() {
    */
   function logout(setters) {
     const {
-      setView, setLots, setLoteos, setSelectedLot,
-      setAdminSubView, setInventoryLots, setInventoryLotsHasMore, setInventorySearch,
+      setView,
+      setInventoryLots, setInventoryLotsHasMore, setInventorySearch,
       setInventoryStatusFilter, setInventoryTab, setInventoryLoteos,
       setAllProspectosList, setProspectosCategoryFilter,
       setProspectosWithoutAdvisor, setToasts, setClicksCache, setVisorDataCache,
       setReportsCache, setDashboardSummary,
-      setOrg, setProjects,
+      setOrg, setProjects, setActiveOrgId,
     } = setters;
 
     localStorage.removeItem('auth_token');
     localStorage.removeItem('owner_sub_view');
+    localStorage.removeItem('notry_active_org_id');
     // Auth state is reset via the hook's own setters (closure)
     setToken(null);
     setUser(null);
     setView('login');
-    setLots(null);
-    setLoteos(null);
-    setSelectedLot(null);
-    setAdminSubView('lotes');
+    setActiveOrgId?.(null);
     setInventoryLots([]);
     setInventoryLotsHasMore(false);
     setInventorySearch('');

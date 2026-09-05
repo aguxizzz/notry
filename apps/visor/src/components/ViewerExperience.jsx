@@ -96,6 +96,21 @@ export function normalizeToGroup(data) {
 
 const PANEL_CLOSED = { isOpen: false, title: '', content: '', markerId: null, detail: {} };
 
+// Panorama es la vista por defecto salvo que la etapa no tenga panorama y sí
+// blueprint (etapa blueprint-only) — caso real: el editor permite guardar
+// una etapa con solo el plano cargado.
+function defaultViewModeForVisor(visor) {
+  if (visor?.panoramaUrl) return 'panorama';
+  if (visor?.blueprintUrl) return 'blueprint';
+  return 'panorama';
+}
+
+function initialViewModeForGroup(group) {
+  if (!group) return 'panorama';
+  const entryStage = group.stages?.find((s) => s.id === group.entryStageId) ?? group.stages?.[0];
+  return defaultViewModeForVisor(entryStage?.visor);
+}
+
 const IconBackArrow = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="15 18 9 12 15 6" />
@@ -120,7 +135,7 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
   const [stagePending, setStagePending] = useState(true);
   const [retryNonce, setRetryNonce] = useState(0);
   const [panel, setPanel] = useState(PANEL_CLOSED);
-  const [viewMode, setViewMode] = useState('panorama');
+  const [viewMode, setViewMode] = useState(() => initialViewModeForGroup(preloadedGroup));
   const [recommendedIds, setRecommendedIds] = useState(() => {
     const raw = new URLSearchParams(window.location.search).get('recommended');
     return raw ? new Set(raw.split(',').filter(Boolean)) : new Set();
@@ -162,6 +177,7 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
           const normalized = normalizeToGroup(data);
           setGroup(normalized);
           setCurrentStageId(normalized.entryStageId);
+          setViewMode(initialViewModeForGroup(normalized));
         }
       })
       .catch((err) => setLoadError(err.message || 'No se pudo cargar el visor.'))
@@ -198,12 +214,13 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
   );
 
   const goToStage = useCallback((stageId) => {
-    if (!stageId || !stages.some((stage) => stage.id === stageId)) return;
+    const targetStage = stages.find((stage) => stage.id === stageId);
+    if (!targetStage) return;
     setStageError(null);
     setStagePending(true);
     setCurrentStageId(stageId);
     setPanel(PANEL_CLOSED);
-    setViewMode('panorama');
+    setViewMode(defaultViewModeForVisor(targetStage.visor));
   }, [stages]);
 
   const handleStageReady = useCallback((stageId) => {
@@ -211,6 +228,16 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
     setStagePending(false);
     setStageError(null);
   }, []);
+
+  // En blueprint no hay panorama que dispare `onStageReady` (BlueprintViewer
+  // maneja su propio loading interno) — sin esto, "Cargando etapa..." y el
+  // selector de etapas deshabilitado quedarían pegados para siempre en una
+  // etapa blueprint-only.
+  useEffect(() => {
+    if (viewMode === 'blueprint' && currentStage?.id) {
+      handleStageReady(currentStage.id);
+    }
+  }, [viewMode, currentStage?.id, handleStageReady]);
 
   const handleStageError = useCallback(({ stageId, message }) => {
     setStageError({ stageId, message });
@@ -414,7 +441,7 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
         </button>
       )}
 
-      {blueprintUrl && (
+      {blueprintUrl && rawData?.panoramaUrl && (
         <button
           className="view-toggle"
           style={viewMode === 'blueprint' ? { background: 'var(--accent)', color: '#1a1a1a', border: 'none' } : {}}

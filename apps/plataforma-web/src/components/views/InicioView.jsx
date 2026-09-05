@@ -19,8 +19,6 @@ export default function InicioView({
   allProspectosList,
   inventoryLoteos,
   advisorsList,
-  token,
-  onSessionExpired,
   onUpdateProspectCategory,
   activities = [],
   apiFetch,
@@ -83,8 +81,6 @@ export default function InicioView({
             />
             <ErrorBoundary label="Error en el tablero Kanban">
               <KanbanBoard
-                token={token}
-                onSessionExpired={onSessionExpired}
                 prospectosList={allProspectosList}
                 loteos={inventoryLoteos}
                 advisorsList={advisorsList}

@@ -1,22 +1,6 @@
 import { API_BASE } from '../config';
 import { logActivity } from './activityLogs';
 
-export async function fetchLots({ apiFetch, setLoading, setLots, setSelectedLot, setAdminSubView }) {
-  setLoading(true);
-  setAdminSubView('lotes');
-  try {
-    const data = await apiFetch(`${API_BASE}/lots?status=available&limit=50&offset=0`);
-    setLots(data.items);
-    if (data.items.length > 0) {
-      setSelectedLot(data.items[0]);
-    }
-  } catch (error) {
-    console.error(error);
-  } finally {
-    setLoading(false);
-  }
-}
-
 export async function fetchInventory({ apiFetch, setInventoryLoading, setInventoryLots, setInventoryLotsHasMore, PAGE_SIZE, name, status, signal }) {
   setInventoryLoading(true);
   try {

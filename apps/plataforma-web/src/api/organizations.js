@@ -4,6 +4,11 @@ export async function fetchMyOrg({ apiFetch }) {
   return apiFetch(`${API_BASE}/organizations/me`);
 }
 
+// Solo super_admin: lista todas las orgs para el selector cross-org del Sidebar.
+export async function fetchOrganizations({ apiFetch }) {
+  return apiFetch(`${API_BASE}/organizations`);
+}
+
 export async function createInvite({ apiFetch, email, full_name, role }) {
   return apiFetch(`${API_BASE}/organizations/invites`, {
     method: 'POST',
