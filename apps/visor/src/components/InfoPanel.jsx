@@ -1,6 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import DOMPurify from 'dompurify';
 import { POI_ICON_MARKERS } from '../icons/poiIcons';
+import { trackEvent } from '../analytics.js';
 
 const IconLink = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -123,7 +124,7 @@ const formatArea = (area) => {
   return `${area} m²`;
 };
 
-function PrecalificacionForm({ lotDetail, onClose, origin }) {
+function PrecalificacionForm({ lotDetail, onClose, origin, loteoId }) {
   const [nombre, setNombre] = useState('');
   const [numero, setNumero] = useState('');
   const [formError, setFormError] = useState('');
@@ -161,6 +162,7 @@ function PrecalificacionForm({ lotDetail, onClose, origin }) {
     }).then((res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setSubmitStatus('success');
+      trackEvent(loteoId, 'form_submit', { type: 'lote', id: lotDetail.markerId });
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(() => onClose(), 7000);
     }).catch(() => {
@@ -274,7 +276,7 @@ function PrecalificacionForm({ lotDetail, onClose, origin }) {
 // Duration must match --t in index.css (0.28s)
 const CLOSE_DURATION_MS = 280;
 
-export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origin, whatsappPhone, onClose, onGoToStage }) {
+export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origin, whatsappPhone, loteoId, onClose, onGoToStage }) {
   const [showForm, setShowForm] = useState(false);
   const [transDir, setTransDir] = useState(null);
   const [isClosing, setIsClosing] = useState(false);
@@ -317,7 +319,11 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origi
     }
   }, [markerId, isClosing, isOpen]);
 
-  const goToForm = () => { setTransDir('forward'); setShowForm(true); };
+  const goToForm = () => {
+    setTransDir('forward');
+    setShowForm(true);
+    trackEvent(loteoId, 'form_open', { type: 'lote', id: displayRef.current.markerId });
+  };
   const goBack  = () => { setTransDir('back');    setShowForm(false); };
   const wrappedOnClose = () => { closingRef.current = true; onClose(); };
 
@@ -395,7 +401,7 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origi
 
         <div id="info-panel-content">
           {showForm ? (
-            <PrecalificacionForm key={display.markerId} lotDetail={lotDetail} origin={origin} onClose={wrappedOnClose} />
+            <PrecalificacionForm key={display.markerId} lotDetail={lotDetail} origin={origin} loteoId={loteoId} onClose={wrappedOnClose} />
           ) : isPoi ? (
             <div id="info-panel-view">
               {poiDetail.image_url ? (
@@ -494,6 +500,7 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, origi
                         target="_blank"
                         rel="noopener noreferrer"
                         className="btn-wa-direct"
+                        onClick={() => trackEvent(loteoId, 'whatsapp_click', { type: 'lote', id: display.markerId })}
                       >
                         <IconWhatsApp />
                         <span>Escribir por WhatsApp</span>

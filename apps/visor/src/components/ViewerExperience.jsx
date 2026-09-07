@@ -6,10 +6,12 @@ import BlueprintViewer from './BlueprintViewer.jsx';
 import StageSwitcher from './StageSwitcher.jsx';
 import { Compass } from './Compass.jsx';
 import { useCompass } from '../hooks/useCompass.js';
+import { API_BASE } from '../api/config.js';
+import { trackEvent } from '../analytics.js';
 
 const API_URL = '/api/viewer/current';
 const DATA_URL_PARAM = 'data';
-const CLICK_BASE_URL = 'https://notry-back.onrender.com/api/v1/public/lots';
+const CLICK_BASE_URL = `${API_BASE}/public/lots`;
 
 function detectOrigin() {
   const params = new URLSearchParams(window.location.search);
@@ -133,6 +135,7 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [stageError, setStageError] = useState(null);
   const [stagePending, setStagePending] = useState(true);
+  const [stageProgress, setStageProgress] = useState(0);
   const [retryNonce, setRetryNonce] = useState(0);
   const [panel, setPanel] = useState(PANEL_CLOSED);
   const [viewMode, setViewMode] = useState(() => initialViewModeForGroup(preloadedGroup));
@@ -207,6 +210,14 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
   const rawData = currentStage?.visor ?? null;
   const blueprintUrl = rawData?.blueprintUrl || null;
 
+  // Un solo evento de inicio de sesión por visita, con la etapa de entrada.
+  const sessionStartedRef = useRef(false);
+  useEffect(() => {
+    if (sessionStartedRef.current || !currentStage?.id) return;
+    sessionStartedRef.current = true;
+    trackEvent(currentStage.id, 'session_start');
+  }, [currentStage?.id]);
+
   // Mapa id→nombre de etapa para resolver el destino de un POI de navegación.
   const stageNameById = useMemo(
     () => Object.fromEntries(stages.map((s) => [s.id, s.name])),
@@ -218,15 +229,18 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
     if (!targetStage) return;
     setStageError(null);
     setStagePending(true);
+    setStageProgress(0);
     setCurrentStageId(stageId);
     setPanel(PANEL_CLOSED);
     setViewMode(defaultViewModeForVisor(targetStage.visor));
   }, [stages]);
 
-  const handleStageReady = useCallback((stageId) => {
+  const handleStageReady = useCallback(({ stageId, markersOk }) => {
     setCommittedStageId(stageId);
     setStagePending(false);
+    setStageProgress(100);
     setStageError(null);
+    if (!markersOk) console.warn(`La etapa ${stageId} cargó con anotaciones inválidas omitidas.`);
   }, []);
 
   // En blueprint no hay panorama que dispare `onStageReady` (BlueprintViewer
@@ -235,22 +249,24 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
   // etapa blueprint-only.
   useEffect(() => {
     if (viewMode === 'blueprint' && currentStage?.id) {
-      handleStageReady(currentStage.id);
+      handleStageReady({ stageId: currentStage.id, markersOk: true });
     }
   }, [viewMode, currentStage?.id, handleStageReady]);
 
   const handleStageError = useCallback(({ stageId, message }) => {
     setStageError({ stageId, message });
     setStagePending(false);
-    // El selector vuelve a la última etapa confirmada. La etapa fallida queda
-    // guardada en stageError para poder reintentarla explícitamente.
-    setCurrentStageId((selectedId) => selectedId === stageId ? (committedStageId ?? selectedId) : selectedId);
-  }, [committedStageId]);
+  }, []);
+
+  const handleStageProgress = useCallback(({ stageId, progress }) => {
+    if (currentStage?.id === stageId) setStageProgress(progress ?? 0);
+  }, [currentStage?.id]);
 
   const retryStage = useCallback(() => {
     if (!stageError?.stageId) return;
     setStageError(null);
     setStagePending(true);
+    setStageProgress(0);
     setCurrentStageId(stageError.stageId);
     setRetryNonce((value) => value + 1);
   }, [stageError]);
@@ -267,10 +283,13 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
     [annotations]
   );
 
-  // URLs de panorama de todas las etapas para precargarlas en la cache del visor
-  // y que el primer cambio a cada una sea instantáneo.
-  const preloadUrls = useMemo(
-    () => stages.map((s) => s.visor?.panoramaUrl).filter(Boolean),
+  // Candidatas para una única precarga conservadora. useViewer descarta las
+  // pesadas, las tiles y las conexiones con ahorro de datos.
+  const preloadCandidates = useMemo(
+    () => stages.map((stage) => ({
+      url: stage.visor?.panoramaUrl,
+      byteSize: stage.visor?.panorama?.byteSize ?? stage.visor?.panoramaByteSize ?? null,
+    })).filter((item) => item.url),
     [stages]
   );
 
@@ -331,6 +350,7 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
     }
 
     postLoteClick(marker.id);
+    trackEvent(currentStage?.id, 'lote_click', { type: 'lote', id: marker.id });
 
     const title = ann?.tooltip ?? marker.id;
     const content = ann?.content ?? '';
@@ -342,7 +362,7 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
       markerId: marker.id,
       detail: { price: ann?.price, area_m2: ann?.area_m2, estado: ann?.status ?? ann?.estado, comments: ann?.comments ?? null },
     });
-  }, [annotationsById, stageNameById]);
+  }, [annotationsById, stageNameById, currentStage?.id]);
 
   const handleBlueprintSelect = useCallback((ann) => {
     const id = ann.uuid || ann.id;
@@ -367,6 +387,8 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
       return;
     }
 
+    trackEvent(currentStage?.id, 'lote_click', { type: 'lote', id });
+
     setPanel({
       isOpen: true,
       title: ann.tooltip ?? id,
@@ -374,7 +396,7 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
       markerId: id,
       detail: { price: ann.price, area_m2: ann.area_m2, estado: ann.status ?? ann.estado, comments: ann.comments ?? null },
     });
-  }, [stageNameById]);
+  }, [stageNameById, currentStage?.id]);
 
   const handleMarkerUnselect = useCallback(() => {
     setPanel(PANEL_CLOSED);
@@ -385,12 +407,27 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
     viewerData,
     handleMarkerSelect,
     handleMarkerUnselect,
-    preloadUrls,
+    preloadCandidates,
     homePosition,
     onPositionChange,
     handleStageReady,
     handleStageError,
+    handleStageProgress,
   );
+
+  const toggleViewMode = useCallback(() => {
+    setViewMode((mode) => {
+      if (mode === 'panorama') {
+        setCommittedStageId(currentStage?.id ?? null);
+        setStagePending(false);
+        setStageError(null);
+        return 'blueprint';
+      }
+      setStagePending(true);
+      setStageProgress(0);
+      return 'panorama';
+    });
+  }, [currentStage?.id]);
 
   if (loadError) {
     return (
@@ -445,7 +482,7 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
         <button
           className="view-toggle"
           style={viewMode === 'blueprint' ? { background: 'var(--accent)', color: '#1a1a1a', border: 'none' } : {}}
-          onClick={() => setViewMode(v => v === 'panorama' ? 'blueprint' : 'panorama')}
+          onClick={toggleViewMode}
           aria-label={viewMode === 'blueprint' ? 'Cambiar a vista panorama' : 'Cambiar a vista blueprint'}
           title={viewMode === 'blueprint' ? 'Ver panorama' : 'Ver blueprint'}
         >
@@ -484,8 +521,9 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
         <StageSwitcher
           stages={stages}
           currentStageId={committedStageId}
+          pendingStageId={stagePending ? currentStage?.id : null}
+          progress={stageProgress}
           onSelect={goToStage}
-          disabled={stagePending || currentStage?.id !== committedStageId}
         />
       )}
 
@@ -495,7 +533,9 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
           role="status"
           aria-live="polite"
         >
-          Cargando etapa…
+          {stageProgress > 0 && stageProgress < 100
+            ? `Cargando etapa… ${Math.round(stageProgress)}%`
+            : 'Cargando etapa…'}
         </div>
       )}
 
@@ -517,6 +557,7 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
         detail={panel.detail}
         origin={VISIT_ORIGIN}
         whatsappPhone={group?.whatsappPhone}
+        loteoId={currentStage?.id}
         onClose={() => setPanel(PANEL_CLOSED)}
         onGoToStage={goToStage}
       />
