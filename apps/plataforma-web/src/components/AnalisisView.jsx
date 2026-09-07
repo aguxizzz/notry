@@ -13,6 +13,7 @@ import PeriodSelector from './analisis/PeriodSelector';
 import LoteoSelector from './analisis/LoteoSelector';
 import TopLotsPanel from './analisis/TopLotsPanel';
 import HeatmapCard from './analisis/HeatmapCard';
+import FunnelCard from './analisis/FunnelCard';
 import './views/AnalisisView.css';
 
 export default function AnalisisView({
@@ -29,6 +30,9 @@ export default function AnalisisView({
   onAnalisisLastDaysChange,
   onRequestClicks,
   onRequestVisorData,
+  cachedFunnel = {},
+  funnelLoadingIds = new Set(),
+  onRequestFunnel,
 }) {
   const [loteos, setLoteos] = useState(prefetchedLoteos);
   const [loteosLoading, setLoteosLoading] = useState(prefetchedLoteos.length === 0);
@@ -73,6 +77,12 @@ export default function AnalisisView({
     if (!cachedVisorData[selectedLoteo.id]) onRequestVisorData?.(selectedLoteo.id);
   }, [selectedLoteo?.id]);
 
+  const funnelKey = selectedLoteo ? `${selectedLoteo.id}:${analisisLastDays}` : null;
+  useEffect(() => {
+    if (!selectedLoteo) return;
+    if (!cachedFunnel[funnelKey]) onRequestFunnel?.(selectedLoteo.id, analisisLastDays);
+  }, [funnelKey]);
+
   const fetchLoteos = async () => {
     setLoteosLoading(true);
     setLoteosError(null);
@@ -88,6 +98,8 @@ export default function AnalisisView({
   };
 
   const reportStats = cachedReports[analisisLastDays] ?? null;
+  const funnelStats = cachedFunnel[funnelKey] ?? null;
+  const isLoadingFunnel = !!(funnelKey && funnelLoadingIds.has(funnelKey));
   const clicksData = cachedClicks[selectedLoteo?.id] ?? [];
   const visorData = cachedVisorData[selectedLoteo?.id] ?? null;
   const isLoadingClicks = selectedLoteo?.id && clicksLoadingIds.has(selectedLoteo.id);
@@ -187,6 +199,13 @@ export default function AnalisisView({
                 />
               </div>
             </Panel>
+
+            <FunnelCard
+              selectedLoteo={selectedLoteo}
+              funnelStats={funnelStats}
+              analisisLastDays={analisisLastDays}
+              isLoading={isLoadingFunnel}
+            />
           </>
         )}
       </PageLayout>
