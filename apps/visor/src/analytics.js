@@ -28,12 +28,41 @@ export function getSessionId() {
   }
 }
 
+// Detecta el canal de origen de la visita a partir de `?ref=`/`?utm_source=`
+// o, si no hay, del referrer. Usa el mismo vocabulario que `ProspectOrigin`
+// en el backend (visor_whatsapp, visor_direct, etc.) porque ya se usa para
+// el campo `origin` de la precalificación — reusarlo evita tener dos
+// detectores de canal divergentes en el visor.
+export function detectOrigin() {
+  const params = new URLSearchParams(window.location.search);
+  const ref = (params.get('ref') || params.get('utm_source') || '').toLowerCase();
+  if (ref) {
+    if (ref.includes('whatsapp')) return 'visor_whatsapp';
+    if (ref.includes('youtube'))  return 'visor_youtube';
+    if (ref.includes('tiktok'))   return 'visor_tiktok';
+    if (ref.includes('facebook') || ref.includes('fb')) return 'visor_facebook';
+    if (ref.includes('google'))   return 'visor_google';
+  }
+  const referrer = document.referrer.toLowerCase();
+  if (!referrer) return 'visor_direct';
+  if (referrer.includes('whatsapp')) return 'visor_whatsapp';
+  if (referrer.includes('youtube'))  return 'visor_youtube';
+  if (referrer.includes('tiktok'))   return 'visor_tiktok';
+  if (referrer.includes('facebook')) return 'visor_facebook';
+  if (referrer.includes('google'))   return 'visor_google';
+  return 'visor_direct';
+}
+
+// Calculado una vez: el referrer/query no cambian durante la sesión del visor (SPA).
+const CHANNEL = detectOrigin();
+
 export function trackEvent(loteoId, eventType, target = {}) {
   if (!loteoId) return;
   const body = {
     loteo_id: loteoId,
     session_id: getSessionId(),
     event_type: eventType,
+    channel: CHANNEL,
     target_type: target.type ?? null,
     target_id: target.id ?? null,
   };

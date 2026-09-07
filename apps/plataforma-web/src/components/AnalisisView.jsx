@@ -33,11 +33,13 @@ export default function AnalisisView({
   cachedFunnel = {},
   funnelLoadingIds = new Set(),
   onRequestFunnel,
+  orgPhone = null,
 }) {
   const [loteos, setLoteos] = useState(prefetchedLoteos);
   const [loteosLoading, setLoteosLoading] = useState(prefetchedLoteos.length === 0);
   const [loteosError, setLoteosError] = useState(null);
   const [selectedLoteo, setSelectedLoteo] = useState(null);
+  const [selectedChannel, setSelectedChannel] = useState(null);
   const [fadeState, setFadeState] = useState('visible');
   const [topLotsFocusedIdx, setTopLotsFocusedIdx] = useState(-1);
   const [heatmapFocusedIdx, setHeatmapFocusedIdx] = useState(-1);
@@ -73,14 +75,15 @@ export default function AnalisisView({
 
   useEffect(() => {
     if (!selectedLoteo) return;
+    setSelectedChannel(null);
     if (!cachedClicks[selectedLoteo.id]) onRequestClicks?.(selectedLoteo.id);
     if (!cachedVisorData[selectedLoteo.id]) onRequestVisorData?.(selectedLoteo.id);
   }, [selectedLoteo?.id]);
 
-  const funnelKey = selectedLoteo ? `${selectedLoteo.id}:${analisisLastDays}` : null;
+  const funnelKey = selectedLoteo ? `${selectedLoteo.id}:${analisisLastDays}:${selectedChannel ?? 'all'}` : null;
   useEffect(() => {
     if (!selectedLoteo) return;
-    if (!cachedFunnel[funnelKey]) onRequestFunnel?.(selectedLoteo.id, analisisLastDays);
+    if (!cachedFunnel[funnelKey]) onRequestFunnel?.(selectedLoteo.id, analisisLastDays, selectedChannel);
   }, [funnelKey]);
 
   const fetchLoteos = async () => {
@@ -205,6 +208,9 @@ export default function AnalisisView({
               funnelStats={funnelStats}
               analisisLastDays={analisisLastDays}
               isLoading={isLoadingFunnel}
+              hasWhatsapp={Boolean(orgPhone)}
+              selectedChannel={selectedChannel}
+              onChannelChange={setSelectedChannel}
             />
           </>
         )}

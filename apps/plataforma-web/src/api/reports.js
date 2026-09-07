@@ -60,10 +60,11 @@ export function buildAnalisisCallbacks({ apiFetch, setClicksCache, setVisorDataC
       });
   };
 
-  const handleAnalisisRequestFunnel = (loteoId, lastDays, signal) => {
-    const cacheKey = `${loteoId}:${lastDays}`;
+  const handleAnalisisRequestFunnel = (loteoId, lastDays, channel, signal) => {
+    const cacheKey = `${loteoId}:${lastDays}:${channel ?? 'all'}`;
     setFunnelLoadingIds(prev => new Set([...prev, cacheKey]));
-    apiFetch(`${API_BASE}/loteos/${loteoId}/funnel?last_days=${lastDays}`, { signal })
+    const channelQs = channel ? `&channel=${encodeURIComponent(channel)}` : '';
+    apiFetch(`${API_BASE}/loteos/${loteoId}/funnel?last_days=${lastDays}${channelQs}`, { signal })
       .then(data => {
         setFunnelCache(prev => ({ ...prev, [cacheKey]: data }));
       })
