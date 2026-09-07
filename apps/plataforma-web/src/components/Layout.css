@@ -38,6 +38,14 @@
   margin-left: 0;
 }
 
+.dashboard-container--org-loading .dashboard-content,
+.dashboard-container--org-loading .sidebar,
+.dashboard-container--org-loading .mobile-topbar {
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
 .owner-layout {
   min-height: 100vh;
   padding: var(--space-lg);

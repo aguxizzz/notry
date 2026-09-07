@@ -18,6 +18,7 @@ import './views/AnalisisView.css';
 export default function AnalisisView({
   apiFetch,
   token,
+  hasUsableOrgContext = true,
   prefetchedLoteos = [],
   cachedClicks = {},
   clicksLoadingIds = new Set(),
@@ -59,10 +60,12 @@ export default function AnalisisView({
       setLoteos(prefetchedLoteos);
       setLoteosLoading(false);
       if (prefetchedLoteos.length > 0 && !selectedLoteo) setSelectedLoteo(prefetchedLoteos[0]);
-    } else {
+    } else if (hasUsableOrgContext) {
       fetchLoteos();
+    } else {
+      setLoteosLoading(false);
     }
-  }, [token, prefetchedLoteos]);
+  }, [token, hasUsableOrgContext, prefetchedLoteos]);
 
   useEffect(() => {
     if (!selectedLoteo) return;

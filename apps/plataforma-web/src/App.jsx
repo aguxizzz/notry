@@ -47,6 +47,7 @@ import { PAGE_SIZE, STATUS_DISPLAY, CATEGORY_DISPLAY, getProspectFields, getLotF
 import { createApiFetch } from './api';
 import { createUploadFn } from './api/upload';
 import UploadProgressCard from './components/UploadProgressCard';
+import TopLoadingBar from './components/TopLoadingBar';
 import { fetchInventoryBg as fetchInventoryBgService } from './api/lots';
 import { fetchInventoryLoteos as fetchInventoryLoteosService, fetchInventoryLoteosBg as fetchInventoryLoteosBgService, deleteLoteo } from './api/loteos';
 import { buildAnalisisCallbacks } from './api/reports';
@@ -458,7 +459,13 @@ function PlatformApp() {
   // propia org, vía membership); un super_admin lo tiene recién cuando eligió
   // una org en el OrgSwitcher. Sin esto, dispararíamos requests que el backend
   // rechaza con 400 (falta X-Active-Org-Id) antes de que elija una.
-  const hasUsableOrgContext = Boolean(token && (user?.role !== 'super_admin' || effectiveActiveOrgId));
+  // Requires `user` (not just token): both on reload (token read from localStorage
+  // synchronously, user resolved later via async /users/me) and on fresh login
+  // (setToken then, after an awaited fetch, setUser) there's a render where token
+  // is set but user is still null. `user?.role !== 'super_admin'` reads as true in
+  // that gap regardless of the real role, wrongly allowing org-scoped requests
+  // before we actually know the role/org.
+  const hasUsableOrgContext = Boolean(token && user && (user.role !== 'super_admin' || effectiveActiveOrgId));
   // Para lote_owner, user.lote_owner_id (fijo, seteado al login) y org.lote_owner_id
   // (de la org activa) son el mismo valor. Para super_admin, user.lote_owner_id es
   // siempre null (no está atado a ninguna org por relación) — org.lote_owner_id es
@@ -572,7 +579,7 @@ function PlatformApp() {
     setReportsCache,
     setRawActivities: handleRawActivities,
     shouldKeepLocal,
-  }, addToast);
+  }, addToast, hasUsableOrgContext);
 
   // Pre-fetch org (configuracion) and projects on login, in parallel with /sync.
   // Not added to the sync endpoint because:
@@ -600,6 +607,12 @@ function PlatformApp() {
       .catch(() => addToast('No se pudieron cargar los proyectos', 'error'))
       .finally(() => setProjectsLoading(false));
   }, [hasUsableOrgContext, effectiveActiveOrgId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // True while org/proyectos/sync/cobranzas están recargando para la org activa:
+  // cubre tanto la carga inicial post-login como el cambio de org de un
+  // super_admin en el OrgSwitcher (effectiveActiveOrgId dispara los 4 fetches).
+  const isOrgDataLoading = hasUsableOrgContext
+    && (orgLoading || projectsLoading || syncLoading || contractsState.loading);
 
   // ── Group Loteo Modal ─────────────────────────────────────────────────────────
   const groupLoteoModal = useGroupLoteoModal({
@@ -694,7 +707,8 @@ function PlatformApp() {
     : ownerViewHeader.subtitle;
 
   return (
-    <div className="dashboard-container with-sidebar">
+    <div className={`dashboard-container with-sidebar${isOrgDataLoading ? ' dashboard-container--org-loading' : ''}`}>
+      <TopLoadingBar visible={isOrgDataLoading} />
       <div
         className={`sidebar-overlay ${sidebarOpen ? 'visible' : ''}`}
         onClick={() => setSidebarOpen(false)}
@@ -828,6 +842,7 @@ function PlatformApp() {
                   <AnalisisView
                     apiFetch={apiFetch}
                     token={token}
+                    hasUsableOrgContext={hasUsableOrgContext}
                     onSessionExpired={logout}
                     prefetchedLoteos={inventoryLoteos}
                     cachedClicks={clicksCache}
