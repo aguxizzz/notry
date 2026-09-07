@@ -139,7 +139,7 @@ function PlatformApp() {
   const [clicksLoadingIds, setClicksLoadingIds] = useState(new Set()); // Track which loteos are loading clicks
   const [visorDataCache, setVisorDataCache] = useState({}); // { loteoId: visorData }
   const [visorDataLoadingIds, setVisorDataLoadingIds] = useState(new Set()); // Track which loteos are loading visor data
-  const [reportsCache, setReportsCache] = useState({}); // { lastDays: { prospectos, ventas, lotesVendidos } }
+  const [reportsCache, setReportsCache] = useState({}); // { lastDays: { prospectos, clicks, leadsPorOrigen } }
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dashboardSummary, setDashboardSummary] = useState(null);
   const [analisisLastDays, setAnalisisLastDays] = useState(30);
