@@ -17,8 +17,9 @@ const SYNC_INTERVAL = 60000; // 60 seconds
  * @param {Function} apiFetch - The app's apiFetch wrapper
  * @param {Object} setters - Named state setters from App.jsx
  * @param {Function} addToast - Toast helper from App.jsx (only shows on first failure)
+ * @param {boolean} hasUsableOrgContext - False for a super_admin with no active org selected yet
  */
-export function useSync(token, apiFetch, setters, addToast) {
+export function useSync(token, apiFetch, setters, addToast, hasUsableOrgContext = true) {
   const {
     setInventoryLots,
     setInventoryLoteos,
@@ -39,7 +40,7 @@ export function useSync(token, apiFetch, setters, addToast) {
   const lastSyncSuccessRef = useRef(true);
 
   const doSync = useCallback(async (isInitial = false) => {
-    if (!token) return;
+    if (!token || !hasUsableOrgContext) return;
 
     // Cancel any in-flight request
     if (abortRef.current) {
@@ -146,10 +147,10 @@ export function useSync(token, apiFetch, setters, addToast) {
     // apiFetch must stay in the deps: it changes when a super_admin switches
     // the active org (X-Active-Org-Id header), and this callback needs the
     // fresh closure so the next sync actually hits the newly selected org.
-  }, [token, apiFetch]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [token, apiFetch, hasUsableOrgContext]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!token) {
+    if (!token || !hasUsableOrgContext) {
       setSyncLoading(false);
       setSyncError(null);
       lastSyncSuccessRef.current = true;
@@ -166,7 +167,7 @@ export function useSync(token, apiFetch, setters, addToast) {
       clearInterval(intervalRef.current);
       if (abortRef.current) abortRef.current.abort();
     };
-  }, [token, doSync]);
+  }, [token, hasUsableOrgContext, doSync]);
 
   const refresh = useCallback(() => doSync(false), [doSync]);
 
