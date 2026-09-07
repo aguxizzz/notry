@@ -140,6 +140,8 @@ function PlatformApp() {
   const [visorDataCache, setVisorDataCache] = useState({}); // { loteoId: visorData }
   const [visorDataLoadingIds, setVisorDataLoadingIds] = useState(new Set()); // Track which loteos are loading visor data
   const [reportsCache, setReportsCache] = useState({}); // { lastDays: { prospectos, clicks, leadsPorOrigen } }
+  const [funnelCache, setFunnelCache] = useState({}); // { `${loteoId}:${lastDays}`: funnelStats }
+  const [funnelLoadingIds, setFunnelLoadingIds] = useState(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dashboardSummary, setDashboardSummary] = useState(null);
   const [analisisLastDays, setAnalisisLastDays] = useState(30);
@@ -566,7 +568,7 @@ function PlatformApp() {
   });
 
   // Callbacks passed to AnalisisView so it can request data through the shared cache
-  const { handleAnalisisRequestClicks, handleAnalisisRequestVisorData } = buildAnalisisCallbacks({ apiFetch, setClicksCache, setVisorDataCache, setClicksLoadingIds, setVisorDataLoadingIds });
+  const { handleAnalisisRequestClicks, handleAnalisisRequestVisorData, handleAnalisisRequestFunnel } = buildAnalisisCallbacks({ apiFetch, setClicksCache, setVisorDataCache, setClicksLoadingIds, setVisorDataLoadingIds, setFunnelCache, setFunnelLoadingIds });
 
   // ── Combined sync hook (must be after apiFetch and addToast) ─────────────────
   const { syncLoading, syncError, refresh: refreshSync, clearSyncError } = useSync(token, apiFetch, {
@@ -854,6 +856,9 @@ function PlatformApp() {
                     onAnalisisLastDaysChange={setAnalisisLastDays}
                     onRequestClicks={handleAnalisisRequestClicks}
                     onRequestVisorData={handleAnalisisRequestVisorData}
+                    cachedFunnel={funnelCache}
+                    funnelLoadingIds={funnelLoadingIds}
+                    onRequestFunnel={handleAnalisisRequestFunnel}
                   />
                 </ErrorBoundary>
               )}
