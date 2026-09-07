@@ -116,8 +116,8 @@ export function useSync(token, apiFetch, setters, addToast, hasUsableOrgContext 
             if (report) {
               next[days] = {
                 prospectos: report.prospectos_en_periodo ?? 0,
-                ventas: report.ventas_en_periodo ?? '0',
-                lotesVendidos: report.cantidad_vendidos_en_periodo ?? 0,
+                clicks: report.clicks_en_periodo ?? 0,
+                leadsPorOrigen: report.leads_por_origen ?? {},
               };
             }
           }

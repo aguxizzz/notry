@@ -229,9 +229,9 @@
 }
 
 /* Colores de acento por KPI (replican los del mockup) */
-.period-metric--prospects { --c: var(--color-stat-info); }
-.period-metric--revenue { --c: var(--color-accent-dark); }
-.period-metric--lots { --c: var(--color-success); }
+.period-metric--clicks { --c: var(--color-stat-info); }
+.period-metric--conversion { --c: var(--color-accent-dark); }
+.period-metric--channel { --c: var(--color-success); }
 
 @media (prefers-reduced-motion: reduce) {
   .picker-a .pa-opt,
