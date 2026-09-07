@@ -21,6 +21,12 @@
   border-bottom: 1px solid var(--color-border-warm);
 }
 
+.funnel-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .funnel-view-toggle {
   flex: none;
   display: inline-flex;
@@ -46,6 +52,36 @@
   outline: none;
 }
 
+/* Reuses the shared Select component (same as the "Origen" filter in el modal
+   de prospectos) — solo se retocan colores/tamaño para calzar con el toggle
+   de al lado. */
+.funnel-channel-select {
+  flex: none;
+  width: 200px;
+  margin: 0;
+}
+.funnel-channel-select .select-trigger {
+  height: 34px;
+  background: transparent;
+  border-color: var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text-muted);
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.funnel-channel-select .select-trigger:hover,
+.funnel-channel-select .select-trigger--open {
+  border-color: var(--color-accent);
+  color: var(--color-accent-dark);
+  background: var(--hover-surface-bg);
+}
+.funnel-channel-select .select-trigger:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
 .funnel-loading,
 .funnel-empty {
   display: flex;
@@ -69,6 +105,25 @@
   font-family: var(--font-body);
   font-size: 12.5px;
   color: var(--color-text-muted);
+}
+
+.funnel-body {
+  position: relative;
+}
+.funnel-body.is-refreshing > .funnel-table-wrap,
+.funnel-body.is-refreshing > .funnel-wrap {
+  opacity: 0.45;
+  pointer-events: none;
+  filter: saturate(0.7);
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+.funnel-refresh-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .funnel-wrap {

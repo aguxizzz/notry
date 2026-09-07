@@ -7,31 +7,11 @@ import StageSwitcher from './StageSwitcher.jsx';
 import { Compass } from './Compass.jsx';
 import { useCompass } from '../hooks/useCompass.js';
 import { API_BASE } from '../api/config.js';
-import { trackEvent } from '../analytics.js';
+import { trackEvent, detectOrigin } from '../analytics.js';
 
 const API_URL = '/api/viewer/current';
 const DATA_URL_PARAM = 'data';
 const CLICK_BASE_URL = `${API_BASE}/public/lots`;
-
-function detectOrigin() {
-  const params = new URLSearchParams(window.location.search);
-  const ref = (params.get('ref') || params.get('utm_source') || '').toLowerCase();
-  if (ref) {
-    if (ref.includes('whatsapp')) return 'visor_whatsapp';
-    if (ref.includes('youtube'))  return 'visor_youtube';
-    if (ref.includes('tiktok'))   return 'visor_tiktok';
-    if (ref.includes('facebook') || ref.includes('fb')) return 'visor_facebook';
-    if (ref.includes('google'))   return 'visor_google';
-  }
-  const referrer = document.referrer.toLowerCase();
-  if (!referrer) return 'visor_direct';
-  if (referrer.includes('whatsapp')) return 'visor_whatsapp';
-  if (referrer.includes('youtube'))  return 'visor_youtube';
-  if (referrer.includes('tiktok'))   return 'visor_tiktok';
-  if (referrer.includes('facebook')) return 'visor_facebook';
-  if (referrer.includes('google'))   return 'visor_google';
-  return 'visor_direct';
-}
 
 const VISIT_ORIGIN = detectOrigin();
 

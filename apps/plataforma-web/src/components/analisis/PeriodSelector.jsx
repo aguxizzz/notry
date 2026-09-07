@@ -1,24 +1,15 @@
 import { Loader } from '../../ui/components';
+import { CHANNEL_DISPLAY } from '../../constants/display';
 import './PeriodSelector.css';
 
 const TIME_OPTIONS = [1, 5, 10, 20, 30, 60];
-
-const ORIGIN_LABELS = {
-  visor_whatsapp: 'WhatsApp',
-  visor_direct: 'Directo',
-  visor_google: 'Google',
-  visor_tiktok: 'TikTok',
-  visor_facebook: 'Facebook',
-  visor_youtube: 'YouTube',
-  web_platform: 'Plataforma',
-};
 
 function topOrigin(leadsPorOrigen) {
   const entries = Object.entries(leadsPorOrigen ?? {});
   if (entries.length === 0) return null;
   const total = entries.reduce((sum, [, count]) => sum + count, 0);
   const [origin, count] = entries.reduce((max, entry) => (entry[1] > max[1] ? entry : max));
-  return { label: ORIGIN_LABELS[origin] ?? origin, share: total > 0 ? Math.round((count / total) * 100) : 0 };
+  return { label: CHANNEL_DISPLAY[origin] ?? origin, share: total > 0 ? Math.round((count / total) * 100) : 0 };
 }
 
 export default function PeriodSelector({
