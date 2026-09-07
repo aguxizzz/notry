@@ -1,0 +1,228 @@
+/* ── Funnel Card: diagrama de flujo (Sankey) del embudo del visor ── */
+
+.funnel-card {
+  margin-top: var(--space-lg);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+
+  --funnel-trunk: var(--color-text-muted);
+  --funnel-form: var(--color-cat-negociacion);
+  --funnel-whatsapp: var(--color-whatsapp);
+  --funnel-lost: color-mix(in srgb, var(--color-text-muted) 32%, var(--color-border-warm));
+  --funnel-lost-text: var(--color-text-muted);
+  --funnel-pill-bg: var(--color-surface);
+  --funnel-pill-border: var(--color-border-warm);
+}
+
+.funnel-card-header {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--color-border-warm);
+}
+
+.funnel-view-toggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--motion-focus);
+  white-space: nowrap;
+}
+.funnel-view-toggle:hover,
+.funnel-view-toggle:focus-visible {
+  border-color: var(--color-accent);
+  color: var(--color-accent-dark);
+  background: var(--hover-surface-bg);
+  outline: none;
+}
+
+.funnel-loading,
+.funnel-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 140px;
+}
+
+.funnel-empty {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.funnel-low-volume-note {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: var(--hover-surface-bg);
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+}
+
+.funnel-wrap {
+  position: relative;
+  margin-top: 6px;
+}
+
+.funnel-sankey {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.funnel-node-rect {
+  stroke: color-mix(in srgb, var(--color-text) 18%, transparent);
+  stroke-width: 1;
+}
+.funnel-node { cursor: pointer; }
+.funnel-node:hover .funnel-node-rect,
+.funnel-node:focus-visible .funnel-node-rect { filter: brightness(1.08); }
+.funnel-node:focus-visible { outline: none; }
+
+.funnel-ribbon {
+  cursor: pointer;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+.funnel-ribbon:hover,
+.funnel-ribbon:focus-visible { opacity: 0.92 !important; outline: none; }
+
+.funnel-pill rect {
+  fill: var(--funnel-pill-bg);
+  stroke: var(--funnel-pill-border);
+  stroke-width: 1;
+}
+.funnel-pill text {
+  font-family: var(--font-primary);
+  font-weight: 700;
+  font-size: 13px;
+  fill: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+.funnel-pill text.lost {
+  fill: var(--funnel-lost-text);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.funnel-callout-divider {
+  stroke: var(--color-border-warm);
+  stroke-width: 1.5;
+}
+.funnel-callout-eyebrow {
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  fill: var(--color-accent-dark);
+}
+.funnel-callout-value {
+  font-family: var(--font-primary);
+  font-weight: 700;
+  font-size: 34px;
+  fill: var(--color-text);
+}
+.funnel-callout-sub {
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  fill: var(--color-text-muted);
+}
+
+.funnel-tooltip {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  background: var(--color-text);
+  color: var(--color-bg);
+  border-radius: var(--radius-lg);
+  padding: 9px 12px;
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  line-height: 1.5;
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  transform: translate(-50%, calc(-100% - 10px));
+  transition: opacity var(--duration-fast) var(--ease-out);
+  max-width: 220px;
+  white-space: nowrap;
+}
+.funnel-tooltip.visible { opacity: 1; }
+.funnel-tooltip strong {
+  font-family: var(--font-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.funnel-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 14px;
+}
+.funnel-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+}
+.funnel-legend-swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  flex: none;
+}
+
+.funnel-table-wrap {
+  margin-top: 4px;
+  overflow-x: auto;
+}
+.funnel-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-body);
+  font-size: 13px;
+}
+.funnel-table th {
+  text-align: left;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  padding: 0 10px 8px;
+  border-bottom: 1px solid var(--color-border-warm);
+}
+.funnel-table th:not(:first-child),
+.funnel-table td:not(:first-child) { text-align: right; }
+.funnel-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--color-border-warm);
+  color: var(--color-text);
+}
+.funnel-table td.num {
+  font-family: var(--font-primary);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.funnel-table tr.lost td { color: var(--funnel-lost-text); font-weight: 400; }
+.funnel-table tr.lost td.num { font-weight: 600; }
+.funnel-table tr:last-child td { border-bottom: none; }
+
+@media (max-width: 700px) {
+  .funnel-legend { gap: 12px 16px; }
+}
