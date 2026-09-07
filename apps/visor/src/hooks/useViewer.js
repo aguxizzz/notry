@@ -5,311 +5,233 @@ import '@photo-sphere-viewer/core/index.css';
 import '@photo-sphere-viewer/markers-plugin/index.css';
 
 const TRANSITION = { speed: 600, rotation: true, effect: 'black' };
+const STALL_TIMEOUT_MS = 45_000;
+const MAX_PRELOAD_BYTES = 8 * 1024 * 1024;
 
-/**
- * Cambia el panorama del visor con transición white + barrido a la derecha.
- * Pasa como posición destino el yaw actual + 0.4 rad para que PSV anime
- * la cámara hacia la derecha durante el fade.
- *
- * @returns {Promise<boolean>} true si el panorama quedó cargado.
- */
-async function swapPanorama(viewer, url, homePosition = null) {
-  const { yaw } = viewer.getPosition();
-  const targetYaw = homePosition?.yaw ?? yaw + 0.6;
-  const targetPitch = homePosition?.pitch ?? 0;
-  const opts = {
-    transition: TRANSITION,
-    showLoader: false,
-    position: { yaw: targetYaw, pitch: targetPitch },
-  };
-  try {
-    await viewer.setPanorama(url, opts);
-    return true;
-  } catch (_) {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) return false;
-      Cache.add(url, url, await res.blob());
-      await viewer.setPanorama(url, opts);
-      return true;
-    } catch (_e) {
-      return false;
+function isSlowConnection() {
+  const connection = navigator.connection;
+  return Boolean(connection?.saveData || ['slow-2g', '2g'].includes(connection?.effectiveType));
+}
+
+function safelySetMarkers(plugin, markers) {
+  const accepted = [];
+  const seen = new Set();
+
+  for (const marker of markers ?? []) {
+    if (!marker?.id || seen.has(marker.id)) {
+      console.warn('Visor: marker omitido por id ausente o duplicado', marker?.id);
+      continue;
     }
+    seen.add(marker.id);
+    accepted.push(marker);
+  }
+
+  try {
+    plugin.setMarkers(accepted);
+    return true;
+  } catch (error) {
+    console.error('Visor: no se pudieron aplicar todos los markers', error);
+    try { plugin.clearMarkers(); } catch (_) { /* viewer destruido */ }
+    return false;
   }
 }
 
 /**
- * Custom hook para inicializar el visor 360° de Photo Sphere Viewer.
- *
- * El visor se crea UNA sola vez al entrar en modo panorama y se mantiene vivo
- * mientras se cambia de etapa: el cambio se hace con `setPanorama` (sin recrear
- * el contexto WebGL, sin transición ni loader) para que sea instantáneo.
- * Además precarga los panoramas de todas las etapas en la cache de PSV para que
- * el primer cambio a cada una tampoco espere descarga de red.
- *
- * @param {{ panoramaUrl: string, markers: Array }} viewerData
- * @param {Function} onMarkerSelect   - (marker, markersPlugin) => void
- * @param {Function} onMarkerUnselect - () => void
- * @param {string[]} preloadUrls      - URLs de panorama de todas las etapas a precargar
- * @param {Function|null} onPositionChange - (yaw: number) => void, llamado en cada cambio de ángulo
- * @param {Function|null} onStageReady - (stageId: string) => void, llamado cuando panorama y markers están listos
- * @param {Function|null} onStageError - ({ stageId, message }) => void, llamado cuando falla una etapa
- * @returns {React.RefObject} viewerRef - ref para montar el contenedor del visor
+ * Coordina una unica instancia de Photo Sphere Viewer por sesion panorama.
+ * Cada seleccion invalida la anterior (latest-wins); ningun callback de una
+ * instancia destruida puede confirmar o rechazar una etapa nueva.
  */
 export function useViewer(
   viewerData,
   onMarkerSelect,
   onMarkerUnselect,
-  preloadUrls = [],
+  preloadCandidates = [],
   homePosition = null,
   onPositionChange = null,
   onStageReady = null,
   onStageError = null,
+  onStageProgress = null,
 ) {
+  const containerRef = useRef(null);
   const viewerRef = useRef(null);
-  const viewerInstanceRef = useRef(null);
-  const currentPanoramaRef = useRef(null);
-  const currentStageRef = useRef(null);
-  const latestTransitionRef = useRef(0);
-  const transitionQueueRef = useRef(Promise.resolve());
-  const viewerReadyPromiseRef = useRef(Promise.resolve());
-  const resolveViewerReadyRef = useRef(null);
-  const preloadedRef = useRef(new Set());
-  const homePositionRef = useRef(homePosition);
-  homePositionRef.current = homePosition;
+  const sessionRef = useRef(0);
+  const requestRef = useRef(0);
+  const visibleStageRef = useRef(null);
+  const visiblePanoramaRef = useRef(null);
+  const callbacksRef = useRef({});
 
-  // Callbacks siempre frescos sin re-suscribir los listeners del visor.
-  const selectRef = useRef(onMarkerSelect);
-  const unselectRef = useRef(onMarkerUnselect);
-  const positionRef = useRef(onPositionChange);
-  const stageReadyRef = useRef(onStageReady);
-  const stageErrorRef = useRef(onStageError);
-  selectRef.current = onMarkerSelect;
-  unselectRef.current = onMarkerUnselect;
-  positionRef.current = onPositionChange;
-  stageReadyRef.current = onStageReady;
-  stageErrorRef.current = onStageError;
+  callbacksRef.current = {
+    onMarkerSelect,
+    onMarkerUnselect,
+    onPositionChange,
+    onStageReady,
+    onStageError,
+    onStageProgress,
+  };
 
-  // Datos del panorama actual accesibles desde el efecto de ciclo de vida
-  // sin tenerlo que recrear cuando cambian.
-  const dataRef = useRef(viewerData);
-  dataRef.current = viewerData;
-
-  // La etapa identifica el contenido completo. Dos etapas pueden compartir
-  // panoramaUrl pero tener markers, blueprint o posición diferentes.
   const stageId = viewerData?.stageId ?? viewerData?.panoramaUrl ?? null;
-  const requestNonce = viewerData?.requestNonce ?? 0;
   const panoramaUrl = viewerData?.panoramaUrl ?? null;
   const markers = viewerData?.markers ?? [];
-  const active = !!panoramaUrl;
+  const requestNonce = viewerData?.requestNonce ?? 0;
+  const active = Boolean(panoramaUrl);
 
-  // --- Ciclo de vida ---------------------------------------------------------
-  // Crear al entrar en modo panorama, destruir al salir (p. ej. blueprint).
-  // Depende SOLO de `active`: cambiar de etapa no vuelve a ejecutar este efecto,
-  // así que el visor (y su contexto WebGL) nunca se recrea entre etapas.
+  // El viewer se crea sin panorama: carga inicial y cambios comparten retry,
+  // progreso, cancelacion y manejo de errores.
   useEffect(() => {
-    if (!active || !viewerRef.current) return;
+    if (!active || !containerRef.current) return undefined;
 
-    const data = dataRef.current;
-    const markersPlugin = MarkersPlugin.withConfig({
-      markers: data.markers ?? [],
-    });
-
+    const markersPlugin = MarkersPlugin.withConfig({ markers: [] });
     const viewer = new Viewer({
-      container: viewerRef.current,
-      panorama: data.panoramaUrl,
+      container: containerRef.current,
       adapter: EquirectangularAdapter,
       plugins: [markersPlugin],
       navbar: false,
       defaultZoomLvl: 50,
-      ...(homePosition ? { defaultYaw: homePosition.yaw, defaultPitch: homePosition.pitch } : {}),
       mousewheel: true,
       mousemove: true,
     });
-
-    viewerInstanceRef.current = viewer;
-    currentPanoramaRef.current = data.panoramaUrl;
-    currentStageRef.current = data.stageId ?? data.panoramaUrl;
-
-    let initialReady = false;
-    let initialReadyTimeout = null;
-    viewerReadyPromiseRef.current = new Promise((resolve) => {
-      resolveViewerReadyRef.current = () => {
-        if (initialReady) return;
-        initialReady = true;
-        if (initialReadyTimeout) clearTimeout(initialReadyTimeout);
-        resolve();
-      };
-    });
-    // No dejamos bloqueada la cola si el proveedor falla sin emitir el evento.
-    initialReadyTimeout = setTimeout(() => {
-      if (initialReady) return;
-      resolveViewerReadyRef.current?.();
-      stageErrorRef.current?.({
-        stageId: data.stageId ?? data.panoramaUrl,
-        message: 'El panorama inicial tardó demasiado en cargar. Revisá la conexión e intentá nuevamente.',
-      });
-    }, 10000);
+    viewerRef.current = viewer;
 
     const mp = viewer.getPlugin(MarkersPlugin);
-    mp.addEventListener('select-marker', ({ marker }) => selectRef.current?.(marker, mp));
-    mp.addEventListener('unselect-marker', () => unselectRef.current?.());
-    viewer.addEventListener('position-updated', (e) => positionRef.current?.(e.position.yaw));
+    const handleSelect = ({ marker }) => callbacksRef.current.onMarkerSelect?.(marker, mp);
+    const handleUnselect = () => callbacksRef.current.onMarkerUnselect?.();
+    const handlePosition = (event) => callbacksRef.current.onPositionChange?.(event.position.yaw);
 
-    // MarkersPlugin recibe la configuración inicial, pero los polígonos
-    // basados en píxeles necesitan que la textura ya esté cargada para poder
-    // proyectarse correctamente. Reaplicarlos aquí cubre la primera carga
-    // cuando el visor todavía no estaba ready en el efecto siguiente.
-    const onInitialPanoramaLoaded = () => {
-      resolveViewerReadyRef.current?.();
-      const latest = dataRef.current;
-      const latestStageId = latest?.stageId ?? latest?.panoramaUrl;
-      if (latestStageId === currentStageRef.current) {
-        mp.setMarkers(latest?.markers ?? []);
-        stageReadyRef.current?.(latestStageId);
-      }
-      viewer.removeEventListener('panorama-loaded', onInitialPanoramaLoaded);
-    };
-    viewer.addEventListener('panorama-loaded', onInitialPanoramaLoaded);
-    if (viewer.state.ready) onInitialPanoramaLoaded();
+    mp.addEventListener('select-marker', handleSelect);
+    mp.addEventListener('unselect-marker', handleUnselect);
+    viewer.addEventListener('position-updated', handlePosition);
 
     return () => {
-      viewer.removeEventListener('panorama-loaded', onInitialPanoramaLoaded);
-      if (initialReadyTimeout) clearTimeout(initialReadyTimeout);
-      resolveViewerReadyRef.current?.();
-      resolveViewerReadyRef.current = null;
-      viewer.destroy();
-      viewerInstanceRef.current = null;
-      currentPanoramaRef.current = null;
-      currentStageRef.current = null;
+      sessionRef.current += 1;
+      requestRef.current += 1;
+      if (viewerRef.current === viewer) viewerRef.current = null;
+      visibleStageRef.current = null;
+      visiblePanoramaRef.current = null;
+      try { viewer.destroy(); } catch (_) { /* cleanup idempotente */ }
     };
   }, [active]);
 
-  // --- Cambio de etapa instantáneo ------------------------------------------
-  // Reusa el mismo visor: solo intercambia la textura y los markers.
   useEffect(() => {
-    const viewer = viewerInstanceRef.current;
-    if (!viewer || !panoramaUrl) return;
+    const viewer = viewerRef.current;
+    if (!viewer || !panoramaUrl || !stageId) return undefined;
+
+    const sessionId = sessionRef.current;
+    const requestId = ++requestRef.current;
     const mp = viewer.getPlugin(MarkersPlugin);
-    const target = panoramaUrl;
-    const targetStageId = stageId;
-    const transitionId = ++latestTransitionRef.current;
+    let settled = false;
+    let stallTimer;
 
-    // Encadenamos las operaciones para que Photo Sphere Viewer nunca tenga
-    // dos setPanorama concurrentes. Las solicitudes intermedias se descartan
-    // si ya no representan la última selección del usuario.
-    transitionQueueRef.current = transitionQueueRef.current
-      .catch(() => {})
-      .then(async () => {
-        // La primera navegación no compite con la carga iniciada por el
-        // constructor de Photo Sphere Viewer.
-        await viewerReadyPromiseRef.current;
-        if (transitionId !== latestTransitionRef.current) return;
+    const isCurrent = () => (
+      viewerRef.current === viewer
+      && sessionRef.current === sessionId
+      && requestRef.current === requestId
+    );
 
-        const sameStage = targetStageId === currentStageRef.current;
-        const samePanorama = target === currentPanoramaRef.current;
+    const resetStallTimer = () => {
+      clearTimeout(stallTimer);
+      stallTimer = setTimeout(() => {
+        if (!isCurrent() || settled) return;
+        settled = true;
+        // PSV no expone abort publico; esta API pertenece a la version fijada
+        // en package-lock y es la misma que usa destroy/setPanorama.
+        viewer.textureLoader?.abortLoading?.();
+        viewer.hideError();
+        callbacksRef.current.onStageError?.({
+          stageId,
+          code: 'stalled',
+          message: 'La descarga dejó de avanzar. Revisá la conexión e intentá nuevamente.',
+        });
+      }, STALL_TIMEOUT_MS);
+    };
 
-        if (sameStage && samePanorama) {
-          if (viewer.state.ready) {
-            mp.setMarkers(markers);
-            stageReadyRef.current?.(targetStageId);
-          }
-          return;
-        }
+    const handleProgress = (event) => {
+      if (!isCurrent() || settled) return;
+      resetStallTimer();
+      callbacksRef.current.onStageProgress?.({ stageId, progress: event.progress });
+    };
 
-        // Fade-out de los markers actuales; se limpian antes de iniciar la
-        // nueva textura para no mezclar polígonos entre etapas.
-        const markersEl = viewerRef.current?.querySelector('.psv-markers');
-        if (markersEl) {
-          markersEl.style.transition = 'opacity 0.2s ease';
-          markersEl.style.opacity = '0';
-        }
-        const fadeOutTimer = setTimeout(() => mp.clearMarkers(), 200);
+    viewer.addEventListener('load-progress', handleProgress);
+    callbacksRef.current.onStageProgress?.({ stageId, progress: 0 });
+    resetStallTimer();
 
-        // swapPanorama resuelve después de que Photo Sphere Viewer terminó de
-        // cargar la textura. Recién después aplicamos los markers; escuchar
-        // un evento global aquí podría capturar todavía la carga de la etapa
-        // anterior si el usuario cambia durante la carga inicial.
-        const ok = await swapPanorama(viewer, target, homePositionRef.current);
-        clearTimeout(fadeOutTimer);
+    const samePanorama = panoramaUrl === visiblePanoramaRef.current;
+    const sameStage = stageId === visibleStageRef.current;
+    if (samePanorama && !sameStage && homePosition) viewer.rotate(homePosition);
+    const load = samePanorama
+      ? Promise.resolve(true)
+      : viewer.setPanorama(panoramaUrl, {
+          transition: viewer.state.ready ? TRANSITION : false,
+          showLoader: false,
+          ...(homePosition ? { position: homePosition } : {}),
+        });
 
-        // Aunque la solicitud haya quedado obsoleta, la operación de PSV pudo
-        // haber terminado y dejar esa textura visible. Registramos la realidad
-        // del visor antes de decidir si debemos pintar sus markers, para que
-        // la siguiente selección fuerce el regreso a la etapa correcta.
-        if (ok) {
-          currentPanoramaRef.current = target;
-          currentStageRef.current = targetStageId;
-        }
+    load.then((loaded) => {
+      if (!isCurrent() || settled || loaded === false) return;
+      settled = true;
+      clearTimeout(stallTimer);
+      viewer.removeEventListener('load-progress', handleProgress);
 
-        if (transitionId !== latestTransitionRef.current) {
-          if (markersEl) {
-            markersEl.style.transition = '';
-            markersEl.style.opacity = '';
-          }
-          return;
-        }
-
-        if (!ok) {
-          currentPanoramaRef.current = null;
-          currentStageRef.current = null;
-          mp.clearMarkers();
-          if (markersEl) {
-            markersEl.style.transition = '';
-            markersEl.style.opacity = '';
-          }
-          stageErrorRef.current?.({
-            stageId: targetStageId,
-            message: 'No se pudo cargar esta etapa. Revisá la conexión e intentá nuevamente.',
-          });
-          return;
-        }
-
-        mp.setMarkers(markers);
-        stageReadyRef.current?.(targetStageId);
-        if (markersEl) {
-          markersEl.style.transition = 'opacity 0.25s ease';
-          markersEl.style.opacity = '1';
-        }
+      const markersOk = safelySetMarkers(mp, markers);
+      visiblePanoramaRef.current = panoramaUrl;
+      visibleStageRef.current = stageId;
+      callbacksRef.current.onStageProgress?.({ stageId, progress: 100 });
+      callbacksRef.current.onStageReady?.({ stageId, markersOk });
+    }).catch((error) => {
+      if (!isCurrent() || settled || error?.name === 'AbortError') return;
+      settled = true;
+      clearTimeout(stallTimer);
+      viewer.removeEventListener('load-progress', handleProgress);
+      viewer.hideError();
+      callbacksRef.current.onStageError?.({
+        stageId,
+        code: 'load_failed',
+        message: 'No se pudo cargar esta etapa. Revisá la conexión e intentá nuevamente.',
       });
-  }, [stageId, panoramaUrl, markers, requestNonce]);
+      console.error('Visor: error cargando panorama', error);
+    });
 
-  // --- Precarga de etapas ----------------------------------------------------
-  // Llena la cache de blobs de PSV (clave = URL, la misma que usa setPanorama)
-  // para TODAS las etapas —incluida la inicial— con un fetch INDEPENDIENTE.
-  //
-  // Es importante precargar también la etapa inicial: el FileLoader interno que
-  // usa setPanorama falla ("Failed to fetch") en el visor reutilizado por el
-  // abortLoading() que dispara en cada cambio. Al tener el blob ya en cache,
-  // setPanorama lo resuelve directo y nunca recurre a ese FileLoader roto.
+    return () => {
+      clearTimeout(stallTimer);
+      viewer.removeEventListener('load-progress', handleProgress);
+      if (requestRef.current === requestId) requestRef.current += 1;
+    };
+  }, [stageId, panoramaUrl, markers, homePosition, requestNonce]);
+
+  // Precarga conservadora: una sola candidata pequena, durante idle y nunca
+  // en conexiones lentas. El browser/CDN sigue siendo el cache principal.
   useEffect(() => {
-    if (!active || !preloadUrls?.length) return;
+    const viewer = viewerRef.current;
+    if (!active || !viewer || isSlowConnection()) return undefined;
+    const candidate = preloadCandidates.find((item) => (
+      item?.url
+      && item.url !== panoramaUrl
+      && Number.isFinite(item.byteSize)
+      && item.byteSize <= MAX_PRELOAD_BYTES
+    ));
+    if (!candidate) return undefined;
 
     let cancelled = false;
-    const controller = new AbortController();
-    // Pequeño respiro para no competir con la carga del panorama inicial.
-    const id = setTimeout(() => {
-      if (cancelled) return;
-      for (const url of preloadUrls) {
-        if (!url || preloadedRef.current.has(url)) continue;
-        fetch(url, { signal: controller.signal })
-          .then((res) => (res.ok ? res.blob() : null))
-          .then((blob) => {
-            if (blob && !cancelled) {
-              Cache.add(url, url, blob);
-              preloadedRef.current.add(url);
-            }
-          })
-          .catch(() => {});
-      }
-    }, 300);
+    const run = () => {
+      if (cancelled || !viewerRef.current) return;
+      viewer.textureLoader.preloadPanorama(candidate.url)
+        .then((textureData) => viewer.adapter.disposeTexture(textureData))
+        .catch(() => {});
+    };
+    const idleId = window.requestIdleCallback
+      ? window.requestIdleCallback(run, { timeout: 2000 })
+      : window.setTimeout(run, 1000);
 
     return () => {
       cancelled = true;
-      clearTimeout(id);
-      controller.abort();
+      if (window.cancelIdleCallback) window.cancelIdleCallback(idleId);
+      else clearTimeout(idleId);
     };
-  }, [active, preloadUrls]);
+  }, [active, panoramaUrl, preloadCandidates]);
 
-  return viewerRef;
+  useEffect(() => {
+    Cache.maxItems = 2;
+    Cache.ttl = 120;
+  }, []);
+
+  return containerRef;
 }

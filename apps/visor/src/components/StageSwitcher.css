@@ -70,6 +70,36 @@
   font-weight: 700;
 }
 
+.stage-switcher-btn.pending {
+  color: #1a1a1a;
+}
+
+.stage-switcher-progress {
+  min-width: 13px;
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.72;
+}
+
+.stage-switcher-btn.pending .stage-switcher-progress:empty {
+  width: 13px;
+  height: 13px;
+  min-width: 13px;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: stage-switcher-spin 0.75s linear infinite;
+}
+
+@keyframes stage-switcher-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage-pill { transition: none !important; }
+  .stage-switcher-btn.pending .stage-switcher-progress:empty { animation: none; }
+}
+
 .stage-switcher-icon {
   flex-shrink: 0;
   opacity: 0.9;
