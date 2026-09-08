@@ -82,21 +82,22 @@ function xhrRequest(method, url, { headers = {}, body, onProgress, logout, requi
   });
 }
 
-function getPresignedUrl(token, logout, file) {
+function getPresignedUrl(token, logout, file, kind) {
   return xhrRequest('POST', `${API_BASE}/upload/presign`, {
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
-    body: JSON.stringify({ filename: file.name, content_type: file.type }),
+    body: JSON.stringify({ filename: file.name, content_type: file.type, kind }),
     logout,
   });
 }
 
-function uploadThumbnail(token, logout, thumbFile, onProgress) {
+function uploadThumbnail(token, logout, thumbFile, onProgress, kind) {
   const formData = new FormData();
   formData.append('file', thumbFile);
+  if (kind) formData.append('kind', kind);
   return xhrRequest('POST', `${API_BASE}/upload/thumbnail`, {
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
     body: formData,
@@ -115,14 +116,16 @@ function uploadOriginalToR2(uploadUrl, file, onProgress) {
 }
 
 export function createUploadFn(token, logout) {
-  return async function uploadImage(file, { onConvertProgress, onUploadProgress } = {}) {
+  return async function uploadImage(file, { onConvertProgress, onUploadProgress, kind } = {}) {
     const { file: thumbFile, width, height } = await generateThumbnail(file);
     onConvertProgress?.(40);
-    const thumbResult = await uploadThumbnail(token, logout, thumbFile, (p) =>
-      onConvertProgress?.(40 + Math.round(p * 0.6))
+    const thumbResult = await uploadThumbnail(
+      token, logout, thumbFile,
+      (p) => onConvertProgress?.(40 + Math.round(p * 0.6)),
+      kind
     );
 
-    const presign = await getPresignedUrl(token, logout, file);
+    const presign = await getPresignedUrl(token, logout, file, kind);
     await uploadOriginalToR2(presign.upload_url, file, onUploadProgress);
 
     return { url: presign.public_url, thumbnailUrl: thumbResult.thumbnail_url, width, height };

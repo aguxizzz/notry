@@ -91,6 +91,7 @@ export default function LoteoFormModal({
               apiFetch={apiFetch}
               uploadFn={uploadFn}
               onUploadEvent={onUploadEvent}
+              kind="panorama"
             />
           </div>
           <div className="form-group">
@@ -101,6 +102,7 @@ export default function LoteoFormModal({
               apiFetch={apiFetch}
               uploadFn={uploadFn}
               onUploadEvent={onUploadEvent}
+              kind="plano"
             />
           </div>
           {error && (

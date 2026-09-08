@@ -3,7 +3,7 @@ import { uploadImage } from '../api/upload';
 
 const ACCEPTED = 'image/jpeg,image/png,image/webp,image/gif';
 
-export default function ImageUploadField({ value, thumbnailUrl, onUpload, label, showLabel = true, apiFetch, uploadFn, onUploadEvent }) {
+export default function ImageUploadField({ value, thumbnailUrl, onUpload, label, showLabel = true, apiFetch, uploadFn, onUploadEvent, kind }) {
   const inputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
@@ -33,6 +33,7 @@ export default function ImageUploadField({ value, thumbnailUrl, onUpload, label,
             onUploadEvent?.({ type: 'progress', id: jobId, phase: 'converting', percent: Math.round(percent / 2) }),
           onUploadProgress: (percent) =>
             onUploadEvent?.({ type: 'progress', id: jobId, phase: 'uploading', percent: 50 + Math.round(percent / 2) }),
+          kind,
         });
       } else {
         result = await uploadImage(file, apiFetch);
