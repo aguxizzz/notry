@@ -2,7 +2,7 @@ import { useRef, useState, useEffect } from 'react';
 
 const ACCEPTED = 'image/jpeg,image/png,image/webp,image/gif';
 
-export default function ImageUploadField({ value, thumbnailUrl, onUpload, onRemove, label, showLabel = true, uploadFn }) {
+export default function ImageUploadField({ value, thumbnailUrl, onUpload, onRemove, label, showLabel = true, uploadFn, kind }) {
   const inputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
@@ -23,7 +23,7 @@ export default function ImageUploadField({ value, thumbnailUrl, onUpload, onRemo
     setUploadError(null);
 
     try {
-      const result = await uploadFn(file);
+      const result = await uploadFn(file, { kind });
       onUpload(result);
     } catch (err) {
       setUploadError(err.message || 'Error al subir la imagen');
