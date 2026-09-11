@@ -25,6 +25,11 @@
   color: var(--color-stat-sold);
 }
 
+.badge.status-no_disponible {
+  background: var(--badge-unavailable-bg);
+  color: var(--badge-unavailable);
+}
+
 .badge.category-primer_contacto { background: var(--color-cat-contacto-bg); color: var(--color-cat-contacto); }
 .badge.category-seguimiento     { background: var(--color-cat-seguimiento-bg); color: var(--color-cat-seguimiento); }
 .badge.category-negociacion     { background: var(--color-cat-negociacion-bg); color: var(--color-cat-negociacion); }

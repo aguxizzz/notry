@@ -5,6 +5,7 @@ const STATUS_STYLES = {
   available: { bgVar: '--badge-available-bg', colorVar: '--badge-available', label: 'disponible' },
   reserved:  { bgVar: '--badge-reserved-bg', colorVar: '--badge-reserved', label: 'reservado' },
   sold:      { bgVar: '--badge-sold-bg', colorVar: '--badge-sold', label: 'vendido' },
+  unavailable: { bgVar: '--badge-unavailable-bg', colorVar: '--badge-unavailable', label: 'no disponible' },
 };
 
 const CATEGORY_STYLES = {

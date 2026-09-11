@@ -41,6 +41,7 @@ export const getLotFields = (loteos = []) => [
       { value: 'available', label: 'Disponible' },
       { value: 'reserved', label: 'Reservado' },
       { value: 'sold', label: 'Vendido' },
+      { value: 'unavailable', label: 'No disponible' },
     ],
   },
   {

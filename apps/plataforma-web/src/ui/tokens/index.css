@@ -41,6 +41,8 @@
   --color-lot-reserved-bg: color-mix(in srgb, var(--color-lot-reserved) 13%, transparent);
   --color-lot-sold: #ef4444;
   --color-lot-sold-bg: color-mix(in srgb, var(--color-lot-sold) 12%, transparent);
+  --color-lot-unavailable: #4b5563;
+  --color-lot-unavailable-bg: color-mix(in srgb, var(--color-lot-unavailable) 14%, transparent);
 
   /* Compatibility aliases: migrar consumidores a --color-lot-* por etapas. */
   --badge-available: var(--color-lot-available);
@@ -49,6 +51,8 @@
   --badge-reserved-bg: var(--color-lot-reserved-bg);
   --badge-sold: var(--color-lot-sold);
   --badge-sold-bg: var(--color-lot-sold-bg);
+  --badge-unavailable: var(--color-lot-unavailable);
+  --badge-unavailable-bg: var(--color-lot-unavailable-bg);
 
   /* Category colors (for badges) */
   --color-cat-contacto: #4338ca;
@@ -170,6 +174,7 @@
   --color-stat-available: var(--color-lot-available);
   --color-stat-reserved: var(--color-lot-reserved);
   --color-stat-sold: var(--color-lot-sold);
+  --color-stat-unavailable: var(--color-lot-unavailable);
 
   /* === Success/danger hover variants === */
   --color-success-hover: #059669;
