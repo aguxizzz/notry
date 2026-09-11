@@ -2,6 +2,7 @@ export const STATUS_DISPLAY = {
   available: 'disponible',
   reserved: 'reservado',
   sold: 'vendido',
+  unavailable: 'no disponible',
 };
 
 export const CATEGORY_DISPLAY = {

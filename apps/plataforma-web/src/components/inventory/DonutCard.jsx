@@ -4,9 +4,9 @@
 import { buildRingGradient } from './inventoryStats';
 import './DonutCard.css';
 
-export default function DonutCard({ name, total, available, reserved, sold, availablePct }) {
+export default function DonutCard({ name, total, available, reserved, sold, unavailable, availablePct }) {
   // Mismo ring segmentado que "Lotes por estado" (conic-gradient + máscara), en chico.
-  const gradient = buildRingGradient({ available, reserved, sold });
+  const gradient = buildRingGradient({ available, reserved, sold, unavailable });
   return (
     <div className="inv-dcard">
       <div className="inv-ring inv-ring--sm">

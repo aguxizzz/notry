@@ -203,7 +203,7 @@ export default function InventarioView({
               <span className="inv-summary-eyebrow">Composición por estado</span>
               <div className="inv-pie-wrap">
                 <StateRing
-                  counts={{ available: stats.available, reserved: stats.reserved, sold: stats.sold }}
+                  counts={{ available: stats.available, reserved: stats.reserved, sold: stats.sold, unavailable: stats.unavailable }}
                   availablePct={stats.availablePct}
                 />
                 <div className="inv-ring-legend">
@@ -215,6 +215,9 @@ export default function InventarioView({
                   </span>
                   <span className="inv-lk" style={{ '--c': 'var(--badge-sold)' }}>
                     <span className="inv-lk-d" />Vendidos <b>{stats.sold}</b>
+                  </span>
+                  <span className="inv-lk" style={{ '--c': 'var(--badge-unavailable)' }}>
+                    <span className="inv-lk-d" />No disponibles <b>{stats.unavailable}</b>
                   </span>
                 </div>
               </div>
@@ -376,7 +379,7 @@ export default function InventarioView({
               />
               <div className="inv-dgrid" ref={dgridRef}>
                 {donuts.map(d => (
-                  <DonutCard key={d.name} name={d.name} total={d.total} available={d.available} reserved={d.reserved} sold={d.sold} availablePct={d.availablePct} />
+                  <DonutCard key={d.name} name={d.name} total={d.total} available={d.available} reserved={d.reserved} sold={d.sold} unavailable={d.unavailable} availablePct={d.availablePct} />
                 ))}
               </div>
             </Panel>

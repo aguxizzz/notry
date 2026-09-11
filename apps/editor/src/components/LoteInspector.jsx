@@ -38,6 +38,7 @@ export default function LoteInspector({
           <option value="available">Disponible</option>
           <option value="reserved">Reservado</option>
           <option value="sold">Vendido</option>
+          <option value="unavailable">No disponible</option>
         </select>
         <span className="inspector-label">Precio</span>
         <input

@@ -27,7 +27,7 @@ export function fmtInt(n) {
 // Calcula todas las métricas derivadas de la vista a partir de los datos que el
 // front ya tiene (lotes + loteos + dashboardSummary). Cero backend.
 export function computeInventoryStats(lots = [], loteos = [], summary = null, attentionContext = {}) {
-  let available = 0, reserved = 0, sold = 0;
+  let available = 0, reserved = 0, sold = 0, unavailable = 0;
   let sumArea = 0, sumPrice = 0, priceCount = 0;
   let minPrice = Infinity, maxPrice = -Infinity;
   let sumPricePerM2 = 0, ppm2Count = 0;
@@ -39,6 +39,7 @@ export function computeInventoryStats(lots = [], loteos = [], summary = null, at
     if (lot.status === 'available') available++;
     else if (lot.status === 'reserved') reserved++;
     else if (lot.status === 'sold') sold++;
+    else if (lot.status === 'unavailable') unavailable++;
 
     sumArea += area;
     if (price > 0) {
@@ -50,20 +51,22 @@ export function computeInventoryStats(lots = [], loteos = [], summary = null, at
 
     const key = lot.loteo_id ?? lot.loteo_name ?? '—';
     if (!byLoteo.has(key)) {
-      byLoteo.set(key, { name: lot.loteo_name ?? 'Sin loteo', total: 0, available: 0, reserved: 0, sold: 0, sumPrice: 0, priceCount: 0 });
+      byLoteo.set(key, { name: lot.loteo_name ?? 'Sin loteo', total: 0, available: 0, reserved: 0, sold: 0, unavailable: 0, sumPrice: 0, priceCount: 0 });
     }
     const g = byLoteo.get(key);
     g.total++;
     if (lot.status === 'available') g.available++;
     else if (lot.status === 'reserved') g.reserved++;
     else if (lot.status === 'sold') g.sold++;
+    else if (lot.status === 'unavailable') g.unavailable++;
     if (price > 0) { g.sumPrice += price; g.priceCount++; }
   }
 
   const cAvailable = summary?.lotes_disponibles ?? available;
   const cReserved = summary?.lotes_reservados ?? reserved;
   const cSold = summary?.lotes_vendidos ?? sold;
-  const cTotal = summary?.total_lotes ?? (available + reserved + sold);
+  const cUnavailable = summary?.lotes_no_disponibles ?? unavailable;
+  const cTotal = summary?.total_lotes ?? (available + reserved + sold + unavailable);
   const pct = (n) => (cTotal > 0 ? Math.round((n / cTotal) * 100) : 0);
 
   const distribution = [...byLoteo.values()]
@@ -73,6 +76,7 @@ export function computeInventoryStats(lots = [], loteos = [], summary = null, at
       available: g.available,
       reserved: g.reserved,
       sold: g.sold,
+      unavailable: g.unavailable,
       availablePct: g.total > 0 ? Math.round((g.available / g.total) * 100) : 0,
       avgPrice: g.priceCount > 0 ? g.sumPrice / g.priceCount : 0,
     }))
@@ -80,7 +84,7 @@ export function computeInventoryStats(lots = [], loteos = [], summary = null, at
 
   return {
     total: cTotal,
-    available: cAvailable, reserved: cReserved, sold: cSold,
+    available: cAvailable, reserved: cReserved, sold: cSold, unavailable: cUnavailable,
     availablePct: pct(cAvailable),
     sumArea,
     ticket: priceCount > 0 ? sumPrice / priceCount : 0,
@@ -103,6 +107,7 @@ export const RING_STATES = [
   { key: 'available', color: 'var(--badge-available)', label: 'Disponibles' },
   { key: 'reserved', color: 'var(--color-stat-reserved)', label: 'Reservados' },
   { key: 'sold', color: 'var(--badge-sold)', label: 'Vendidos' },
+  { key: 'unavailable', color: 'var(--badge-unavailable)', label: 'No disponibles' },
 ];
 
 export function buildRingGradient(counts) {
