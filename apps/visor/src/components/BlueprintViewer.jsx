@@ -1,13 +1,11 @@
-import { useEffect, useRef, useState, useCallback, Fragment } from 'react';
-import { getLoteBadgeSvg } from '../annotations.js';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
-// El lote ya no lleva relleno de color (pedido del cliente, ver
-// annotations.js): sin importar disponible/no disponible/vendido/reservado,
-// el polígono queda transparente y solo se ve su borde, igual que en modo
-// panorama. El color de estado sigue existiendo en otras partes del visor
-// (InfoPanel). `recommended`/`muted` no son colores de estado, se mantienen.
 const POLY_VAR = {
-  default:   { fill: 'transparent',  stroke: 'rgba(255,255,255,0.9)'  },
+  available: { fill: 'rgba(34,197,94,0.24)',  stroke: 'rgba(34,197,94,0.9)'  },
+  unavailable: { fill: 'rgba(107,114,128,0.30)', stroke: 'rgba(75,85,99,0.95)' },
+  sold:      { fill: 'rgba(239,68,68,0.24)',  stroke: 'rgba(239,68,68,0.9)'  },
+  reserved:  { fill: 'rgba(59,130,246,0.24)', stroke: 'rgba(59,130,246,0.9)' },
+  default:   { fill: 'rgba(0,100,255,0.28)',  stroke: 'rgba(0,100,255,0.9)'  },
   recommended: { fill: 'rgba(197,160,89,0.42)', stroke: 'rgba(197,160,89,0.95)' },
   muted: { fill: 'rgba(160,160,160,0.20)', stroke: 'rgba(255,255,255,0.6)' },
 };
@@ -35,9 +33,6 @@ export default function BlueprintViewer({
   hasStageSwitcher,
   recommendedIds,
   focusMode,
-  loteLabels,
-  badgeStyle = 'default',
-  badgeColors = false,
 }) {
   const containerRef = useRef(null);
   const transformRef = useRef(null);
@@ -54,30 +49,19 @@ export default function BlueprintViewer({
   const panXRef = useRef(0);
   const panYRef = useRef(0);
   const displayDimsRef = useRef(displayDims);
-  // Offset que centra la imagen "fiteada" dentro del contenedor: cuando el
-  // aspect ratio del blueprint no matchea el del viewport (típico en mobile
-  // portrait, donde el plano queda angosto/alto) el fit-to-width/height deja
-  // franjas vacías — sin este offset la imagen quedaba pegada arriba a la
-  // izquierda en vez de centrada.
-  const baseOffsetRef = useRef({ x: 0, y: 0 });
-  const touchStateRef = useRef({ mode: null });
 
   useEffect(() => {
     zoomRef.current = zoom;
     displayDimsRef.current = displayDims;
   }, [zoom, displayDims]);
 
-  const applyTransform = useCallback(() => {
-    if (transformRef.current) {
-      transformRef.current.style.transform = `translate(${baseOffsetRef.current.x + panXRef.current}px, ${baseOffsetRef.current.y + panYRef.current}px) scale(${zoomRef.current})`;
-    }
-  }, []);
-
   // Sync transform to DOM after initial image load
   useEffect(() => {
     if (!imageLoaded) return;
-    applyTransform();
-  }, [imageLoaded, applyTransform]);
+    if (transformRef.current) {
+      transformRef.current.style.transform = `translate(${panXRef.current}px, ${panYRef.current}px) scale(${zoomRef.current})`;
+    }
+  }, [imageLoaded]);
 
   // Load image
   useEffect(() => {
@@ -99,47 +83,28 @@ export default function BlueprintViewer({
     img.src = blueprintUrl;
   }, [blueprintUrl]);
 
-  // Calculate display size at zoom=1 (fit-to-container) and re-center.
-  // Recalcula también en resize/orientationchange: en mobile el viewport
-  // cambia (rotación, barra de direcciones) y el fit inicial quedaría
-  // desactualizado si solo dependiera de la carga de imagen.
+  // Calculate display size at zoom=1
   useEffect(() => {
     if (!imageLoaded || !containerRef.current) return;
 
-    const recompute = () => {
-      const container = containerRef.current;
-      if (!container) return;
-      const containerW = container.clientWidth;
-      const containerH = container.clientHeight;
+    const container = containerRef.current;
+    const containerW = container.clientWidth;
+    const containerH = container.clientHeight;
 
-      const imageAspect = imgDims.w / imgDims.h;
-      const containerAspect = containerW / containerH;
+    const imageAspect = imgDims.w / imgDims.h;
+    const containerAspect = containerW / containerH;
 
-      let displayW, displayH;
-      if (imageAspect > containerAspect) {
-        displayW = containerW;
-        displayH = containerW / imageAspect;
-      } else {
-        displayH = containerH;
-        displayW = containerH * imageAspect;
-      }
+    let displayW, displayH;
+    if (imageAspect > containerAspect) {
+      displayW = containerW;
+      displayH = containerW / imageAspect;
+    } else {
+      displayH = containerH;
+      displayW = containerH * imageAspect;
+    }
 
-      setDisplayDims({ w: displayW, h: displayH });
-      baseOffsetRef.current = {
-        x: (containerW - displayW) / 2,
-        y: (containerH - displayH) / 2,
-      };
-      applyTransform();
-    };
-
-    recompute();
-    window.addEventListener('resize', recompute);
-    window.addEventListener('orientationchange', recompute);
-    return () => {
-      window.removeEventListener('resize', recompute);
-      window.removeEventListener('orientationchange', recompute);
-    };
-  }, [imageLoaded, imgDims, applyTransform]);
+    setDisplayDims({ w: displayW, h: displayH });
+  }, [imageLoaded, imgDims]);
 
   const handleWheel = useCallback((e) => {
     e.preventDefault();
@@ -157,63 +122,14 @@ export default function BlueprintViewer({
     if (!isPanningRef.current) return;
     panXRef.current = e.clientX - panStartRef.current.x;
     panYRef.current = e.clientY - panStartRef.current.y;
-    applyTransform();
+    if (transformRef.current) {
+      transformRef.current.style.transform = `translate(${panXRef.current}px, ${panYRef.current}px) scale(${zoomRef.current})`;
+    }
   };
 
   const handlePanEnd = () => {
     isPanningRef.current = false;
   };
-
-  // Touch: un dedo hace pan, dos dedos hacen pinch-to-zoom. El wheel/drag de
-  // mouse de arriba no tiene equivalente táctil, así que en mobile el modo
-  // blueprint quedaba totalmente estático (ni pan ni zoom funcionaban).
-  const touchDist = (t0, t1) => Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
-
-  const handleTouchStart = useCallback((e) => {
-    if (e.touches.length === 1) {
-      const t = e.touches[0];
-      touchStateRef.current = { mode: 'pan', lastX: t.clientX, lastY: t.clientY };
-    } else if (e.touches.length === 2) {
-      const [t0, t1] = e.touches;
-      touchStateRef.current = {
-        mode: 'pinch',
-        startDist: touchDist(t0, t1),
-        startZoom: zoomRef.current,
-      };
-    }
-  }, []);
-
-  const handleTouchMove = useCallback((e) => {
-    const state = touchStateRef.current;
-    if (state.mode === 'pan' && e.touches.length === 1) {
-      e.preventDefault();
-      const t = e.touches[0];
-      panXRef.current += t.clientX - state.lastX;
-      panYRef.current += t.clientY - state.lastY;
-      state.lastX = t.clientX;
-      state.lastY = t.clientY;
-      applyTransform();
-    } else if (state.mode === 'pinch' && e.touches.length === 2) {
-      e.preventDefault();
-      const [t0, t1] = e.touches;
-      const dist = touchDist(t0, t1);
-      if (state.startDist > 0) {
-        const nextZoom = Math.max(0.5, Math.min(5, state.startZoom * (dist / state.startDist)));
-        zoomRef.current = nextZoom;
-        setZoom(nextZoom);
-        applyTransform();
-      }
-    }
-  }, [applyTransform]);
-
-  const handleTouchEnd = useCallback((e) => {
-    if (e.touches.length === 1) {
-      const t = e.touches[0];
-      touchStateRef.current = { mode: 'pan', lastX: t.clientX, lastY: t.clientY };
-    } else if (e.touches.length === 0) {
-      touchStateRef.current = { mode: null };
-    }
-  }, []);
 
   useEffect(() => {
     const handleMove = handlePanMove;
@@ -222,24 +138,16 @@ export default function BlueprintViewer({
     const container = containerRef.current;
     if (container) {
       container.addEventListener('wheel', handleWheel, { passive: false });
-      container.addEventListener('touchstart', handleTouchStart, { passive: true });
-      container.addEventListener('touchmove', handleTouchMove, { passive: false });
-      container.addEventListener('touchend', handleTouchEnd, { passive: true });
-      container.addEventListener('touchcancel', handleTouchEnd, { passive: true });
     }
     window.addEventListener('mouseup', handleUp);
 
     return () => {
       if (container) {
         container.removeEventListener('wheel', handleWheel);
-        container.removeEventListener('touchstart', handleTouchStart);
-        container.removeEventListener('touchmove', handleTouchMove);
-        container.removeEventListener('touchend', handleTouchEnd);
-        container.removeEventListener('touchcancel', handleTouchEnd);
       }
       window.removeEventListener('mouseup', handleUp);
     };
-  }, [handleWheel, handleTouchStart, handleTouchMove, handleTouchEnd]);
+  }, [handleWheel]);
 
   const normToSvg = (nx, ny) => ({
     x: nx * displayDims.w,
@@ -335,14 +243,13 @@ export default function BlueprintViewer({
     <div
       ref={containerRef}
       className="viewer-canvas viewer-canvas--interactive"
-      style={{ touchAction: 'none' }}
       onMouseDown={handlePanStart}
       onMouseMove={handlePanMove}
     >
       <div
         ref={transformRef}
         className="viewer-transform"
-        style={{ transform: `translate(${baseOffsetRef.current.x + panXRef.current}px, ${baseOffsetRef.current.y + panYRef.current}px) scale(${zoom})` }}
+        style={{ transform: `translate(${panXRef.current}px, ${panYRef.current}px) scale(${zoom})` }}
       >
         <img
           src={blueprintUrl}
@@ -394,79 +301,39 @@ export default function BlueprintViewer({
               return null;
             }
 
-            const annId = ann.uuid || ann.id;
-            const isRecommended = !isPoi && Boolean(recommendedIds?.has(annId));
+            const isRecommended = !isPoi && Boolean(recommendedIds?.has(ann.uuid || ann.id));
             const isMuted = !isPoi && !isRecommended && Boolean(focusMode) && (recommendedIds?.size ?? 0) > 0;
-            const rawStatusKey = ann.status || ann.estado;
             const polyVar = isPoi
               ? getPoiVar(ann.color)
-              : getPolyVar(isRecommended ? 'recommended' : isMuted ? 'muted' : rawStatusKey);
-            const statusKey = isRecommended ? 'recommended' : isMuted ? 'muted' : (rawStatusKey || 'default');
-            const isHovered = hoveredId === annId;
-            const isSelected = selectedId === annId;
+              : getPolyVar(isRecommended ? 'recommended' : isMuted ? 'muted' : (ann.status || ann.estado));
+            const statusKey = isRecommended ? 'recommended' : isMuted ? 'muted' : (ann.status || ann.estado || 'default');
+            const isHovered = hoveredId === (ann.uuid || ann.id);
+            const isSelected = selectedId === (ann.uuid || ann.id);
             const isFocused  = isHovered || isSelected;
 
             const pts = ann.blueprint_coordinates.map(([nx, ny]) => normToSvg(nx, ny));
             if (pts.some(p => !Number.isFinite(p.x) || !Number.isFinite(p.y))) return null;
             const ptsStr = pts.map((p) => `${p.x},${p.y}`).join(' ');
 
-            // Badge (código/número corto) en el centroide del lote, igual que
-            // en modo panorama (annotations.js). Sin badgeColors: vendido/
-            // reservado/no disponible no muestran badge (pedido del cliente).
-            // Con badgeColors: se muestra siempre, coloreado según estado.
-            const label = !isPoi ? (loteLabels?.get?.(annId) ?? loteLabels?.[annId]) : null;
-            const isUnavailableStatus = rawStatusKey === 'sold' || rawStatusKey === 'reserved' || rawStatusKey === 'unavailable';
-            const showBadge = Boolean(label) && (badgeColors || !isUnavailableStatus);
-            let badgeNode = null;
-            if (showBadge) {
-              const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
-              const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
-              const badge = getLoteBadgeSvg(label, badgeStyle, rawStatusKey, badgeColors);
-              // El badge es de tamaño fijo en px de pantalla; en mobile el
-              // blueprint suele quedar fiteado bastante angosto (portrait vs
-              // plano panorámico), así que sin este escalado el badge se ve
-              // desproporcionado frente a lotes muy chicos en pantalla.
-              const badgeHeightPx = Math.max(14, Math.min(30, dw * 0.038));
-              const badgeWidthPx = Math.round(badgeHeightPx * (badge.width / badge.height));
-              const sizedHtml = badge.html.replace('<svg ', '<svg width="100%" height="100%" ');
-              badgeNode = (
-                <foreignObject
-                  x={cx - badgeWidthPx / 2}
-                  y={cy - badgeHeightPx / 2}
-                  width={badgeWidthPx}
-                  height={badgeHeightPx}
-                  style={{ pointerEvents: 'none', overflow: 'visible' }}
-                >
-                  <div
-                    xmlns="http://www.w3.org/1999/xhtml"
-                    style={{ width: '100%', height: '100%' }}
-                    dangerouslySetInnerHTML={{ __html: sizedHtml }}
-                  />
-                </foreignObject>
-              );
-            }
-
             return (
-              <Fragment key={annId}>
-                <g
-                  role="button"
-                  tabIndex={0}
-                  aria-label={ann.tooltip ?? annId}
-                  className={`bp-poly bp-poly--${isPoi ? 'poi' : statusKey}${isFocused ? ' bp-poly--focused' : ''}`}
-                  onClick={(e) => handlePolygonClick(e, ann)}
-                  onKeyDown={(e) => handlePolygonKeyDown(e, ann)}
-                  onMouseEnter={(e) => handlePolygonHover(e, ann)}
-                  onMouseLeave={(e) => handlePolygonHover(e, null)}
-                >
-                  <polygon
-                    points={ptsStr}
-                    fill={polyVar.fill}
-                    stroke={polyVar.stroke}
-                    strokeWidth="2"
-                  />
-                </g>
-                {badgeNode}
-              </Fragment>
+              <g
+                key={ann.uuid || ann.id}
+                role="button"
+                tabIndex={0}
+                aria-label={ann.tooltip ?? (ann.uuid || ann.id)}
+                className={`bp-poly bp-poly--${isPoi ? 'poi' : statusKey}${isFocused ? ' bp-poly--focused' : ''}`}
+                onClick={(e) => handlePolygonClick(e, ann)}
+                onKeyDown={(e) => handlePolygonKeyDown(e, ann)}
+                onMouseEnter={(e) => handlePolygonHover(e, ann)}
+                onMouseLeave={(e) => handlePolygonHover(e, null)}
+              >
+                <polygon
+                  points={ptsStr}
+                  fill={polyVar.fill}
+                  stroke={polyVar.stroke}
+                  strokeWidth="2"
+                />
+              </g>
             );
           })}
         </svg>
