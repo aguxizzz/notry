@@ -100,11 +100,6 @@
   .stage-switcher-btn.pending .stage-switcher-progress:empty { animation: none; }
 }
 
-.stage-switcher-icon {
-  flex-shrink: 0;
-  opacity: 0.9;
-}
-
 .stage-switcher-label {
   max-width: 160px;
   overflow: hidden;

@@ -139,25 +139,25 @@ export function buildRingGradient(counts) {
   return stops.join(', ');
 }
 
-// ── Loteos agrupados ──────────────────────────────────────────────────────────
+// ── Loteos agrupados por proyecto ────────────────────────────────────────────
 
-// Ordena los loteos agrupando las etapas debajo de su general (o de la primera
-// etapa si no hay general). Devuelve filas con metadata de posición para el recuadro.
-export function buildLoteoRows(data) {
-  const groupsByetapas = new Map();
+// Los loteos que comparten project_id son las etapas de un mismo stage switcher
+// en el visor. Ordena los sueltos y agrupados bajo el nombre del proyecto, y
+// devuelve filas con metadata de posición para el recuadro visual del grupo.
+export function buildLoteoRows(data, projects = []) {
+  const projectById = new Map((projects || []).map(p => [String(p.id), p]));
+  const groupsByProject = new Map();
   const order = [];
   for (const loteo of data) {
-    if (!loteo.grupo_id) {
+    if (!loteo.project_id) {
       order.push({ kind: 'standalone', loteo });
     } else {
-      if (!groupsByetapas.has(loteo.grupo_id)) {
-        const entry = { kind: 'group', grupoId: loteo.grupo_id, general: null, etapas: [] };
-        groupsByetapas.set(loteo.grupo_id, entry);
+      if (!groupsByProject.has(loteo.project_id)) {
+        const entry = { kind: 'group', projectId: loteo.project_id, members: [] };
+        groupsByProject.set(loteo.project_id, entry);
         order.push(entry);
       }
-      const g = groupsByetapas.get(loteo.grupo_id);
-      if (loteo.tipo === 'general') g.general = loteo;
-      else g.etapas.push(loteo);
+      groupsByProject.get(loteo.project_id).members.push(loteo);
     }
   }
   const rows = [];
@@ -166,28 +166,28 @@ export function buildLoteoRows(data) {
       rows.push({ key: item.loteo.id, loteo: item.loteo, variant: 'standalone' });
       continue;
     }
-    item.etapas.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
-    const members = [];
-    if (item.general) members.push({ loteo: item.general, role: 'general' });
-    for (const e of item.etapas) members.push({ loteo: e, role: 'etapa' });
-    const groupHasGeneral = !!item.general;
-    const groupLabel = item.general?.name ?? item.etapas[0]?.name ?? 'Grupo';
+    // Un solo loteo en el proyecto: no hay switcher, no vale la pena mostrar
+    // el recuadro de grupo por una fila sola.
+    if (item.members.length === 1) {
+      rows.push({ key: item.members[0].id, loteo: item.members[0], variant: 'standalone' });
+      continue;
+    }
+    item.members.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0) || a.name.localeCompare(b.name));
+    const groupLabel = projectById.get(String(item.projectId))?.name ?? item.members[0]?.name ?? 'Proyecto';
     rows.push({
-      key: `header-${item.grupoId}`,
+      key: `header-${item.projectId}`,
       variant: 'group-header',
       label: groupLabel,
       isFirst: true,
       isLast: false,
     });
-    members.forEach((m, i) => {
+    item.members.forEach((loteo, i) => {
       rows.push({
-        key: m.loteo.id,
-        loteo: m.loteo,
+        key: loteo.id,
+        loteo,
         variant: 'group',
-        role: m.role,
         isFirst: false,
-        isLast: i === members.length - 1,
-        groupHasGeneral,
+        isLast: i === item.members.length - 1,
       });
     });
   }

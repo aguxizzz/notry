@@ -1,31 +1,28 @@
 // Fila de la tabla de Loteos. Soporta 2 variantes:
-// - 'standalone': loteo suelto
-// - 'group': loteo agrupado bajo un general (con badge de rol + conector tipo árbol)
+// - 'standalone': loteo suelto (o único loteo de su proyecto)
+// - 'group': loteo que comparte proyecto con otros (etapa del stage switcher)
 //
 // Stateless. Movida desde InventarioView.jsx en la Fase 6.
 
-import { PencilLine, Trash2, Eye, Share2, Layers } from 'lucide-react';
+import { PencilLine, Trash2, Eye, Share2 } from 'lucide-react';
 import { API_BASE, VISOR_URL } from '../../config';
 
-export default function LoteoRow({ row, onEditLoteo, onDeleteLoteo, onGroupLoteo, onSafeOpen, onOpenEditor, onOpenShareLoteo }) {
-  const { loteo, variant, role, isFirst, isLast, groupHasGeneral } = row;
+export default function LoteoRow({ row, onEditLoteo, onDeleteLoteo, onSafeOpen, onOpenEditor, onOpenShareLoteo }) {
+  const { loteo, variant, isFirst, isLast } = row;
   const rowClass = [];
   if (variant === 'group') {
     rowClass.push('loteo-group-row');
     if (isFirst) rowClass.push('loteo-group-first');
     if (isLast) rowClass.push('loteo-group-last');
-    rowClass.push(role === 'general' ? 'loteo-group-general' : 'loteo-group-etapa');
   }
-  const isGrouped = !!loteo.grupo_id;
 
   return (
     <tr className={rowClass.join(' ')}>
       <td className="td-name">
         {variant === 'group' ? (
-          <span className={`loteo-name-cell role-${role}${role === 'etapa' && !groupHasGeneral ? ' no-indent' : ''}`}>
-            {role === 'etapa' && groupHasGeneral && <span className="loteo-tree-connector" aria-hidden="true" />}
+          <span className="loteo-name-cell">
+            <span className="loteo-tree-connector" aria-hidden="true" />
             <span className="loteo-name-text">{loteo.name}</span>
-            <span className={`loteo-role-badge ${role}`}>{role === 'general' ? 'General' : 'Etapa'}</span>
           </span>
         ) : (
           loteo.name
@@ -70,14 +67,6 @@ export default function LoteoRow({ row, onEditLoteo, onDeleteLoteo, onGroupLoteo
             aria-label={`Editar ${loteo.name}`}
           >
             <PencilLine size={16} />
-          </button>
-          <button
-            className={`action-btn group${isGrouped ? ' active' : ''}`}
-            onClick={() => onGroupLoteo(loteo)}
-            title={isGrouped ? 'Editar grupo' : 'Agrupar'}
-            aria-label={`Agrupar ${loteo.name}`}
-          >
-            <Layers size={16} />
           </button>
           <button
             className="action-btn delete"

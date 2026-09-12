@@ -75,7 +75,7 @@ function postLoteClick(id) {
 export function normalizeToGroup(data) {
   if (data && Array.isArray(data.stages)) {
     return {
-      grupoId: data.grupo_id ?? null,
+      projectId: data.project_id ?? null,
       entryStageId: data.entry_stage_id ?? data.stages[0]?.id ?? null,
       stages: data.stages,
       project: data.project ?? null,
@@ -85,9 +85,9 @@ export function normalizeToGroup(data) {
     };
   }
   return {
-    grupoId: null,
+    projectId: null,
     entryStageId: 'single',
-    stages: [{ id: 'single', name: '', tipo: null, orden: 0, visor: data }],
+    stages: [{ id: 'single', name: '', orden: 0, visor: data }],
     project: null,
     loteoLogoUrl: null,
     whatsappPhone: data?.whatsapp_phone ?? null,

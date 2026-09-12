@@ -1,6 +1,6 @@
-// Tabla de gestión de Loteos. Muestra los loteos agrupados: bajo un "general"
-// se listan sus "etapas" con indentación y conector tipo árbol. Soporta
-// loteos sueltos también.
+// Tabla de gestión de Loteos. Los loteos que comparten proyecto se muestran
+// agrupados bajo el nombre del proyecto (son las etapas de su stage switcher
+// en el visor). Soporta loteos sueltos también.
 //
 // Movida desde InventarioView.jsx en la Fase 6.
 
@@ -10,9 +10,9 @@ import { buildLoteoRows } from './inventoryStats';
 import LoteoRow from './LoteoRow';
 import './LoteosTable.css';
 
-export default function LoteosTable({ loteos, filteredLoteos, loading, onEditLoteo, onDeleteLoteo, onGroupLoteo, onSafeOpen, onOpenEditor, onOpenShareLoteo }) {
+export default function LoteosTable({ loteos, filteredLoteos, projects, loading, onEditLoteo, onDeleteLoteo, onSafeOpen, onOpenEditor, onOpenShareLoteo }) {
   const data = filteredLoteos ?? loteos;
-  const rows = buildLoteoRows(data);
+  const rows = buildLoteoRows(data, projects);
   return (
     <div key="loteos" className="inventory-table-wrapper fade-in">
       {loading && loteos.length === 0 ? (
@@ -55,7 +55,6 @@ export default function LoteosTable({ loteos, filteredLoteos, loading, onEditLot
                     row={row}
                     onEditLoteo={onEditLoteo}
                     onDeleteLoteo={onDeleteLoteo}
-                    onGroupLoteo={onGroupLoteo}
                     onSafeOpen={onSafeOpen}
                     onOpenEditor={onOpenEditor}
                     onOpenShareLoteo={onOpenShareLoteo}

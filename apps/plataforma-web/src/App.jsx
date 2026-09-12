@@ -19,7 +19,6 @@ import ConfirmDialog from './components/ConfirmDialog';
 import DeleteProspectDialog from './components/DeleteProspectDialog';
 import DeleteLoteoDialog from './components/DeleteLoteoDialog';
 import LoteoFormModal from './components/modals/LoteoFormModal';
-import GroupLoteoModal from './components/modals/GroupLoteoModal';
 import AddProspectModal from './components/modals/AddProspectModal';
 import UpdateContactModal from './components/modals/UpdateContactModal';
 import { Badge, Button, ErrorBoundary, Loader, Select, EditEntityModal } from './ui/components';
@@ -33,7 +32,6 @@ import { useEditLotModal } from './hooks/useEditLotModal';
 import { useCreateLotModal } from './hooks/useCreateLotModal';
 import { useEditLoteoModal } from './hooks/useEditLoteoModal';
 import { useCreateLoteoModal } from './hooks/useCreateLoteoModal';
-import { useGroupLoteoModal } from './hooks/useGroupLoteoModal';
 import { useAddProspectModal } from './hooks/useAddProspectModal';
 import { useEditProspectModal } from './hooks/useEditProspectModal';
 import { useUpdateContactModal } from './hooks/useUpdateContactModal';
@@ -624,14 +622,6 @@ function PlatformApp() {
   const isOrgDataLoading = hasUsableOrgContext
     && (orgLoading || projectsLoading || syncLoading || contractsState.loading);
 
-  // ── Group Loteo Modal ─────────────────────────────────────────────────────────
-  const groupLoteoModal = useGroupLoteoModal({
-    apiFetch,
-    addToast,
-    onUpdateLoteo: updateLoteo,
-    refreshSync,
-  });
-
   // ── Add Prospect Modal ────────────────────────────────────────────────────────
   const addProspectModal = useAddProspectModal({
     apiFetch,
@@ -784,6 +774,7 @@ function PlatformApp() {
                   filteredInventoryLots={filteredInventoryLots}
                   inventoryLoteos={inventoryLoteos}
                   filteredInventoryLoteos={filteredInventoryLoteos}
+                  projects={projects}
                   inventoryLoading={inventoryLoading}
                   inventoryLoteosLoading={inventoryLoteosLoading}
                   inventoryTab={inventoryTab}
@@ -801,7 +792,6 @@ function PlatformApp() {
                   onOpenCreateLoteoModal={createLoteoModal.openCreateLoteoModal}
                   onOpenEditLoteoModal={editLoteoModal.openEditLoteoModal}
                   onOpenDeleteLoteoDialog={openDeleteLoteoDialog}
-                  onGroupLoteo={groupLoteoModal.openGroupModal}
                   onOpenEditor={openEditor}
                   safeOpen={safeOpen}
                   onOpenShareLoteo={handleOpenShareLoteo}
@@ -935,19 +925,6 @@ function PlatformApp() {
         uploadFn={uploadFn}
         onUploadEvent={handleUploadEvent}
       />
-
-      {groupLoteoModal.groupModalOpen && (
-        <GroupLoteoModal
-          isOpen={groupLoteoModal.groupModalOpen}
-          onClose={groupLoteoModal.closeGroupModal}
-          loteo={groupLoteoModal.groupLoteo}
-          loteos={inventoryLoteos}
-          onSubmit={groupLoteoModal.submitGroup}
-          onUngroup={groupLoteoModal.ungroup}
-          loading={groupLoteoModal.groupLoading}
-          error={groupLoteoModal.groupError}
-        />
-      )}
 
       <AddProspectModal
         isOpen={addProspectModal.addProspectOpen}

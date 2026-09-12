@@ -131,7 +131,7 @@ export default function POIInspector({
             <option value="">— Ninguna —</option>
             {siblingStages.map(s => (
               <option key={s.id} value={s.id}>
-                {s.name}{s.tipo === 'general' ? ' (general)' : ''}
+                {s.name}
               </option>
             ))}
           </select>
