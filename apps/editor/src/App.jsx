@@ -929,6 +929,21 @@ function App() {
 
 
 
+  // Red de seguridad para cuando el loteo cargado no pertenece a la cuenta
+  // activa (ver reset por logout más arriba): descarta el ?data=/&orgId=/&from=
+  // de la URL y el loteo en memoria para volver al listado sin recargar la página.
+  const handleBackToList = () => {
+    const params = new URLSearchParams(window.location.search);
+    params.delete('data');
+    params.delete('orgId');
+    params.delete('from');
+    const cleaned = window.location.pathname + (params.toString() ? `?${params.toString()}` : '');
+    window.history.replaceState({}, '', cleaned);
+    setLoteoId(null);
+    setSelectedLoteo(null);
+    setLoteoAccessDenied(false);
+  };
+
   const handleLoteoSelect = (loteo) => {
     const dataUrl = `${API_BASE}/loteos/${loteo.id}/visor_data`;
     // Lleva la org activa al link para que, si se refresca o reabre esa
@@ -968,6 +983,9 @@ function App() {
       <div className="access-screen">
         <h2>No tenés acceso a este loteo</h2>
         <p>Este loteo no pertenece a tu cuenta. Pedile el acceso al dueño o volvé al listado.</p>
+        <button type="button" className="btn-primary" style={{ width: 'auto' }} onClick={handleBackToList}>
+          Volver al listado
+        </button>
       </div>
     );
   }
