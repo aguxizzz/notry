@@ -15,15 +15,34 @@ const CLICK_BASE_URL = `${API_BASE}/public/lots`;
 
 const VISIT_ORIGIN = detectOrigin();
 
-export function getDataUrlFromQuery() {
+// Slugs en el path — URL amigable alternativa a ?data=:
+//   /paseoberlin           → [projectSlug]
+//   /paseoberlin/mitte     → [projectSlug, loteoSlug] (loteo puntual dentro del proyecto)
+function getSlugPartsFromPath() {
+  return window.location.pathname.split('/').filter(Boolean);
+}
+
+// Resuelve de dónde sacar el JSON del visor: ?data=<url> explícito tiene
+// prioridad (usado por enlaces internos que apuntan a un loteo puntual),
+// si no hay se intenta el/los slug(s) del path (URL pública amigable).
+export function getViewerDataUrl() {
   const params = new URLSearchParams(window.location.search);
-  const url = params.get(DATA_URL_PARAM);
-  if (!url || typeof url !== 'string') return null;
-  return url.trim() || null;
+  const queryUrl = params.get(DATA_URL_PARAM);
+  if (queryUrl && typeof queryUrl === 'string' && queryUrl.trim()) return queryUrl.trim();
+
+  const [projectSlug, loteoSlug] = getSlugPartsFromPath();
+  if (projectSlug && loteoSlug) {
+    return `${API_BASE}/public/projects/by-slug/${projectSlug}/loteos/by-slug/${loteoSlug}/group_visor_data`;
+  }
+  if (projectSlug) {
+    return `${API_BASE}/public/projects/by-slug/${projectSlug}/group_visor_data`;
+  }
+
+  return null;
 }
 
 export async function fetchViewerData() {
-  const queryDataUrl = getDataUrlFromQuery();
+  const queryDataUrl = getViewerDataUrl();
   if (queryDataUrl) {
     try {
       const res = await fetch(queryDataUrl);

@@ -87,17 +87,28 @@ export default function ShareLoteoModal({
   visorBaseUrl,
   apiBaseUrl,
   loteoId,
+  projectSlug,
+  loteoSlug,
   addToast,
 }) {
   const [copiedOrigin, setCopiedOrigin] = useState(null);
 
+  // Si el proyecto (y el loteo) tienen slug público, se comparte la URL
+  // amigable (visor/<projectSlug>/<loteoSlug>, o solo /<projectSlug> si el
+  // loteo no tiene slug propio); si no hay slug de proyecto, se cae al
+  // formato viejo por ?data= con el ID.
   const generateLink = (origin) => {
-    const dataUrl = `${apiBaseUrl}/loteos/${loteoId}/group_visor_data`;
-    const baseUrl = `${visorBaseUrl}/?data=${dataUrl}`;
-    if (origin) {
-      return `${baseUrl}&ref=${origin}`;
+    let baseUrl;
+    if (projectSlug && loteoSlug) {
+      baseUrl = `${visorBaseUrl}/${projectSlug}/${loteoSlug}`;
+    } else if (projectSlug) {
+      baseUrl = `${visorBaseUrl}/${projectSlug}`;
+    } else {
+      baseUrl = `${visorBaseUrl}/?data=${apiBaseUrl}/loteos/${loteoId}/group_visor_data`;
     }
-    return baseUrl;
+    if (!origin) return baseUrl;
+    const separator = baseUrl.includes('?') ? '&' : '?';
+    return `${baseUrl}${separator}ref=${origin}`;
   };
 
   const handleShare = async (origin) => {

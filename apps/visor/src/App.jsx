@@ -1,14 +1,14 @@
 import { useCallback } from 'react';
 import LoginScreen from './components/LoginScreen.jsx';
 import LoteoSelector from './components/LoteoSelector.jsx';
-import ViewerExperience, { getDataUrlFromQuery } from './components/ViewerExperience.jsx';
+import ViewerExperience, { getViewerDataUrl } from './components/ViewerExperience.jsx';
 import { useAuth } from './hooks/useAuth.js';
 import { API_BASE } from './api/config.js';
 
 // La URL decide qué experiencia se monta:
-//   sin ?data=  → login + selector de loteos (flujo interno)
-//   ?data=...   → visor 360°
-const hasDataParam = !!getDataUrlFromQuery();
+//   sin ?data= y sin slug en el path → login + selector de loteos (flujo interno)
+//   ?data=... o /<slug-de-proyecto>  → visor 360°
+const hasDataParam = !!getViewerDataUrl();
 
 export default function App() {
   const { token, handleLogin, handleLogout } = useAuth();

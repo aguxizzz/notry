@@ -148,6 +148,8 @@ function PlatformApp() {
   const [deleteLoteoDialog, setDeleteLoteoDialog] = useState({ open: false, loteo: null, loading: false });
   const [shareLoteoOpen, setShareLoteoOpen] = useState(false);
   const [selectedLoteoId, setSelectedLoteoId] = useState(null);
+  const [selectedProjectSlug, setSelectedProjectSlug] = useState(null);
+  const [selectedLoteoSlug, setSelectedLoteoSlug] = useState(null);
   const [org, setOrg] = useState(null);
   const [orgLoading, setOrgLoading] = useState(false);
   const isVisorOnly = org?.plan === 'visor_only';
@@ -415,12 +417,18 @@ function PlatformApp() {
 
   const handleOpenShareLoteo = (loteoId) => {
     setSelectedLoteoId(loteoId);
+    const loteo = inventoryLoteos.find((l) => l.id === loteoId);
+    const project = loteo?.project_id ? projects.find((p) => p.id === loteo.project_id) : null;
+    setSelectedProjectSlug(project?.slug || null);
+    setSelectedLoteoSlug(loteo?.slug || null);
     setShareLoteoOpen(true);
   };
 
   const handleCloseShareLoteo = () => {
     setShareLoteoOpen(false);
     setSelectedLoteoId(null);
+    setSelectedLoteoSlug(null);
+    setSelectedProjectSlug(null);
   };
 
   const handleDeleteLoteoConfirm = async () => {
@@ -1005,6 +1013,8 @@ function PlatformApp() {
         visorBaseUrl={VISOR_URL}
         apiBaseUrl={API_BASE}
         loteoId={selectedLoteoId}
+        loteoSlug={selectedLoteoSlug}
+        projectSlug={selectedProjectSlug}
         addToast={addToast}
       />
 
