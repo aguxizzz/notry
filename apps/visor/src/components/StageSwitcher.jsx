@@ -88,7 +88,7 @@ export default function StageSwitcher({ stages, currentStageId, pendingStageId =
       {stages.map((stage, i) => {
         const isActive = stage.id === currentStageId;
         const isPending = stage.id === pendingStageId && !isActive;
-        const label = stage.name || (stage.tipo === 'general' ? 'General' : `Etapa ${i + 1}`);
+        const label = stage.name || `Etapa ${i + 1}`;
         return (
           <button
             key={stage.id}
@@ -99,17 +99,11 @@ export default function StageSwitcher({ stages, currentStageId, pendingStageId =
             aria-busy={isPending || undefined}
             tabIndex={isActive || (!currentStageId && i === 0) ? 0 : -1}
             disabled={disabled}
-            className={`stage-switcher-btn${isActive ? ' active' : ''}${isPending ? ' pending' : ''}${stage.tipo === 'general' ? ' is-general' : ''}`}
+            className={`stage-switcher-btn${isActive ? ' active' : ''}${isPending ? ' pending' : ''}`}
             onClick={() => onSelect(stage.id)}
             onKeyDown={(event) => handleKeyDown(event, i)}
             title={label}
           >
-            {stage.tipo === 'general' && (
-              <svg className="stage-switcher-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-              </svg>
-            )}
             <span className="stage-switcher-label">{label}</span>
             {isPending && (
               <span className="stage-switcher-progress" aria-hidden="true">

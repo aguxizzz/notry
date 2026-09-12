@@ -252,7 +252,7 @@ function App() {
     setIsLoadingDefault(false);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Etapas hermanas del grupo (para que un POI pueda navegar a otra etapa).
+  // Etapas hermanas del proyecto (para que un POI pueda navegar a otra etapa).
   useEffect(() => {
     if (!loteoId || !accessToken || !hasOrgContext) return;
     let cancelled = false;
@@ -263,11 +263,11 @@ function App() {
       .then(data => {
         if (cancelled || !data?.items) return;
         const me = data.items.find(l => l.id === loteoId);
-        if (!me?.grupo_id) { setSiblingStages([]); return; }
+        if (!me?.project_id) { setSiblingStages([]); return; }
         const siblings = data.items
-          .filter(l => l.grupo_id === me.grupo_id && l.id !== loteoId)
+          .filter(l => l.project_id === me.project_id && l.id !== loteoId)
           .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-          .map(l => ({ id: l.id, name: l.name, tipo: l.tipo }));
+          .map(l => ({ id: l.id, name: l.name }));
         setSiblingStages(siblings);
       })
       .catch(() => { if (!cancelled) setSiblingStages([]); });

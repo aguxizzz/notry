@@ -42,6 +42,7 @@ export default function InventarioView({
   filteredInventoryLots,
   inventoryLoteos,
   filteredInventoryLoteos,
+  projects,
   inventoryLoading,
   inventoryLoteosLoading,
   inventoryTab,
@@ -59,7 +60,6 @@ export default function InventarioView({
   onOpenCreateLoteoModal,
   onOpenEditLoteoModal,
   onOpenDeleteLoteoDialog,
-  onGroupLoteo,
   onOpenEditor,
   safeOpen,
   onOpenShareLoteo,
@@ -310,10 +310,10 @@ export default function InventarioView({
               <LoteosTable
                 loteos={inventoryLoteos}
                 filteredLoteos={visibleInventoryLoteos}
+                projects={projects}
                 loading={inventoryLoteosLoading}
                 onEditLoteo={onOpenEditLoteoModal}
                 onDeleteLoteo={onOpenDeleteLoteoDialog}
-                onGroupLoteo={onGroupLoteo}
                 onSafeOpen={safeOpen}
                 onOpenEditor={onOpenEditor}
                 onOpenShareLoteo={onOpenShareLoteo}

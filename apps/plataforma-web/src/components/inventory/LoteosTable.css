@@ -57,20 +57,12 @@
   opacity: 0.85;
 }
 
-/* Nombre: general en negrita, etapa indentada con conector tipo árbol */
+/* Nombre de una etapa dentro de un grupo: indentada con conector tipo árbol */
 .loteo-name-cell {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-}
-.loteo-name-cell.role-general .loteo-name-text {
-  font-weight: 600;
-}
-.loteo-name-cell.role-etapa {
   padding-left: 22px;
-}
-.loteo-name-cell.role-etapa.no-indent {
-  padding-left: 0;
 }
 .loteo-tree-connector {
   width: 12px;
@@ -79,23 +71,4 @@
   border-left: 1.5px solid var(--border-color);
   border-bottom: 1.5px solid var(--border-color);
   border-bottom-left-radius: 4px;
-}
-
-/* Badges de rol */
-.loteo-role-badge {
-  font-size: 0.66rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 2px 7px;
-  border-radius: 999px;
-  line-height: 1.4;
-}
-.loteo-role-badge.general {
-  background: rgba(197, 160, 89, 0.16);
-  color: var(--accent-color);
-}
-.loteo-role-badge.etapa {
-  background: var(--bg-dark);
-  color: var(--text-muted);
 }

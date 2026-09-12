@@ -5,24 +5,22 @@ function buildGroups(loteos) {
   const map = new Map();
   const order = [];
   for (const loteo of loteos) {
-    if (!loteo.grupo_id) {
+    if (!loteo.project_id) {
       order.push({ kind: 'standalone', loteo });
     } else {
-      if (!map.has(loteo.grupo_id)) {
-        const entry = { kind: 'group', grupoId: loteo.grupo_id, general: null, etapas: [] };
-        map.set(loteo.grupo_id, entry);
+      if (!map.has(loteo.project_id)) {
+        const entry = { kind: 'group', projectId: loteo.project_id, etapas: [] };
+        map.set(loteo.project_id, entry);
         order.push(entry);
       }
-      const g = map.get(loteo.grupo_id);
-      if (loteo.tipo === 'general') g.general = loteo;
-      else g.etapas.push(loteo);
+      map.get(loteo.project_id).etapas.push(loteo);
     }
   }
   for (const g of map.values()) g.etapas.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
   return order;
 }
 
-function LoteoCard({ loteo, onSelect, badge }) {
+function LoteoCard({ loteo, onSelect }) {
   return (
     <div
       onClick={() => onSelect(loteo.id)}
@@ -34,7 +32,6 @@ function LoteoCard({ loteo, onSelect, badge }) {
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={s.cardName}>{loteo.name || 'Sin nombre'}</span>
-        {badge && <span style={s.badge}>{badge}</span>}
       </div>
       <span style={s.cardSub}>{loteo.lotes?.length || 0} lotes mapeados</span>
       <span style={s.cardAction}>Previsualizar →</span>
@@ -86,13 +83,12 @@ export default function LoteoSelector({ token, onSelect, onLogout }) {
               item.kind === 'standalone'
                 ? <LoteoCard key={item.loteo.id} loteo={item.loteo} onSelect={onSelect} />
                 : (
-                  <div key={item.grupoId} style={s.group}>
+                  <div key={item.projectId} style={s.group}>
                     <div style={s.groupLabel}>
-                      {item.general ? item.general.name : 'Grupo de etapas'}
+                      {item.etapas[0]?.name ?? 'Proyecto'}
                     </div>
                     <div style={s.groupGrid}>
-                      {item.general && <LoteoCard loteo={item.general} onSelect={onSelect} badge="General" />}
-                      {item.etapas.map(e => <LoteoCard key={e.id} loteo={e} onSelect={onSelect} badge="Etapa" />)}
+                      {item.etapas.map(e => <LoteoCard key={e.id} loteo={e} onSelect={onSelect} />)}
                     </div>
                   </div>
                 )
@@ -176,15 +172,6 @@ const s = {
     color: '#c5a059',
     fontSize: '0.875rem',
     fontWeight: 600,
-  },
-  badge: {
-    fontSize: '0.7rem',
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    padding: '2px 7px',
-    borderRadius: '999px',
-    background: 'rgba(197,160,89,0.18)',
-    color: '#c5a059',
   },
   group: {
     gridColumn: '1 / -1',
