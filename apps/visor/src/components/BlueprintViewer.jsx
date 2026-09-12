@@ -45,23 +45,39 @@ export default function BlueprintViewer({
 
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0 });
+  // Posición de mousedown/touchstart (cualquier botón), para distinguir un
+  // click real de un drag que arranca y termina sobre el mismo lote: sin esto,
+  // arrastrar para panear con el botón izquierdo (que no hace pan, ver
+  // handlePanStart) terminaba seleccionando el lote al soltar.
+  const pointerDownPosRef = useRef(null);
   const zoomRef = useRef(zoom);
   const panXRef = useRef(0);
   const panYRef = useRef(0);
   const displayDimsRef = useRef(displayDims);
+  // Offset que centra la imagen "fiteada" dentro del contenedor: cuando el
+  // aspect ratio del blueprint no matchea el del viewport (típico en mobile
+  // portrait, donde el plano queda angosto/alto) el fit-to-width/height deja
+  // franjas vacías — sin este offset la imagen quedaba pegada arriba a la
+  // izquierda en vez de centrada.
+  const baseOffsetRef = useRef({ x: 0, y: 0 });
+  const touchStateRef = useRef({ mode: null });
 
   useEffect(() => {
     zoomRef.current = zoom;
     displayDimsRef.current = displayDims;
   }, [zoom, displayDims]);
 
+  const applyTransform = useCallback(() => {
+    if (transformRef.current) {
+      transformRef.current.style.transform = `translate(${baseOffsetRef.current.x + panXRef.current}px, ${baseOffsetRef.current.y + panYRef.current}px) scale(${zoomRef.current})`;
+    }
+  }, []);
+
   // Sync transform to DOM after initial image load
   useEffect(() => {
     if (!imageLoaded) return;
-    if (transformRef.current) {
-      transformRef.current.style.transform = `translate(${panXRef.current}px, ${panYRef.current}px) scale(${zoomRef.current})`;
-    }
-  }, [imageLoaded]);
+    applyTransform();
+  }, [imageLoaded, applyTransform]);
 
   // Load image
   useEffect(() => {
@@ -83,28 +99,47 @@ export default function BlueprintViewer({
     img.src = blueprintUrl;
   }, [blueprintUrl]);
 
-  // Calculate display size at zoom=1
+  // Calculate display size at zoom=1 (fit-to-container) and re-center.
+  // Recalcula también en resize/orientationchange: en mobile el viewport
+  // cambia (rotación, barra de direcciones) y el fit inicial quedaría
+  // desactualizado si solo dependiera de la carga de imagen.
   useEffect(() => {
     if (!imageLoaded || !containerRef.current) return;
 
-    const container = containerRef.current;
-    const containerW = container.clientWidth;
-    const containerH = container.clientHeight;
+    const recompute = () => {
+      const container = containerRef.current;
+      if (!container) return;
+      const containerW = container.clientWidth;
+      const containerH = container.clientHeight;
 
-    const imageAspect = imgDims.w / imgDims.h;
-    const containerAspect = containerW / containerH;
+      const imageAspect = imgDims.w / imgDims.h;
+      const containerAspect = containerW / containerH;
 
-    let displayW, displayH;
-    if (imageAspect > containerAspect) {
-      displayW = containerW;
-      displayH = containerW / imageAspect;
-    } else {
-      displayH = containerH;
-      displayW = containerH * imageAspect;
-    }
+      let displayW, displayH;
+      if (imageAspect > containerAspect) {
+        displayW = containerW;
+        displayH = containerW / imageAspect;
+      } else {
+        displayH = containerH;
+        displayW = containerH * imageAspect;
+      }
 
-    setDisplayDims({ w: displayW, h: displayH });
-  }, [imageLoaded, imgDims]);
+      setDisplayDims({ w: displayW, h: displayH });
+      baseOffsetRef.current = {
+        x: (containerW - displayW) / 2,
+        y: (containerH - displayH) / 2,
+      };
+      applyTransform();
+    };
+
+    recompute();
+    window.addEventListener('resize', recompute);
+    window.addEventListener('orientationchange', recompute);
+    return () => {
+      window.removeEventListener('resize', recompute);
+      window.removeEventListener('orientationchange', recompute);
+    };
+  }, [imageLoaded, imgDims, applyTransform]);
 
   const handleWheel = useCallback((e) => {
     e.preventDefault();
@@ -112,7 +147,10 @@ export default function BlueprintViewer({
     setZoom((prev) => Math.max(0.5, Math.min(5, prev * delta)));
   }, []);
 
+  const DRAG_THRESHOLD_PX = 6;
+
   const handlePanStart = (e) => {
+    pointerDownPosRef.current = { x: e.clientX, y: e.clientY };
     if (e.button !== 1) return;
     isPanningRef.current = true;
     panStartRef.current = { x: e.clientX - panXRef.current, y: e.clientY - panYRef.current };
@@ -122,14 +160,64 @@ export default function BlueprintViewer({
     if (!isPanningRef.current) return;
     panXRef.current = e.clientX - panStartRef.current.x;
     panYRef.current = e.clientY - panStartRef.current.y;
-    if (transformRef.current) {
-      transformRef.current.style.transform = `translate(${panXRef.current}px, ${panYRef.current}px) scale(${zoomRef.current})`;
-    }
+    applyTransform();
   };
 
   const handlePanEnd = () => {
     isPanningRef.current = false;
   };
+
+  // Touch: un dedo hace pan, dos dedos hacen pinch-to-zoom. El wheel/drag de
+  // mouse de arriba no tiene equivalente táctil, así que en mobile el modo
+  // blueprint quedaba totalmente estático (ni pan ni zoom funcionaban).
+  const touchDist = (t0, t1) => Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+
+  const handleTouchStart = useCallback((e) => {
+    if (e.touches.length === 1) {
+      const t = e.touches[0];
+      pointerDownPosRef.current = { x: t.clientX, y: t.clientY };
+      touchStateRef.current = { mode: 'pan', lastX: t.clientX, lastY: t.clientY };
+    } else if (e.touches.length === 2) {
+      const [t0, t1] = e.touches;
+      touchStateRef.current = {
+        mode: 'pinch',
+        startDist: touchDist(t0, t1),
+        startZoom: zoomRef.current,
+      };
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e) => {
+    const state = touchStateRef.current;
+    if (state.mode === 'pan' && e.touches.length === 1) {
+      e.preventDefault();
+      const t = e.touches[0];
+      panXRef.current += t.clientX - state.lastX;
+      panYRef.current += t.clientY - state.lastY;
+      state.lastX = t.clientX;
+      state.lastY = t.clientY;
+      applyTransform();
+    } else if (state.mode === 'pinch' && e.touches.length === 2) {
+      e.preventDefault();
+      const [t0, t1] = e.touches;
+      const dist = touchDist(t0, t1);
+      if (state.startDist > 0) {
+        const nextZoom = Math.max(0.5, Math.min(5, state.startZoom * (dist / state.startDist)));
+        zoomRef.current = nextZoom;
+        setZoom(nextZoom);
+        applyTransform();
+      }
+    }
+  }, [applyTransform]);
+
+  const handleTouchEnd = useCallback((e) => {
+    if (e.touches.length === 1) {
+      const t = e.touches[0];
+      touchStateRef.current = { mode: 'pan', lastX: t.clientX, lastY: t.clientY };
+    } else if (e.touches.length === 0) {
+      touchStateRef.current = { mode: null };
+    }
+  }, []);
 
   useEffect(() => {
     const handleMove = handlePanMove;
@@ -138,16 +226,24 @@ export default function BlueprintViewer({
     const container = containerRef.current;
     if (container) {
       container.addEventListener('wheel', handleWheel, { passive: false });
+      container.addEventListener('touchstart', handleTouchStart, { passive: true });
+      container.addEventListener('touchmove', handleTouchMove, { passive: false });
+      container.addEventListener('touchend', handleTouchEnd, { passive: true });
+      container.addEventListener('touchcancel', handleTouchEnd, { passive: true });
     }
     window.addEventListener('mouseup', handleUp);
 
     return () => {
       if (container) {
         container.removeEventListener('wheel', handleWheel);
+        container.removeEventListener('touchstart', handleTouchStart);
+        container.removeEventListener('touchmove', handleTouchMove);
+        container.removeEventListener('touchend', handleTouchEnd);
+        container.removeEventListener('touchcancel', handleTouchEnd);
       }
       window.removeEventListener('mouseup', handleUp);
     };
-  }, [handleWheel]);
+  }, [handleWheel, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   const normToSvg = (nx, ny) => ({
     x: nx * displayDims.w,
@@ -156,6 +252,11 @@ export default function BlueprintViewer({
 
   const handlePolygonClick = (e, ann) => {
     e.stopPropagation();
+    const start = pointerDownPosRef.current;
+    if (start) {
+      const dist = Math.hypot(e.clientX - start.x, e.clientY - start.y);
+      if (dist > DRAG_THRESHOLD_PX) return;
+    }
     onMarkerSelect && onMarkerSelect(ann);
   };
 
@@ -243,13 +344,14 @@ export default function BlueprintViewer({
     <div
       ref={containerRef}
       className="viewer-canvas viewer-canvas--interactive"
+      style={{ touchAction: 'none' }}
       onMouseDown={handlePanStart}
       onMouseMove={handlePanMove}
     >
       <div
         ref={transformRef}
         className="viewer-transform"
-        style={{ transform: `translate(${panXRef.current}px, ${panYRef.current}px) scale(${zoom})` }}
+        style={{ transform: `translate(${baseOffsetRef.current.x + panXRef.current}px, ${baseOffsetRef.current.y + panYRef.current}px) scale(${zoom})` }}
       >
         <img
           src={blueprintUrl}
