@@ -1,3 +1,6 @@
+export const MAX_LOT_AREA_M2 = 99999999.99;
+export const MAX_LOT_PRICE = 9999999999.99;
+
 export const getLotFields = (loteos = []) => [
   {
     name: 'name',
@@ -22,6 +25,7 @@ export const getLotFields = (loteos = []) => [
         label: 'Área (m²)',
         type: 'number',
         step: '0.01',
+        max: MAX_LOT_AREA_M2,
         placeholder: 'Ej: 500',
       },
       {
@@ -29,6 +33,7 @@ export const getLotFields = (loteos = []) => [
         label: 'Precio',
         type: 'number',
         step: '0.01',
+        max: MAX_LOT_PRICE,
         placeholder: 'Ej: 100000',
       },
     ],

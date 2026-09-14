@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { Button, SegmentedControl, Select } from '../../ui/components';
 import { formatContractAmount, formatContractDate, unitLabel } from './contractsFormat';
+import { MAX_CONTRACT_AMOUNT, MAX_INTEREST_RATE_PERCENT } from './contractLimits';
 import FormattedNumberInput from './FormattedNumberInput';
 
 const todayInputValue = () => {
@@ -260,12 +261,20 @@ export default function CreateContractForm({
       setError('Ingresá un monto mayor que cero.');
       return;
     }
+    if (amount > MAX_CONTRACT_AMOUNT) {
+      setError(`El monto no puede superar ${MAX_CONTRACT_AMOUNT.toLocaleString('es-AR')}.`);
+      return;
+    }
     if (!Number.isInteger(installmentsCount) || installmentsCount < 1) {
       setError('La cantidad de cuotas debe ser un número entero mayor que cero.');
       return;
     }
     if (form.interest_enabled && (!Number.isFinite(interestRate) || interestRate <= 0)) {
       setError('Ingresá una tasa mensual válida.');
+      return;
+    }
+    if (form.interest_enabled && interestRate > MAX_INTEREST_RATE_PERCENT) {
+      setError(`La tasa mensual no puede superar ${MAX_INTEREST_RATE_PERCENT}%.`);
       return;
     }
 
@@ -490,6 +499,7 @@ export default function CreateContractForm({
                     id="contract-interest-rate"
                     type="number"
                     min="0"
+                    max={MAX_INTEREST_RATE_PERCENT}
                     step="0.01"
                     inputMode="decimal"
                     value={form.interest_rate_percent}

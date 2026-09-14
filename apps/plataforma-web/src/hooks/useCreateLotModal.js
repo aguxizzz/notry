@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { createLot } from '../api/lots';
+import { MAX_LOT_AREA_M2, MAX_LOT_PRICE } from '../ui/forms/lotFields';
 
 export function useCreateLotModal({ apiFetch, onSuccess, onAddLot, loteOwnerId, addActivity }) {
   const initialForm = { name: '', price: '', area_m2: '', loteo_id: '', status: 'available', comments: '' };
@@ -19,6 +20,9 @@ export function useCreateLotModal({ apiFetch, onSuccess, onAddLot, loteOwnerId, 
     if (isNaN(priceNum) || priceNum <= 0) {
       return 'El precio debe ser un número positivo';
     }
+    if (priceNum > MAX_LOT_PRICE) {
+      return `El precio no puede superar ${MAX_LOT_PRICE.toLocaleString('es-AR')}`;
+    }
     if (!createLotForm.name || createLotForm.name.trim() === '') {
       return 'El nombre del lote es requerido';
     }
@@ -28,6 +32,9 @@ export function useCreateLotModal({ apiFetch, onSuccess, onAddLot, loteOwnerId, 
     const areaNum = parseFloat(createLotForm.area_m2);
     if (isNaN(areaNum) || areaNum <= 0) {
       return 'El área debe ser un número positivo';
+    }
+    if (areaNum > MAX_LOT_AREA_M2) {
+      return `El área no puede superar ${MAX_LOT_AREA_M2.toLocaleString('es-AR')} m²`;
     }
     if (!createLotForm.status) {
       return 'El estado es requerido';

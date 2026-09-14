@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import LoteImagesField from './LoteImagesField';
+import { MAX_LOTE_AREA_M2, MAX_LOTE_PRICE } from '../utils/loteLimits';
 
 export default function LoteInspector({
   selectedMarker,
@@ -6,12 +8,15 @@ export default function LoteInspector({
   homography,
   onImportFromBlueprint,
   onUnimportSelected,
+  uploadFn,
 }) {
   const name    = selectedMarker.tooltip || '';
   const status  = selectedMarker.status || selectedMarker.estado || 'available';
   const price   = selectedMarker.price != null ? String(selectedMarker.price) : (selectedMarker.precio != null ? String(selectedMarker.precio) : '');
   const area    = selectedMarker.area_m2 != null ? String(selectedMarker.area_m2) : (selectedMarker.area != null ? String(selectedMarker.area) : '');
   const comments = selectedMarker.comments || '';
+  const images = selectedMarker.image_urls || [];
+  const loteSlug = selectedMarker.slug || selectedMarker.uuid || selectedMarker.id;
 
   const [justImportedId, setJustImportedId] = useState(null);
   const justImported = justImportedId === selectedMarker.id;
@@ -44,6 +49,8 @@ export default function LoteInspector({
         <input
           className="inspector-input"
           type="number"
+          min="0"
+          max={MAX_LOTE_PRICE}
           value={price}
           onChange={e => onUpdateSelected('price', e.target.value)}
           onBlur={() => { if (price === '') onUpdateSelected('price', 0); }}
@@ -53,6 +60,8 @@ export default function LoteInspector({
         <input
           className="inspector-input"
           type="number"
+          min="0"
+          max={MAX_LOTE_AREA_M2}
           value={area}
           onChange={e => onUpdateSelected('area_m2', e.target.value)}
           onBlur={() => { if (area === '') onUpdateSelected('area_m2', 0); }}
@@ -66,6 +75,13 @@ export default function LoteInspector({
           placeholder="Notas u observaciones..."
           rows={3}
           style={{ resize: 'vertical' }}
+        />
+        <span className="inspector-label">Imágenes del lote</span>
+        <LoteImagesField
+          images={images}
+          uploadFn={uploadFn}
+          kind={`lotes/${loteSlug}`}
+          onChange={next => onUpdateSelected('image_urls', next)}
         />
       </div>
 
