@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { patchLot } from '../api/lots';
+import { MAX_LOT_AREA_M2, MAX_LOT_PRICE } from '../ui/forms/lotFields';
 
 export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot, loteOwnerId, addActivity }) {
   const [editLotModalOpen, setEditLotModalOpen] = useState(false);
@@ -47,12 +48,18 @@ export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot, loteOwnerId,
     if (isNaN(priceNum) || priceNum <= 0) {
       return 'El precio debe ser un número positivo';
     }
+    if (priceNum > MAX_LOT_PRICE) {
+      return `El precio no puede superar ${MAX_LOT_PRICE.toLocaleString('es-AR')}`;
+    }
     if (!editLotForm.area_m2 || editLotForm.area_m2 === '') {
       return 'El área es requerida';
     }
     const areaNum = parseFloat(editLotForm.area_m2);
     if (isNaN(areaNum) || areaNum <= 0) {
       return 'El área debe ser un número positivo';
+    }
+    if (areaNum > MAX_LOT_AREA_M2) {
+      return `El área no puede superar ${MAX_LOT_AREA_M2.toLocaleString('es-AR')} m²`;
     }
     if (!editLotForm.status) {
       return 'El estado es requerido';

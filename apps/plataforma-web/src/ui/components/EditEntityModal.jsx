@@ -126,7 +126,7 @@ export default function EditEntityModal({
 }
 
 function renderField(field, formData, onFormChange) {
-  const { name, label, type = 'text', required = false, placeholder, step, options, disabled = false } = field;
+  const { name, label, type = 'text', required = false, placeholder, step, min, max, options, disabled = false } = field;
   const value = formData[name] ?? '';
 
   if (type === 'select') {
@@ -170,6 +170,8 @@ function renderField(field, formData, onFormChange) {
         onChange={e => onFormChange(name, e.target.value)}
         placeholder={placeholder}
         step={step}
+        min={min}
+        max={max}
         disabled={disabled}
       />
     </div>
