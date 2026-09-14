@@ -1008,6 +1008,11 @@ function PlatformApp() {
         onClose={editLotModal.closeEditLotModal}
         loading={editLotModal.editLotLoading}
         error={editLotModal.editLotError}
+        warning={
+          editLotModal.editLotWillLoseGeometry
+            ? 'Este lote ya tiene geometría dibujada (plano y/o panorama 360). Si cambiás el loteo, esos datos se van a perder y vas a tener que volver a dibujarlos en el nuevo loteo.'
+            : null
+        }
       />
 
       <EditEntityModal

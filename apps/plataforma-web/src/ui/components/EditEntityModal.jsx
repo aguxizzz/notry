@@ -13,6 +13,7 @@ export default function EditEntityModal({
   onClose,
   loading,
   error,
+  warning,
   secondaryActions = [],
   submitLabel = 'Guardar',
   wide = false,
@@ -79,6 +80,7 @@ export default function EditEntityModal({
             return renderField(field, formData, onFormChange, idx);
           })}
 
+          {warning && <div className="status-message warning">{warning}</div>}
           {error && <div className="status-message error">{error}</div>}
 
           <div className="modal-footer">

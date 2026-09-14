@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { patchLot } from '../api/lots';
+import { API_BASE } from '../config';
 import { MAX_LOT_AREA_M2, MAX_LOT_PRICE } from '../ui/forms/lotFields';
 
 export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot, loteOwnerId, addActivity }) {
@@ -9,6 +10,8 @@ export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot, loteOwnerId,
   const [editLotLoading, setEditLotLoading] = useState(false);
   const [editLotError, setEditLotError] = useState(null);
   const [editLotClosing, setEditLotClosing] = useState(false);
+  const [editLotOriginalLoteoId, setEditLotOriginalLoteoId] = useState(null);
+  const [editLotHasGeometry, setEditLotHasGeometry] = useState(false);
 
   const openEditLotModal = (lot) => {
     setEditLotForm({
@@ -21,6 +24,20 @@ export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot, loteOwnerId,
     });
     setEditLotError(null);
     setEditingLotId(lot.id);
+    setEditLotOriginalLoteoId(lot.loteo_id || null);
+    // inventoryLots viene de /sync, que usa una proyección liviana sin
+    // coordinates_360/blueprint_coordinates (son arrays pesados que no tiene
+    // sentido pollear cada 60s). Se pide el detalle completo del lote para
+    // saber si tiene geometría dibujada y poder avisar si se pierde al
+    // cambiar de loteo.
+    setEditLotHasGeometry(false);
+    apiFetch(`${API_BASE}/lots/${lot.id}`)
+      .then((fullLot) => {
+        setEditLotHasGeometry(
+          (fullLot.coordinates_360?.length > 0) || (fullLot.blueprint_coordinates?.length > 0)
+        );
+      })
+      .catch(() => {});
     setEditLotModalOpen(true);
   };
 
@@ -31,6 +48,8 @@ export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot, loteOwnerId,
       setEditLotClosing(false);
       setEditingLotId(null);
       setEditLotForm({ status: '', price: '', area_m2: '', comments: '' });
+      setEditLotOriginalLoteoId(null);
+      setEditLotHasGeometry(false);
     }, 200);
   };
 
@@ -87,6 +106,14 @@ export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot, loteOwnerId,
       if (editLotForm.area_m2 !== '') updates.area_m2 = parseFloat(editLotForm.area_m2);
       if (editLotForm.comments?.trim()) updates.comments = editLotForm.comments.trim();
       else updates.comments = null;
+      if (
+        editLotOriginalLoteoId != null &&
+        editLotForm.loteo_id &&
+        editLotForm.loteo_id !== editLotOriginalLoteoId
+      ) {
+        updates.coordinates_360 = null;
+        updates.blueprint_coordinates = null;
+      }
       onUpdateLot?.(editingLotId, updates);
       onSuccess?.();
       closeEditLotModal();
@@ -97,6 +124,12 @@ export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot, loteOwnerId,
     }
   };
 
+  const editLotWillLoseGeometry =
+    editLotHasGeometry &&
+    editLotOriginalLoteoId != null &&
+    editLotForm.loteo_id &&
+    editLotForm.loteo_id !== editLotOriginalLoteoId;
+
   return {
     editLotModalOpen,
     editLotForm,
@@ -104,6 +137,7 @@ export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot, loteOwnerId,
     editLotLoading,
     editLotError,
     editLotClosing,
+    editLotWillLoseGeometry,
     openEditLotModal,
     closeEditLotModal,
     saveLotFromModal,
