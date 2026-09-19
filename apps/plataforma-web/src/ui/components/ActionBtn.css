@@ -75,6 +75,18 @@
   background: #4b5563;
 }
 
+/* Variante con label, usada en el acordeón inline (768–1379px) y en el
+   bottom sheet (<768px): ahí sobra ancho/alto para un touch target más
+   generoso que el ícono solo de la columna de acciones en desktop. */
+.action-btn.labeled {
+  width: auto;
+  height: 44px;
+  padding: 0 var(--space-sm);
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: var(--weight-medium);
+}
+
 .text-action-btn {
   display: inline-flex;
   align-items: center;
@@ -126,8 +138,7 @@
 }
 
 /* Inline edit inputs — only used as fallback; prefer modal forms */
-.edit-input,
-.edit-select {
+.edit-input {
   padding: var(--space-xs) var(--space-sm);
   background: var(--bg-dark);
   border: 1px solid var(--accent-color);
@@ -140,8 +151,7 @@
               box-shadow var(--duration-fast) var(--ease-out);
 }
 
-.edit-input:focus,
-.edit-select:focus {
+.edit-input:focus {
   outline: none;
   border-color: var(--accent-color);
   box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.15);

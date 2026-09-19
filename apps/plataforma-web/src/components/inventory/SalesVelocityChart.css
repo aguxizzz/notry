@@ -1,0 +1,74 @@
+/* SalesVelocityChart — barras verticales de lotes vendidos por mes.
+   Mantiene el scoping .inventario-shell por consistencia con el resto del módulo. */
+
+.inventario-shell .inv-velocity {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.inventario-shell .inv-velocity-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  height: 140px;
+}
+
+.inventario-shell .inv-vbar {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  gap: 6px;
+}
+
+.inventario-shell .inv-vbar-v {
+  font-family: var(--font-primary);
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: var(--text-main);
+}
+
+.inventario-shell .inv-vbar-track {
+  width: 100%;
+  max-width: 40px;
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  background: var(--inv-track);
+  border-radius: 6px 6px 3px 3px;
+  overflow: hidden;
+}
+
+.inventario-shell .inv-vbar-track i {
+  display: block;
+  width: 100%;
+  border-radius: inherit;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--badge-sold) 80%, transparent), var(--badge-sold));
+}
+
+.inventario-shell .inv-vbar-l {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+.inventario-shell .inv-velocity-summary {
+  display: flex;
+  gap: 22px;
+  padding-top: var(--space-sm);
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+}
+
+.inventario-shell .inv-velocity-summary span {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.inventario-shell .inv-velocity-summary b {
+  font-family: var(--font-primary);
+  font-weight: 700;
+  color: var(--text-main);
+}

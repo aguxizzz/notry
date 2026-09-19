@@ -11,10 +11,11 @@
 
 .upload-card {
   width: 280px;
-  background: var(--color-toast-bg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: 12px 14px 10px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.28), 0 1px 4px rgba(0, 0, 0, 0.16);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1), 0 1px 4px rgba(0, 0, 0, 0.06);
   animation: uploadCardEnter 280ms var(--ease-out-quart) both;
 }
 
@@ -33,7 +34,7 @@
 .upload-card__label {
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
-  color: #ffffff;
+  color: var(--color-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -42,7 +43,7 @@
 
 .upload-card__phase {
   font-size: var(--text-xs);
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--color-text-muted);
   white-space: nowrap;
   flex-shrink: 0;
   transition: color 200ms var(--ease-out-quart);
@@ -57,7 +58,7 @@
 
 .upload-card__track {
   height: 3px;
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--color-border);
   border-radius: 99px;
   overflow: hidden;
 }

@@ -61,13 +61,10 @@
   margin: 0;
 }
 .funnel-channel-select .select-trigger {
-  height: 34px;
   background: transparent;
   border-color: var(--color-border);
-  border-radius: var(--radius-control);
   color: var(--color-text-muted);
   font-family: var(--font-ui);
-  font-size: 12.5px;
   font-weight: 500;
 }
 .funnel-channel-select .select-trigger:hover,
@@ -76,12 +73,6 @@
   color: var(--color-accent-dark);
   background: var(--hover-surface-bg);
 }
-.funnel-channel-select .select-trigger:focus {
-  outline: none;
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
-}
-
 .funnel-loading,
 .funnel-empty {
   display: flex;

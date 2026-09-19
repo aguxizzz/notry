@@ -53,101 +53,6 @@
   font-weight: 600;
 }
 
-/* ── Picker editorial (variante A) ── */
-.picker-a {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-md);
-  flex-wrap: wrap;
-  padding: var(--space-sm) var(--space-md);
-  margin: 0;
-}
-
-.picker-a-host {
-  border-top: 1px solid var(--color-border-warm);
-  border-bottom: 1px solid var(--color-border-warm);
-}
-
-.picker-a .pa-lbl {
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  color: var(--color-accent-dark);
-  text-transform: uppercase;
-  width: 74px;
-  flex: none;
-}
-
-.picker-a .pa-opts {
-  display: flex;
-  align-items: baseline;
-  gap: 2px;
-  flex-wrap: wrap;
-  flex: 1;
-  min-width: 0;
-}
-
-.picker-a .pa-opt {
-  font-family: var(--font-ui);
-  font-weight: 500;
-  font-size: 13.5px;
-  color: var(--color-text-muted);
-  padding: 4px 9px;
-  border-radius: 0;
-  cursor: pointer;
-  transition:
-    color 150ms var(--ease-out),
-    transform 150ms var(--ease-out),
-    background-color 150ms var(--ease-out);
-  position: relative;
-  line-height: 1.4;
-  appearance: none;
-  -webkit-appearance: none;
-  background: transparent;
-  border: 0;
-  outline: 0;
-  box-shadow: none;
-  text-align: inherit;
-  margin: 0;
-  display: inline-block;
-}
-
-.picker-a .pa-opt:focus { outline: 0; }
-.picker-a .pa-opt:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-  border-radius: 3px;
-}
-
-.picker-a .pa-opt:hover { color: var(--color-text); }
-
-.picker-a .pa-opt:active {
-  transform: translateY(1px) scale(0.96);
-}
-
-.picker-a .pa-opt.on {
-  color: var(--color-text);
-  font-weight: 600;
-}
-
-.picker-a .pa-opt::after {
-  content: '';
-  position: absolute;
-  left: 9px;
-  right: 9px;
-  bottom: 0;
-  height: 2px;
-  background: var(--color-text);
-  transform: scaleX(0);
-  transform-origin: center;
-  transition: transform 220ms var(--ease-out-quint);
-}
-
-.picker-a .pa-opt.on::after {
-  transform: scaleX(1);
-}
-
 /* ── Stats loading ── */
 .stats-loading {
   display: flex;
@@ -234,14 +139,8 @@
 .period-metric--channel { --c: var(--color-success); }
 
 @media (prefers-reduced-motion: reduce) {
-  .picker-a .pa-opt,
-  .picker-a .pa-opt::after,
   .period-metrics {
     transition: none;
-  }
-
-  .picker-a .pa-opt:active {
-    transform: none;
   }
 
   .period-metrics--fading-out,

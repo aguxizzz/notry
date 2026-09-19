@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Button, Loader } from '../../ui/components';
+import { Button, Loader, Select } from '../../ui/components';
 import '../../ui/components/Modal.css';
 
 /**
@@ -84,23 +84,19 @@ export default function AddProspectModal({
               maxLength={200}
               value={formData.name}
               onChange={e => handleFieldChange('name', e.target.value)}
+              autoComplete="off"
             />
           </div>
-          <div className="form-group">
-            <label htmlFor="prospect-lote">Lote</label>
-            <select
-              id="prospect-lote"
-              value={formData.lote_id}
-              onChange={e => handleFieldChange('lote_id', e.target.value)}
-            >
-              <option value="">Sin asignar</option>
-              {loteosList.map(lot => (
-                <option key={lot.id} value={lot.id}>
-                  {lot.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Select
+            id="prospect-lote"
+            label="Lote"
+            value={formData.lote_id}
+            onChange={e => handleFieldChange('lote_id', e.target.value)}
+            options={[
+              { value: '', label: 'Sin asignar' },
+              ...loteosList.map(lot => ({ value: String(lot.id), label: lot.name })),
+            ]}
+          />
           <div className="form-group">
             <label htmlFor="prospect-email">Correo electrónico</label>
             <input
@@ -110,6 +106,7 @@ export default function AddProspectModal({
               placeholder="ej: usuario@correo.com"
               value={formData.email}
               onChange={e => handleFieldChange('email', e.target.value)}
+              autoComplete="off"
             />
           </div>
           <div className="form-group">
@@ -121,21 +118,21 @@ export default function AddProspectModal({
               placeholder="ej: +52 55 1234 5678"
               value={formData.phone}
               onChange={e => handleFieldChange('phone', e.target.value)}
+              autoComplete="off"
             />
           </div>
-          <div className="form-group">
-            <label htmlFor="prospect-category">Categoría</label>
-            <select
-              id="prospect-category"
-              value={formData.category}
-              onChange={e => handleFieldChange('category', e.target.value)}
-            >
-              <option value="primer_contacto">Primer Contacto</option>
-              <option value="seguimiento">Seguimiento</option>
-              <option value="negociacion">Negociación</option>
-              <option value="vendido">Vendido</option>
-            </select>
-          </div>
+          <Select
+            id="prospect-category"
+            label="Categoría"
+            value={formData.category}
+            onChange={e => handleFieldChange('category', e.target.value)}
+            options={[
+              { value: 'primer_contacto', label: 'Primer Contacto' },
+              { value: 'seguimiento', label: 'Seguimiento' },
+              { value: 'negociacion', label: 'Negociación' },
+              { value: 'vendido', label: 'Vendido' },
+            ]}
+          />
           <div className="form-group">
             <label htmlFor="prospect-origin">Origen</label>
             <input

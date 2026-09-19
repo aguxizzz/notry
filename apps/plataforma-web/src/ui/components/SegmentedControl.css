@@ -57,6 +57,81 @@
 .segmented-control button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }
 .segmented-control button:disabled { cursor: not-allowed; opacity: .6; }
 
+/* ── Variante "underline" (picker editorial) ──
+   Fila única: label a la izquierda + opciones subrayadas a la derecha.
+   Sin card, sin pills, sin indicador deslizante — reusa los mismos tokens
+   de color (--segmented-text/--segmented-active-text) que la variante pill. */
+.segmented-control--underline {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  padding: var(--space-sm) var(--space-md);
+  border: 0;
+  border-top: 1px solid var(--color-border-warm);
+  border-bottom: 1px solid var(--color-border-warm);
+  border-radius: 0;
+  background: none;
+}
+
+.segmented-control--underline::before {
+  display: none;
+}
+
+.segmented-control__label {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--color-accent-dark);
+  text-transform: uppercase;
+  width: 74px;
+  flex: none;
+}
+
+.segmented-control__options {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.segmented-control__empty {
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  font-style: italic;
+  color: var(--segmented-text);
+  opacity: 0.7;
+}
+
+.segmented-control--underline button {
+  min-height: auto;
+  padding: 4px 9px;
+  border-radius: 0;
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+.segmented-control--underline button::after {
+  content: '';
+  position: absolute;
+  left: 9px;
+  right: 9px;
+  bottom: 0;
+  height: 2px;
+  background: var(--segmented-active-text);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 220ms var(--ease-out-quart);
+}
+
+.segmented-control--underline button.is-active::after {
+  transform: scaleX(1);
+}
+
 @media (max-width: 720px) {
   .segmented-control--stack-mobile { grid-template-columns: 1fr; }
 
@@ -71,5 +146,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .segmented-control::before,
-  .segmented-control button { transition: none; }
+  .segmented-control button,
+  .segmented-control--underline button::after { transition: none; }
 }

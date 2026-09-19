@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { patchLot } from '../api/lots';
 import { API_BASE } from '../config';
-import { MAX_LOT_AREA_M2, MAX_LOT_PRICE } from '../ui/forms/lotFields';
+import { MAX_LOT_AREA_M2, MAX_LOT_COMMENTS_LENGTH, MAX_LOT_PRICE } from '../ui/forms/lotFields';
 
 export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot, loteOwnerId, addActivity }) {
   const [editLotModalOpen, setEditLotModalOpen] = useState(false);
@@ -82,6 +82,9 @@ export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot, loteOwnerId,
     }
     if (!editLotForm.status) {
       return 'El estado es requerido';
+    }
+    if (editLotForm.comments?.length > MAX_LOT_COMMENTS_LENGTH) {
+      return `Las observaciones no pueden superar los ${MAX_LOT_COMMENTS_LENGTH} caracteres`;
     }
     return null;
   };

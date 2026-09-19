@@ -14,6 +14,7 @@ import LoteoSelector from './analisis/LoteoSelector';
 import TopLotsPanel from './analisis/TopLotsPanel';
 import HeatmapCard from './analisis/HeatmapCard';
 import FunnelCard from './analisis/FunnelCard';
+import EngagementCard from './analisis/EngagementCard';
 import './views/AnalisisView.css';
 
 export default function AnalisisView({
@@ -33,6 +34,9 @@ export default function AnalisisView({
   cachedFunnel = {},
   funnelLoadingIds = new Set(),
   onRequestFunnel,
+  cachedEngagement = {},
+  engagementLoadingIds = new Set(),
+  onRequestEngagement,
   orgPhone = null,
 }) {
   const [loteos, setLoteos] = useState(prefetchedLoteos);
@@ -86,6 +90,12 @@ export default function AnalisisView({
     if (!cachedFunnel[funnelKey]) onRequestFunnel?.(selectedLoteo.id, analisisLastDays, selectedChannel);
   }, [funnelKey]);
 
+  const engagementKey = selectedLoteo ? `${selectedLoteo.id}:${analisisLastDays}` : null;
+  useEffect(() => {
+    if (!selectedLoteo) return;
+    if (!cachedEngagement[engagementKey]) onRequestEngagement?.(selectedLoteo.id, analisisLastDays);
+  }, [engagementKey]);
+
   const fetchLoteos = async () => {
     setLoteosLoading(true);
     setLoteosError(null);
@@ -103,6 +113,8 @@ export default function AnalisisView({
   const reportStats = cachedReports[analisisLastDays] ?? null;
   const funnelStats = cachedFunnel[funnelKey] ?? null;
   const isLoadingFunnel = !!(funnelKey && funnelLoadingIds.has(funnelKey));
+  const engagementStats = cachedEngagement[engagementKey] ?? null;
+  const isLoadingEngagement = !!(engagementKey && engagementLoadingIds.has(engagementKey));
   const clicksData = cachedClicks[selectedLoteo?.id] ?? [];
   const visorData = cachedVisorData[selectedLoteo?.id] ?? null;
   const isLoadingClicks = selectedLoteo?.id && clicksLoadingIds.has(selectedLoteo.id);
@@ -211,6 +223,13 @@ export default function AnalisisView({
               hasWhatsapp={Boolean(orgPhone)}
               selectedChannel={selectedChannel}
               onChannelChange={setSelectedChannel}
+            />
+
+            <EngagementCard
+              selectedLoteo={selectedLoteo}
+              engagementStats={engagementStats}
+              analisisLastDays={analisisLastDays}
+              isLoading={isLoadingEngagement}
             />
           </>
         )}

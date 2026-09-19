@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import './TeamPanel.css';
 import '../ui/components/Modal.css';
-import { Phone, Pencil, UserPlus, Trash2, User, Link2, Copy, Check, MessageCircle, Clock, Building2 } from 'lucide-react';
+import { UserPlus, Trash2, User, Link2, Copy, Check, MessageCircle, Clock } from 'lucide-react';
 import { Select, Button, Panel } from '../ui/components';
 import ConfirmModal from './ConfirmModal';
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 import { createInvite, fetchInvites, revokeInvite, buildInviteUrl, removeMember, updateOrg, updateMemberRole } from '../api/organizations';
 import {
   ORG_ROLE_LABELS,
@@ -18,7 +19,7 @@ function daysUntil(iso) {
   return Math.max(0, Math.ceil(diff / 86_400_000));
 }
 
-export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, setOrg }) {
+export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, setOrg, orgRole }) {
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [inviteForm, setInviteForm] = useState({ email: '', full_name: '', role: 'member' });
   const [inviting, setInviting] = useState(false);
@@ -33,44 +34,45 @@ export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, s
   const [inviteToRevoke, setInviteToRevoke] = useState(null);
   const [revoking, setRevoking] = useState(false);
 
-  const isOwner = user?.org_role === 'owner';
-  const canEditOrg = CAN_EDIT_ORG_ROLES.includes(user?.org_role);
+  // orgRole: rol efectivo sobre la org activa (prop, ver App.jsx). Para
+  // super_admin operando una org ajena vía el OrgSwitcher, user.org_role es
+  // siempre null (no tiene membership propia) — sin este override, la sección
+  // de equipo quedaría sin acciones de owner para cualquier org que administre.
+  const effectiveOrgRole = orgRole ?? user?.org_role;
+  const isOwner = effectiveOrgRole === 'owner';
+  const canEditOrg = CAN_EDIT_ORG_ROLES.includes(effectiveOrgRole);
 
-  // Datos de la organización (nombre + WhatsApp): edición por sección, un solo Guardar.
+  // Datos de la organización (nombre + WhatsApp): siempre editables para quien
+  // puede editarlos; se guardan al cerrar Configuración (ver useUnsavedChanges).
   const phone = org?.phone ?? '';
   const orgName = org?.org_name ?? '';
-  const [orgEditing, setOrgEditing] = useState(false);
   const [orgNameDraft, setOrgNameDraft] = useState(orgName);
   const [phoneDraft, setPhoneDraft] = useState(phone);
-  const [orgSaving, setOrgSaving] = useState(false);
 
-  // Sincroniza los drafts con los datos externos mientras no se está editando.
-  useEffect(() => {
-    if (!orgEditing) { setOrgNameDraft(orgName); setPhoneDraft(phone); }
-  }, [orgName, phone, orgEditing]);
+  // Sincroniza los drafts cuando cambian los datos externos (carga inicial, guardado).
+  useEffect(() => { setOrgNameDraft(orgName); setPhoneDraft(phone); }, [orgName, phone]);
 
-  function startOrgEdit() { setOrgNameDraft(orgName); setPhoneDraft(phone); setOrgEditing(true); }
-  function cancelOrgEdit() { setOrgNameDraft(orgName); setPhoneDraft(phone); setOrgEditing(false); }
+  const orgDirty = canEditOrg && (orgNameDraft.trim() !== orgName || phoneDraft.trim() !== phone);
 
-  async function handleSaveOrg() {
+  async function saveOrg() {
     const nextName = orgNameDraft.trim();
     const nextPhone = phoneDraft.trim();
-    if (!nextName) { addToast?.('El nombre de la organización no puede quedar vacío', 'error'); return; }
-    if (nextName === orgName && nextPhone === phone) { setOrgEditing(false); return; }
+    if (nextName === orgName && nextPhone === phone) return true;
+    if (!nextName) { addToast?.('El nombre de la organización no puede quedar vacío', 'error'); return false; }
     const prev = { org_name: orgName, phone };
-    setOrgSaving(true);
     setOrg(o => ({ ...o, org_name: nextName, phone: nextPhone || null }));
     try {
       await updateOrg({ apiFetch, org_name: nextName, phone: nextPhone || null });
       addToast?.('Organización actualizada', 'success');
-      setOrgEditing(false);
+      return true;
     } catch (err) {
       setOrg(o => ({ ...o, org_name: prev.org_name, phone: prev.phone }));
       addToast?.(err.message || 'No se pudo actualizar la organización', 'error');
-    } finally {
-      setOrgSaving(false);
+      return false;
     }
   }
+
+  useUnsavedChanges('org', { dirty: orgDirty, save: saveOrg });
 
   // Las invitaciones pendientes solo las puede ver/gestionar el owner.
   useEffect(() => {
@@ -184,43 +186,22 @@ export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, s
     <Panel as="section" className="cfg-card team-panel" flush>
       <div className="cfg-card-head">
         <div className="cfg-card-head-title">
-          <span className="cfg-card-badge"><Building2 size={16} /></span>
-          <h3>Organización</h3>
+          <h3>Datos de la organización</h3>
         </div>
-        {canEditOrg && (!orgEditing ? (
-          <Button type="button" variant="outline" size="sm" onClick={startOrgEdit}>
-            <Pencil size={14} /> Editar
-          </Button>
-        ) : (
-          <div className="cfg-head-actions">
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleSaveOrg}
-              disabled={orgSaving || !orgNameDraft.trim()}
-            >
-              {orgSaving ? 'Guardando...' : 'Guardar'}
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={cancelOrgEdit} disabled={orgSaving}>
-              Cancelar
-            </Button>
-          </div>
-        ))}
       </div>
 
       <div className="cfg-card-body">
         <div className="cfg-fields">
           <div className="cfg-field">
-            <span className="cfg-field-label">Nombre</span>
-            {orgEditing ? (
+            <label className="cfg-field-label" htmlFor="org-name">Nombre</label>
+            {canEditOrg ? (
               <input
+                id="org-name"
                 className="cfg-input"
                 type="text"
                 value={orgNameDraft}
                 onChange={e => setOrgNameDraft(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') handleSaveOrg(); if (e.key === 'Escape') cancelOrgEdit(); }}
-                disabled={orgSaving}
-                autoFocus
+                autoComplete="off"
               />
             ) : (
               <span className={`cfg-field-value ${org?.org_name ? '' : 'is-empty'}`}>
@@ -230,19 +211,20 @@ export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, s
           </div>
 
           <div className="cfg-field">
-            <span className="cfg-field-label">
-              <Phone size={13} /> WhatsApp
+            <label className="cfg-field-label" htmlFor="org-phone">
+              WhatsApp
               <span className="cfg-field-note">— botón del visor público</span>
-            </span>
-            {orgEditing ? (
+            </label>
+            {canEditOrg ? (
               <input
+                id="org-phone"
                 className="cfg-input"
                 type="tel"
                 inputMode="tel"
                 placeholder="+54 9 11 1234-5678"
                 value={phoneDraft}
                 onChange={e => setPhoneDraft(e.target.value)}
-                disabled={orgSaving}
+                autoComplete="off"
               />
             ) : (
               <span className={`cfg-field-value ${phone ? '' : 'is-empty'}`}>
@@ -253,7 +235,7 @@ export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, s
         </div>
 
         <div className="cfg-block team-members-section">
-          <span className="cfg-section-label">Miembros de la organización</span>
+          <h3 className="cfg-section-title">Miembros de la organización</h3>
           <div className="team-members-list">
         {org?.members?.map(member => {
           const RoleIcon = ORG_ROLE_ICONS[member.role] ?? User;
@@ -278,6 +260,7 @@ export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, s
                   options={ORG_ROLE_OPTIONS}
                   disabled={updatingRoleId === member.user_id}
                   className="team-member-role-picker"
+                  size="sm"
                 />
               ) : (
                 <div className={`team-member-role team-member-role--${member.role}`}>
@@ -304,7 +287,7 @@ export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, s
         {/* Invitaciones pendientes (aún no aceptadas) */}
         {isOwner && (invitesLoading || invites.length > 0) && (
         <div className="cfg-block team-invites-section">
-          <span className="cfg-section-label">Invitaciones pendientes</span>
+          <h3 className="cfg-section-title">Invitaciones pendientes</h3>
           {invitesLoading ? (
             <div className="team-invites-loading">Cargando invitaciones...</div>
           ) : (
@@ -369,6 +352,7 @@ export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, s
                   value={inviteForm.full_name}
                   onChange={e => setInviteForm(f => ({ ...f, full_name: e.target.value }))}
                   required
+                  autoComplete="off"
                 />
               </div>
               <div className="form-group">
@@ -381,6 +365,7 @@ export default function TeamPanel({ user, apiFetch, addToast, org, orgLoading, s
                   value={inviteForm.email}
                   onChange={e => setInviteForm(f => ({ ...f, email: e.target.value }))}
                   required
+                  autoComplete="off"
                 />
               </div>
               <Select

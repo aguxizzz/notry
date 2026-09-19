@@ -18,9 +18,8 @@ import {
   fmtInt,
   fmtMoney,
 } from '../inventory/inventoryStats';
-import { useWheelToHorizontal } from '../inventory/useWheelToHorizontal';
 import StateRing from '../inventory/StateRing';
-import DonutCard from '../inventory/DonutCard';
+import SalesVelocityChart from '../inventory/SalesVelocityChart';
 import AlertCard from '../inventory/AlertCard';
 import InventarioControls from '../inventory/InventarioControls';
 import LoteosTable from '../inventory/LoteosTable';
@@ -60,9 +59,9 @@ export default function InventarioView({
   onOpenCreateLoteoModal,
   onOpenEditLoteoModal,
   onOpenDeleteLoteoDialog,
+  onOpenLoteoServices,
   onOpenEditor,
   safeOpen,
-  onOpenShareLoteo,
   allProspectosList,
   onNavigateToProspect,
   contractsState,
@@ -169,8 +168,6 @@ export default function InventarioView({
     setAttentionFilter(ruleKey);
   };
 
-  const dgridRef = useWheelToHorizontal();
-  const donuts = stats.distribution.slice(0, 12);
   const priceBars = stats.distribution
     .filter(d => d.avgPrice > 0)
     .sort((a, b) => b.avgPrice - a.avgPrice)
@@ -314,9 +311,9 @@ export default function InventarioView({
                 loading={inventoryLoteosLoading}
                 onEditLoteo={onOpenEditLoteoModal}
                 onDeleteLoteo={onOpenDeleteLoteoDialog}
+                onOpenLoteoServices={onOpenLoteoServices}
                 onSafeOpen={safeOpen}
                 onOpenEditor={onOpenEditor}
-                onOpenShareLoteo={onOpenShareLoteo}
               />
             )}
           </ErrorBoundary>
@@ -360,30 +357,17 @@ export default function InventarioView({
             </Panel>
         </div>
 
-        {/* Distribución por loteo */}
-        {donuts.length > 0 && (
-            <Panel as="section" className="inv-mod">
-              <SectionHeader
-                tier="aside"
-                className="inv-mod-head"
-                eyebrow="Ocupación"
-                title="Distribución por loteo"
-                sub="Estado de los lotes en cada loteo"
-                actions={
-                  <div className="inv-dlegend">
-                    <span className="inv-lk" style={{ '--c': 'var(--badge-available)' }}><span className="inv-lk-d" />Disp.</span>
-                    <span className="inv-lk" style={{ '--c': 'var(--color-stat-reserved)' }}><span className="inv-lk-d" />Res.</span>
-                    <span className="inv-lk" style={{ '--c': 'var(--badge-sold)' }}><span className="inv-lk-d" />Vend.</span>
-                  </div>
-                }
-              />
-              <div className="inv-dgrid" ref={dgridRef}>
-                {donuts.map(d => (
-                  <DonutCard key={d.name} name={d.name} total={d.total} available={d.available} reserved={d.reserved} sold={d.sold} unavailable={d.unavailable} availablePct={d.availablePct} />
-                ))}
-              </div>
-            </Panel>
-        )}
+        {/* Velocidad de venta */}
+        <Panel as="section" className="inv-mod">
+          <SectionHeader
+            tier="aside"
+            className="inv-mod-head"
+            eyebrow="Ritmo"
+            title="Velocidad de venta"
+            sub="Lotes vendidos por mes"
+          />
+          <SalesVelocityChart months={stats.monthlySales} />
+        </Panel>
 
         {/* Precio promedio */}
         <Panel as="section" className="inv-mod">

@@ -38,12 +38,14 @@ export async function createLoteo({ apiFetch, createLoteoForm, setCreateLoteoLoa
         panorama_width: createLoteoForm.panorama_width || undefined,
         panorama_height: createLoteoForm.panorama_height || undefined,
         blueprint_url: createLoteoForm.blueprint_url,
+        latitude: createLoteoForm.latitude !== '' ? parseFloat(createLoteoForm.latitude) : undefined,
+        longitude: createLoteoForm.longitude !== '' ? parseFloat(createLoteoForm.longitude) : undefined,
         text_annotations: [],
       }),
     });
     onAddLoteo?.(res);
     setCreateLoteoOpen(false);
-    setCreateLoteoForm({ name: '', slug: '', image_url: '', thumbnail_url: '', blueprint_url: '', panorama_width: null, panorama_height: null });
+    setCreateLoteoForm({ name: '', slug: '', image_url: '', thumbnail_url: '', blueprint_url: '', panorama_width: null, panorama_height: null, latitude: '', longitude: '' });
     if (res?.id) {
       logActivity({ apiFetch, activityType: 'loteo_created', entityType: 'loteo', entityId: res.id, loteOwnerId, description: `Loteo "${res.name}" creado`, name: res.name, addActivity });
     }
@@ -58,6 +60,18 @@ export async function createLoteo({ apiFetch, createLoteoForm, setCreateLoteoLoa
 export async function deleteLoteo({ apiFetch, loteoId, loteoName, loteOwnerId, addActivity }) {
   logActivity({ apiFetch, activityType: 'loteo_deleted', entityType: 'loteo', entityId: loteoId, loteOwnerId, description: `Loteo "${loteoName}" eliminado`, name: loteoName, addActivity });
   await apiFetch(`${API_BASE}/loteos/${loteoId}`, { method: 'DELETE' });
+}
+
+export async function saveLoteoServices({ apiFetch, loteoId, loteoName, services, addToast, onUpdateLoteo, loteOwnerId, addActivity }) {
+  const res = await apiFetch(`${API_BASE}/loteos/${loteoId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ services }),
+  });
+  onUpdateLoteo?.(loteoId, { services });
+  logActivity({ apiFetch, activityType: 'loteo_updated', entityType: 'loteo', entityId: loteoId, loteOwnerId, description: `Servicios de "${loteoName}" actualizados`, name: loteoName, addActivity });
+  addToast?.('Servicios actualizados.', 'success');
+  return res;
 }
 
 export async function saveEditLoteo({ apiFetch, editingLoteoId, editLoteoForm, addToast, setEditLoteoLoading, setEditLoteoError, setEditLoteoClosing, setEditLoteoOpen, setEditingLoteoId, onUpdateLoteo, loteOwnerId, addActivity }) {
@@ -78,6 +92,8 @@ export async function saveEditLoteo({ apiFetch, editingLoteoId, editLoteoForm, a
         previous_panorama_width: editLoteoForm.previous_panorama_width || undefined,
         previous_panorama_height: editLoteoForm.previous_panorama_height || undefined,
         blueprint_url: editLoteoForm.blueprint_url,
+        latitude: editLoteoForm.latitude !== '' ? parseFloat(editLoteoForm.latitude) : undefined,
+        longitude: editLoteoForm.longitude !== '' ? parseFloat(editLoteoForm.longitude) : undefined,
       }),
     });
     onUpdateLoteo?.(editingLoteoId, editLoteoForm);

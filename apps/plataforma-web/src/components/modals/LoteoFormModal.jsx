@@ -65,6 +65,7 @@ export default function LoteoFormModal({
               required
               value={formData.name}
               onChange={e => onFieldChange('name', e.target.value)}
+              autoComplete="off"
             />
           </div>
           <div className="form-group">
@@ -75,6 +76,7 @@ export default function LoteoFormModal({
               required
               value={formData.slug}
               onChange={e => onFieldChange('slug', e.target.value)}
+              autoComplete="off"
             />
           </div>
           <div className="form-group">
@@ -103,6 +105,28 @@ export default function LoteoFormModal({
               uploadFn={uploadFn}
               onUploadEvent={onUploadEvent}
               kind="plano"
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor={isCreate ? 'loteo-latitude' : 'edit-loteo-latitude'}>Latitud</label>
+            <input
+              id={isCreate ? 'loteo-latitude' : 'edit-loteo-latitude'}
+              type="number"
+              step="any"
+              value={formData.latitude}
+              onChange={e => onFieldChange('latitude', e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor={isCreate ? 'loteo-longitude' : 'edit-loteo-longitude'}>Longitud</label>
+            <input
+              id={isCreate ? 'loteo-longitude' : 'edit-loteo-longitude'}
+              type="number"
+              step="any"
+              value={formData.longitude}
+              onChange={e => onFieldChange('longitude', e.target.value)}
+              autoComplete="off"
             />
           </div>
           {error && (

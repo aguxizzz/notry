@@ -9,11 +9,27 @@ export async function fetchOrganizations({ apiFetch }) {
   return apiFetch(`${API_BASE}/organizations`);
 }
 
-export async function createInvite({ apiFetch, email, full_name, role }) {
+export async function createInvite({ apiFetch, email, full_name, role, orgId }) {
   return apiFetch(`${API_BASE}/organizations/invites`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      // Override puntual: usado por CreateOrgPanel para invitar al primer
+      // owner de una org recién creada sin depender de cuál sea la org
+      // activa del super_admin en ese momento (evita una carrera de estado).
+      ...(orgId ? { 'X-Active-Org-Id': orgId } : {}),
+    },
     body: JSON.stringify({ email, full_name, role }),
+  });
+}
+
+// Solo super_admin: crea una organización nueva sin owner todavía. El alta
+// del primer usuario se hace aparte con createInvite (orgId: org.org_id).
+export async function createOrganization({ apiFetch, org_name, plan }) {
+  return apiFetch(`${API_BASE}/organizations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ org_name, plan }),
   });
 }
 
@@ -31,6 +47,13 @@ export async function updateOrg({ apiFetch, phone, org_name, cement_bag_rate_ars
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+  });
+}
+
+// Solo owner: borra los datos de medición (embudo, clicks por lote) de la org. Irreversible.
+export async function resetOrgAnalytics({ apiFetch }) {
+  return apiFetch(`${API_BASE}/organizations/me/analytics/reset`, {
+    method: 'POST',
   });
 }
 

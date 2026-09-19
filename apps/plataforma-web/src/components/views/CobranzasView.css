@@ -15,8 +15,7 @@
   min-width: 0;
 }
 
-.cobranzas-view input,
-.cobranzas-view select {
+.cobranzas-view input {
   font: inherit;
 }
 
@@ -271,9 +270,7 @@
 }
 
 .cob-due-select .select-trigger {
-  min-height: 40px;
   border-color: var(--cob-line);
-  border-radius: var(--radius-lg);
   background: var(--cob-paper);
   color: var(--cob-ink);
   font-size: 0.75rem;
@@ -451,15 +448,12 @@
 .cob-contract-table .cob-contract-table-row {
   cursor: pointer;
   outline: 0;
-  transition:
-    background var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out);
+  transition: background var(--duration-fast) var(--ease-out);
 }
 
 .cob-contract-table .cob-contract-table-row:hover,
 .cob-contract-table .cob-contract-table-row:focus-visible {
   background: var(--hover-surface-bg);
-  box-shadow: inset 3px 0 var(--accent-color);
 }
 
 .cob-contract-table .cob-contract-table-row > td {
@@ -843,7 +837,6 @@
 }
 
 .cob-installment-row.is-current {
-  box-shadow: inset 3px 0 0 var(--accent-color);
   background: color-mix(in srgb, var(--accent-color) 8%, var(--cob-paper));
 }
 
@@ -1110,8 +1103,7 @@
   font-weight: var(--weight-regular);
 }
 
-.cob-field input:not([type="checkbox"]),
-.cob-field select {
+.cob-field input:not([type="checkbox"]) {
   width: 100%;
   height: 42px;
   padding: 0 12px;
@@ -1126,12 +1118,7 @@
     box-shadow var(--duration-fast) var(--ease-out);
 }
 
-.cob-field select {
-  cursor: pointer;
-}
-
-.cob-field input:not([type="checkbox"]):focus,
-.cob-field select:focus {
+.cob-field input:not([type="checkbox"]):focus {
   border-color: var(--accent-color);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 16%, transparent);
 }
@@ -1154,8 +1141,7 @@
   transform: scale(1.08);
 }
 
-.cob-field input:disabled,
-.cob-field select:disabled {
+.cob-field input:disabled {
   opacity: 0.58;
   cursor: not-allowed;
 }
@@ -1752,6 +1738,35 @@
 
   .cob-payment-panel {
     position: static;
+  }
+}
+
+/* La columna Avance es la primera en no entrar cómoda al reducir el ancho
+   (rompía en la práctica a 1220px). A diferencia de Lotes/Loteos/Clientes acá
+   no hace falta un panel expandido ni un bottom sheet para no perder el dato:
+   clickear la fila ya abre el detalle completo del contrato (con el avance
+   ahí adentro), así que alcanza con ocultar la columna directamente. */
+@media (max-width: 1220px) {
+  .cob-th-progress,
+  .cob-contract-progress {
+    display: none;
+  }
+
+  .cob-contract-table {
+    min-width: 760px;
+  }
+}
+
+/* Mismo criterio que Avance: el detalle del contrato ya muestra la próxima
+   cuota, así que por debajo de 1056px alcanza con ocultar la columna acá. */
+@media (max-width: 1056px) {
+  .cob-th-due,
+  .cob-contract-due {
+    display: none;
+  }
+
+  .cob-contract-table {
+    min-width: 560px;
   }
 }
 

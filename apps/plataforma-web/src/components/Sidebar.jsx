@@ -6,18 +6,18 @@ import {
   BarChart2,
   Menu,
   X,
-  Layers,
   CreditCard,
+  Share2,
 } from 'lucide-react';
 import { PLATFORM_ROLE_LABELS } from '../constants/roles';
 import logo from '../assets/logo-paseo-berlin.png';
 import OrgSwitcher from './OrgSwitcher';
 import './Sidebar.css';
 
-const Sidebar = ({ user, activeItem, onItemClick, onOpenAccount, isOpen, onToggle, apiFetch, activeOrgId, onChangeOrg, isVisorOnly }) => {
+const Sidebar = ({ user, activeItem, onItemClick, onOpenAccount, onOpenShare, shareDisabledReason, isOpen, onToggle, apiFetch, activeOrgId, onChangeOrg, orgListVersion, isVisorOnly }) => {
   const isSuperAdmin = user?.role === 'super_admin';
   const firstLetter = user?.full_name?.charAt(0).toUpperCase() || '?';
-  const roleLabel = PLATFORM_ROLE_LABELS[user?.role] || 'Cuenta';
+  const roleLabel = PLATFORM_ROLE_LABELS[user?.role];
   const nameWords = user?.full_name?.trim().split(/\s+/) || [];
   const displayName = nameWords.length >= 3 ? nameWords.slice(0, 2).join(' ') : user?.full_name || 'Mi cuenta';
 
@@ -43,13 +43,6 @@ const Sidebar = ({ user, activeItem, onItemClick, onOpenAccount, isOpen, onToggl
         ]),
       ],
     },
-    {
-      id: 'organizacion',
-      label: 'Organización',
-      items: [
-        { id: 'proyectos', label: 'Proyectos', icon: <Layers size={20} /> },
-      ],
-    },
   ];
 
   return (
@@ -59,7 +52,7 @@ const Sidebar = ({ user, activeItem, onItemClick, onOpenAccount, isOpen, onToggl
           {isOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
         {isSuperAdmin ? (
-          <OrgSwitcher apiFetch={apiFetch} activeOrgId={activeOrgId} onChangeOrg={onChangeOrg} />
+          <OrgSwitcher apiFetch={apiFetch} activeOrgId={activeOrgId} onChangeOrg={onChangeOrg} orgListVersion={orgListVersion} />
         ) : (
           <img src={logo} alt="Paseo Berlín" className="sidebar-logo" />
         )}
@@ -97,11 +90,21 @@ const Sidebar = ({ user, activeItem, onItemClick, onOpenAccount, isOpen, onToggl
       </nav>
 
       <div className="sidebar-bottom">
+        <button
+          type="button"
+          onClick={onOpenShare}
+          className="sidebar-item sidebar-share"
+          disabled={Boolean(shareDisabledReason)}
+          title={shareDisabledReason || undefined}
+        >
+          <span className="sidebar-icon"><Share2 size={20} /></span>
+          <span className="sidebar-label">Compartir visor</span>
+        </button>
         <button onClick={onOpenAccount} className="sidebar-item account-item">
           <div className="user-avatar user-avatar--sm">{firstLetter}</div>
           <div className="sidebar-user-meta">
             <span className="sidebar-user-name">{displayName}</span>
-            <span className="sidebar-user-role">{roleLabel}</span>
+            {roleLabel && <span className="sidebar-user-role">{roleLabel}</span>}
           </div>
         </button>
       </div>

@@ -18,3 +18,4 @@ export { default as SegmentRing } from './SegmentRing';
 export { default as SegmentedControl } from './SegmentedControl';
 export { default as SummaryBand, SummaryMetric } from './SummaryBand';
 export { default as EditEntityModal } from './EditEntityModal';
+export { default as RowActionsSheet } from './RowActionsSheet';

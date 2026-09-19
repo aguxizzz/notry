@@ -1,4 +1,4 @@
-import { Loader } from '../../ui/components';
+import { Loader, SegmentedControl } from '../../ui/components';
 import { CHANNEL_DISPLAY } from '../../constants/display';
 import './PeriodSelector.css';
 
@@ -30,27 +30,14 @@ export default function PeriodSelector({
         </div>
       </div>
 
-      <div
-        className="picker-a picker-a-host"
-        role="group"
-        aria-label="Seleccionar período de análisis"
-      >
-        <span className="pa-lbl">Período</span>
-        <div className="pa-opts">
-          {TIME_OPTIONS.map((d) => (
-            <button
-              key={d}
-              type="button"
-              className={`pa-opt${analisisLastDays === d ? ' on' : ''}`}
-              onClick={() => onAnalisisLastDaysChange?.(d)}
-              aria-pressed={analisisLastDays === d}
-              aria-label={`Últimos ${d} días`}
-            >
-              {d}d
-            </button>
-          ))}
-        </div>
-      </div>
+      <SegmentedControl
+        variant="underline"
+        label="Período"
+        ariaLabel="Seleccionar período de análisis"
+        value={analisisLastDays}
+        onChange={(d) => onAnalisisLastDaysChange?.(d)}
+        options={TIME_OPTIONS.map(d => ({ value: d, label: `${d}d`, ariaLabel: `Últimos ${d} días` }))}
+      />
 
       {!reportStats ? (
         <div className="stats-loading">

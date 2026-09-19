@@ -1,5 +1,6 @@
 export const MAX_LOT_AREA_M2 = 99999999.99;
 export const MAX_LOT_PRICE = 9999999999.99;
+export const MAX_LOT_COMMENTS_LENGTH = 2000;
 
 export const getLotFields = (loteos = []) => [
   {
@@ -54,5 +55,6 @@ export const getLotFields = (loteos = []) => [
     label: 'Observaciones',
     type: 'textarea',
     placeholder: 'Notas u observaciones sobre el lote...',
+    maxLength: MAX_LOT_COMMENTS_LENGTH,
   },
 ];

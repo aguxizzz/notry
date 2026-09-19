@@ -10,9 +10,7 @@ import { useState } from 'react';
 export function useProspects() {
   const [prospectosSearch, setProspectosSearch] = useState('');
   const [prospectosCategoryFilter, setProspectosCategoryFilter] = useState('');
-  const [prospectosWithoutAdvisor, setProspectosWithoutAdvisor] = useState(false);
-  const [advisorsList, setAdvisorsList] = useState([]);
-  const [advisorsLoading, setAdvisorsLoading] = useState(false);
+  const [advisorsList] = useState([]);
 
   return {
     // State
@@ -20,11 +18,6 @@ export function useProspects() {
     setProspectosSearch,
     prospectosCategoryFilter,
     setProspectosCategoryFilter,
-    prospectosWithoutAdvisor,
-    setProspectosWithoutAdvisor,
     advisorsList,
-    setAdvisorsList,
-    advisorsLoading,
-    setAdvisorsLoading,
   };
 }

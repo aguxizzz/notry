@@ -293,8 +293,7 @@
   color: var(--text-muted);
 }
 
-.form-group input,
-.form-group select {
+.form-group input {
   width: 100%;
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
@@ -307,17 +306,26 @@
               box-shadow var(--duration-fast) var(--ease-out);
 }
 
-.form-group input:focus,
-.form-group select:focus {
+.form-group input:focus {
   outline: none;
   border-color: var(--accent-color);
   box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.15);
 }
 
-.form-group input:disabled,
-.form-group select:disabled {
+.form-group input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.form-group input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.form-group input[type="number"]::-webkit-outer-spin-button,
+.form-group input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .form-error {

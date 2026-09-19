@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { Fragment, useEffect, useMemo, useState } from 'react';
 import {
   Clock3,
   Pencil,
@@ -17,6 +17,7 @@ import {
   PageHeader,
   PageLayout,
   Panel,
+  RowActionsSheet,
   SearchField,
   SectionHeader,
   Select,
@@ -30,6 +31,7 @@ import NeglectedProspectsPanel from '../NeglectedProspectsPanel';
 import ActivityFeed from '../ActivityFeed';
 import ShellLayout from '../ShellLayout';
 import { useTableSort } from '../../hooks/useTableSort';
+import { useRowActionsMode } from '../../hooks/useRowActionsMode';
 import { CATEGORY_DISPLAY, ORIGIN_DISPLAY, formatDate } from '../../constants';
 import { daysSinceContact, NEGLECTED_THRESHOLD_DAYS } from '../../utils/prospects';
 import { ACTIVITY_SCOPES, getActivityTypesForScope } from '../../constants/activityTypes';
@@ -142,8 +144,6 @@ function ProspectosFilters({
   onSearchChange,
   categoryFilter,
   onCategoryChange,
-  withoutAdvisor,
-  onWithoutAdvisorChange,
 }) {
   return (
     <DataToolbar className="inventory-controls cli-toolbar">
@@ -168,24 +168,28 @@ function ProspectosFilters({
             })),
           ]}
         />
-        <label className="filter-toggle" htmlFor="filter-no-advisor">
-          <input
-            id="filter-no-advisor"
-            type="checkbox"
-            checked={withoutAdvisor}
-            onChange={e => onWithoutAdvisorChange(e.target.checked)}
-          />
-          Sin asesor
-        </label>
       </div>
     </DataToolbar>
   );
 }
 
 function ProspectosTable({ prospectos, filteredProspectos, onEditProspect, onDeleteProspect, onUpdateContact, highlightedProspectId }) {
+  const [expandedProspectId, setExpandedProspectId] = useState(null);
+  const [sheetProspect, setSheetProspect] = useState(null);
+  const mode = useRowActionsMode();
   const baseData = filteredProspectos ?? prospectos;
   const { sort, handleSort, sorted, pageData, fillerRows, page, setPage, totalPages, total } =
     useTableSort(baseData, PROSPECT_SORT_ACCESSORS, { perPage: PROSPECTS_PER_PAGE });
+
+  const handleRowClick = (e, p) => {
+    if (mode === 'inline') return;
+    if (e.target.closest('button, a')) return;
+    if (mode === 'drawer') {
+      setSheetProspect(p);
+      return;
+    }
+    setExpandedProspectId(prev => (prev === p.id ? null : p.id));
+  };
 
   // Al resaltar un prospecto (ej. navegando desde un lote), saltar primero a la
   // página que lo contiene y recién ahí hacer scroll + highlight de la fila.
@@ -213,12 +217,12 @@ function ProspectosTable({ prospectos, filteredProspectos, onEditProspect, onDel
         <thead>
           <tr>
             <SortHeader label="Nombre" sortKey="name" sort={sort} onSort={handleSort} />
-            <SortHeader label="Email" sortKey="email" sort={sort} onSort={handleSort} />
-            <SortHeader label="Teléfono" sortKey="phone" sort={sort} onSort={handleSort} />
+            <SortHeader label="Email" sortKey="email" sort={sort} onSort={handleSort} className="th-secondary" />
+            <SortHeader label="Teléfono" sortKey="phone" sort={sort} onSort={handleSort} className="th-secondary" />
             <SortHeader label="Categoría" sortKey="category" sort={sort} onSort={handleSort} />
-            <SortHeader label="Origen" sortKey="origin" sort={sort} onSort={handleSort} />
+            <SortHeader label="Origen" sortKey="origin" sort={sort} onSort={handleSort} className="th-secondary" />
             <SortHeader label="Último Contacto" sortKey="last_contact" sort={sort} onSort={handleSort} />
-            <th scope="col">Acciones</th>
+            <th scope="col" className="th-actions">Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -228,53 +232,151 @@ function ProspectosTable({ prospectos, filteredProspectos, onEditProspect, onDel
             </tr>
           ) : (
             <>
-            {pageData.map(p => (
-              <tr key={p.id} id={`prospect-row-${p.id}`}>
-                <td className="td-name">{p.name}</td>
-                <td className="td-muted">{p.email || '—'}</td>
-                <td className="td-muted">{p.phone || '—'}</td>
-                <td>
-                  <span className={`badge category-${p.category}`}>
-                    {CATEGORY_DISPLAY[p.category] ?? p.category?.replace(/_/g, ' ')}
-                  </span>
-                </td>
-                <td className="td-muted">
-                  {ORIGIN_DISPLAY[p.origin] ?? '—'}
-                </td>
-                <td className="td-muted">
-                  <div className="last-contact-cell">
-                    <span>{formatDate(p.last_contact)}</span>
-                    <CommentTooltip content={p.observation_notes} label="Observaciones" entityName={p.name} />
-                  </div>
-                </td>
-                <td className="td-actions">
-                  <button
-                    className="action-btn update"
-                    onClick={() => onUpdateContact(p.id, p.name)}
-                    title="Actualizar Contacto"
-                    aria-label={`Actualizar contacto ${p.name}`}
+            {pageData.map(p => {
+              const categoryBadge = (
+                <span className={`badge category-${p.category}`}>
+                  {CATEGORY_DISPLAY[p.category] ?? p.category?.replace(/_/g, ' ')}
+                </span>
+              );
+              const lastContactNode = (
+                <div className="last-contact-cell">
+                  <span>{formatDate(p.last_contact)}</span>
+                  <CommentTooltip content={p.observation_notes} label="Observaciones" entityName={p.name} />
+                </div>
+              );
+
+              // <768px ("drawer"): la fila pasa a ser una card apilada — ver
+              // nota en table.css sobre `.td-card`/`.row-card`. Todos los datos
+              // quedan visibles acá, el sheet sólo trae las acciones.
+              if (mode === 'drawer') {
+                return (
+                  <tr
+                    key={p.id}
+                    id={`prospect-row-${p.id}`}
+                    className="row-clickable"
+                    onClick={(e) => handleRowClick(e, p)}
                   >
-                    <RotateCw size={16} />
-                  </button>
-                  <button
-                    className="action-btn edit"
-                    onClick={() => onEditProspect(p)}
-                    title="Editar"
-                    aria-label={`Editar ${p.name}`}
-                  >
-                    <Pencil size={16} />
-                  </button>
-                  <button
-                    className="action-btn delete"
-                    onClick={() => onDeleteProspect(p)}
-                    title="Eliminar"
-                    aria-label={`Eliminar ${p.name}`}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </td>
-              </tr>
-            ))}
+                    <td colSpan={7} className="td-card">
+                      <div className="row-card">
+                        <div className="row-card-head">
+                          <span className="row-card-title">{p.name}</span>
+                          {categoryBadge}
+                        </div>
+                        <div className="row-detail-list">
+                          <div className="row-detail-item">
+                            <span className="row-detail-label">Email</span>
+                            <span className="row-detail-value">{p.email || '—'}</span>
+                          </div>
+                          <div className="row-detail-item">
+                            <span className="row-detail-label">Teléfono</span>
+                            <span className="row-detail-value">{p.phone || '—'}</span>
+                          </div>
+                          <div className="row-detail-item">
+                            <span className="row-detail-label">Origen</span>
+                            <span className="row-detail-value">{ORIGIN_DISPLAY[p.origin] ?? '—'}</span>
+                          </div>
+                          <div className="row-detail-item">
+                            <span className="row-detail-label">Último contacto</span>
+                            <span className="row-detail-value">{lastContactNode}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              }
+
+              return (
+                <Fragment key={p.id}>
+                <tr
+                  id={`prospect-row-${p.id}`}
+                  className={mode !== 'inline' ? 'row-clickable' : undefined}
+                  onClick={(e) => handleRowClick(e, p)}
+                >
+                  <td className="td-name">{p.name}</td>
+                  <td className="td-muted td-secondary">{p.email || '—'}</td>
+                  <td className="td-muted td-secondary">{p.phone || '—'}</td>
+                  <td>{categoryBadge}</td>
+                  <td className="td-muted td-secondary">
+                    {ORIGIN_DISPLAY[p.origin] ?? '—'}
+                  </td>
+                  <td className="td-muted">{lastContactNode}</td>
+                  <td className="td-actions">
+                    <button
+                      className="action-btn update"
+                      onClick={() => onUpdateContact(p.id, p.name)}
+                      title="Actualizar Contacto"
+                      aria-label={`Actualizar contacto ${p.name}`}
+                    >
+                      <RotateCw size={16} />
+                    </button>
+                    <button
+                      className="action-btn edit"
+                      onClick={() => onEditProspect(p)}
+                      title="Editar"
+                      aria-label={`Editar ${p.name}`}
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      className="action-btn delete"
+                      onClick={() => onDeleteProspect(p)}
+                      title="Eliminar"
+                      aria-label={`Eliminar ${p.name}`}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
+                </tr>
+                {mode === 'accordion' && (
+                  <tr className="row-actions-expand">
+                    <td colSpan={7}>
+                      <div className="row-actions-drawer" data-open={expandedProspectId === p.id}>
+                        <div className="row-actions-drawer-inner">
+                          <div className="row-actions-drawer-content">
+                            <div className="row-detail-list">
+                              <div className="row-detail-item">
+                                <span className="row-detail-label">Email</span>
+                                <span className="row-detail-value">{p.email || '—'}</span>
+                              </div>
+                              <div className="row-detail-item">
+                                <span className="row-detail-label">Teléfono</span>
+                                <span className="row-detail-value">{p.phone || '—'}</span>
+                              </div>
+                              <div className="row-detail-item">
+                                <span className="row-detail-label">Origen</span>
+                                <span className="row-detail-value">{ORIGIN_DISPLAY[p.origin] ?? '—'}</span>
+                              </div>
+                            </div>
+                            <div className="row-actions-expand-inner">
+                              <button
+                                className="action-btn update labeled"
+                                onClick={() => onUpdateContact(p.id, p.name)}
+                              >
+                                <RotateCw size={14} strokeWidth={1.75} /> Actualizar contacto
+                              </button>
+                              <button
+                                className="action-btn edit labeled"
+                                onClick={() => onEditProspect(p)}
+                              >
+                                <Pencil size={14} strokeWidth={1.75} /> Editar
+                              </button>
+                              <button
+                                className="action-btn delete labeled"
+                                onClick={() => onDeleteProspect(p)}
+                              >
+                                <Trash2 size={14} strokeWidth={1.75} /> Eliminar
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
+              );
+            })}
             {Array.from({ length: fillerRows }).map((_, i) => (
               <tr key={`filler-${i}`} className="table-filler-row" aria-hidden="true">
                 <td colSpan={7}>&nbsp;</td>
@@ -293,6 +395,30 @@ function ProspectosTable({ prospectos, filteredProspectos, onEditProspect, onDel
           onPage={setPage}
         />
       )}
+      <RowActionsSheet
+        open={mode === 'drawer' && !!sheetProspect}
+        onClose={() => setSheetProspect(null)}
+        title={sheetProspect?.name}
+      >
+        <button
+          className="action-btn update labeled"
+          onClick={() => { onUpdateContact(sheetProspect.id, sheetProspect.name); setSheetProspect(null); }}
+        >
+          <RotateCw size={16} /> Actualizar contacto
+        </button>
+        <button
+          className="action-btn edit labeled"
+          onClick={() => { onEditProspect(sheetProspect); setSheetProspect(null); }}
+        >
+          <Pencil size={16} /> Editar
+        </button>
+        <button
+          className="action-btn delete labeled"
+          onClick={() => { onDeleteProspect(sheetProspect); setSheetProspect(null); }}
+        >
+          <Trash2 size={16} /> Eliminar
+        </button>
+      </RowActionsSheet>
     </div>
   );
 }
@@ -304,8 +430,6 @@ export default function ClientesView({
   onSearchChange,
   prospectosCategoryFilter,
   onCategoryChange,
-  prospectosWithoutAdvisor,
-  onWithoutAdvisorChange,
   onOpenAddProspect,
   onEditProspect,
   onDeleteProspect,
@@ -376,8 +500,6 @@ export default function ClientesView({
               onSearchChange={onSearchChange}
               categoryFilter={prospectosCategoryFilter}
               onCategoryChange={onCategoryChange}
-              withoutAdvisor={prospectosWithoutAdvisor}
-              onWithoutAdvisorChange={onWithoutAdvisorChange}
             />
             <ProspectosTable
               prospectos={allProspectosList}

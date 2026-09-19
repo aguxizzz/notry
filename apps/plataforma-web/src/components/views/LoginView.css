@@ -326,8 +326,7 @@
 
 .form-group input[type="number"],
 .form-group input[type="email"],
-.form-group input[type="tel"],
-.form-group select {
+.form-group input[type="tel"] {
   width: 100%;
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
@@ -341,8 +340,7 @@
 
 .form-group input[type="number"]:focus,
 .form-group input[type="email"]:focus,
-.form-group input[type="tel"]:focus,
-.form-group select:focus {
+.form-group input[type="tel"]:focus {
   outline: none;
   border-color: var(--accent-color);
   box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.15);

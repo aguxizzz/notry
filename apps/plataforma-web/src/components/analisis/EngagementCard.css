@@ -1,0 +1,165 @@
+/* ── Engagement Card: navegación entre etapas, POIs, profundidad de sesión ── */
+
+.engagement-card {
+  margin-top: var(--space-lg);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.engagement-card-header {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--color-border-warm);
+}
+
+.engagement-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+}
+
+.engagement-empty {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--color-text-muted);
+  padding: var(--space-md) 0;
+}
+
+.engagement-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* ── Stat tiles (mismo lenguaje visual que .period-metric) ── */
+.engagement-stats {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.engagement-stat {
+  flex: 1;
+  min-width: 150px;
+  padding: 0 clamp(14px, 2vw, 24px) var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.engagement-stat + .engagement-stat {
+  border-left: 1px solid var(--color-border-warm);
+}
+
+.engagement-stat-kicker {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.engagement-stat-kicker .d {
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+  background: var(--color-accent-dark);
+}
+
+.engagement-stat-kicker small {
+  display: block;
+  width: 100%;
+  margin-top: 2px;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+  color: color-mix(in srgb, var(--color-text-muted) 70%, transparent);
+}
+
+.engagement-stat-value {
+  font-family: var(--font-primary);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Ranked bar lists (navegación entre etapas / POIs) ── */
+.engagement-section-title {
+  margin: 0 0 10px;
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.engagement-bar-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.engagement-bar-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 160px) 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.engagement-bar-label {
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.engagement-bar-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--color-border-warm);
+  overflow: hidden;
+}
+
+.engagement-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--color-accent);
+}
+
+.engagement-bar-fill--poi {
+  background: var(--color-stat-info, var(--color-accent));
+}
+
+.engagement-bar-value {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .engagement-stat {
+    flex: 1 1 45%;
+    border-left: none !important;
+    padding-left: 0;
+  }
+
+  .engagement-bar-row {
+    grid-template-columns: 90px 1fr auto;
+  }
+}

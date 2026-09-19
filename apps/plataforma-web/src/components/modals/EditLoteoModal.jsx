@@ -56,6 +56,7 @@ export default function EditLoteoModal({
               required
               value={formData.name}
               onChange={e => onFieldChange('name', e.target.value)}
+              autoComplete="off"
             />
           </div>
           <div className="form-group">
@@ -66,6 +67,7 @@ export default function EditLoteoModal({
               required
               value={formData.slug}
               onChange={e => onFieldChange('slug', e.target.value)}
+              autoComplete="off"
             />
           </div>
           <div className="form-group">
@@ -75,6 +77,7 @@ export default function EditLoteoModal({
               type="text"
               value={formData.image_url}
               onChange={e => onFieldChange('image_url', e.target.value)}
+              autoComplete="off"
             />
           </div>
           <div className="form-group">
@@ -84,6 +87,7 @@ export default function EditLoteoModal({
               type="text"
               value={formData.blueprint_url}
               onChange={e => onFieldChange('blueprint_url', e.target.value)}
+              autoComplete="off"
             />
           </div>
           {error && (
