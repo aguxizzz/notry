@@ -66,3 +66,37 @@
   box-sizing: content-box;
   height: var(--btn-height-sm);
 }
+
+/* ── Compactación responsive ────────────────────────────────────────────
+   Bajo 1379px (con o sin sidebar) las 5 columnas que quedan (Nombre, Área,
+   Precio, Estado, Loteo) con el padding de escritorio (32px por lado) y el
+   badge de 92px sumaban ~730px de mínimo, más de lo disponible: el wrapper
+   scrolleaba en horizontal y Estado/Loteo quedaban fuera de vista. Se achica
+   el padding lateral y el badge para que la tabla encoge en vez de scrollear. */
+@media (max-width: 1379px) {
+  .inventario-shell .inventory-table.lotes-table thead th.th-sortable .th-sort-btn,
+  .inventario-shell .inventory-table.lotes-table tbody td:not(.td-card):not(.td-empty-row) {
+    padding-left: var(--space-sm);
+    padding-right: var(--space-sm);
+  }
+  /* Nombres sin espacios (códigos tipo "lote0001aa") no se parten solos y
+     fijaban el ancho mínimo de la columna. */
+  .inventario-shell .lotes-table .td-name,
+  .inventario-shell .lotes-table .td-loteo {
+    overflow-wrap: anywhere;
+  }
+  .inventario-shell .lotes-table .badge {
+    min-width: 0;
+    padding-left: var(--space-sm);
+    padding-right: var(--space-sm);
+  }
+}
+
+/* <768px (cards): todos los datos ya están dentro de cada card, así que los
+   encabezados de columna sobran (y sus anchos mínimos impedían a la tabla
+   encoger). */
+@media (max-width: 767px) {
+  .inventario-shell .inventory-table.lotes-table thead {
+    display: none;
+  }
+}

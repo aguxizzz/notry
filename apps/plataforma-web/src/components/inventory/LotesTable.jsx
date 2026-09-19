@@ -50,7 +50,7 @@ export default function LotesTable({ lots, filteredLots, onEditLot, onDeleteLot,
           onNavigateToProspect={onNavigateToProspect}
         />
       )}
-      <table className="inventory-table">
+      <table className="inventory-table lotes-table">
         <thead>
           <tr>
             <SortHeader label="Nombre" sortKey="name" sort={sort} onSort={handleSort} />
@@ -187,10 +187,6 @@ export default function LotesTable({ lots, filteredLots, onEditLot, onDeleteLot,
                         <div className="row-actions-drawer-inner">
                           <div className="row-actions-drawer-content">
                             <div className="row-detail-list">
-                              <div className="row-detail-item">
-                                <span className="row-detail-label">Área</span>
-                                <span className="row-detail-value">{areaText}</span>
-                              </div>
                               <div className="row-detail-item">
                                 <span className="row-detail-label">Prospectos</span>
                                 <span className="row-detail-value">{prospectosNode}</span>
