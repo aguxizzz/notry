@@ -3,16 +3,13 @@ import {
   AlertTriangle,
   CalendarDays,
   CheckCircle2,
-  Coins,
   CreditCard,
-  Pencil,
   Plus,
   RefreshCw,
   ShieldAlert,
   WalletCards,
 } from 'lucide-react';
 import { fetchContractAdvisors } from '../../api/contracts';
-import { updateOrg } from '../../api/organizations';
 import {
   Button,
   FeedbackState,
@@ -22,7 +19,6 @@ import {
   SummaryMetric,
 } from '../../ui/components';
 import ConfirmModal from '../ConfirmModal';
-import RatesModal from '../cobranzas/RatesModal';
 import ContractDetail from '../cobranzas/ContractDetail';
 import CreateContractForm from '../cobranzas/CreateContractForm';
 import ContractsTable from '../cobranzas/ContractsTable';
@@ -102,29 +98,6 @@ function DueList({ title, icon, items, emptyCopy, tone = 'neutral' }) {
   );
 }
 
-function RatesChip({ loading, canEdit, onEdit }) {
-  if (!canEdit) {
-    return (
-      <span className="cob-rate-chip" title="Solo administradores pueden editar las cotizaciones">
-        <Coins size={15} aria-hidden="true" />
-        <span>Cotizaciones</span>
-      </span>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      className="cob-rate-chip cob-rate-chip--editable"
-      onClick={onEdit}
-      disabled={loading}
-    >
-      <Pencil size={14} aria-hidden="true" />
-      <span>Editar cotizaciones</span>
-    </button>
-  );
-}
-
 export default function CobranzasView({
   apiFetch,
   inventoryLots = [],
@@ -133,9 +106,6 @@ export default function CobranzasView({
   contractsState,
   onAddBuyerEmail,
   org,
-  orgLoading,
-  setOrg,
-  canEditCementRate = false,
 }) {
   const {
     contracts,
@@ -154,30 +124,8 @@ export default function CobranzasView({
   const [search, setSearch] = useState('');
   const [dueFilter, setDueFilter] = useState('all');
   const [fetchedAdvisors, setFetchedAdvisors] = useState([]);
-  const [advisorsLoading, setAdvisorsLoading] = useState(advisorsList.length === 0);
-  const [ratesModalOpen, setRatesModalOpen] = useState(false);
   const cementRate = org?.cement_bag_rate_ars ?? '';
   const usdRate = org?.usd_ars_rate ?? '';
-
-  const saveRates = async ({ cementRate: cementValue, usdRate: usdValue }) => {
-    const previousOrg = org;
-    const numericCement = Number(cementValue);
-    const numericUsd = Number(usdValue);
-    setOrg?.(current => current
-      ? { ...current, cement_bag_rate_ars: numericCement, usd_ars_rate: numericUsd }
-      : current);
-    try {
-      const updatedOrg = await updateOrg({
-        apiFetch,
-        cement_bag_rate_ars: numericCement,
-        usd_ars_rate: numericUsd,
-      });
-      setOrg?.(updatedOrg);
-    } catch (saveError) {
-      setOrg?.(previousOrg);
-      throw saveError;
-    }
-  };
 
   useEffect(() => {
     if (advisorsList.length > 0) return;
@@ -189,9 +137,6 @@ export default function CobranzasView({
       })
       .catch(() => {
         if (active) setFetchedAdvisors([]);
-      })
-      .finally(() => {
-        if (active) setAdvisorsLoading(false);
       });
     return () => {
       active = false;
@@ -199,7 +144,6 @@ export default function CobranzasView({
   }, [apiFetch, advisorsList]);
 
   const contractAdvisors = advisorsList.length > 0 ? advisorsList : fetchedAdvisors;
-  const contractAdvisorsLoading = advisorsList.length === 0 && advisorsLoading;
 
   const enrichedContracts = useMemo(() => contracts.map(contract => ({
     contract,
@@ -300,8 +244,6 @@ export default function CobranzasView({
         <CreateContractForm
           lots={inventoryLots}
           prospects={allProspectosList}
-          advisors={contractAdvisors}
-          advisorsLoading={contractAdvisorsLoading}
           onBack={() => setScreen('list')}
           onCreate={handleCreate}
         />
@@ -358,25 +300,12 @@ export default function CobranzasView({
               <RefreshCw size={16} className={refreshing ? 'is-spinning' : ''} />
               <span>{refreshing ? 'Actualizando' : 'Actualizar'}</span>
             </button>
-            <RatesChip
-              loading={orgLoading}
-              canEdit={canEditCementRate}
-              onEdit={() => setRatesModalOpen(true)}
-            />
             <Button size="sm" onClick={() => setScreen('create')} disabled={Boolean(error)}>
               <Plus size={16} />
               Nuevo contrato
             </Button>
           </>
         }
-      />
-
-      <RatesModal
-        isOpen={ratesModalOpen}
-        initialCementRate={cementRate}
-        initialUsdRate={usdRate}
-        onClose={() => setRatesModalOpen(false)}
-        onSave={saveRates}
       />
 
       {loading ? (

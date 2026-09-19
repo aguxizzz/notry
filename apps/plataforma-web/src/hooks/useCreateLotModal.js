@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createLot } from '../api/lots';
-import { MAX_LOT_AREA_M2, MAX_LOT_PRICE } from '../ui/forms/lotFields';
+import { MAX_LOT_AREA_M2, MAX_LOT_COMMENTS_LENGTH, MAX_LOT_PRICE } from '../ui/forms/lotFields';
 
 export function useCreateLotModal({ apiFetch, onSuccess, onAddLot, loteOwnerId, addActivity }) {
   const initialForm = { name: '', price: '', area_m2: '', loteo_id: '', status: 'available', comments: '' };
@@ -38,6 +38,9 @@ export function useCreateLotModal({ apiFetch, onSuccess, onAddLot, loteOwnerId, 
     }
     if (!createLotForm.status) {
       return 'El estado es requerido';
+    }
+    if (createLotForm.comments?.length > MAX_LOT_COMMENTS_LENGTH) {
+      return `Las observaciones no pueden superar los ${MAX_LOT_COMMENTS_LENGTH} caracteres`;
     }
     return null;
   };

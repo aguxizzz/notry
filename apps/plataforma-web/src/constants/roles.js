@@ -20,7 +20,6 @@ import { Crown, Shield, User } from 'lucide-react';
 // ─── Roles de plataforma (Sidebar, App.jsx) ─────────────────────────────────
 
 export const PLATFORM_ROLE_LABELS = {
-  lote_owner: 'Inmobiliaria',
   admin: 'Administrador',
   super_admin: 'Super admin',
 };

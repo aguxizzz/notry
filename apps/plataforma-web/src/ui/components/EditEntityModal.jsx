@@ -127,8 +127,28 @@ export default function EditEntityModal({
   );
 }
 
+const NUMBER_INPUT_ALLOWED_CONTROL_KEYS = [
+  'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
+  'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End',
+];
+
+function handleNumberKeyDown(e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (NUMBER_INPUT_ALLOWED_CONTROL_KEYS.includes(e.key)) return;
+  if (/^[0-9]$/.test(e.key)) return;
+  if (e.key === '.' || e.key === '-') return;
+  e.preventDefault();
+}
+
+function handleNumberPaste(e) {
+  const pasted = e.clipboardData.getData('text');
+  if (!/^-?[0-9]*\.?[0-9]*$/.test(pasted)) {
+    e.preventDefault();
+  }
+}
+
 function renderField(field, formData, onFormChange) {
-  const { name, label, type = 'text', required = false, placeholder, step, min, max, options, disabled = false } = field;
+  const { name, label, type = 'text', required = false, placeholder, step, min, max, maxLength, options, disabled = false } = field;
   const value = formData[name] ?? '';
 
   if (type === 'select') {
@@ -155,8 +175,13 @@ function renderField(field, formData, onFormChange) {
           value={value}
           onChange={e => onFormChange(name, e.target.value)}
           placeholder={placeholder}
+          maxLength={maxLength}
           disabled={disabled}
+          autoComplete="off"
         />
+        {maxLength && (
+          <p className="form-hint" style={{ textAlign: 'right' }}>{value.length}/{maxLength}</p>
+        )}
       </div>
     );
   }
@@ -175,6 +200,9 @@ function renderField(field, formData, onFormChange) {
         min={min}
         max={max}
         disabled={disabled}
+        autoComplete="off"
+        onKeyDown={type === 'number' ? handleNumberKeyDown : undefined}
+        onPaste={type === 'number' ? handleNumberPaste : undefined}
       />
     </div>
   );

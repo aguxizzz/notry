@@ -217,6 +217,7 @@ export default function FunnelCard({
                   id="funnel-channel-filter"
                   ariaLabel="Filtrar el embudo por canal de origen"
                   className="funnel-channel-select"
+                  size="sm"
                   value={selectedChannel ?? ''}
                   onChange={(ev) => onChannelChange?.(ev.target.value || null)}
                   options={[
@@ -287,6 +288,7 @@ export default function FunnelCard({
             {model.links.map((l) => {
               const src = model.byId[l.source];
               const tgt = model.byId[l.target];
+              if (tgt.value === 0) return null; // a sliver ribbon for a step nobody reached adds noise, not information
               const isLost = tgt.kind === 'lost';
               const p = pct(tgt.value, src.value);
               return (
@@ -305,7 +307,7 @@ export default function FunnelCard({
               );
             })}
 
-            {Object.values(model.byId).map((n) => (
+            {Object.values(model.byId).filter((n) => n.value !== 0).map((n) => (
               <g
                 key={n.id}
                 className="funnel-node"

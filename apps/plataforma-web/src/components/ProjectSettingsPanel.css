@@ -1,0 +1,288 @@
+/* Secciones de Proyecto dentro de Configuración (Visual / Finanzas):
+   reemplazan la vista/modal de Proyectos (un único proyecto por cuenta).
+   Reusa el vocabulario visual de Configuracion.css (cfg-card) para las
+   cards y agrega estilos propios para los campos del formulario. */
+
+.project-settings-feedback {
+  --feedback-min-height: 220px;
+}
+
+.project-settings-tabpanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.form-section-title {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  font-weight: var(--weight-bold);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--border-color);
+}
+
+.project-settings-tabpanel > .form-section-title:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.project-colors-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+}
+
+.color-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.color-input-row input[type="color"] {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  cursor: pointer;
+  background: none;
+  flex-shrink: 0;
+}
+
+.color-input-row .form-input {
+  flex: 1;
+}
+
+.project-logos-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+}
+
+/* Loteos asignados */
+.project-loteo-list--panel {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.project-loteo-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px var(--space-sm);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  font-size: var(--text-base);
+  color: var(--text-main);
+}
+
+.project-loteo-row:last-child {
+  border-bottom: none;
+}
+
+.project-loteo-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.project-loteo-remove {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+}
+
+.project-loteo-remove:hover {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+/* Plazos: chip input, reemplaza el texto separado por comas */
+.plazo-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 6px 8px;
+  transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.plazo-box:focus-within {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.15);
+}
+
+.plazo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(197, 160, 89, 0.14);
+  color: var(--accent-dark);
+  border: 1px solid rgba(197, 160, 89, 0.3);
+  border-radius: var(--radius-full);
+  padding: 4px 6px 4px 11px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  white-space: nowrap;
+}
+
+.plazo-chip-unit {
+  font-weight: var(--weight-regular);
+  opacity: 0.75;
+  margin-left: 2px;
+}
+
+.plazo-chip button {
+  all: unset;
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-dark);
+  opacity: 0.55;
+  font-size: 0.9rem;
+  line-height: 1;
+  transition: background var(--duration-fast) var(--ease-out), opacity var(--duration-fast) var(--ease-out);
+}
+
+.plazo-chip button:hover:not(:disabled) {
+  opacity: 1;
+  background: rgba(197, 160, 89, 0.28);
+}
+
+.plazo-chip button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.form-group--disabled {
+  opacity: 0.55;
+}
+
+.plazo-box .plazo-add {
+  all: unset;
+  flex: 1;
+  min-width: 84px;
+  font-family: inherit;
+  font-size: var(--text-base);
+  color: var(--text-main);
+  padding: 4px 2px;
+}
+
+.plazo-box .plazo-add::placeholder {
+  color: var(--text-muted);
+}
+
+.plazo-add-btn {
+  all: unset;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  color: #fff;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--duration-fast) var(--ease-out), opacity var(--duration-fast) var(--ease-out);
+}
+
+.plazo-add-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.plazo-add-btn:disabled {
+  background: var(--border-color);
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.project-settings-form input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.project-settings-form input[type="number"]::-webkit-inner-spin-button,
+.project-settings-form input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .project-colors-row,
+  .project-logos-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Checkbox con título + ayuda. Los selectores llevan .project-settings-form
+   para ganarle a `.form-group input { width: 100% }` y `.form-group label`. */
+.project-settings-form .project-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: var(--weight-medium);
+  font-size: var(--text-base);
+  color: var(--text-main);
+}
+
+.project-settings-form .project-checkbox input[type="checkbox"] {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  padding: 0;
+  accent-color: var(--accent-color);
+  cursor: pointer;
+}
+
+.project-checkbox-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.project-checkbox-hint {
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* Aclaración inline a la derecha de una etiqueta de campo */
+.form-label-note {
+  margin-left: 8px;
+  font-size: var(--text-sm);
+  font-weight: 400;
+  font-style: italic;
+  text-transform: none;
+  letter-spacing: 0;
+}

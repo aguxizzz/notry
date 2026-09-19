@@ -5,19 +5,29 @@ import { API_BASE } from '../config';
  * Uses raw fetch (not apiFetch) since we have the token directly here.
  *
  * @param {string} accessToken - Fresh access token from login
+ * @param {number} [timeoutMs] - Abort the request after this many ms (Render free
+ *   tier can take a while to wake up from a cold start; without a timeout the
+ *   caller can be left waiting indefinitely)
  * @returns {Promise<Object>} User object
  */
-export async function fetchCurrentUser(accessToken) {
-  const res = await fetch(`${API_BASE}/auth/me`, {
-    method: 'GET',
-    headers: {
-      accept: 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error('Error al obtener perfil');
-  return data;
+export async function fetchCurrentUser(accessToken, timeoutMs = 20000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${API_BASE}/auth/me`, {
+      method: 'GET',
+      headers: {
+        accept: 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      signal: controller.signal,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error('Error al obtener perfil');
+    return data;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
@@ -45,7 +55,7 @@ export function buildLogoutHandler({
   setAdminSubView, setInventoryLots, setInventoryLoteos,
   setInventoryLotsHasMore, setInventorySearch, setInventoryStatusFilter,
   setInventoryTab, setAllProspectosList,
-  setProspectosCategoryFilter, setProspectosWithoutAdvisor,
+  setProspectosCategoryFilter,
   setClicksCache, setVisorDataCache, setReportsCache, setDashboardSummary,
 }) {
   return function logout() {
@@ -64,7 +74,6 @@ export function buildLogoutHandler({
     setInventoryLoteos([]);
     setAllProspectosList([]);
     setProspectosCategoryFilter('');
-    setProspectosWithoutAdvisor(false);
     setClicksCache({});
     setVisorDataCache({});
     setReportsCache({});

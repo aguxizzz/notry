@@ -150,8 +150,8 @@ export default function ContractsTable({
             <tr>
               <SortHeader label="Lote" sortKey="lot" sort={sort} onSort={handleSort} />
               <SortHeader label="Comprador" sortKey="buyer" sort={sort} onSort={handleSort} />
-              <SortHeader label="Avance" sortKey="progress" sort={sort} onSort={handleSort} />
-              <SortHeader label="Próximo pago" sortKey="due" sort={sort} onSort={handleSort} />
+              <SortHeader label="Avance" sortKey="progress" sort={sort} onSort={handleSort} className="cob-th-progress" />
+              <SortHeader label="Próximo pago" sortKey="due" sort={sort} onSort={handleSort} className="cob-th-due" />
               <SortHeader label="Estado" sortKey="state" sort={sort} onSort={handleSort} />
               <th scope="col" aria-label="Abrir contrato" />
             </tr>

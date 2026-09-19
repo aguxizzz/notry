@@ -81,8 +81,26 @@
 .account-modal-nav-items {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-md);
   flex: 1;
+  overflow-y: auto;
+}
+
+.account-modal-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.account-modal-nav-group-label {
+  padding: 0 var(--space-sm) 4px;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  opacity: 0.75;
 }
 
 .account-modal-nav-item {
@@ -124,11 +142,10 @@
   flex-shrink: 0;
 }
 
-.account-modal-logout {
+.account-modal-nav-footer {
   margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
   border-top: 1px solid var(--border-color);
-  border-radius: 0;
-  padding-top: 14px;
 }
 
 .account-modal-logout:hover {
@@ -139,6 +156,16 @@
 .account-modal-content {
   padding: var(--space-lg);
   overflow-y: auto;
+}
+
+/* Las secciones (Perfil/Equipo/Proyecto/Datos/Organizaciones) son <Panel> con
+   su propio fondo+borde+sombra, pero acá ya están dentro de la superficie del
+   modal (mismo fondo) — repetir el borde solo genera una caja anidada sin
+   sentido. Se neutraliza y queda solo el contenido con sus separadores. */
+.account-modal-content .cfg-card {
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 @media (max-width: 720px) {
@@ -169,12 +196,64 @@
 
   .account-modal-nav-items {
     flex-direction: row;
+    gap: 4px;
     flex: 1;
+    overflow-y: visible;
   }
 
-  .account-modal-logout {
+  /* En mobile la nav es una fila: los grupos se aplanan y sin títulos. */
+  .account-modal-nav-group { display: contents; }
+  .account-modal-nav-group-label { display: none; }
+
+  .account-modal-nav-footer {
     margin-top: 0;
+    padding-top: 0;
     border-top: none;
-    padding-top: 8px;
   }
+}
+
+/* ── Confirmación al cerrar con cambios sin guardar ── */
+.unsaved-dialog {
+  max-width: 460px;
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.unsaved-dialog-title {
+  margin: 0;
+  font-family: var(--font-primary);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-black);
+  letter-spacing: -0.01em;
+  color: var(--text-main);
+}
+
+.unsaved-dialog-message {
+  margin: 0;
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.unsaved-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.unsaved-dialog-actions .primary-button,
+.unsaved-dialog-actions .outline-button {
+  white-space: nowrap;
+}
+
+/* "Seguir editando" queda a la izquierda, separado de las acciones que cierran */
+.unsaved-dialog-back { margin-right: auto; }
+
+@media (max-width: 480px) {
+  .unsaved-dialog-actions { flex-wrap: wrap; }
+  .unsaved-dialog-back { margin-right: 0; flex: 1 1 100%; order: 3; }
 }

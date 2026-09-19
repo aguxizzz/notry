@@ -11,6 +11,8 @@ import { createPortal } from 'react-dom';
 import { Phone, Mail, Clock, MessageCircle, X } from 'lucide-react';
 import { CATEGORY_DISPLAY } from '../../constants';
 import { formatRelativeContact } from './inventoryStats';
+import { buildWhatsAppUrl } from '../kanban/kanbanFormat';
+import { WhatsAppIcon } from '../kanban/KanbanIcons';
 import './ProspectoTooltip.css';
 
 export default function ProspectoTooltip({ prospecto, triggerEl, onClose, onNavigateToProspect }) {
@@ -53,6 +55,7 @@ export default function ProspectoTooltip({ prospecto, triggerEl, onClose, onNavi
 
   const contactLabel = formatRelativeContact(prospecto.last_contact);
   const categoryLabel = CATEGORY_DISPLAY[prospecto.category] ?? prospecto.category;
+  const whatsappUrl = buildWhatsAppUrl(prospecto.phone);
 
   return createPortal(
     <div
@@ -81,9 +84,22 @@ export default function ProspectoTooltip({ prospecto, triggerEl, onClose, onNavi
       </div>
       <div className="prospecto-tooltip-body">
         {prospecto.phone && (
-          <div className="prospecto-tooltip-row">
+          <div className="prospecto-tooltip-row prospecto-tooltip-row--phone">
             <Phone size={13} className="prospecto-tooltip-icon" />
             <span>{prospecto.phone}</span>
+            {whatsappUrl && (
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="prospecto-tooltip-whatsapp-btn"
+                title="Enviar WhatsApp"
+                aria-label="Enviar WhatsApp"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <WhatsAppIcon />
+              </a>
+            )}
           </div>
         )}
         {prospecto.email && (

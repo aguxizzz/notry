@@ -1,4 +1,5 @@
-/* LoteosTable + LoteoRow — tabla de gestión de loteos con soporte de grupos.
+/* LoteosTable + LoteoRow — tabla de gestión de loteos, dividida en secciones
+   (proyecto arriba, sueltos abajo).
    NO está scopeado bajo .inventario-shell porque la tabla puede reusarse fuera
    del shell de inventario (ej. si después se mueve a otra vista). */
 
@@ -11,41 +12,46 @@
   vertical-align: middle;
 }
 
-/* Group box: real cell borders let border-collapse merge shared edges cleanly.
-   2px accent on td beats 1px separator on preceding/following tr (fixes ghost
-   line above first row and gap in lateral borders). Equal borders on adjacent
-   group-last / group-first cells collapse into a single line (fixes double
-   border between consecutive groups). */
-.loteos-table tr.loteo-group-row > td {
-  background: rgba(197, 160, 89, 0.05);
+/* Entre 768 y 1379px table.css oculta Acciones, Links y las columnas
+   secundarias (Imagen/Blueprint). En Loteos, Visor y Editor son lo que más se
+   usa, así que en ese rango reemplazan a Imagen y Blueprint como dos columnas
+   propias (misma forma que tenían esas dos). Por encima de 1379px siguen
+   juntos en la columna Links. */
+.loteos-table .td-tablet-link,
+.loteos-table .th-tablet-link {
+  display: none;
 }
-.loteos-table tr.loteo-group-row > td:first-child {
-  border-left: 2px solid var(--accent-color);
-}
-.loteos-table tr.loteo-group-row > td:last-child {
-  border-right: 2px solid var(--accent-color);
-}
-.loteos-table tbody tr.loteo-group-first > td {
-  border-top: 2px solid var(--accent-color);
-}
-.loteos-table tbody tr.loteo-group-last > td {
-  border-bottom: 2px solid var(--accent-color);
-}
-.loteos-table tbody tr.loteo-group-last {
-  border-bottom: none;
+@media (max-width: 1379px) {
+  .loteos-table .td-tablet-link,
+  .loteos-table .th-tablet-link {
+    display: table-cell;
+  }
 }
 
-/* Group header row */
-.loteos-table tbody tr.loteo-group-header-row {
-  border-bottom: 1px solid rgba(197, 160, 89, 0.2);
+/* Secciones: cada bloque abre con una franja de encabezado (proyecto en tono
+   dorado, "Sin proyecto" en neutro) y un espacio en blanco entre bloques. Sin
+   recuadro ni conector: la separación la da solo el encabezado. */
+.loteos-table tbody tr.loteo-section-row,
+.loteos-table tbody tr.loteo-section-row:hover {
+  cursor: default;
 }
-.loteos-table tr.loteo-group-header-row > td {
+.loteos-table tr.loteo-section-row > td,
+.loteos-table tbody tr.loteo-section-row:hover > td {
+  background: color-mix(in srgb, var(--text-muted) 7%, transparent);
+}
+.loteos-table tr.loteo-section-row.is-project > td,
+.loteos-table tbody tr.loteo-section-row.is-project:hover > td {
   background: rgba(197, 160, 89, 0.10);
 }
-.td-group-header {
+.td-section-header {
   padding: 10px var(--space-lg) !important;
 }
-.group-header-label {
+.section-header-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-header-kicker {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -53,22 +59,72 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--accent-color);
-  opacity: 0.85;
+  color: var(--text-muted);
+}
+.is-project .section-header-kicker {
+  color: var(--accent-dark);
+}
+.section-header-name {
+  font-family: var(--font-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+.section-header-count {
+  padding: 1px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  box-shadow: inset 0 0 0 1px var(--border-color);
+}
+.is-project .section-header-count {
+  color: var(--accent-dark);
+  box-shadow: inset 0 0 0 1px var(--accent-color);
 }
 
-/* Nombre de una etapa dentro de un grupo: indentada con conector tipo árbol */
-.loteo-name-cell {
+/* Espacio entre secciones */
+.loteos-table tbody tr.loteo-section-gap,
+.loteos-table tbody tr.loteo-section-gap:hover {
+  border-bottom: none;
+  background: transparent;
+  cursor: default;
+}
+.loteos-table tr.loteo-section-gap > td {
+  height: 22px;
+  padding: 0;
+  background: transparent;
+}
+
+/* Card (<768px): accesos directos a Visor y Editor bajo el nombre */
+.row-card-cta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+}
+.row-card-cta-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding-left: 22px;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
 }
-.loteo-tree-connector {
-  width: 12px;
-  height: 12px;
-  margin-top: 2px;
-  border-left: 1.5px solid var(--border-color);
-  border-bottom: 1.5px solid var(--border-color);
-  border-bottom-left-radius: 4px;
+.row-card-cta-btn.visor {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: var(--color-dark-surface);
+}
+.row-card-cta-btn:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
 }

@@ -1,40 +1,38 @@
 import { useState, useEffect } from 'react';
-import { Lock, User, Pencil } from 'lucide-react';
 import { Button, Panel } from '../ui/components';
 import { updateUser, changePassword } from '../api/auth';
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 import './ProfileCard.css';
 
 export default function ProfileCard({ user, setUser, apiFetch, addToast }) {
   const initial = user?.full_name?.[0]?.toUpperCase() ?? '?';
 
-  // ── Edición del perfil (Nombre) por sección ──────────────────────────────
-  const [editing, setEditing] = useState(false);
-  const [nameDraft, setNameDraft] = useState('');
-  const [saving, setSaving] = useState(false);
+  // ── Nombre: siempre editable, se guarda al cerrar Configuración ───────────
+  const [nameDraft, setNameDraft] = useState(user?.full_name ?? '');
 
-  useEffect(() => { if (!editing) setNameDraft(user?.full_name ?? ''); }, [user?.full_name, editing]);
+  useEffect(() => { setNameDraft(user?.full_name ?? ''); }, [user?.full_name]);
 
-  function startEdit() { setNameDraft(user?.full_name ?? ''); setEditing(true); }
-  function cancelEdit() { setEditing(false); }
+  const nameDirty = nameDraft.trim() !== (user?.full_name ?? '');
 
-  async function handleSave() {
+  async function saveProfile() {
     const next = nameDraft.trim();
-    if (!next) { addToast?.('El nombre no puede quedar vacío', 'error'); return; }
-    if (next === user?.full_name) { setEditing(false); return; }
+    if (next === (user?.full_name ?? '')) return true;
+    if (!next) { addToast?.('El nombre no puede quedar vacío', 'error'); return false; }
     const prev = user?.full_name;
-    setSaving(true);
     setUser(u => ({ ...u, full_name: next }));
     try {
       await updateUser({ apiFetch, full_name: next });
       addToast?.('Perfil actualizado', 'success');
-      setEditing(false);
+      return true;
     } catch (err) {
       setUser(u => ({ ...u, full_name: prev }));
+      setNameDraft(prev ?? '');
       addToast?.(err.message || 'No se pudo actualizar el perfil', 'error');
-    } finally {
-      setSaving(false);
+      return false;
     }
   }
+
+  useUnsavedChanges('profile', { dirty: nameDirty, save: saveProfile });
 
   // ── Cambio de contraseña (acción propia: requiere contraseña actual) ──────
   const [pwEditing, setPwEditing] = useState(false);
@@ -65,28 +63,8 @@ export default function ProfileCard({ user, setUser, apiFetch, addToast }) {
     <Panel as="section" className="cfg-card profile-card" flush>
       <div className="cfg-card-head">
         <div className="cfg-card-head-title">
-          <span className="cfg-card-badge"><User size={16} /></span>
           <h3>Perfil</h3>
         </div>
-        {!editing ? (
-          <Button type="button" variant="outline" size="sm" onClick={startEdit}>
-            <Pencil size={14} /> Editar
-          </Button>
-        ) : (
-          <div className="cfg-head-actions">
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleSave}
-              disabled={saving || !nameDraft.trim()}
-            >
-              {saving ? 'Guardando...' : 'Guardar'}
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={cancelEdit} disabled={saving}>
-              Cancelar
-            </Button>
-          </div>
-        )}
       </div>
 
       <div className="cfg-card-body">
@@ -101,29 +79,20 @@ export default function ProfileCard({ user, setUser, apiFetch, addToast }) {
         <div className="cfg-fields">
           {/* Nombre */}
           <div className="cfg-field">
-            <span className="cfg-field-label">
-              <User size={13} /> Nombre
-            </span>
-            {editing ? (
-              <input
-                className="cfg-input"
-                type="text"
-                value={nameDraft}
-                onChange={e => setNameDraft(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') cancelEdit(); }}
-                disabled={saving}
-                autoFocus
-              />
-            ) : (
-              <span className="cfg-field-value">{user?.full_name ?? '—'}</span>
-            )}
+            <label className="cfg-field-label" htmlFor="profile-name">Nombre</label>
+            <input
+              id="profile-name"
+              className="cfg-input"
+              type="text"
+              value={nameDraft}
+              onChange={e => setNameDraft(e.target.value)}
+              autoComplete="off"
+            />
           </div>
 
           {/* Contraseña — acción propia, requiere la contraseña actual */}
           <div className="cfg-field">
-            <span className="cfg-field-label">
-              <Lock size={13} /> Contraseña
-            </span>
+            <span className="cfg-field-label">Contraseña</span>
             {pwEditing ? (
               <div className="profile-pw-form">
                 <input

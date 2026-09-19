@@ -21,7 +21,7 @@ export async function fetchReportsBg({ apiFetch, token, setReportsCache, days })
   }
 }
 
-export function buildAnalisisCallbacks({ apiFetch, setClicksCache, setVisorDataCache, setClicksLoadingIds, setVisorDataLoadingIds, setFunnelCache, setFunnelLoadingIds }) {
+export function buildAnalisisCallbacks({ apiFetch, setClicksCache, setVisorDataCache, setClicksLoadingIds, setVisorDataLoadingIds, setFunnelCache, setFunnelLoadingIds, setEngagementCache, setEngagementLoadingIds }) {
   const handleAnalisisRequestClicks = (loteoId, signal) => {
     setClicksLoadingIds(prev => new Set([...prev, loteoId]));
     apiFetch(`${API_BASE}/loteos/${loteoId}/clicks`, { signal })
@@ -78,5 +78,22 @@ export function buildAnalisisCallbacks({ apiFetch, setClicksCache, setVisorDataC
       });
   };
 
-  return { handleAnalisisRequestClicks, handleAnalisisRequestVisorData, handleAnalisisRequestFunnel };
+  const handleAnalisisRequestEngagement = (loteoId, lastDays, signal) => {
+    const cacheKey = `${loteoId}:${lastDays}`;
+    setEngagementLoadingIds(prev => new Set([...prev, cacheKey]));
+    apiFetch(`${API_BASE}/loteos/${loteoId}/engagement?last_days=${lastDays}`, { signal })
+      .then(data => {
+        setEngagementCache(prev => ({ ...prev, [cacheKey]: data }));
+      })
+      .catch(err => { if (err.name !== 'AbortError') console.error(err); })
+      .finally(() => {
+        setEngagementLoadingIds(prev => {
+          const next = new Set(prev);
+          next.delete(cacheKey);
+          return next;
+        });
+      });
+  };
+
+  return { handleAnalisisRequestClicks, handleAnalisisRequestVisorData, handleAnalisisRequestFunnel, handleAnalisisRequestEngagement };
 }

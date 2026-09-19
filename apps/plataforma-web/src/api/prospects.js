@@ -51,8 +51,6 @@ export async function saveEditProspect({ apiFetch, editingProspectId, editProspe
   else body.email = null;
   if (editProspectForm.phone) body.phone = editProspectForm.phone;
   else body.phone = null;
-  if (editProspectForm.advisor_id) body.advisor_id = editProspectForm.advisor_id;
-  else body.advisor_id = null;
   if (editProspectForm.origin) body.origin = editProspectForm.origin;
   else body.origin = null;
 

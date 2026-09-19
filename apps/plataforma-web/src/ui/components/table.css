@@ -116,6 +116,226 @@
   height: var(--btn-height-sm);
 }
 
+/* ── Acciones responsive ──────────────────────────────────────────────
+   ≤1379px: la columna de acciones (y la de links, en Loteos) no entra
+   cómoda con botones sueltos en la fila, así que se oculta y la fila pasa
+   a ser clickeable. Qué pasa al clickear lo decide useRowActionsMode():
+   - 768–1379px ("accordion"): la fila se expande hacia abajo con las
+     mismas acciones, en versión con label (más aire, sigue habiendo mouse).
+   - <768px ("drawer"): abre un RowActionsSheet (bottom sheet) en vez de
+     expandir la fila, que en una pantalla angosta queda muy apretada. */
+@media (max-width: 1379px) {
+  /* !important: ActionBtn.css define `.td-actions { display: flex }` sin media
+     query y se carga después de este archivo (import a nivel de componente vs.
+     import global en index.css), así que gana el cascade por orden de fuente
+     a igual especificidad si no se fuerza acá. */
+  .td-actions,
+  .th-actions,
+  .td-links,
+  .th-links {
+    display: none !important;
+  }
+}
+
+/* ── Columnas secundarias (Tier 2) ──────────────────────────────────────
+   Lotes y Clientes tienen suficientes columnas de texto como para que,
+   aun con Acciones afuera, el resto no entre cómodo por debajo de 1379px
+   (rompía en la práctica a 1287px y 1200px respectivamente — se comparte
+   el mismo breakpoint que Acciones porque ya deja margen de sobra en los
+   dos casos, en vez de sumar un breakpoint más para ajustar al límite).
+   Se ocultan junto con Acciones y su valor pasa a listarse en
+   `.row-detail-list`, dentro del mismo panel expandido (accordion,
+   768–1379px) o bottom sheet (drawer, <768px) que ya muestra las acciones. */
+@media (max-width: 1379px) {
+  .td-secondary,
+  .th-secondary {
+    display: none !important;
+  }
+}
+
+.inventory-table tbody tr.row-clickable {
+  cursor: pointer;
+}
+
+.row-actions-expand td {
+  /* !important: cada shell (.inventario-shell, .clientes-shell) pisa
+     `.inventory-table td` con su propio padding vertical de 9px y esa
+     regla tiene más especificidad (2 clases + tipo) que esta — sin el
+     !important, el <tr> colapsado a 0fr sigue mostrando esos 9px de
+     padding como una franja gris entre filas. */
+  padding: 0 var(--space-lg) !important;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* El <tr> ahora está siempre montado (ver nota más abajo), incluso
+   colapsado a 0 de alto — sin este reset hereda el border-bottom que
+   `.inventory-table tbody tr` le pone a cada fila y queda una línea gris
+   fantasma entre filas que antes no existía (el <tr> no se montaba). El
+   borde de cierre real se agrega en `.row-actions-drawer-content` sólo
+   mientras el panel está abierto. */
+.inventory-table tbody tr.row-actions-expand {
+  border-bottom: none;
+}
+
+/* Wrapper que anima la apertura/cierre del acordeón con
+   grid-template-rows (0fr↔1fr) en vez de montar/desmontar el <tr> — así el
+   cierre también anima, no solo la entrada. */
+.row-actions-drawer {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--duration-slow) var(--ease-out);
+}
+
+.row-actions-drawer[data-open='true'] {
+  grid-template-rows: 1fr;
+}
+
+.row-actions-drawer-inner {
+  overflow: hidden;
+  /* Sin esto el grid item no baja de su min-content (el padding de
+     .row-actions-drawer-content), y la fila colapsada a 0fr igual deja
+     una franja gris visible — es el mismo gotcha que con flex children. */
+  min-height: 0;
+}
+
+.row-actions-drawer-content {
+  padding: var(--space-sm) 0 var(--space-md);
+}
+
+.row-actions-drawer[data-open='true'] .row-actions-drawer-content {
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Datos que se sacaron de las columnas secundarias, listados arriba de las
+   acciones dentro del mismo panel expandido / bottom sheet. */
+.row-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-bottom: var(--space-sm);
+}
+
+.row-detail-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 6px 2px;
+  font-size: 0.82rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 45%, transparent);
+}
+
+.row-detail-item:last-child {
+  border-bottom: none;
+}
+
+.row-detail-label {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-weight: var(--weight-medium);
+}
+
+.row-detail-value {
+  min-width: 0;
+  color: var(--text-main);
+  text-align: right;
+}
+
+.row-actions-expand-inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+/* Variante sobria del botón para el acordeón inline (768–1379px): a esta
+   altura de fila el "labeled" de 44px con relleno sólido se ve inflado —
+   acá se lo achica y se lo pasa a contorno con tinte solo en hover. El
+   bottom sheet (RowActionsSheet, <768px) no toca esto: ahí 44px de ancho
+   completo sigue siendo el touch target correcto. */
+.row-actions-expand-inner .action-btn.labeled,
+.row-actions-expand-inner .text-action-btn {
+  height: 34px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.row-actions-expand-inner .action-btn.edit,
+.row-actions-expand-inner .text-action-btn.edit {
+  color: var(--accent-color);
+  border-color: color-mix(in srgb, var(--accent-color) 35%, var(--border-color));
+}
+
+.row-actions-expand-inner .action-btn.edit:hover,
+.row-actions-expand-inner .text-action-btn.edit:hover {
+  background: rgba(197, 160, 89, 0.12);
+  color: var(--accent-color);
+}
+
+.row-actions-expand-inner .action-btn.update {
+  color: #3b82f6;
+  border-color: color-mix(in srgb, #3b82f6 30%, var(--border-color));
+}
+
+.row-actions-expand-inner .action-btn.update:hover {
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
+}
+
+.row-actions-expand-inner .action-btn.delete {
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 30%, var(--border-color));
+}
+
+.row-actions-expand-inner .action-btn.delete:hover {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.row-actions-expand-inner .text-action-btn.view:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-main);
+}
+
+/* ── Tier 3: card layout (<768px, modo 'drawer') ────────────────────────
+   Por debajo de 768px la tabla deja de ser el formato correcto sin importar
+   cuántas columnas se sigan ocultando (ver useRowActionsMode). La fila se
+   renderiza como una única celda (colSpan completo) con un layout de card
+   adentro en vez de celdas por columna; clickearla abre el mismo
+   RowActionsSheet que ya usa el modo drawer para las acciones. */
+.td-card {
+  padding: var(--space-md) var(--space-lg) !important;
+}
+
+.row-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.row-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.row-card-title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-main);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-card .row-detail-list {
+  margin-bottom: 0;
+}
+
 /* ── Header ordenable (componente SortHeader) ── */
 .th-sortable {
   padding: 0 !important;

@@ -23,6 +23,7 @@ export default function SearchField({
         value={value}
         onChange={onChange}
         placeholder={placeholder}
+        autoComplete="off"
       />
     </label>
   );

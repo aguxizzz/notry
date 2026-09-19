@@ -13,16 +13,15 @@ import ClientesView from './components/views/ClientesView';
 import CobranzasView from './components/views/CobranzasView';
 import KanbanBoard from './components/KanbanBoard';
 import AnalisisView from './components/AnalisisView';
-import ProjectsView from './components/views/ProjectsView';
 import CategoryPieChart from './components/CategoryPieChart';
 import ConfirmDialog from './components/ConfirmDialog';
 import DeleteProspectDialog from './components/DeleteProspectDialog';
 import DeleteLoteoDialog from './components/DeleteLoteoDialog';
 import LoteoFormModal from './components/modals/LoteoFormModal';
+import LoteoServicesModal from './components/modals/LoteoServicesModal';
 import AddProspectModal from './components/modals/AddProspectModal';
 import UpdateContactModal from './components/modals/UpdateContactModal';
 import { Badge, Button, ErrorBoundary, Loader, Select, EditEntityModal } from './ui/components';
-import { CAN_EDIT_ORG_ROLES } from './constants/roles';
 import { API_BASE, EDITOR_URL, VISOR_URL } from './config';
 import { useSync } from './hooks/useSync';
 import { useActivityFeed } from './hooks/useActivityFeed';
@@ -32,6 +31,7 @@ import { useEditLotModal } from './hooks/useEditLotModal';
 import { useCreateLotModal } from './hooks/useCreateLotModal';
 import { useEditLoteoModal } from './hooks/useEditLoteoModal';
 import { useCreateLoteoModal } from './hooks/useCreateLoteoModal';
+import { useLoteoServicesModal } from './hooks/useLoteoServicesModal';
 import { useAddProspectModal } from './hooks/useAddProspectModal';
 import { useEditProspectModal } from './hooks/useEditProspectModal';
 import { useUpdateContactModal } from './hooks/useUpdateContactModal';
@@ -40,7 +40,7 @@ import { useInventory } from './hooks/useInventory';
 import { useProspects } from './hooks/useProspects';
 import { usePendingMutations } from './hooks/usePendingMutations';
 import { useContracts } from './hooks/useContracts';
-import ShareLoteoModal from './components/modals/ShareLoteoModal';
+import ShareProjectModal from './components/modals/ShareProjectModal';
 import { PAGE_SIZE, STATUS_DISPLAY, CATEGORY_DISPLAY, getProspectFields, getLotFields } from './constants';
 import { createApiFetch } from './api';
 import { createUploadFn } from './api/upload';
@@ -91,10 +91,6 @@ const OWNER_VIEW_HEADERS = {
     title: 'Análisis',
     subtitle: 'Medí la actividad comercial y detectá oportunidades con datos reales.',
   },
-  proyectos: {
-    title: 'Proyectos',
-    subtitle: 'Agrupá loteos bajo una identidad visual compartida para el visor público.',
-  },
 };
 
 // Orgs con plan `visor_only` (Fase 3 del tier de visor standalone) no ven el
@@ -107,7 +103,7 @@ function PlatformApp() {
   const [view, setView] = useState('login'); // 'login' | 'lote_owner'
   const [ownerSubView, setOwnerSubView] = useState(() => {
     const stored = localStorage.getItem('owner_sub_view');
-    return stored && stored !== 'configuracion' ? stored : 'inicio';
+    return stored && stored !== 'configuracion' && stored !== 'proyectos' ? stored : 'inicio';
   });
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const { token, user, setUser, isInitializing, handleLogin: authLogin, logout: authLogout } = useAuth();
@@ -126,9 +122,7 @@ function PlatformApp() {
   const {
     prospectosSearch, setProspectosSearch,
     prospectosCategoryFilter, setProspectosCategoryFilter,
-    prospectosWithoutAdvisor, setProspectosWithoutAdvisor,
-    advisorsList, setAdvisorsList,
-    advisorsLoading,
+    advisorsList,
   } = useProspects();
 
   const [allProspectosList, setAllProspectosList] = useState([]);
@@ -140,14 +134,13 @@ function PlatformApp() {
   const [reportsCache, setReportsCache] = useState({}); // { lastDays: { prospectos, clicks, leadsPorOrigen } }
   const [funnelCache, setFunnelCache] = useState({}); // { `${loteoId}:${lastDays}`: funnelStats }
   const [funnelLoadingIds, setFunnelLoadingIds] = useState(new Set());
+  const [engagementCache, setEngagementCache] = useState({}); // { `${loteoId}:${lastDays}`: engagementStats }
+  const [engagementLoadingIds, setEngagementLoadingIds] = useState(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dashboardSummary, setDashboardSummary] = useState(null);
   const [analisisLastDays, setAnalisisLastDays] = useState(30);
   const [deleteLoteoDialog, setDeleteLoteoDialog] = useState({ open: false, loteo: null, loading: false });
-  const [shareLoteoOpen, setShareLoteoOpen] = useState(false);
-  const [selectedLoteoId, setSelectedLoteoId] = useState(null);
-  const [selectedProjectSlug, setSelectedProjectSlug] = useState(null);
-  const [selectedLoteoSlug, setSelectedLoteoSlug] = useState(null);
+  const [shareOpen, setShareOpen] = useState(false);
   const [org, setOrg] = useState(null);
   const [orgLoading, setOrgLoading] = useState(false);
   const isVisorOnly = org?.plan === 'visor_only';
@@ -162,6 +155,11 @@ function PlatformApp() {
       return null;
     }
   });
+  // Se incrementa cada vez que se crea una organización (CreateOrgPanel) para
+  // forzar al OrgSwitcher a re-listar — su propio efecto solo refetchea cuando
+  // cambia `apiFetch`, que no cambia de identidad al crear una org sin cambiar
+  // de org activa (ej. si el admin eligió "hacerlo más tarde" en vez de operarla).
+  const [orgListVersion, setOrgListVersion] = useState(0);
 
   React.useEffect(() => {
     try {
@@ -177,7 +175,6 @@ function PlatformApp() {
     inventoryLoteosSearch,
     prospectosSearch,
     prospectosCategoryFilter,
-    prospectosWithoutAdvisor,
     inventoryLoteos,
     inventoryLotsCount: 0,
     prospectosCount: 0,
@@ -191,12 +188,11 @@ function PlatformApp() {
       inventoryLoteosSearch,
       prospectosSearch,
       prospectosCategoryFilter,
-      prospectosWithoutAdvisor,
       inventoryLoteos,
       inventoryLotsCount: inventoryLots.length,
       prospectosCount: allProspectosList.length,
     };
-  }, [inventorySearch, inventoryLoteosSearch, prospectosSearch, prospectosCategoryFilter, prospectosWithoutAdvisor, inventoryLoteos, inventoryLots.length, allProspectosList.length]);
+  }, [inventorySearch, inventoryLoteosSearch, prospectosSearch, prospectosCategoryFilter, inventoryLoteos, inventoryLots.length, allProspectosList.length]);
 
   // ── Toast notifications ────────────────────────────────────────────────────────
   const { toasts, addToast, removeToast } = useToast();
@@ -240,7 +236,6 @@ function PlatformApp() {
   React.useEffect(() => {
     if (ownerSubView === 'clientes') return;
     setProspectosCategoryFilter('');
-    setProspectosWithoutAdvisor(false);
   }, [ownerSubView]);
 
   // ── Client-side filtered data (derived from useSync cache, no extra API calls) ──
@@ -261,15 +256,14 @@ function PlatformApp() {
   }, [inventoryLoteos, inventoryLoteosSearch]);
 
   const filteredProspectos = useMemo(() => {
-    if (!prospectosSearch && !prospectosCategoryFilter && !prospectosWithoutAdvisor) return null;
+    if (!prospectosSearch && !prospectosCategoryFilter) return null;
     const q = (prospectosSearch || '').toLowerCase();
     return (allProspectosList || []).filter(p => {
       const matchSearch = !q || p.name?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q);
       const matchCat = !prospectosCategoryFilter || p.category === prospectosCategoryFilter;
-      const matchAdv = !prospectosWithoutAdvisor || !p.advisor_id;
-      return matchSearch && matchCat && matchAdv;
+      return matchSearch && matchCat;
     });
-  }, [allProspectosList, prospectosSearch, prospectosCategoryFilter, prospectosWithoutAdvisor]);
+  }, [allProspectosList, prospectosSearch, prospectosCategoryFilter]);
 
   const handleLogin = async (email, password, { setLoading, setStatus }) => {
     try {
@@ -413,22 +407,6 @@ function PlatformApp() {
     setOwnerSubView('clientes');
   };
 
-  const handleOpenShareLoteo = (loteoId) => {
-    setSelectedLoteoId(loteoId);
-    const loteo = inventoryLoteos.find((l) => l.id === loteoId);
-    const project = loteo?.project_id ? projects.find((p) => p.id === loteo.project_id) : null;
-    setSelectedProjectSlug(project?.slug || null);
-    setSelectedLoteoSlug(loteo?.slug || null);
-    setShareLoteoOpen(true);
-  };
-
-  const handleCloseShareLoteo = () => {
-    setShareLoteoOpen(false);
-    setSelectedLoteoId(null);
-    setSelectedLoteoSlug(null);
-    setSelectedProjectSlug(null);
-  };
-
   const handleDeleteLoteoConfirm = async () => {
     const loteo = deleteLoteoDialog.loteo;
     if (!loteo) return;
@@ -455,7 +433,7 @@ function PlatformApp() {
     setView, setInventoryLots, setInventoryLotsHasMore, setInventorySearch,
     setInventoryTab, setInventoryLoteos,
     setAllProspectosList, setProspectosCategoryFilter,
-    setProspectosWithoutAdvisor, setClicksCache, setVisorDataCache,
+    setClicksCache, setVisorDataCache,
     setReportsCache, setDashboardSummary,
     setOrg, setProjects, setActiveOrgId,
   }), []);
@@ -479,6 +457,15 @@ function PlatformApp() {
   // siempre null (no está atado a ninguna org por relación) — org.lote_owner_id es
   // el único valor válido, y depende de qué org eligió en el OrgSwitcher.
   const activeLoteOwnerId = org?.lote_owner_id ?? user?.lote_owner_id;
+  // user.org_role viene fijo del login (la membership propia del usuario). Para
+  // super_admin eso es siempre null (no tiene membership propia, ver arriba)
+  // aunque esté operando una org ajena vía el OrgSwitcher — y el backend SÍ lo
+  // trata como owner de esa org mientras dure la selección (ver require_org_owner).
+  // Sin derivarlo acá, TeamPanel/CobranzasView ocultan las acciones de owner
+  // (invitar, editar org, tasas de cemento) para super_admin en cualquier org.
+  const effectiveOrgRole = user?.role === 'super_admin'
+    ? (effectiveActiveOrgId ? 'owner' : null)
+    : user?.org_role;
 
   // apiFetch uses logout (no-arg) as the 401 handler
   // eslint-disable-next-line react-hooks/preserve-manual-memoization
@@ -493,9 +480,9 @@ function PlatformApp() {
   }, [ownerSubView, inventoryTab, hasUsableOrgContext, inventoryLoteos.length]);
 
   React.useEffect(() => {
-    if (ownerSubView !== 'proyectos' || !hasUsableOrgContext) return;
+    if (!accountModalOpen || !hasUsableOrgContext) return;
     if (inventoryLoteos.length === 0) fetchInventoryLoteos();
-  }, [ownerSubView, hasUsableOrgContext, inventoryLoteos.length]);
+  }, [accountModalOpen, hasUsableOrgContext, inventoryLoteos.length]);
 
   // uploadFn: XHR-based upload with WebP conversion + progress events
   const uploadFn = useMemo(() => createUploadFn(token, logout), [token, logout]);
@@ -574,7 +561,7 @@ function PlatformApp() {
   });
 
   // Callbacks passed to AnalisisView so it can request data through the shared cache
-  const { handleAnalisisRequestClicks, handleAnalisisRequestVisorData, handleAnalisisRequestFunnel } = buildAnalisisCallbacks({ apiFetch, setClicksCache, setVisorDataCache, setClicksLoadingIds, setVisorDataLoadingIds, setFunnelCache, setFunnelLoadingIds });
+  const { handleAnalisisRequestClicks, handleAnalisisRequestVisorData, handleAnalisisRequestFunnel, handleAnalisisRequestEngagement } = buildAnalisisCallbacks({ apiFetch, setClicksCache, setVisorDataCache, setClicksLoadingIds, setVisorDataLoadingIds, setFunnelCache, setFunnelLoadingIds, setEngagementCache, setEngagementLoadingIds });
 
   // ── Combined sync hook (must be after apiFetch and addToast) ─────────────────
   const { syncLoading, syncError, refresh: refreshSync, clearSyncError } = useSync(token, apiFetch, {
@@ -622,6 +609,24 @@ function PlatformApp() {
   const isOrgDataLoading = hasUsableOrgContext
     && (orgLoading || projectsLoading || syncLoading || contractsState.loading);
 
+  // Una org tiene un solo proyecto: su link público abre el "loteo del visor 360" (Finanzas).
+  const shareProjectSlug = projects[0]?.slug ?? null;
+  let shareDisabledReason = null;
+  if (!shareProjectSlug) {
+    if (projectsLoading) shareDisabledReason = 'Cargando proyecto…';
+    else if (projects.length === 0) shareDisabledReason = 'Creá un proyecto para compartir el visor';
+    else shareDisabledReason = 'Definí el slug del proyecto en Configuración para compartir el visor';
+  }
+
+  // ── Loteo Services Modal ─────────────────────────────────────────────────────
+  const loteoServicesModal = useLoteoServicesModal({
+    apiFetch,
+    addToast,
+    onUpdateLoteo: updateLoteo,
+    loteOwnerId: activeLoteOwnerId,
+    addActivity,
+  });
+
   // ── Add Prospect Modal ────────────────────────────────────────────────────────
   const addProspectModal = useAddProspectModal({
     apiFetch,
@@ -635,8 +640,6 @@ function PlatformApp() {
   // ── Edit Prospect Modal ──────────────────────────────────────────────────────
   const editProspectModal = useEditProspectModal({
     apiFetch,
-    advisorsList,
-    setAdvisorsList,
     addToast,
     onSuccess: refreshSync,
     onUpdateProspect: updateProspect,
@@ -733,18 +736,21 @@ function PlatformApp() {
         activeItem={ownerSubView}
         onItemClick={(id) => { setOwnerSubView(id); setSidebarOpen(false); }}
         onOpenAccount={() => { setAccountModalOpen(true); setSidebarOpen(false); }}
+        onOpenShare={() => { setShareOpen(true); setSidebarOpen(false); }}
+        shareDisabledReason={shareDisabledReason}
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(v => !v)}
         apiFetch={apiFetch}
         activeOrgId={activeOrgId}
         onChangeOrg={setActiveOrgId}
+        orgListVersion={orgListVersion}
         isVisorOnly={isVisorOnly}
       />
 
       <main className="dashboard-content">
-          <div className={`owner-layout${ownerSubView === 'inicio' || ownerSubView === 'inventario' || ownerSubView === 'clientes' || ownerSubView === 'analisis' || ownerSubView === 'proyectos' ? ' owner-layout--shell' : ''}${ownerSubView === 'inicio' ? ' owner-layout--inicio' : ''}`}>
+          <div className={`owner-layout${ownerSubView === 'inicio' || ownerSubView === 'inventario' || ownerSubView === 'clientes' || ownerSubView === 'analisis' ? ' owner-layout--shell' : ''}${ownerSubView === 'inicio' ? ' owner-layout--inicio' : ''}`}>
             <div key={ownerSubView} className="view-content">
-              {ownerSubView !== 'inicio' && ownerSubView !== 'inventario' && ownerSubView !== 'clientes' && ownerSubView !== 'cobranzas' && ownerSubView !== 'analisis' && ownerSubView !== 'proyectos' && (
+              {ownerSubView !== 'inicio' && ownerSubView !== 'inventario' && ownerSubView !== 'clientes' && ownerSubView !== 'cobranzas' && ownerSubView !== 'analisis' && (
                 <header className="owner-header owner-header--compact">
                   <h1 className="view-title">{ownerViewHeader.title}</h1>
                   <h2>{ownerViewSubtitle}</h2>
@@ -792,9 +798,9 @@ function PlatformApp() {
                   onOpenCreateLoteoModal={createLoteoModal.openCreateLoteoModal}
                   onOpenEditLoteoModal={editLoteoModal.openEditLoteoModal}
                   onOpenDeleteLoteoDialog={openDeleteLoteoDialog}
+                  onOpenLoteoServices={loteoServicesModal.openServicesModal}
                   onOpenEditor={openEditor}
                   safeOpen={safeOpen}
-                  onOpenShareLoteo={handleOpenShareLoteo}
                   allProspectosList={allProspectosList}
                   onNavigateToProspect={handleNavigateToProspect}
                   contractsState={contractsState}
@@ -809,8 +815,6 @@ function PlatformApp() {
                   onSearchChange={setProspectosSearch}
                   prospectosCategoryFilter={prospectosCategoryFilter}
                   onCategoryChange={setProspectosCategoryFilter}
-                  prospectosWithoutAdvisor={prospectosWithoutAdvisor}
-                  onWithoutAdvisorChange={setProspectosWithoutAdvisor}
                   onOpenAddProspect={addProspectModal.openAddProspectModal}
                   onEditProspect={editProspectModal.openEditProspectModal}
                   onDeleteProspect={openDeleteProspectDialog}
@@ -830,9 +834,6 @@ function PlatformApp() {
                     contractsState={contractsState}
                     onAddBuyerEmail={openBuyerEmailEditor}
                     org={org}
-                    orgLoading={orgLoading}
-                    setOrg={setOrg}
-                    canEditCementRate={CAN_EDIT_ORG_ROLES.includes(user?.org_role)}
                   />
                 </ErrorBoundary>
               )}
@@ -857,25 +858,15 @@ function PlatformApp() {
                     cachedFunnel={funnelCache}
                     funnelLoadingIds={funnelLoadingIds}
                     onRequestFunnel={handleAnalisisRequestFunnel}
+                    cachedEngagement={engagementCache}
+                    engagementLoadingIds={engagementLoadingIds}
+                    onRequestEngagement={handleAnalisisRequestEngagement}
+                    orgPhone={org?.phone}
                   />
                 </ErrorBoundary>
               )}
 
-              {ownerSubView === 'proyectos' && (
-                <ProjectsView
-                  apiFetch={apiFetch}
-                  uploadFn={uploadFn}
-                  onUploadEvent={handleUploadEvent}
-                  allLoteos={inventoryLoteos}
-                  addToast={addToast}
-                  projects={projects}
-                  projectsLoading={projectsLoading}
-                  setProjects={setProjects}
-                  isVisorOnly={isVisorOnly}
-                />
-              )}
-
-              {ownerSubView !== 'inventario' && ownerSubView !== 'clientes' && ownerSubView !== 'cobranzas' && ownerSubView !== 'analisis' && ownerSubView !== 'inicio' && ownerSubView !== 'proyectos' && (
+              {ownerSubView !== 'inventario' && ownerSubView !== 'clientes' && ownerSubView !== 'cobranzas' && ownerSubView !== 'analisis' && ownerSubView !== 'inicio' && (
                 <div className="owner-panel">
                   <p>Tu dashboard de {ownerSubView} está siendo preparado.</p>
                 </div>
@@ -894,7 +885,17 @@ function PlatformApp() {
         org={org}
         orgLoading={orgLoading}
         setOrg={setOrg}
+        orgRole={effectiveOrgRole}
+        setActiveOrgId={setActiveOrgId}
+        onOrgCreated={() => setOrgListVersion(v => v + 1)}
         onLogout={logout}
+        uploadFn={uploadFn}
+        onUploadEvent={handleUploadEvent}
+        allLoteos={inventoryLoteos}
+        projects={projects}
+        projectsLoading={projectsLoading}
+        setProjects={setProjects}
+        isVisorOnly={isVisorOnly}
       />
 
       <LoteoFormModal
@@ -926,6 +927,17 @@ function PlatformApp() {
         onUploadEvent={handleUploadEvent}
       />
 
+      {loteoServicesModal.servicesModalOpen && (
+        <LoteoServicesModal
+          isOpen={loteoServicesModal.servicesModalOpen}
+          onClose={loteoServicesModal.closeServicesModal}
+          loteo={loteoServicesModal.servicesLoteo}
+          onSubmit={loteoServicesModal.submitServices}
+          loading={loteoServicesModal.servicesLoading}
+          error={loteoServicesModal.servicesError}
+        />
+      )}
+
       <AddProspectModal
         isOpen={addProspectModal.addProspectOpen}
         onClose={addProspectModal.closeAddProspectModal}
@@ -940,7 +952,7 @@ function PlatformApp() {
         isOpen={editProspectModal.editProspectModalOpen}
         isClosing={editProspectModal.editProspectClosing}
         title="Editar Prospecto"
-        fields={getProspectFields(advisorsList, advisorsLoading, inventoryLots, inventoryLoading)}
+        fields={getProspectFields(inventoryLots, inventoryLoading)}
         formData={editProspectModal.editProspectForm}
         onFormChange={(field, value) =>
           editProspectModal.setEditProspectForm(f => ({ ...f, [field]: value }))
@@ -984,14 +996,11 @@ function PlatformApp() {
         onCancel={confirmDialogs.closeConfirmDialog}
       />
 
-      <ShareLoteoModal
-        isOpen={shareLoteoOpen}
-        onClose={handleCloseShareLoteo}
+      <ShareProjectModal
+        isOpen={shareOpen}
+        onClose={() => setShareOpen(false)}
         visorBaseUrl={VISOR_URL}
-        apiBaseUrl={API_BASE}
-        loteoId={selectedLoteoId}
-        loteoSlug={selectedLoteoSlug}
-        projectSlug={selectedProjectSlug}
+        projectSlug={shareProjectSlug}
         addToast={addToast}
       />
 

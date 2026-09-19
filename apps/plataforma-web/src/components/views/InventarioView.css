@@ -382,27 +382,6 @@
   background: rgba(197, 160, 89, 0.15);
 }
 
-/* Sin asesor toggle */
-.filter-toggle {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--text-muted);
-  font-size: var(--text-base);
-  font-weight: var(--weight-medium);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  user-select: none;
-}
-
-.filter-toggle input[type="checkbox"] {
-  accent-color: var(--accent-color);
-  width: 14px;
-  height: 14px;
-  cursor: pointer;
-}
-
 /* .prospectos-list, .prospecto-tag* → inventory/LotesTable.css */
 
 /* ─── Prospecto Tooltip → inventory/ProspectoTooltip.css ─────────────────── */
@@ -458,8 +437,8 @@
 /* td-actions uses display:flex which removes it from table-cell formatting and
    breaks border-collapse for group rows. Restore table-cell here and move flex
    to an inner wrapper (same pattern as td-links / loteo-link-actions). */
-/* .loteos-table*, .loteo-group-*, .loteo-name-cell*, .loteo-tree-connector,
-   .loteo-role-badge*, .td-group-header, .group-header-label → inventory/LoteosTable.css */
+/* .loteos-table*, .loteo-section-*, .td-section-header, .section-header-*,
+   .row-card-cta* → inventory/LoteosTable.css */
 
 /* ═══════════════════════════════════════════════════════════════════
    REDISEÑO · Inventario — alinea la vista con el lenguaje limpio de
@@ -755,31 +734,7 @@
   margin-bottom: var(--space-md);
 }
 
-/* Distribución por loteo · mini-donuts en fila con scroll horizontal */
-.inventario-shell .inv-dgrid {
-  display: flex;
-  gap: 14px;
-  overflow-x: auto;
-  padding-bottom: 6px;
-  scroll-snap-type: x proximity;
-  overscroll-behavior-x: contain;
-  scrollbar-width: thin;
-  cursor: ew-resize;
-}
-
-/* .inv-dcard*, .inv-ring--sm* → inventory/DonutCard.css */
-
-/* Leyenda de estados en el header del módulo */
-.inventario-shell .inv-dlegend {
-  display: flex;
-  gap: 14px;
-  padding-top: 2px;
-}
-
-.inventario-shell .inv-dlegend .inv-lk {
-  font-size: var(--text-sm);
-  gap: 6px;
-}
+/* .inv-velocity* → inventory/SalesVelocityChart.css */
 
 /* Las cuatro filas ocupan en conjunto el alto disponible del panel, de modo
    que el módulo acompaña a Actividad reciente sin dejar un vacío inferior. */
@@ -984,9 +939,6 @@
 }
 
 @media (max-width: 1180px) {
-  .inventario-shell .inv-dgrid {
-    grid-template-columns: repeat(2, 1fr);
-  }
   .inventario-shell .inv-prices {
     grid-template-columns: 1fr;
   }
@@ -999,10 +951,6 @@
 }
 
 @media (max-width: 560px) {
-  .inventario-shell .inv-dgrid {
-    grid-template-columns: 1fr;
-  }
-
   .inventario-shell .inv-attention-filter {
     align-items: flex-start;
     flex-wrap: wrap;
@@ -1016,5 +964,14 @@
 
   .inventario-shell .inv-attention-filter button {
     margin-left: 0;
+  }
+
+  .inventario-shell .inv-velocity-bars {
+    gap: 6px;
+  }
+
+  .inventario-shell .inv-velocity-summary {
+    flex-wrap: wrap;
+    gap: 8px 22px;
   }
 }

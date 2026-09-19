@@ -89,7 +89,7 @@ export function useAuth() {
       setInventoryLots, setInventoryLotsHasMore, setInventorySearch,
       setInventoryStatusFilter, setInventoryTab, setInventoryLoteos,
       setAllProspectosList, setProspectosCategoryFilter,
-      setProspectosWithoutAdvisor, setToasts, setClicksCache, setVisorDataCache,
+      setToasts, setClicksCache, setVisorDataCache,
       setReportsCache, setDashboardSummary,
       setOrg, setProjects, setActiveOrgId,
     } = setters;
@@ -110,7 +110,6 @@ export function useAuth() {
     setInventoryLoteos([]);
     setAllProspectosList([]);
     setProspectosCategoryFilter('');
-    setProspectosWithoutAdvisor?.(false);
     setToasts?.([]);
     setClicksCache?.({});
     setVisorDataCache({});

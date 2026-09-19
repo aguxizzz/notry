@@ -241,6 +241,23 @@
 .sidebar-bottom {
   padding: var(--space-md) var(--space-sm);
   border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.sidebar-share:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sidebar-share:disabled:hover {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.sidebar-share:disabled:active {
+  transform: none;
 }
 
 /* Respeta reduce-motion: sin press ni transiciones de transform */

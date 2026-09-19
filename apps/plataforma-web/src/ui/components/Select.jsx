@@ -2,6 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import './Select.css';
 
+const SIZE_CLASS = { sm: 'select-trigger--sm', md: 'select-trigger--md', lg: 'select-trigger--lg' };
+const VARIANT_CLASS = { default: '', ghost: 'select-trigger--ghost' };
+
 export default function Select({
   id,
   label,
@@ -12,6 +15,9 @@ export default function Select({
   options,
   disabled = false,
   className = '',
+  size = 'md',
+  variant = 'default',
+  hideChevron = false,
 }) {
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
@@ -124,7 +130,7 @@ export default function Select({
           ref={triggerRef}
           type="button"
           id={id}
-          className={`select-trigger${open ? ' select-trigger--open' : ''}`}
+          className={`select-trigger${open ? ' select-trigger--open' : ''} ${SIZE_CLASS[size] || SIZE_CLASS.md} ${VARIANT_CLASS[variant] || ''}`.trim()}
           onClick={handleToggle}
           onKeyDown={handleKeyDown}
           disabled={disabled}
@@ -142,19 +148,21 @@ export default function Select({
           >
             {selected ? selected.label : '—'}
           </span>
-          <svg
-            className="select-trigger__chevron"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
+          {!hideChevron && (
+            <svg
+              className="select-trigger__chevron"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          )}
         </button>
 
         {createPortal(

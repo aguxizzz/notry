@@ -1,6 +1,6 @@
 /* ── Configuración: layout de dos columnas + scaffold de cards ──
    Perfil (columna izquierda) · Organización (columna derecha).
-   Las cards son <Panel> del sistema; acá viven la grilla, el head con badge
+   Las cards son <Panel> del sistema; acá viven la grilla, el head
    y las filas de datos (label + valor), compartidas entre ProfileCard,
    y TeamPanel. */
 
@@ -22,43 +22,17 @@
 .cfg-card-head-title {
   display: flex;
   align-items: center;
-  gap: 10px;
   min-width: 0;
 }
 
-.cfg-card-head-title h3 {
+.cfg-card-head-title h3,
+.cfg-section-title {
   margin: 0;
   font-family: var(--font-primary);
   font-size: var(--text-lg);
   font-weight: var(--weight-black);
   letter-spacing: -0.01em;
   color: var(--text-main);
-}
-
-.cfg-card-badge {
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-surface);
-  border: 1px solid color-mix(in srgb, var(--accent-color) 22%, var(--border-color));
-  color: var(--accent-dark);
-}
-
-.cfg-card-head-note {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.cfg-head-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  flex-shrink: 0;
 }
 
 .cfg-card-body {
@@ -98,11 +72,6 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-muted);
-}
-
-.cfg-field-label svg {
-  color: color-mix(in srgb, var(--text-muted) 65%, transparent);
-  flex-shrink: 0;
 }
 
 .cfg-field-note {
@@ -173,11 +142,3 @@
   border-top: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
 }
 
-.cfg-section-label {
-  font-family: var(--font-ui);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--accent-dark);
-}

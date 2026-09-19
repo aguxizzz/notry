@@ -159,6 +159,30 @@
   font-style: italic;
 }
 
+.prospecto-tooltip-row--phone {
+  align-items: center;
+}
+
+.prospecto-tooltip-row--phone span {
+  flex: 1;
+}
+
+.prospecto-tooltip-whatsapp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  color: #25D366;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.prospecto-tooltip-whatsapp-btn:hover {
+  background: rgba(37, 211, 102, 0.12);
+}
+
 .prospecto-tooltip-row--notes {
   margin-top: 4px;
   padding-top: 8px;

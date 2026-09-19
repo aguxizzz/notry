@@ -4,7 +4,6 @@ import {
   CalendarClock,
   Check,
   CircleDollarSign,
-  FileCheck2,
   Landmark,
   UsersRound,
 } from 'lucide-react';
@@ -58,8 +57,6 @@ function PreviewValue({ value, className = '' }) {
 export default function CreateContractForm({
   lots,
   prospects,
-  advisors,
-  advisorsLoading,
   onBack,
   onCreate,
 }) {
@@ -67,7 +64,6 @@ export default function CreateContractForm({
   const [form, setForm] = useState({
     lote_id: '',
     prospect_id: '',
-    sold_by_advisor_id: '',
     contract_date: initialContractDate,
     first_due_date: addMonthsToInputDate(initialContractDate, 1),
     unit_type: 'pesos',
@@ -81,7 +77,6 @@ export default function CreateContractForm({
 
   const selectedLot = lots.find(lot => String(lot.id) === form.lote_id);
   const selectedProspect = prospects.find(prospect => String(prospect.id) === form.prospect_id);
-  const selectedAdvisor = advisors.find(advisor => String(advisor.id) === form.sold_by_advisor_id);
   const { selectableLots, unavailableLots } = useMemo(() => {
     const prospectCounts = prospects.reduce((counts, prospect) => {
       if (prospect.lote_id === null || prospect.lote_id === undefined || prospect.lote_id === '') {
@@ -154,16 +149,6 @@ export default function CreateContractForm({
       label: `${prospect.name}${prospect.phone ? ` · ${prospect.phone}` : ''}`,
     })),
   ], [form.lote_id, relatedProspects]);
-  const advisorOptions = useMemo(() => [
-    {
-      value: '',
-      label: advisorsLoading ? 'Cargando asesores…' : 'Sin asesor asignado',
-    },
-    ...advisors.map(advisor => ({
-      value: String(advisor.id),
-      label: advisor.full_name,
-    })),
-  ], [advisors, advisorsLoading]);
 
   const installmentSummary = Number(form.installments_count) > 0
     ? `${form.installments_count} × ${installmentAmount > 0
@@ -175,7 +160,6 @@ export default function CreateContractForm({
     ? `${selectedLot.name} · ${selectedLot.loteo_name || 'Sin loteo'}`
     : 'Pendiente';
   const prospectSummary = selectedProspect?.name || 'Pendiente';
-  const advisorSummary = selectedAdvisor?.full_name || 'Sin asesor asignado';
   const dueDateSummary = form.first_due_date
     ? formatContractDate(`${form.first_due_date}T12:00:00`)
     : 'Pendiente';
@@ -287,10 +271,6 @@ export default function CreateContractForm({
       installments_count: installmentsCount,
     };
 
-    if (form.sold_by_advisor_id) {
-      body.sold_by_advisor_id = form.sold_by_advisor_id;
-    }
-
     if (form.unit_type === 'pesos' && form.interest_enabled) {
       body.interest_base_amount = amount;
       body.interest_rate_percent = interestRate;
@@ -335,7 +315,7 @@ export default function CreateContractForm({
               <span>1</span>
               <div>
                 <h2>Operación</h2>
-                <p>Elegí el lote para ver sus compradores vinculados. El asesor es opcional.</p>
+                <p>Elegí el lote para ver sus compradores vinculados.</p>
               </div>
             </div>
 
@@ -375,21 +355,6 @@ export default function CreateContractForm({
                     : relatedProspects.length === 0
                       ? 'Este lote no tiene prospectos vinculados. Asigná uno desde Clientes para continuar.'
                       : `${relatedProspects.length} prospecto${relatedProspects.length === 1 ? '' : 's'} vinculado${relatedProspects.length === 1 ? '' : 's'} a este lote.`}
-                </span>
-              </div>
-
-              <div className="cob-field cob-field--wide">
-                <label htmlFor="contract-advisor"><FileCheck2 size={14} /> Asesor responsable <span>(opcional)</span></label>
-                <Select
-                  id="contract-advisor"
-                  value={form.sold_by_advisor_id}
-                  onChange={event => update('sold_by_advisor_id', event.target.value)}
-                  disabled={submitting || advisorsLoading}
-                  ariaLabel="Seleccionar asesor responsable"
-                  options={advisorOptions}
-                />
-                <span className="cob-field-help">
-                  Podés crear el contrato ahora y asignar un asesor más adelante.
                 </span>
               </div>
             </div>
@@ -527,7 +492,6 @@ export default function CreateContractForm({
           <dl className="cob-plan-facts">
             <div><dt>Lote</dt><dd><PreviewValue value={lotSummary} /></dd></div>
             <div><dt>Comprador</dt><dd><PreviewValue value={prospectSummary} /></dd></div>
-            <div><dt>Asesor</dt><dd><PreviewValue value={advisorSummary} /></dd></div>
             <div>
               <dt>Primer vencimiento</dt>
               <dd><PreviewValue value={dueDateSummary} /></dd>

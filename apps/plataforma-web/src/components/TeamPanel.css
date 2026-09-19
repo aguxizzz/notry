@@ -276,7 +276,3 @@
   margin: 0;
   min-width: 130px;
 }
-
-.team-member-role-picker .select-trigger {
-  font-size: var(--text-xs);
-}

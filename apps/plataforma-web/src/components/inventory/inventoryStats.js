@@ -32,6 +32,7 @@ export function computeInventoryStats(lots = [], loteos = [], summary = null, at
   let minPrice = Infinity, maxPrice = -Infinity;
   let sumPricePerM2 = 0, ppm2Count = 0;
   const byLoteo = new Map();
+  const soldByMonth = new Map();
 
   for (const lot of lots) {
     const price = toNum(lot.price);
@@ -40,6 +41,14 @@ export function computeInventoryStats(lots = [], loteos = [], summary = null, at
     else if (lot.status === 'reserved') reserved++;
     else if (lot.status === 'sold') sold++;
     else if (lot.status === 'unavailable') unavailable++;
+
+    if (lot.sold_at) {
+      const soldDate = new Date(lot.sold_at);
+      if (!Number.isNaN(soldDate.getTime())) {
+        const monthKey = `${soldDate.getFullYear()}-${String(soldDate.getMonth() + 1).padStart(2, '0')}`;
+        soldByMonth.set(monthKey, (soldByMonth.get(monthKey) ?? 0) + 1);
+      }
+    }
 
     sumArea += area;
     if (price > 0) {
@@ -82,6 +91,19 @@ export function computeInventoryStats(lots = [], loteos = [], summary = null, at
     }))
     .sort((a, b) => b.total - a.total);
 
+  const MONTHS_BACK = 6;
+  const now = new Date();
+  const monthlySales = [];
+  for (let i = MONTHS_BACK - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    monthlySales.push({
+      key: monthKey,
+      label: d.toLocaleDateString('es-AR', { month: 'short' }),
+      count: soldByMonth.get(monthKey) ?? 0,
+    });
+  }
+
   return {
     total: cTotal,
     available: cAvailable, reserved: cReserved, sold: cSold, unavailable: cUnavailable,
@@ -93,6 +115,7 @@ export function computeInventoryStats(lots = [], loteos = [], summary = null, at
     minPrice: minPrice === Infinity ? 0 : minPrice,
     maxPrice: maxPrice === -Infinity ? 0 : maxPrice,
     distribution,
+    monthlySales,
     attention: getInventoryAttentionCounts(lots, loteos, attentionContext),
   };
 }
@@ -142,54 +165,44 @@ export function buildRingGradient(counts) {
 // ── Loteos agrupados por proyecto ────────────────────────────────────────────
 
 // Los loteos que comparten project_id son las etapas de un mismo stage switcher
-// en el visor. Ordena los sueltos y agrupados bajo el nombre del proyecto, y
-// devuelve filas con metadata de posición para el recuadro visual del grupo.
+// en el visor. Devuelve las filas de la tabla en dos bloques: primero cada
+// proyecto (encabezado + sus etapas, aunque tenga una sola) y debajo los
+// loteos sin proyecto. El encabezado "Sin proyecto" solo aparece si hay algún
+// proyecto arriba; si no hay ninguno, la tabla queda como una lista plana.
 export function buildLoteoRows(data, projects = []) {
   const projectById = new Map((projects || []).map(p => [String(p.id), p]));
-  const groupsByProject = new Map();
-  const order = [];
+  const membersByProject = new Map();
+  const loose = [];
   for (const loteo of data) {
     if (!loteo.project_id) {
-      order.push({ kind: 'standalone', loteo });
-    } else {
-      if (!groupsByProject.has(loteo.project_id)) {
-        const entry = { kind: 'group', projectId: loteo.project_id, members: [] };
-        groupsByProject.set(loteo.project_id, entry);
-        order.push(entry);
-      }
-      groupsByProject.get(loteo.project_id).members.push(loteo);
+      loose.push(loteo);
+      continue;
     }
+    if (!membersByProject.has(loteo.project_id)) membersByProject.set(loteo.project_id, []);
+    membersByProject.get(loteo.project_id).push(loteo);
   }
+
   const rows = [];
-  for (const item of order) {
-    if (item.kind === 'standalone') {
-      rows.push({ key: item.loteo.id, loteo: item.loteo, variant: 'standalone' });
-      continue;
-    }
-    // Un solo loteo en el proyecto: no hay switcher, no vale la pena mostrar
-    // el recuadro de grupo por una fila sola.
-    if (item.members.length === 1) {
-      rows.push({ key: item.members[0].id, loteo: item.members[0], variant: 'standalone' });
-      continue;
-    }
-    item.members.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0) || a.name.localeCompare(b.name));
-    const groupLabel = projectById.get(String(item.projectId))?.name ?? item.members[0]?.name ?? 'Proyecto';
+  const pushGap = (key) => rows.push({ key, variant: 'section-gap' });
+  for (const [projectId, members] of membersByProject) {
+    if (rows.length > 0) pushGap(`gap-${projectId}`);
+    members.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0) || a.name.localeCompare(b.name));
     rows.push({
-      key: `header-${item.projectId}`,
-      variant: 'group-header',
-      label: groupLabel,
-      isFirst: true,
-      isLast: false,
+      key: `header-${projectId}`,
+      variant: 'section-header',
+      kind: 'project',
+      label: projectById.get(String(projectId))?.name ?? members[0]?.name ?? 'Proyecto',
+      count: members.length,
     });
-    item.members.forEach((loteo, i) => {
-      rows.push({
-        key: loteo.id,
-        loteo,
-        variant: 'group',
-        isFirst: false,
-        isLast: i === item.members.length - 1,
-      });
-    });
+    for (const loteo of members) rows.push({ key: loteo.id, loteo, variant: 'group' });
+  }
+
+  if (loose.length > 0) {
+    if (rows.length > 0) {
+      pushGap('gap-loose');
+      rows.push({ key: 'header-loose', variant: 'section-header', kind: 'loose', label: 'Sin proyecto', count: loose.length });
+    }
+    for (const loteo of loose) rows.push({ key: loteo.id, loteo, variant: 'standalone' });
   }
   return rows;
 }
