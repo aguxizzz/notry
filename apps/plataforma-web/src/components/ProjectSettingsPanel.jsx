@@ -35,6 +35,9 @@ const DEFAULT_PLANS = [
 const DEFAULT_PRIMARY_COLOR = '#c5a059';
 const DEFAULT_ACCENT_COLOR = '#b38a3f';
 
+// Un logo vacío se envía como '' para que el backend lo quite del branding.
+const LOGO_FIELDS = ['logo_primary', 'logo_secondary'];
+
 const EMPTY_BRANDING = {
   primary_color: DEFAULT_PRIMARY_COLOR,
   accent_color: DEFAULT_ACCENT_COLOR,
@@ -185,7 +188,7 @@ export default function ProjectSettingsPanel({
     }
     setSaveError(null);
     const brandingPayload = Object.fromEntries(
-      Object.entries(branding).filter(([, v]) => v !== '')
+      Object.entries(branding).filter(([k, v]) => v !== '' || (project && LOGO_FIELDS.includes(k)))
     );
     const financeConfig = viewerLoteoId ? {
       viewer_loteo_id: viewerLoteoId,
@@ -425,6 +428,7 @@ export default function ProjectSettingsPanel({
                 <ImageUploadField
                   value={branding.logo_primary}
                   onUpload={result => setBrandingField('logo_primary', result?.url ?? result)}
+                  onRemove={() => setBrandingField('logo_primary', '')}
                   label="Logo principal"
                   apiFetch={apiFetch}
                   uploadFn={uploadFn}
@@ -433,6 +437,7 @@ export default function ProjectSettingsPanel({
                 <ImageUploadField
                   value={branding.logo_secondary}
                   onUpload={result => setBrandingField('logo_secondary', result?.url ?? result)}
+                  onRemove={() => setBrandingField('logo_secondary', '')}
                   label="Logo secundario"
                   apiFetch={apiFetch}
                   uploadFn={uploadFn}
