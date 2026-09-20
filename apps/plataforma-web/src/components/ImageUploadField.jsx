@@ -3,7 +3,7 @@ import { uploadImage } from '../api/upload';
 
 const ACCEPTED = 'image/jpeg,image/png,image/webp,image/gif';
 
-export default function ImageUploadField({ value, thumbnailUrl, onUpload, label, showLabel = true, apiFetch, uploadFn, onUploadEvent, kind }) {
+export default function ImageUploadField({ value, thumbnailUrl, onUpload, onRemove, label, showLabel = true, apiFetch, uploadFn, onUploadEvent, kind }) {
   const inputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
@@ -113,6 +113,28 @@ export default function ImageUploadField({ value, thumbnailUrl, onUpload, label,
               Cambiar
             </span>
           </div>
+        )}
+
+        {onRemove && previewSrc && !uploading && (
+          <button
+            type="button"
+            className="image-upload-remove"
+            title="Quitar imagen"
+            aria-label="Quitar imagen"
+            onClick={e => { e.stopPropagation(); onRemove(); }}
+            style={{
+              position: 'absolute', top: 6, right: 6,
+              width: 24, height: 24, padding: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: 'none', borderRadius: '50%',
+              background: 'rgba(0,0,0,0.65)', color: '#fff', cursor: 'pointer',
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
         )}
 
         {!previewSrc && !uploading && (
