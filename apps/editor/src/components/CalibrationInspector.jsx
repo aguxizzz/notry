@@ -26,6 +26,45 @@ export default function CalibrationInspector({
   onDeleteCalibrationPoint,
   onClearCalibration,
   embedded = false,
+  geoCalibrationPoints,
+  pendingGeoBlueprintPoint,
+  onUpdateGeoPolygons,
+}) {
+  if (mode === 'geo') {
+    return (
+      <GeoCalibrationGuide
+        geoCalibrationPoints={geoCalibrationPoints}
+        pendingGeoBlueprintPoint={pendingGeoBlueprintPoint}
+        onCancelCalibration={onCancelCalibration}
+        onDeleteCalibrationPoint={onDeleteCalibrationPoint}
+        onClearCalibration={onClearCalibration}
+        onUpdateGeoPolygons={onUpdateGeoPolygons}
+        embedded={embedded}
+      />
+    );
+  }
+
+  return (
+    <BlueprintPanoramaCalibrationGuide
+      calibrationPoints={calibrationPoints}
+      pendingBlueprintPoints={pendingBlueprintPoints}
+      mode={mode}
+      onCancelCalibration={onCancelCalibration}
+      onDeleteCalibrationPoint={onDeleteCalibrationPoint}
+      onClearCalibration={onClearCalibration}
+      embedded={embedded}
+    />
+  );
+}
+
+function BlueprintPanoramaCalibrationGuide({
+  calibrationPoints,
+  pendingBlueprintPoints,
+  mode,
+  onCancelCalibration,
+  onDeleteCalibrationPoint,
+  onClearCalibration,
+  embedded,
 }) {
   const pairCount = calibrationPoints?.length ?? 0;
   const pendingCount = pendingBlueprintPoints?.length ?? 0;
@@ -153,6 +192,101 @@ export default function CalibrationInspector({
       )}
 
       <div className="calibration-actions">
+        {pairCount > 0 && (
+          <button className="calib-btn-danger" onClick={onClearCalibration}>
+            Borrar toda la calibración
+          </button>
+        )}
+        <button className="calib-btn-secondary" onClick={onCancelCalibration}>
+          Salir de calibración
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function GeoCalibrationGuide({
+  geoCalibrationPoints,
+  pendingGeoBlueprintPoint,
+  onCancelCalibration,
+  onDeleteCalibrationPoint,
+  onClearCalibration,
+  onUpdateGeoPolygons,
+  embedded,
+}) {
+  const pairCount = geoCalibrationPoints?.length ?? 0;
+  const isReady = pairCount >= 4;
+
+  return (
+    <div className={`calibration-inspector${embedded ? ' is-embedded' : ''}`}>
+      {!embedded && <h3 className="context-title">Calibración geográfica</h3>}
+
+      <section className="calibration-guide" aria-labelledby="geo-calibration-guide-title">
+        <div className="calibration-guide__header">
+          <div>
+            <Crosshair size={15} />
+            <strong id="geo-calibration-guide-title">Cómo calibrar</strong>
+          </div>
+        </div>
+        <p>Marcá puntos en común entre el plano y el mapa satelital. Con 4 pares alcanza — más puntos mejoran la precisión.</p>
+        <ul>
+          <li><Eye size={14} /><span>Elegí esquinas o cruces que se vean claramente en ambas imágenes.</span></li>
+          <li><MoveDiagonal2 size={14} /><span>Distribuí los puntos por toda el área del loteo.</span></li>
+        </ul>
+      </section>
+
+      <div className={`calibration-step${pendingGeoBlueprintPoint ? ' is-panorama' : ''}`} aria-live="polite">
+        <div className="calibration-step__header">
+          <span>{pendingGeoBlueprintPoint ? 'Ahora en el mapa satelital' : 'Ahora en el plano'}</span>
+          <strong>{pairCount} par{pairCount === 1 ? '' : 'es'}</strong>
+        </div>
+        <div className="calibration-step__copy">
+          <strong>
+            {pendingGeoBlueprintPoint
+              ? 'Marcá en el mapa el mismo punto que elegiste en el plano.'
+              : 'Marcá un punto de referencia en el plano.'}
+          </strong>
+          <span>
+            {isReady
+              ? 'Ya podés actualizar los polígonos satelitales.'
+              : `Faltan ${Math.max(0, 4 - pairCount)} par(es) para el mínimo recomendado.`}
+          </span>
+        </div>
+      </div>
+
+      {pairCount > 0 && (
+        <div className="calibration-pairs">
+          <span className="inspector-section-title">
+            Pares marcados
+            {pairCount < 4
+              ? ` — faltan ${4 - pairCount}`
+              : <span className="text-success"> — ✓ Lista</span>}
+          </span>
+
+          <div className="calibration-pair-list">
+            {geoCalibrationPoints.map((_, i) => (
+              <div key={i} className="calibration-pair-row">
+                <div>
+                  <span className="calibration-pair-dot" />
+                  <span>Par {i + 1}</span>
+                </div>
+                <button
+                  className="calib-point-delete"
+                  onClick={() => onDeleteCalibrationPoint?.(i)}
+                  title={`Borrar par ${i + 1}`}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="calibration-actions">
+        <button className="editor-btn editor-btn--primary" onClick={onUpdateGeoPolygons} disabled={!isReady}>
+          Actualizar polígonos satelitales
+        </button>
         {pairCount > 0 && (
           <button className="calib-btn-danger" onClick={onClearCalibration}>
             Borrar toda la calibración

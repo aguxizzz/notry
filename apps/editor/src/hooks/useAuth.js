@@ -73,6 +73,16 @@ export function useAuth() {
     setToken(null);
     setUser(null);
     setActiveOrgIdState(null);
+    // Sin esto, el ?data=/&orgId= de un loteo/etapa quedaba en la barra de
+    // direcciones tras cerrar sesión: loguearse con otra cuenta en la misma
+    // pestaña reintentaba abrir ese loteo ajeno en vez de caer al listado
+    // (bug reportado 2026-09-05).
+    const params = new URLSearchParams(window.location.search);
+    params.delete('data');
+    params.delete('orgId');
+    params.delete('from');
+    const cleaned = window.location.pathname + (params.toString() ? `?${params.toString()}` : '');
+    window.history.replaceState({}, '', cleaned);
   };
 
   return { token, user, handleLogin, handleLogout, activeOrgId, setActiveOrgId: setActiveOrgIdState };

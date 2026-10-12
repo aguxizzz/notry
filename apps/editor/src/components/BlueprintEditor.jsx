@@ -70,6 +70,7 @@ export default function BlueprintEditor({
   useEffect(() => {
     if (!blueprintUrl) return;
     const img = new Image();
+    img.crossOrigin = 'anonymous';
     img.onload = () => {
       setImgDims({ w: img.width, h: img.height });
       setIsImageLoaded(true);
@@ -436,7 +437,7 @@ export default function BlueprintEditor({
         overflow: 'hidden',
         position: 'relative',
         userSelect: 'none',
-        cursor: activeTool === 'polygon' || activeTool === 'poi' || activeTool === 'calibrate' || activeTool === 'rect' ? 'crosshair' : 'default'
+        cursor: activeTool === 'polygon' || activeTool === 'poi' || activeTool === 'calibrate' || activeTool === 'rect' || activeTool === 'autodetect' ? 'crosshair' : 'default'
       }}
     >
       {/* Both image and SVG are inside the same transformed container so they move together */}
@@ -455,6 +456,7 @@ export default function BlueprintEditor({
         <img
           ref={imgRef}
           src={blueprintUrl}
+          crossOrigin="anonymous"
           style={{
             position: 'absolute',
             top: 0,

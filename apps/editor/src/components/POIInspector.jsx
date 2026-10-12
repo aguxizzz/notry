@@ -65,6 +65,9 @@ export default function POIInspector({
     color: poi.color || '#14b8a6',
     target_loteo_id: poi.target_loteo_id || '',
     callout_stem_height: poi.callout_stem_height ?? 96,
+    poi_kind: poi.poi_kind || 'place',
+    distance_value: poi.distance_value ?? '',
+    distance_unit: poi.distance_unit || 'km',
   };
 
   const handleChange = (field, value) => {
@@ -72,6 +75,12 @@ export default function POIInspector({
   };
 
   const hasImage = !!form.image_url;
+  // Solo "perspective" abre la foto a pantalla completa en el visor (y por
+  // eso oculta ícono/descripción/link/etapa, que ahí no se ven). "place"
+  // (default) muestra la foto como thumbnail en el marker y estos campos
+  // conviven normalmente en el panel de info.
+  const isPerspective = form.poi_kind === 'perspective';
+  const hidesContentFields = hasImage && isPerspective;
 
   const fieldGroupStyle = { display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' };
   const disabledFieldStyle = { ...fieldGroupStyle, opacity: 0.4, pointerEvents: 'none' };
@@ -96,17 +105,30 @@ export default function POIInspector({
       />
 
       {hasImage && (
-        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', margin: 0 }}>
-          Con imagen cargada, el visor muestra solo la foto: el ícono, la descripción, la URL y "ir a etapa" no se ven. Quitá la imagen para volver a usarlos.
-        </p>
+        <div style={fieldGroupStyle}>
+          <span className="inspector-label">Comportamiento de la imagen</span>
+          <select
+            className="inspector-input"
+            value={form.poi_kind}
+            onChange={e => handleChange('poi_kind', e.target.value)}
+          >
+            <option value="place">Lugar</option>
+            <option value="perspective">Perspectiva</option>
+          </select>
+          {isPerspective && (
+            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', margin: 0 }}>
+              Con "Perspectiva", el visor muestra solo la foto al hacer click: el ícono, la descripción, la URL y "ir a etapa" no se ven.
+            </p>
+          )}
+        </div>
       )}
 
-      <div style={hasImage ? disabledFieldStyle : fieldGroupStyle}>
+      <div style={hidesContentFields ? disabledFieldStyle : fieldGroupStyle}>
         <span className="inspector-label">Tipo de icono</span>
         <IconGrid value={form.icon_type} onChange={v => handleChange('icon_type', v)} />
       </div>
 
-      <div style={hasImage ? disabledFieldStyle : fieldGroupStyle}>
+      <div style={hidesContentFields ? disabledFieldStyle : fieldGroupStyle}>
         <span className="inspector-label">Descripción</span>
         <textarea
           className="inspector-input"
@@ -115,18 +137,44 @@ export default function POIInspector({
           placeholder="Descripción del lugar..."
           rows={3}
           style={{ resize: 'vertical' }}
-          disabled={hasImage}
+          disabled={hidesContentFields}
         />
       </div>
 
+      <div style={fieldGroupStyle}>
+        <span className="inspector-label">Distancia (opcional)</span>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <input
+            className="inspector-input"
+            type="number"
+            min={0}
+            max={9999}
+            step={0.1}
+            value={form.distance_value}
+            onChange={e => handleChange('distance_value', e.target.value === '' ? '' : Number(e.target.value))}
+            placeholder="Ej: 3.5"
+            style={{ flex: 1 }}
+          />
+          <select
+            className="inspector-input"
+            value={form.distance_unit}
+            onChange={e => handleChange('distance_unit', e.target.value)}
+            style={{ width: '90px' }}
+          >
+            <option value="km">km</option>
+            <option value="min">min (auto)</option>
+          </select>
+        </div>
+      </div>
+
       {siblingStages.length > 0 && (
-        <div style={hasImage ? disabledFieldStyle : fieldGroupStyle}>
+        <div style={hidesContentFields ? disabledFieldStyle : fieldGroupStyle}>
           <span className="inspector-label">Ir a etapa (opcional)</span>
           <select
             className="inspector-input"
             value={form.target_loteo_id}
             onChange={e => handleChange('target_loteo_id', e.target.value)}
-            disabled={hasImage}
+            disabled={hidesContentFields}
           >
             <option value="">— Ninguna —</option>
             {siblingStages.map(s => (
@@ -138,14 +186,14 @@ export default function POIInspector({
         </div>
       )}
 
-      <div style={hasImage ? disabledFieldStyle : fieldGroupStyle}>
+      <div style={hidesContentFields ? disabledFieldStyle : fieldGroupStyle}>
         <span className="inspector-label">URL (opcional)</span>
         <input
           className="inspector-input"
           value={form.link_url}
           onChange={e => handleChange('link_url', e.target.value)}
           placeholder="https://..."
-          disabled={hasImage || !!form.target_loteo_id}
+          disabled={hidesContentFields || !!form.target_loteo_id}
           title={form.target_loteo_id ? 'Deshabilitado: el POI ya navega a una etapa' : undefined}
         />
       </div>
