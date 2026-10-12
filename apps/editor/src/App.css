@@ -298,10 +298,59 @@
 .calibration-mode-btn:hover { color: var(--color-text); background: var(--panel-raised); }
 .view-switcher button.is-active { color: var(--accent-ink); background: var(--accent); }
 .tool-btn.active { color: var(--color-text); background: var(--panel-raised); border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
-.tool-btn kbd { color: var(--text-subtle); font: inherit; font-size: 0.58rem; }
+.tool-btn kbd,
+.editor-btn kbd { color: var(--text-subtle); font: inherit; font-size: 0.58rem; }
 .tool-btn.active kbd { color: var(--text-muted); }
 
 .calibration-mode-btn.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+
+.render-layers { display: flex; align-items: center; gap: 10px; padding-inline: 6px; }
+.render-layer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.render-layer-toggle input { accent-color: var(--accent); cursor: pointer; }
+.render-layer-toggle:hover { color: var(--color-text); }
+
+.render-opacity-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  padding-inline: 6px;
+}
+.render-opacity-control input[type="range"] { accent-color: var(--accent); cursor: pointer; width: 80px; }
+.render-opacity-control select {
+  background: var(--panel-raised);
+  color: var(--color-text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
+.render-color-swatches { display: flex; align-items: center; gap: 6px; padding-inline: 4px; }
+.render-color-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: #eae4d3;
+  cursor: pointer;
+}
+.render-color-swatch--dark { background: #2a2823; }
+.render-color-swatch.is-active { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
 .calibration-mode-btn small { min-width: 17px; height: 17px; padding-inline: 4px; display: inline-flex; align-items: center; justify-content: center; color: var(--color-warning); background: var(--color-warning-bg); border-radius: var(--radius-full); font-size: 0.62rem; }
 .calibration-mode-btn small.is-ready { color: var(--color-success); background: var(--color-success-bg); }
 
@@ -499,9 +548,6 @@ textarea.inspector-input { min-height: 76px; resize: vertical; }
 .orientation-control strong { color: var(--color-text); font-size: var(--text-base); }
 .orientation-control span { color: var(--text-subtle); font-size: var(--text-xs); }
 .orientation-control .editor-text-btn { grid-column: 1 / -1; }
-.panel-feedback { margin-top: var(--space-sm); padding: var(--space-xs); display: flex; align-items: flex-start; gap: 7px; border-radius: var(--radius-md); font-size: var(--text-sm); line-height: 1.4; }
-.panel-feedback.is-success { color: var(--color-success); background: var(--color-success-bg); }
-.panel-feedback.is-error { color: var(--color-danger); background: var(--color-danger-bg); }
 
 .calibration-complete-overlay {
   position: fixed;
@@ -1054,6 +1100,36 @@ div[onClick]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   }
 }
 
+.geo-calibration-map {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: var(--panel-deep);
+}
+.geo-calibration-map__canvas {
+  width: 100%;
+  height: 100%;
+}
+.geo-calibration-map--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  color: var(--text-muted);
+  text-align: center;
+}
+.geo-calibration-map__error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  text-align: center;
+}
+
 .loteo-center {
   display: flex;
   flex-direction: column;
@@ -1074,6 +1150,18 @@ div[onClick]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   position: relative;
   width: 230px;
   height: var(--poi-callout-stem);
+  /* Geometría anclada desde abajo: el título y el chip se apilan sobre la
+     guía, y la guía nunca baja de un largo mínimo. Antes la guía se
+     calculaba desde el título (top) y, al alejar el zoom, el título
+     compensado por la escala de PSV se comía todo el alto y la guía
+     desaparecía. */
+  --poi-scale: var(--poi-callout-marker-scale, 1);
+  --poi-title-h: calc(var(--poi-callout-font-size, 15px) * 1.2);
+  --poi-gap: calc(8px / var(--poi-scale));
+  --poi-stem-len: max(
+    calc(var(--poi-callout-stem) - var(--poi-title-h) - var(--poi-gap)),
+    calc(28px / var(--poi-scale))
+  );
   color: var(--poi-callout-color, rgba(255, 255, 255, 0.98));
   pointer-events: auto;
   cursor: pointer;
@@ -1081,7 +1169,7 @@ div[onClick]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
 
 .poi-callout__title {
   position: absolute;
-  top: 0;
+  bottom: calc(var(--poi-stem-len) + var(--poi-gap));
   left: 50%;
   transform: translateX(-50%);
   width: max-content;
@@ -1103,16 +1191,16 @@ div[onClick]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
 .poi-callout__stem {
   position: absolute;
   bottom: 0;
-  top: calc(var(--poi-callout-font-size, 15px) * 1.2 + (8px / var(--poi-callout-marker-scale, 1)));
+  height: var(--poi-stem-len);
   left: 50%;
-  width: calc(1px / var(--poi-callout-marker-scale, 1));
+  width: calc(1.5px / var(--poi-callout-marker-scale, 1));
   transform: translateX(-50%);
   background: var(--poi-callout-color, rgba(255, 255, 255, 0.98));
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 
-.poi-callout--photo .poi-callout__stem {
-  top: calc(var(--poi-callout-font-size, 15px) * 1.2 + (48px / var(--poi-callout-marker-scale, 1)));
+.poi-callout--photo {
+  --poi-gap: calc(48px / var(--poi-scale));
 }
 
 .poi-callout__dot {
@@ -1129,7 +1217,7 @@ div[onClick]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
 
 .poi-callout__chip {
   position: absolute;
-  top: calc(var(--poi-callout-font-size, 15px) * 1.2 + (10px / var(--poi-callout-marker-scale, 1)));
+  bottom: calc(var(--poi-stem-len) + (8px / var(--poi-scale)));
   left: 50%;
   width: calc(30px / var(--poi-callout-marker-scale, 1));
   height: calc(30px / var(--poi-callout-marker-scale, 1));

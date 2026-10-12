@@ -135,6 +135,7 @@ export default function InspectorPanel({
                   homography={homography}
                   onImportFromBlueprint={onImportFromBlueprint}
                   onUnimportSelected={onUnimportSelected}
+                  uploadFn={uploadFn}
                 />
               )
             )}

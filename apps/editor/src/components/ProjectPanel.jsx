@@ -14,9 +14,12 @@ import {
   Search,
   Settings2,
   Type,
+  Wand2,
   X,
 } from 'lucide-react';
 import CalibrationInspector from './CalibrationInspector';
+import AutoDetectInspector from './AutoDetectInspector';
+import { useUIFeedback } from '../hooks/useUIFeedback';
 
 const FILTERS = [
   { id: 'all', label: 'Todos' },
@@ -91,6 +94,11 @@ export default function ProjectPanel({
   onCancelCalibration,
   onDeleteCalibrationPoint,
   onClearCalibration,
+  autoDetectParams,
+  onAutoDetectParamsChange,
+  autoDetectLoading,
+  autoDetectError,
+  autoDetectLotsGenerated,
   onProjectMissing,
   onReprojectAll,
   onRemoveAllFromPanorama,
@@ -101,12 +109,17 @@ export default function ProjectPanel({
   onSetNorth,
   onResetNorth,
   canOrientPanorama,
+  loteoLatitude,
+  loteoLongitude,
+  geoCalibrationPoints,
+  onEnterGeoCalibration,
 }) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
   const [nameDraft, setNameDraft] = useState(null);
   const [snapDraft, setSnapDraft] = useState(null);
-  const [actionState, setActionState] = useState({ key: null, tone: null, message: '' });
+  const [actionState, setActionState] = useState({ key: null });
+  const { notify } = useUIFeedback();
   const calibrationSectionRef = useRef(null);
   const projectionSectionRef = useRef(null);
   const name = nameDraft ?? projectName ?? '';
@@ -142,20 +155,18 @@ export default function ProjectPanel({
 
   const runAction = async (key, action, successMessage) => {
     if (!action || actionState.key) return;
-    setActionState({ key, tone: null, message: '' });
+    setActionState({ key });
     try {
       await action();
       if (key === 'settings') {
         setNameDraft(null);
         setSnapDraft(null);
       }
-      setActionState({ key: null, tone: 'success', message: successMessage });
+      setActionState({ key: null });
+      notify(successMessage, { variant: 'success' });
     } catch (error) {
-      setActionState({
-        key: null,
-        tone: 'error',
-        message: error?.message || 'No se pudo completar la acción. Intentá de nuevo.',
-      });
+      setActionState({ key: null });
+      notify(error?.message || 'No se pudo completar la acción. Intentá de nuevo.', { variant: 'error' });
     }
   };
 
@@ -168,6 +179,12 @@ export default function ProjectPanel({
   const calibrationSummary = calibrationPoints.length >= 4
     ? `${calibrationPoints.length} pares · lista`
     : `${calibrationPoints.length} de 4 pares`;
+
+  const geoPairCount = geoCalibrationPoints?.length ?? 0;
+  const geoCalibrationSummary = geoPairCount >= 4
+    ? `${geoPairCount} pares · lista`
+    : `${geoPairCount} de 4 pares`;
+  const hasGeoCenter = loteoLatitude != null && loteoLongitude != null;
 
   // The native `defaultOpen` attribute only applies on first mount. Re-open
   // both contextual sections when calibration is entered from the top toolbar
@@ -303,6 +320,31 @@ export default function ProjectPanel({
             </ProjectSection>
           )}
 
+          {blueprintUrl && hasGeoCenter && (
+            <ProjectSection title="Calibración geográfica" icon={Compass} summary={geoCalibrationSummary} defaultOpen={activeTool === 'calibrate-geo'}>
+              <div className={`calibration-health${geoPairCount >= 4 ? ' is-ready' : ''}`}>
+                {geoPairCount >= 4 ? <Check size={16} /> : <CircleAlert size={16} />}
+                <span>{geoPairCount >= 4 ? 'Lista para actualizar los polígonos satelitales.' : 'Marcá al menos cuatro pares de referencia.'}</span>
+              </div>
+              <button type="button" className="editor-btn editor-btn--secondary" onClick={onEnterGeoCalibration}>
+                <Compass size={15} /> {geoPairCount ? 'Editar calibración geográfica' : 'Iniciar calibración geográfica'}
+              </button>
+            </ProjectSection>
+          )}
+
+          {blueprintUrl && activeTool === 'autodetect' && (
+            <ProjectSection key="autodetect" title="Detección Automática" icon={Wand2} summary={`${autoDetectLotsGenerated} lote${autoDetectLotsGenerated === 1 ? '' : 's'}`} defaultOpen>
+              <AutoDetectInspector
+                blueprintUrl={blueprintUrl}
+                isLoading={autoDetectLoading}
+                error={autoDetectError}
+                params={autoDetectParams}
+                onParamsChange={onAutoDetectParamsChange}
+                generatedCount={autoDetectLotsGenerated}
+              />
+            </ProjectSection>
+          )}
+
           {blueprintUrl && (
             <ProjectSection detailsRef={projectionSectionRef} title="Proyección" icon={Layers3} summary={`${projectedLots.length} de ${projectableLots.length} lotes`} defaultOpen>
               <div className="projection-progress" aria-label={`${projectedLots.length} de ${projectableLots.length} lotes proyectados`}>
@@ -389,13 +431,6 @@ export default function ProjectPanel({
               {actionState.key === 'settings' ? 'Guardando…' : 'Guardar configuración'}
             </button>
           </ProjectSection>
-
-          {actionState.message && (
-            <div className={`panel-feedback is-${actionState.tone}`} role="status">
-              {actionState.tone === 'success' ? <Check size={15} /> : <CircleAlert size={15} />}
-              {actionState.message}
-            </div>
-          )}
         </div>
       )}
     </aside>

@@ -1,28 +1,38 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export function useHistory({ annotations, setAnnotations, calibrationPoints, setCalibrationPoints }) {
-  // Each history entry is a composite snapshot: { annotations, calibrationPoints }
+export function useHistory({
+  annotations, setAnnotations, calibrationPoints, setCalibrationPoints,
+  renderManzanaShapes, setRenderManzanaShapes, renderCalleShapes, setRenderCalleShapes,
+}) {
+  // Each history entry is a composite snapshot:
+  // { annotations, calibrationPoints, renderManzanaShapes, renderCalleShapes }
   const past = useRef([]);
   const future = useRef([]);
   const annotationsRef = useRef(annotations);
   const calibrationRef = useRef(calibrationPoints);
+  const renderManzanaRef = useRef(renderManzanaShapes);
+  const renderCalleRef = useRef(renderCalleShapes);
 
   useEffect(() => {
     annotationsRef.current = annotations;
     calibrationRef.current = calibrationPoints;
-  }, [annotations, calibrationPoints]);
+    renderManzanaRef.current = renderManzanaShapes;
+    renderCalleRef.current = renderCalleShapes;
+  }, [annotations, calibrationPoints, renderManzanaShapes, renderCalleShapes]);
 
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
 
   // Accepts the annotations snapshot (as before) and composes it with the
-  // current calibrationPoints. Existing call sites don't change: their operations
-  // don't touch calibration, so the current calibrationPoints is the correct
-  // pre-change value to snapshot.
+  // current calibrationPoints/render shapes. Existing call sites don't change:
+  // an operation that doesn't touch calibration or render shapes leaves the
+  // current ref value as the correct pre-change snapshot for that slice.
   const pushHistory = useCallback((annotationsSnapshot) => {
     past.current = [...past.current, {
       annotations: annotationsSnapshot,
       calibrationPoints: calibrationRef.current,
+      renderManzanaShapes: renderManzanaRef.current,
+      renderCalleShapes: renderCalleRef.current,
     }];
     future.current = [];
     setCanUndo(true);
@@ -36,12 +46,16 @@ export function useHistory({ annotations, setAnnotations, calibrationPoints, set
     future.current = [{
       annotations: annotationsRef.current,
       calibrationPoints: calibrationRef.current,
+      renderManzanaShapes: renderManzanaRef.current,
+      renderCalleShapes: renderCalleRef.current,
     }, ...future.current];
     setAnnotations(previous.annotations);
     setCalibrationPoints(previous.calibrationPoints);
+    setRenderManzanaShapes(previous.renderManzanaShapes);
+    setRenderCalleShapes(previous.renderCalleShapes);
     setCanUndo(past.current.length > 0);
     setCanRedo(true);
-  }, [setAnnotations, setCalibrationPoints]);
+  }, [setAnnotations, setCalibrationPoints, setRenderManzanaShapes, setRenderCalleShapes]);
 
   const redo = useCallback(() => {
     if (future.current.length === 0) return;
@@ -50,12 +64,16 @@ export function useHistory({ annotations, setAnnotations, calibrationPoints, set
     past.current = [...past.current, {
       annotations: annotationsRef.current,
       calibrationPoints: calibrationRef.current,
+      renderManzanaShapes: renderManzanaRef.current,
+      renderCalleShapes: renderCalleRef.current,
     }];
     setAnnotations(next.annotations);
     setCalibrationPoints(next.calibrationPoints);
+    setRenderManzanaShapes(next.renderManzanaShapes);
+    setRenderCalleShapes(next.renderCalleShapes);
     setCanUndo(true);
     setCanRedo(future.current.length > 0);
-  }, [setAnnotations, setCalibrationPoints]);
+  }, [setAnnotations, setCalibrationPoints, setRenderManzanaShapes, setRenderCalleShapes]);
 
   const removeAnnotationFromHistory = useCallback((...annotationIds) => {
     const targetIds = new Set(annotationIds.filter(Boolean));

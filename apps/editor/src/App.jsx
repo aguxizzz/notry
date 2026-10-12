@@ -9,8 +9,11 @@ import { usePoiOperations } from './hooks/usePoiOperations';
 import { useSaveAll } from './hooks/useSaveAll';
 import { useDisplayAnnotations } from './hooks/useDisplayAnnotations';
 import { computeProjector, isProjectorValid } from './utils/panoramaProjection';
+import { computeHomography, applyHomography, isHomographyValid } from './utils/homography';
 import { projectPolygon, projectLotAnnotations, unimportLotAnnotations } from './utils/projection';
 import { isCalibrationPairTooClose } from './utils/calibration';
+import { detectLotPolygon } from './utils/lotDetection';
+import { buildStreetRibbon, buildProjectedStreetRibbon, findAxisEndpointSnap, mergeStreetAxis } from './utils/streetPath';
 import { useUIFeedback } from './hooks/useUIFeedback';
 import { Check, Image as ImageIcon, X } from 'lucide-react';
 import EditorViewer from './components/EditorViewer';
@@ -24,6 +27,9 @@ import InspectorPanel from './components/InspectorPanel';
 import DocumentBar from './components/DocumentBar';
 import ProjectPanel from './components/ProjectPanel';
 import CalibrationOverlay from './components/CalibrationOverlay';
+import GeoCalibrationOverlay from './components/GeoCalibrationOverlay';
+import AutoDetectInspector from './components/AutoDetectInspector';
+import { fetchImage } from './utils/fetchImage';
 import './App.css';
 
 function App() {
@@ -40,24 +46,179 @@ function App() {
   // 4 minus however many pairs already exist (so the first pass collects up
   // to 4 points before switching views), or 1 for later ad-hoc additions.
   const [pendingBlueprintPoints, setPendingBlueprintPoints] = useState([]);
-  const { pushHistory, undo, redo, canUndo, canRedo, removeAnnotationFromHistory } = useHistory({ annotations, setAnnotations, calibrationPoints, setCalibrationPoints });
+  // Geo calibration (blueprint↔lat/lng, module 5): a separate, simpler pair
+  // list. One point at a time — click blueprint, then click the map, pair
+  // is added. Not wired into useHistory's undo/redo (would require touching
+  // the shared composite-snapshot shape used by the blueprint↔panorama flow
+  // above); undo/redo for these points is intentionally not supported yet.
+  const [geoCalibrationPoints, setGeoCalibrationPoints] = useState([]);
+  const [pendingGeoBlueprintPoint, setPendingGeoBlueprintPoint] = useState(null);
+  // Modo Render: dibujo de manzanas/calles sobre el panorama. Se persiste como
+  // JSONB (`render_surfaces` en loteos, ver useSaveAll) junto al resto del
+  // "Guardar todo". Las shapes en sí (crear/editar eje/ancho/vaciar) entran al
+  // historial de undo/redo; declaradas antes de useHistory por lo mismo que
+  // calibrationPoints arriba.
+  const [renderManzanaShapes, setRenderManzanaShapes] = useState([]); // [{ id, points }]
+  const [renderCalleShapes, setRenderCalleShapes] = useState([]);
+  const { pushHistory, undo, redo, canUndo, canRedo, removeAnnotationFromHistory } = useHistory({
+    annotations, setAnnotations, calibrationPoints, setCalibrationPoints,
+    renderManzanaShapes, setRenderManzanaShapes, renderCalleShapes, setRenderCalleShapes,
+  });
   const isDraggingPolygonRef = useRef(false);
   const preDragAnnotationsRef = useRef(null);
   const isDraggingCalibrationRef = useRef(false);
+  const isDraggingStreetWidthRef = useRef(false);
   const keyboardStateRef = useRef(null);
   const [selectedId, setSelectedId] = useState(null);
   const [drawingPolygon, setDrawingPolygon] = useState([]);
   // Rectángulo de 2 clicks: guarda la primera esquina mientras se espera la opuesta
   const [rectStart, setRectStart] = useState(null);
+  const [renderTestMode, setRenderTestMode] = useState(null); // null | 'manzana' | 'calle'
+  const [renderDrawingPts, setRenderDrawingPts] = useState([]); // [[textureX, textureY], ...]
+  const [renderLayersVisible, setRenderLayersVisible] = useState({ lotes: true, manzanas: true, calles: true });
+  const [renderColorMode, setRenderColorMode] = useState('light');
+  const [renderManzanaOpacity, setRenderManzanaOpacity] = useState(1);
+  // Calle: siempre se traza por eje central + ancho constante ("Ruta"), nunca
+  // por click-polígono libre — el contorno se genera con buildStreetRibbon.
+  const [renderStreetWidth, setRenderStreetWidth] = useState(56);
+  // Edición de eje post-creación: reselecciona una calle ya trazada y permite
+  // arrastrar/agregar puntos de su eje — reconstruye el contorno
+  // (buildStreetRibbon) en cada cambio.
+  const [renderStreetEditMode, setRenderStreetEditMode] = useState(false);
+  const [renderStreetEditTarget, setRenderStreetEditTarget] = useState(null); // id de calle | null
+  const toggleRenderStreetEditMode = () => {
+    setRenderStreetEditMode(v => !v);
+    setRenderStreetEditTarget(null);
+  };
+  // Snapshot enviado/recibido de `render_surfaces` (JSONB en loteos) — shape
+  // estable (nunca null) para que el diff contra savedRenderSurfacesRef en
+  // useSaveAll funcione igual que con calibrationPoints.
+  const renderSurfaces = useMemo(() => ({
+    manzanas: renderManzanaShapes,
+    calles: renderCalleShapes,
+    colorMode: renderColorMode,
+    manzanaOpacity: renderManzanaOpacity,
+    layersVisible: renderLayersVisible,
+  }), [renderManzanaShapes, renderCalleShapes, renderColorMode, renderManzanaOpacity, renderLayersVisible]);
+  const finishRenderShape = () => {
+    if (!renderTestMode) return;
+    const isStreetPath = renderTestMode === 'calle';
+    const minPts = isStreetPath ? 2 : 3;
+    if (renderDrawingPts.length < minPts) return;
+    // Si el primer click de esta Ruta cayó cerca del inicio/final del eje de
+    // otra Ruta ya trazada, no se crea una shape nueva: se mergea en un solo
+    // eje continuo (ver mergeStreetAxis) para que el contorno salga de una
+    // sola pieza en la unión, en vez de dos ribbons con costura.
+    let drawingPts = renderDrawingPts;
+    if (isStreetPath) {
+      const snap = findAxisEndpointSnap(renderDrawingPts[0], renderCalleShapes);
+      if (snap && snap.end !== 'interior') {
+        const target = renderCalleShapes.find(s => s.id === snap.shapeId);
+        const mergedAxis = mergeStreetAxis(target.axis, snap.end, renderDrawingPts);
+        const mergedPoints = buildProjectedStreetRibbon(mergedAxis, target.width, homography)
+          ?? buildStreetRibbon(mergedAxis, target.width);
+        if (mergedPoints.length) {
+          pushHistory(annotations);
+          setRenderCalleShapes(prev => prev.map(s => (
+            s.id === target.id
+              ? { ...s, axis: mergedAxis, points: mergedPoints, curves: mergedPoints.map(() => null) }
+              : s
+          )));
+          setRenderDrawingPts([]);
+          setRenderTestMode(null);
+          return;
+        }
+      }
+      // Vértice interior: no se puede mergear en un solo eje (salen 3
+      // direcciones de ese punto) — queda como shape independiente, pero
+      // arrancando exacto en el vértice para que el ribbon la toque justo
+      // ahí (el borde se junta con boolean union al renderizar).
+      if (snap && snap.end === 'interior') {
+        drawingPts = [snap.point, ...renderDrawingPts.slice(1)];
+      }
+    }
+    // Probar: si hay homografía calibrada, la Ruta pasa por blueprint space
+    // (round-trip vía unprojectPoint) para offsetear/filetear ahí donde el
+    // terreno es plano, en vez de directo en texture space — ver
+    // buildProjectedStreetRibbon en utils/streetPath.js. Cae al método viejo
+    // si no hay calibración o el round-trip da puntos inválidos.
+    const points = isStreetPath
+      ? (buildProjectedStreetRibbon(drawingPts, renderStreetWidth, homography)
+          ?? buildStreetRibbon(drawingPts, renderStreetWidth))
+      : drawingPts;
+    if (!points.length) return;
+    const shape = {
+      id: `test-${renderTestMode}-${Date.now()}`,
+      points,
+      ...(isStreetPath ? { axis: drawingPts, width: renderStreetWidth } : {}),
+    };
+    pushHistory(annotations);
+    if (renderTestMode === 'manzana') setRenderManzanaShapes(prev => [...prev, shape]);
+    else setRenderCalleShapes(prev => [...prev, shape]);
+    setRenderDrawingPts([]);
+    setRenderTestMode(null);
+  };
+  const cancelRenderDrawing = () => {
+    setRenderDrawingPts([]);
+    setRenderTestMode(null);
+  };
+  const handleRenderTestModeChange = (next) => {
+    setRenderTestMode(next);
+    setRenderDrawingPts([]);
+    setRenderStreetEditMode(false);
+    setRenderStreetEditTarget(null);
+  };
+  const clearRenderShapes = () => {
+    if (renderManzanaShapes.length === 0 && renderCalleShapes.length === 0) return;
+    pushHistory(annotations);
+    setRenderManzanaShapes([]);
+    setRenderCalleShapes([]);
+    setRenderDrawingPts([]);
+    setRenderStreetEditTarget(null);
+  };
+  // El eje cambió (arrastre o punto nuevo agregado): recalcula el contorno.
+  // Se llama una sola vez por gesto de arrastre (al soltar, ver EditorViewer),
+  // así que cada llamada es un commit atómico para el historial.
+  const setStreetAxis = (shapeId, newAxis) => {
+    pushHistory(annotations);
+    setRenderCalleShapes(prev => prev.map(shape => {
+      if (shape.id !== shapeId || !shape.axis) return shape;
+      const points = buildProjectedStreetRibbon(newAxis, shape.width, homography)
+        ?? buildStreetRibbon(newAxis, shape.width);
+      return { ...shape, axis: newAxis, points };
+    }));
+  };
+  // El slider de ancho dispara onChange en cada tick del arrastre — solo se
+  // pushea un snapshot al primer tick del gesto (isDraggingStreetWidthRef se
+  // resetea al soltar, ver el efecto de pointerup más abajo), para que un solo
+  // Ctrl+Z revierta todo el arrastre en vez de un tick.
+  const setStreetWidth = (shapeId, width) => {
+    if (!isDraggingStreetWidthRef.current) {
+      isDraggingStreetWidthRef.current = true;
+      pushHistory(annotations);
+    }
+    setRenderCalleShapes(prev => prev.map(shape => {
+      if (shape.id !== shapeId || !shape.axis) return shape;
+      const points = buildProjectedStreetRibbon(shape.axis, width, homography)
+        ?? buildStreetRibbon(shape.axis, width);
+      return { ...shape, width, points };
+    }));
+  };
+  // Auto-detect mode: detection parameters and state
+  const [autoDetectParams, setAutoDetectParams] = useState({ threshold: 128, maxTextDim: 20, epsilon: 2.0 });
+  const [autoDetectLoading, setAutoDetectLoading] = useState(false);
+  const [autoDetectError, setAutoDetectError] = useState(null);
+  const [autoDetectLotsGenerated, setAutoDetectLotsGenerated] = useState(0);
 
   const [panoramaUrl, setPanoramaUrl] = useState(null);
   const [panoramaDimensions, setPanoramaDimensions] = useState(null);
   const [blueprintUrl, setBlueprintUrl] = useState(null);
-  const [mode, setMode] = useState('panorama'); // 'panorama' or 'blueprint'
+  const [mode, setMode] = useState('panorama'); // 'panorama' | 'blueprint' | 'render'
 
   // Derived projector — recomputed whenever calibration points or panorama
-  // dimensions change. Fits the homography in gnomonic (rectilinear) space,
-  // not directly in equirectangular texture space — see panoramaProjection.js.
+  // dimensions change. Fits the homography with the ray direction as target
+  // (valid over the whole sphere), not a pixel or gnomonic tangent-plane
+  // coordinate — see panoramaProjection.js.
   const homography = useMemo(() => {
     if (calibrationPoints.length < 4 || !panoramaDimensions) return null;
     const projector = computeProjector(
@@ -102,9 +263,27 @@ function App() {
   const uploadFn = useMemo(() => createUploadFn(accessToken, handleLogout), [accessToken, handleLogout]);
   const [selectedLoteo, setSelectedLoteo] = useState(null);
   const [loteoAccessDenied, setLoteoAccessDenied] = useState(false);
+
+  // useAuth ya limpia ?data=/&orgId= de la URL al hacer logout, pero el
+  // loteo cargado sigue en memoria (la SPA no remonta) — sin este reset, al
+  // loguearse con otra cuenta en la misma pestaña se reintentaba abrir el
+  // loteo/etapa de la sesión anterior (bug reportado 2026-09-05).
+  useEffect(() => {
+    if (accessToken) return;
+    setLoteoId(null);
+    setSelectedLoteo(null);
+    setLoteoAccessDenied(false);
+  }, [accessToken]);
   // Snapshot of annotations as last saved/loaded — used to diff before saving
   const savedAnnotationsRef = useRef([]);
   const savedCalibrationRef = useRef([]);
+  const savedGeoCalibrationRef = useRef([]);
+  // Default que matchea el estado inicial de renderManzanaShapes/etc, para que
+  // el diff no se dispare espuriamente en loteos que nunca tocaron modo Render.
+  const savedRenderSurfacesRef = useRef({
+    manzanas: [], calles: [], colorMode: 'light', manzanaOpacity: 1,
+    layersVisible: { lotes: true, manzanas: true, calles: true },
+  });
   const { pendingDraft, loadDraft, clearDraft } = useDraft({ annotations, loteoId, savedAnnotationsRef, calibrationPoints, savedCalibrationRef, panoramaDimensions });
   const {
     isCreatingLote,
@@ -137,7 +316,12 @@ function App() {
     isSavingAll,
     sessionExpiredDuringSave, clearSessionExpired,
     handleSaveAll,
-  } = useSaveAll({ annotations, setAnnotations, token: accessToken, loteoId, savedAnnotationsRef, onAfterSave: clearDraft, calibrationPoints, savedCalibrationRef });
+  } = useSaveAll({
+    annotations, setAnnotations, token: accessToken, loteoId, savedAnnotationsRef, onAfterSave: clearDraft,
+    calibrationPoints, savedCalibrationRef,
+    geoCalibrationPoints, savedGeoCalibrationRef,
+    renderSurfaces, savedRenderSurfacesRef,
+  });
 
 
 
@@ -157,6 +341,10 @@ function App() {
     const params = new URLSearchParams(window.location.search);
     const dataUrl = params.get('data');
     let extractedLoteoId = null;
+    // StrictMode monta este efecto dos veces en dev: la corrida descartada no debe
+    // aplicar estado ni crear/revocar blob URLs (con la imagen en caché ambas
+    // resuelven casi a la vez y se pisan el blob que el visor está cargando).
+    let cancelled = false;
 
     if (dataUrl) {
       const match = dataUrl.match(/\/loteos\/([^/?]+)/);
@@ -174,6 +362,7 @@ function App() {
           return res.json();
         })
         .then(async data => {
+          if (cancelled) return;
           if (data.annotations && Array.isArray(data.annotations)) {
             const mappedAnnotations = data.annotations.map((a, i) => {
               const ann = { ...a, id: a.id ?? a.uuid ?? `ann-${i}` };
@@ -205,9 +394,10 @@ function App() {
               ? { width: data.panoramaWidth, height: data.panoramaHeight }
               : null);
             try {
-              const imgRes = await fetch(data.panoramaUrl);
+              const imgRes = await fetchImage(data.panoramaUrl);
               if (imgRes.ok) {
                 const blob = await imgRes.blob();
+                if (cancelled) return;
                 // Revoke previous blob URL if exists
                 if (prevPanoramaUrlRef.current?.startsWith('blob:')) {
                   URL.revokeObjectURL(prevPanoramaUrlRef.current);
@@ -219,9 +409,11 @@ function App() {
                 setPanoramaUrl(data.panoramaUrl);
               }
             } catch {
+              if (cancelled) return;
               setPanoramaUrl(data.panoramaUrl);
             }
           }
+          if (cancelled) return;
           if (data.blueprintUrl && typeof data.blueprintUrl === 'string') {
             setBlueprintUrl(data.blueprintUrl);
           }
@@ -231,6 +423,28 @@ function App() {
             );
             setCalibrationPoints(withIds);
             savedCalibrationRef.current = withIds;
+          }
+          if (Array.isArray(data.geoCalibrationPoints) && data.geoCalibrationPoints.length > 0) {
+            const withIds = data.geoCalibrationPoints.map(p =>
+              p._id ? p : { ...p, _id: crypto.randomUUID() }
+            );
+            setGeoCalibrationPoints(withIds);
+            savedGeoCalibrationRef.current = withIds;
+          }
+          if (data.renderSurfaces && typeof data.renderSurfaces === 'object') {
+            const loaded = {
+              manzanas: data.renderSurfaces.manzanas ?? [],
+              calles: data.renderSurfaces.calles ?? [],
+              colorMode: data.renderSurfaces.colorMode ?? 'light',
+              manzanaOpacity: data.renderSurfaces.manzanaOpacity ?? 1,
+              layersVisible: data.renderSurfaces.layersVisible ?? { lotes: true, manzanas: true, calles: true },
+            };
+            setRenderManzanaShapes(loaded.manzanas);
+            setRenderCalleShapes(loaded.calles);
+            setRenderColorMode(loaded.colorMode);
+            setRenderManzanaOpacity(loaded.manzanaOpacity);
+            setRenderLayersVisible(loaded.layersVisible);
+            savedRenderSurfacesRef.current = loaded;
           }
           if (data.snapThreshold != null) {
             setSnapThreshold(data.snapThreshold);
@@ -243,10 +457,11 @@ function App() {
           }
         })
         .catch(err => {
+          if (cancelled) return;
           notify(`No se pudo cargar el JSON desde la URL: ${err.message}`, { variant: 'error' });
         })
-        .finally(() => setIsLoadingDefault(false));
-      return;
+        .finally(() => { if (!cancelled) setIsLoadingDefault(false); });
+      return () => { cancelled = true; };
     }
 
     setIsLoadingDefault(false);
@@ -283,6 +498,14 @@ function App() {
 
 
   const handleViewerClick = async (textureX, textureY) => {
+    if (activeTool === 'calibrate-geo') {
+      // Blueprint click only — GeoCalibrationOverlay renders BlueprintEditor
+      // and GeoCalibrationMap side by side, so this always comes from the
+      // blueprint pane. Re-clicking overwrites any still-unmatched point.
+      setPendingGeoBlueprintPoint([textureX, textureY]);
+      return;
+    }
+
     if (activeTool === 'calibrate') {
       if (mode === 'blueprint') {
         // 4 pairs is the hard cap — the projection is precise enough by then,
@@ -369,6 +592,11 @@ function App() {
       return;
     }
 
+    if (activeTool === 'autodetect') {
+      handleAutoDetectClick(textureX, textureY);
+      return;
+    }
+
     const newId = `${activeTool}-${crypto.randomUUID()}`;
     const newAnn = {
       id: newId,
@@ -440,6 +668,91 @@ function App() {
     setActiveTool('select');
   };
 
+  const cancelGeoCalibration = () => {
+    setPendingGeoBlueprintPoint(null);
+    setActiveTool('select');
+  };
+
+  const handleGeoMapPointPicked = ({ latitude, longitude }) => {
+    if (!pendingGeoBlueprintPoint) return;
+    const newPair = { _id: crypto.randomUUID(), blueprint: pendingGeoBlueprintPoint, geo: [latitude, longitude] };
+    setGeoCalibrationPoints(prev => [...prev, newPair]);
+    setPendingGeoBlueprintPoint(null);
+  };
+
+  const handleDeleteGeoCalibrationPoint = (index) => {
+    setGeoCalibrationPoints(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleClearGeoCalibration = async () => {
+    if (geoCalibrationPoints.length === 0) return;
+    const ok = await confirm('¿Borrar toda la calibración geográfica?', {
+      title: 'Borrar calibración geográfica', danger: true, confirmLabel: 'Borrar',
+    });
+    if (!ok) return;
+    setGeoCalibrationPoints([]);
+    setActiveTool('select');
+  };
+
+  // Baked (non-reactive) computation: re-run manually via the "Actualizar
+  // polígonos satelitales" button whenever geoCalibrationPoints or any lot's
+  // blueprint_coordinates change — same criterion as the rest of the
+  // calibration system (nothing here recomputes automatically).
+  const handleUpdateGeoPolygons = () => {
+    if (geoCalibrationPoints.length < 4) return;
+    const correspondences = geoCalibrationPoints.map(p => ({ src: p.blueprint, dst: [p.geo[1], p.geo[0]] }));
+    const H = computeHomography(correspondences);
+    if (!isHomographyValid(H)) {
+      notify('No se pudo calcular una calibración geográfica válida con estos puntos.', { variant: 'error' });
+      return;
+    }
+    pushHistory(annotations);
+    setAnnotations(prev => prev.map(a => {
+      if (a.type !== 'polygon' || !a.blueprint_coordinates?.length) return a;
+      const geo_coordinates = a.blueprint_coordinates.map(([nx, ny]) => {
+        const [lng, lat] = applyHomography(H, [nx, ny]);
+        return [lat, lng];
+      });
+      return { ...a, geo_coordinates };
+    }));
+    notify('Polígonos satelitales actualizados.', { variant: 'success' });
+  };
+
+  const handleAutoDetectClick = async (textureX, textureY) => {
+    if (!blueprintUrl) return;
+    setAutoDetectLoading(true);
+    setAutoDetectError(null);
+
+    // Normalize click to [0, 1] assuming textureX/Y are already in that range
+    const result = await detectLotPolygon(blueprintUrl, 1, 1, textureX, textureY, autoDetectParams);
+
+    if (!result.success) {
+      setAutoDetectError(result.error);
+      setAutoDetectLoading(false);
+      return;
+    }
+
+    // Convert normalized coords back to image pixel space would happen in detectLotPolygon
+    // For now, assume result.coordinates are already in image pixel space and normalize them
+    const newId = `lot-${crypto.randomUUID()}`;
+    const newAnn = {
+      id: newId,
+      type: 'polygon',
+      pending: true,
+      polygonPixels: result.coordinates, // Already normalized [0, 1]
+      blueprint_coordinates: result.coordinates,
+      tooltip: `Lote Auto ${autoDetectLotsGenerated + 1}`,
+      svgStyle: { fill: 'rgba(76,175,80,0.15)', stroke: '#4caf50', strokeWidth: '2', strokeDasharray: '4,2' },
+    };
+
+    pushHistory(annotations);
+    setAnnotations([...annotations, newAnn]);
+    setSelectedId(newId);
+    setAutoDetectLotsGenerated(prev => prev + 1);
+    setAutoDetectLoading(false);
+    setInspectorOpen(true);
+  };
+
   // Escape while in calibrate tool: discard the pending batch and go back to
   // blueprint to pick again (without exiting the tool). Already-completed
   // pairs are untouched — undo separately with Ctrl+Z if needed. If there's
@@ -451,6 +764,11 @@ function App() {
     } else {
       cancelCalibration();
     }
+  };
+
+  const handleEscapeGeoCalibration = () => {
+    if (pendingGeoBlueprintPoint) setPendingGeoBlueprintPoint(null);
+    else cancelGeoCalibration();
   };
 
   const handleDeleteCalibrationPoint = (index) => {
@@ -580,17 +898,36 @@ function App() {
       setProjectPanelOpen(true);
       setProjectPanelTab('project');
     }
+    if (tool === 'calibrate-geo') {
+      setProjectPanelOpen(true);
+      setProjectPanelTab('project');
+    }
+    if (tool === 'autodetect') {
+      setMode('blueprint');
+      setProjectPanelOpen(true);
+      setProjectPanelTab('project');
+      setAutoDetectError(null);
+      setAutoDetectLotsGenerated(0);
+    }
   };
 
   // Clear in-progress drawing when switching modes — coordinates are not transferable between spaces
-  // Exception: calibrate drives mode changes intentionally, so don't reset it
+  // Exception: calibrate and autodetect drive mode changes intentionally, so don't reset them
   useEffect(() => {
-    if (activeTool === 'calibrate') return;
+    if (activeTool === 'calibrate' || activeTool === 'autodetect') return;
     // Mode changes invalidate an in-progress polygon because the coordinate spaces differ.
     setDrawingPolygon([]);
     setRectStart(null);
     setActiveTool('select');
   }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Salir del modo Render limpia la herramienta de dibujo activa y el trazo en curso
+  useEffect(() => {
+    if (mode !== 'render') {
+      setRenderTestMode(null);
+      setRenderDrawingPts([]);
+    }
+  }, [mode]);
 
   // When calibrate tool is activated, start in blueprint so the user picks the reference there first
   useEffect(() => {
@@ -607,6 +944,17 @@ function App() {
       setPendingBlueprintPoints([]);
     }
   }, [activeTool]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Entering/leaving geo calibration: reset its pending (unmatched) point.
+  useEffect(() => {
+    if (activeTool === 'calibrate-geo') {
+      setSelectedId(null);
+      setProjectPanelOpen(true);
+      setProjectPanelTab('project');
+    } else {
+      setPendingGeoBlueprintPoint(null);
+    }
+  }, [activeTool]);
 
   // If blueprintUrl disappears while in blueprint mode, fall back to panorama
   useEffect(() => {
@@ -625,6 +973,9 @@ function App() {
         isDraggingPolygonRef.current = false;
         preDragAnnotationsRef.current = null;
       }
+      // Solo resetea el flag: el snapshot ya se pusheó en el primer tick del
+      // slider (ver setStreetWidth) — acá no hay nada más que hacer.
+      isDraggingStreetWidthRef.current = false;
     };
     window.addEventListener('pointerup', handlePointerUp);
     return () => window.removeEventListener('pointerup', handlePointerUp);
@@ -646,6 +997,10 @@ function App() {
       if (e.key === 'Escape') {
         if (keyboardStateRef.current?.activeTool === 'calibrate') {
           keyboardStateRef.current?.handleEscapeCalibration();
+        } else if (keyboardStateRef.current?.activeTool === 'calibrate-geo') {
+          keyboardStateRef.current?.handleEscapeGeoCalibration();
+        } else if (keyboardStateRef.current?.activeTool === 'autodetect') {
+          keyboardStateRef.current?.setActiveTool('select');
         } else if (keyboardStateRef.current?.activeTool === 'rect') {
           keyboardStateRef.current?.cancelRect();
         } else {
@@ -667,6 +1022,27 @@ function App() {
         e.preventDefault();
         keyboardStateRef.current?.redo();
         return;
+      }
+      if (keyboardStateRef.current?.mode === 'render') {
+        const key = e.key.toLowerCase();
+        if (key === '1') {
+          const s = keyboardStateRef.current;
+          s.onRenderTestModeChange(s.renderTestMode === 'manzana' ? null : 'manzana');
+          return;
+        }
+        if (key === '2') {
+          const s = keyboardStateRef.current;
+          s.onRenderTestModeChange(s.renderTestMode === 'calle' ? null : 'calle');
+          return;
+        }
+        if (key === '3') {
+          if (keyboardStateRef.current.hasStreetPathShapes) keyboardStateRef.current.onToggleRenderStreetEditMode();
+          return;
+        }
+        if (key === 'l') {
+          if (keyboardStateRef.current.hasRenderShapes) keyboardStateRef.current.onClearRenderShapes();
+          return;
+        }
       }
       if (e.key.toLowerCase() === 'v') { keyboardStateRef.current?.setActiveTool('select'); return; }
       if (e.key === '1') { keyboardStateRef.current?.setActiveTool('polygon'); return; }
@@ -690,6 +1066,34 @@ function App() {
     annotations, selectedId, mode, drawingPolygon,
     calibrationPoints, pendingBlueprintPoints, homography,
   });
+
+  // Blueprint-pane annotations for the geo calibration overlay: existing lot
+  // outlines (for spatial reference) plus the calibration points themselves.
+  const geoDisplayAnnotations = useMemo(() => {
+    const lots = annotations
+      .filter(a => a.type === 'polygon' && a.blueprint_coordinates?.length >= 3)
+      .map(a => ({ ...a, polygonPixels: a.blueprint_coordinates }));
+    const points = geoCalibrationPoints.map((pair, i) => ({
+      id: `geo-calib-pt-${pair._id}`,
+      type: 'calibration-point',
+      position: { textureX: pair.blueprint[0], textureY: pair.blueprint[1] },
+      label: String(i + 1),
+      svgStyle: { fill: '#22c55e', stroke: '#fff', strokeWidth: '2' },
+    }));
+    const pending = pendingGeoBlueprintPoint ? [{
+      id: 'geo-calib-pending',
+      type: 'calibration-point',
+      position: { textureX: pendingGeoBlueprintPoint[0], textureY: pendingGeoBlueprintPoint[1] },
+      label: String(geoCalibrationPoints.length + 1),
+      svgStyle: { fill: '#22c55e', stroke: '#fff', strokeWidth: '2', opacity: 0.5 },
+    }] : [];
+    return [...lots, ...points, ...pending];
+  }, [annotations, geoCalibrationPoints, pendingGeoBlueprintPoint]);
+
+  const geoPolygons = useMemo(
+    () => annotations.filter(a => a.type === 'polygon' && a.geo_coordinates?.length >= 3),
+    [annotations]
+  );
 
 
   const handlePolygonUpdate = (markerId, newPolygonPixels) => {
@@ -919,9 +1323,16 @@ function App() {
       cancelPolygon,
       cancelRect,
       handleEscapeCalibration,
+      handleEscapeGeoCalibration,
       activeTool,
       mode,
       saveAll: handleSaveAll,
+      renderTestMode,
+      onRenderTestModeChange: handleRenderTestModeChange,
+      onToggleRenderStreetEditMode: toggleRenderStreetEditMode,
+      onClearRenderShapes: clearRenderShapes,
+      hasRenderShapes: renderManzanaShapes.length > 0 || renderCalleShapes.length > 0,
+      hasStreetPathShapes: renderCalleShapes.some(s => s.axis),
     };
   });
 
@@ -999,9 +1410,16 @@ function App() {
     );
   }
 
+  // layersVisible es un filtro puramente visual (qué capas se ven en el
+  // toolbar de Render) — se guarda en render_surfaces para persistir entre
+  // sesiones, pero no debe contar como "cambio sin guardar".
+  const { layersVisible: _renderSurfacesLayersVisible, ...renderSurfacesForDirtyCheck } = renderSurfaces;
+  const { layersVisible: _savedLayersVisible, ...savedRenderSurfacesForDirtyCheck } = savedRenderSurfacesRef.current ?? {};
   const hasUnsavedChanges = (
     JSON.stringify(annotations) !== JSON.stringify(savedAnnotationsRef.current)
     || JSON.stringify(calibrationPoints) !== JSON.stringify(savedCalibrationRef.current)
+    || JSON.stringify(geoCalibrationPoints) !== JSON.stringify(savedGeoCalibrationRef.current)
+    || JSON.stringify(renderSurfacesForDirtyCheck) !== JSON.stringify(savedRenderSurfacesForDirtyCheck)
   );
 
   return (
@@ -1056,6 +1474,22 @@ function App() {
             onDeleteCalibrationPoint={handleDeleteCalibrationPoint}
             onClearCalibration={handleClearCalibration}
           />
+        ) : activeTool === 'calibrate-geo' ? (
+          <GeoCalibrationOverlay
+            blueprintUrl={blueprintUrl}
+            annotations={geoDisplayAnnotations}
+            onBlueprintClick={handleViewerClick}
+            latitude={selectedLoteo?.latitude}
+            longitude={selectedLoteo?.longitude}
+            geoCalibrationPoints={geoCalibrationPoints}
+            pendingGeoBlueprintPoint={pendingGeoBlueprintPoint}
+            onMapPointPicked={handleGeoMapPointPicked}
+            geoPolygons={geoPolygons}
+            onCancelCalibration={cancelGeoCalibration}
+            onDeleteCalibrationPoint={handleDeleteGeoCalibrationPoint}
+            onClearCalibration={handleClearGeoCalibration}
+            onUpdateGeoPolygons={handleUpdateGeoPolygons}
+          />
         ) : (
         <>
         <ProjectPanel
@@ -1084,6 +1518,11 @@ function App() {
           onCancelCalibration={cancelCalibration}
           onDeleteCalibrationPoint={handleDeleteCalibrationPoint}
           onClearCalibration={handleClearCalibration}
+          autoDetectParams={autoDetectParams}
+          onAutoDetectParamsChange={setAutoDetectParams}
+          autoDetectLoading={autoDetectLoading}
+          autoDetectError={autoDetectError}
+          autoDetectLotsGenerated={autoDetectLotsGenerated}
           onProjectMissing={() => importPolygonsFromBlueprint({ overwrite: false })}
           onReprojectAll={() => importPolygonsFromBlueprint({ overwrite: true })}
           onRemoveAllFromPanorama={handleUnimportAll}
@@ -1094,6 +1533,10 @@ function App() {
           onSetNorth={handleSetNorth}
           onResetNorth={handleResetNorth}
           canOrientPanorama={!!loteoId && !!panoramaUrl && mode === 'panorama' && viewerReady}
+          loteoLatitude={selectedLoteo?.latitude}
+          loteoLongitude={selectedLoteo?.longitude}
+          geoCalibrationPoints={geoCalibrationPoints}
+          onEnterGeoCalibration={() => handleToolChange('calibrate-geo')}
         />
 
         <main className="viewer-pane">
@@ -1114,6 +1557,27 @@ function App() {
             onUndo={undo}
             onRedo={redo}
             calibrationPoints={calibrationPoints}
+            renderTestMode={renderTestMode}
+            onRenderTestModeChange={handleRenderTestModeChange}
+            renderDrawingPtsCount={renderDrawingPts.length}
+            onFinishRenderShape={finishRenderShape}
+            onCancelRenderDrawing={cancelRenderDrawing}
+            renderLayersVisible={renderLayersVisible}
+            onToggleRenderLayer={(key) => setRenderLayersVisible(v => ({ ...v, [key]: !v[key] }))}
+            renderColorMode={renderColorMode}
+            onRenderColorModeChange={setRenderColorMode}
+            renderManzanaOpacity={renderManzanaOpacity}
+            onRenderManzanaOpacityChange={setRenderManzanaOpacity}
+            hasRenderShapes={renderManzanaShapes.length > 0 || renderCalleShapes.length > 0}
+            onClearRenderShapes={clearRenderShapes}
+            renderStreetWidth={renderStreetWidth}
+            onRenderStreetWidthChange={setRenderStreetWidth}
+            renderStreetEditMode={renderStreetEditMode}
+            onToggleRenderStreetEditMode={toggleRenderStreetEditMode}
+            renderStreetEditTarget={renderStreetEditTarget}
+            hasStreetPathShapes={renderCalleShapes.some(s => s.axis)}
+            streetEditWidth={renderCalleShapes.find(s => s.id === renderStreetEditTarget)?.width ?? renderStreetWidth}
+            onStreetEditWidthChange={(width) => renderStreetEditTarget && setStreetWidth(renderStreetEditTarget, width)}
           />
 
           <div className="viewer-surface">
@@ -1137,8 +1601,9 @@ function App() {
                 onPolygonUpdate={handlePolygonUpdate}
                 onMarkerDragEnd={handleMarkerDragEnd}
               />
-            ) : mode === 'panorama' && panoramaUrl ? (
+            ) : (mode === 'panorama' || mode === 'render') && panoramaUrl ? (
               <EditorViewer
+                mode={mode}
                 panoramaUrl={panoramaUrl}
                 activeTool={activeTool}
                 annotations={displayAnnotations}
@@ -1156,6 +1621,21 @@ function App() {
                 getPositionRef={getViewerPositionRef}
                 onViewerReadyChange={setViewerReady}
                 onPanoramaDimensions={setPanoramaDimensions}
+                renderTestMode={renderTestMode}
+                renderDrawingPts={renderDrawingPts}
+                onRenderDrawingPtsChange={setRenderDrawingPts}
+                renderManzanaShapes={renderManzanaShapes}
+                renderCalleShapes={renderCalleShapes}
+                renderLayersVisible={renderLayersVisible}
+                renderColorMode={renderColorMode}
+                renderManzanaOpacity={renderManzanaOpacity}
+                onFinishRenderShape={finishRenderShape}
+                onCancelRenderDrawing={cancelRenderDrawing}
+                renderStreetWidth={renderStreetWidth}
+                renderStreetEditMode={renderStreetEditMode}
+                renderStreetEditTarget={renderStreetEditTarget}
+                onStreetShapeSelect={setRenderStreetEditTarget}
+                onStreetAxisChange={setStreetAxis}
               />
             ) : (
               <div className="viewer-feedback viewer-feedback--empty">
