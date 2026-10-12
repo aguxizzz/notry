@@ -7,8 +7,12 @@ Monorepo de frontend (npm workspaces). Frontend del proyecto **Not Royaltor360**
 El backend vive en `../notry-back` (FastAPI + SQLAlchemy 2 + PostgreSQL + Alembic + JWT).
 Tiene su propio `CLAUDE.md` con detalles. Si una tarea toca front y back, leer ambos.
 
-- API en producción: `https://notry-back.onrender.com/api/v1`
-- Configurada en [apps/plataforma-web/src/config.js](apps/plataforma-web/src/config.js) (`API_BASE`).
+- API en producción: `https://notry-back.vercel.app/api/v1`
+- Configurada en [apps/plataforma-web/src/config.js](apps/plataforma-web/src/config.js) y
+  [apps/editor/src/api/config.js](apps/editor/src/api/config.js) (`API_BASE`), vía `import.meta.env.VITE_API_BASE`
+  con fallback a producción.
+- `npm run dev` → apunta a producción (default). `npm run dev:local` → apunta al backend local
+  (`http://localhost:8000/api/v1`, requiere `notry-back` corriendo).
 
 ## Apps (`apps/*`)
 
@@ -17,6 +21,8 @@ Tiene su propio `CLAUDE.md` con detalles. Si una tarea toca front y back, leer a
 | `plataforma-web` | Plataforma de gestión (auth, prospectos, lotes, loteos, equipos). Consume la API. |
 | `visor` | Visor 360 público de lotes (Photo Sphere Viewer). Deploy en Vercel (`apps/visor/vercel.json`). |
 | `editor` | Editor/calibrador blueprint↔panorama. Herramienta de dev. |
+| `visor-deptos` | Prototipo de visor de unidades de un edificio (fachada → planta → ficha). Datos mock en `src/data.js`, sin API ni PSV. Puerto 5178. |
+| `editor-deptos` | Editor de edificios para `visor-deptos`: pisos, imagen por piso, alineación contra el plano original (overlay con opacidad) y polígonos por unidad. Consume `/api/v1/buildings` (login propio, `X-Active-Org-Id` para super_admin). Puerto 5179. |
 
 Stack común: Vite 8 + React 19 + `@photo-sphere-viewer/core` y `markers-plugin`.
 
@@ -28,9 +34,6 @@ npm run build     # build de producción
 npm run lint      # eslint (no existe en visor)
 npm run preview   # previsualizar build
 ```
-
-- El **editor** usa el flag `VITE_CALIBRATION=true` en `apps/editor/.env.local` (git-ignored)
-  para habilitar la UI de calibración. Dejar UNSET en producción/Vercel.
 
 ## Testeo visual (Playwright)
 
@@ -47,8 +50,13 @@ node scripts/shot.mjs http://localhost:5173/login /tmp/login.png --full
 node scripts/shot.mjs http://localhost:5173 /tmp/mobile.png --mobile
 ```
 
-Flags de `scripts/shot.mjs`: `--full` (página completa), `--mobile`, `--width=`, `--height=`, `--wait=<ms>`.
-Para flujos detrás de login hace falta loguearse (credenciales de prueba o token) o mockear la API.
+Flags de `scripts/shot.mjs`: `--full` (página completa), `--mobile`, `--width=`, `--height=`, `--wait=<ms>`,
+`--login` (loguea antes de capturar, usando `TEST_EMAIL`/`TEST_PASSWORD` o la cuenta de testeo por default).
+
+`scripts/lib/` tiene helpers reusables entre las 3 apps para escribir otros scripts de Playwright
+sin repetir boilerplate: `browser.mjs` (parseo de flags, viewport, lanzar Chromium) y `auth.mjs`
+(`login(page, { email, password })`, genérico porque selecciona por `type` de input, no por id).
+No es un framework de tests — es deliberadamente chico, para scripts de debugging ad-hoc.
 
 ## Convención de commits
 

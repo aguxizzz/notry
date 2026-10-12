@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Prototipo: 360 sintético desde datos geo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/earcut@2.2.4/dist/earcut.min.js"></script>
+<style>
+  body { font-family: system-ui, sans-serif; background:#111; color:#eee; margin:0; padding:20px; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  p.sub { color:#999; font-size:13px; margin:0 0 16px; }
+  .panel { display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin-bottom:14px; }
+  label { display:block; font-size:12px; color:#aaa; margin-bottom:3px; }
+  input { background:#222; border:1px solid #444; color:#eee; padding:6px 8px; border-radius:4px; width:120px; }
+  button { background:#c9a227; border:none; color:#111; font-weight:600; padding:8px 16px; border-radius:4px; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  #log { background:#000; border:1px solid #333; padding:10px; height:140px; overflow-y:auto; font-size:12px; font-family:monospace; white-space:pre-wrap; margin-bottom:14px; }
+  #result { display:none; }
+  #equirectCanvas { max-width:100%; border:1px solid #444; display:block; margin-bottom:10px; }
+  #viewer { width:100%; height:480px; border:1px solid #444; display:none; cursor:grab; }
+  #viewer.dragging { cursor:grabbing; }
+  .actions { display:flex; gap:8px; margin-bottom:14px; }
+  a.dl { color:#c9a227; }
+</style>
+</head>
+<body>
+<h1>Prototipo — panorama 360 sintético a partir de elevación + satélite + edificios/árboles</h1>
+<p class="sub">
+  Fuentes: Open-Elevation (SRTM) para relieve, Esri World Imagery para textura satelital,
+  Overpass (OpenStreetMap) para huellas de edificios y árboles. Todo gratuito, sin API key.
+  Esto es un prototipo aislado — no toca el visor real.
+</p>
+
+<div class="panel">
+  <div><label>Latitud</label><input id="lat" value="-34.6037"></div>
+  <div><label>Longitud</label><input id="lon" value="-58.3816"></div>
+  <div><label>Radio (m)</label><input id="radius" value="300"></div>
+  <div><label>Altura cámara (m sobre terreno)</label><input id="camHeight" value="35"></div>
+  <div><button id="genBtn" onclick="generate()">Generar panorama</button></div>
+</div>
+
+<div id="log"></div>
+
+<div id="result">
+  <div class="actions">
+    <span id="dlWrap"></span>
+    <button onclick="toggleViewer()" id="viewBtn">Ver en visor 360</button>
+  </div>
+  <canvas id="equirectCanvas"></canvas>
+  <div id="viewer"></div>
+</div>
+
+<script>
+const logEl = document.getElementById('log');
+function log(msg) {
+  logEl.textContent += msg + '\n';
+  logEl.scrollTop = logEl.scrollHeight;
+  console.log(msg);
+}
+
+// ---------- geo helpers ----------
+function lon2tileX(lon, z) { return Math.floor((lon + 180) / 360 * Math.pow(2, z)); }
+function lat2tileY(lat, z) {
+  const r = lat * Math.PI / 180;
+  return Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * Math.pow(2, z));
+}
+function tileX2lon(x, z) { return x / Math.pow(2, z) * 360 - 180; }
+function tileY2lat(y, z) {
+  const n = Math.PI - 2 * Math.PI * y / Math.pow(2, z);
+  return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+}
+
+function makeProjector(centerLat, centerLon) {
+  const mPerDegLat = 111320;
+  const mPerDegLon = 111320 * Math.cos(centerLat * Math.PI / 180);
+  return {
+    toLocal(lat, lon) {
+      return { x: (lon - centerLon) * mPerDegLon, z: -(lat - centerLat) * mPerDegLat };
+    }
+  };
+}
+
+// ---------- elevation ----------
+async function fetchElevationGrid(centerLat, centerLon, radius, gridN) {
+  const mPerDegLat = 111320;
+  const mPerDegLon = 111320 * Math.cos(centerLat * Math.PI / 180);
+  const dLat = radius / mPerDegLat;
+  const dLon = radius / mPerDegLon;
+  const points = [];
+  for (let j = 0; j < gridN; j++) {
+    for (let i = 0; i < gridN; i++) {
+      const lat = centerLat + dLat * (1 - 2 * j / (gridN - 1));
+      const lon = centerLon - dLon + 2 * dLon * i / (gridN - 1);
+      points.push([lat, lon]);
+    }
+  }
+  const elevations = new Array(points.length).fill(0);
+  const batchSize = 150;
+  for (let b = 0; b < points.length; b += batchSize) {
+    const batch = points.slice(b, b + batchSize);
+    const res = await fetch('https://api.open-elevation.com/api/v1/lookup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locations: batch.map(p => ({ latitude: p[0], longitude: p[1] })) }),
+    });
+    if (!res.ok) throw new Error('Open-Elevation fallo: ' + res.status);
+    const data = await res.json();
+    data.results.forEach((r, idx) => { elevations[b + idx] = r.elevation || 0; });
+    log(`  elevación: ${Math.min(b + batchSize, points.length)}/${points.length} puntos`);
+  }
+  return { gridN, elevations, points };
+}
+
+function sampleElevationBilinear(grid, u, v) {
+  const n = grid.gridN;
+  const fx = u * (n - 1), fy = v * (n - 1);
+  const x0 = Math.floor(fx), y0 = Math.floor(fy);
+  const x1 = Math.min(x0 + 1, n - 1), y1 = Math.min(y0 + 1, n - 1);
+  const tx = fx - x0, ty = fy - y0;
+  const at = (x, y) => grid.elevations[y * n + x];
+  const top = at(x0, y0) * (1 - tx) + at(x1, y0) * tx;
+  const bot = at(x0, y1) * (1 - tx) + at(x1, y1) * tx;
+  return top * (1 - ty) + bot * ty;
+}
+
+// ---------- satellite texture ----------
+async function fetchSatelliteTexture(centerLat, centerLon, radius, zoom) {
+  const mPerDegLat = 111320;
+  const mPerDegLon = 111320 * Math.cos(centerLat * Math.PI / 180);
+  const dLat = radius / mPerDegLat;
+  const dLon = radius / mPerDegLon;
+  const north = centerLat + dLat, south = centerLat - dLat;
+  const west = centerLon - dLon, east = centerLon + dLon;
+
+  const xMin = lon2tileX(west, zoom), xMax = lon2tileX(east, zoom);
+  const yMin = lat2tileY(north, zoom), yMax = lat2tileY(south, zoom);
+  const tilesX = xMax - xMin + 1, tilesY = yMax - yMin + 1;
+  const tileSize = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = tilesX * tileSize;
+  canvas.height = tilesY * tileSize;
+  const ctx = canvas.getContext('2d');
+
+  log(`  bajando ${tilesX * tilesY} tiles satelitales (zoom ${zoom})...`);
+  const loads = [];
+  for (let ty = yMin; ty <= yMax; ty++) {
+    for (let tx = xMin; tx <= xMax; tx++) {
+      const url = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${ty}/${tx}`;
+      loads.push(new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => { ctx.drawImage(img, (tx - xMin) * tileSize, (ty - yMin) * tileSize); resolve(); };
+        img.onerror = () => resolve();
+        img.src = url;
+      }));
+    }
+  }
+  await Promise.all(loads);
+
+  // bbox real cubierta por los tiles descargados (no exactamente el bbox pedido)
+  const coveredWest = tileX2lon(xMin, zoom), coveredEast = tileX2lon(xMax + 1, zoom);
+  const coveredNorth = tileY2lat(yMin, zoom), coveredSouth = tileY2lat(yMax + 1, zoom);
+
+  return { canvas, bbox: { west: coveredWest, east: coveredEast, north: coveredNorth, south: coveredSouth } };
+}
+
+// Esri devuelve HTTP 200 con un tile "placeholder" plano cuando no tiene
+// cobertura a ese zoom en la zona (típico en áreas rurales/pueblos chicos).
+// Lo detectamos midiendo qué tan uniforme es la imagen resultante.
+function textureVariance(canvas) {
+  const ctx = canvas.getContext('2d');
+  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  let sum = 0, sumSq = 0, n = 0;
+  for (let i = 0; i < data.length; i += 4 * 97) { // muestreo disperso, no todos los píxeles
+    const lum = (data[i] + data[i + 1] + data[i + 2]) / 3;
+    sum += lum; sumSq += lum * lum; n++;
+  }
+  const mean = sum / n;
+  return Math.sqrt(sumSq / n - mean * mean);
+}
+
+async function fetchBestSatelliteTexture(centerLat, centerLon, radius) {
+  const zoomsToTry = [18, 17, 16, 15, 14];
+  let best = null;
+  for (const zoom of zoomsToTry) {
+    const result = await fetchSatelliteTexture(centerLat, centerLon, radius, zoom);
+    const variance = textureVariance(result.canvas);
+    log(`  zoom ${zoom}: variación de textura = ${variance.toFixed(1)}`);
+    if (variance > 12) { log(`  usando zoom ${zoom} (tiene cobertura real)`); return result; }
+    if (!best) best = result;
+  }
+  log('  ninguna resolución mostró cobertura clara; se usa la mejor disponible igual');
+  return best;
+}
+
+// ---------- OSM buildings + trees ----------
+async function fetchOsmFeatures(centerLat, centerLon, radius) {
+  const mPerDegLat = 111320;
+  const mPerDegLon = 111320 * Math.cos(centerLat * Math.PI / 180);
+  const dLat = (radius + 60) / mPerDegLat;
+  const dLon = (radius + 60) / mPerDegLon;
+  const south = centerLat - dLat, north = centerLat + dLat;
+  const west = centerLon - dLon, east = centerLon + dLon;
+  const bbox = `${south},${west},${north},${east}`;
+  const query = `[out:json][timeout:25];(way["building"](${bbox});node["natural"="tree"](${bbox});way["landuse"="forest"](${bbox});way["natural"="wood"](${bbox}););out body;>;out skel qt;`;
+
+  let data = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: query });
+    if (res.ok) { data = await res.json(); break; }
+    log(`  Overpass respondió ${res.status}, reintentando (${attempt}/3)...`);
+    await new Promise(r => setTimeout(r, 2000 * attempt));
+  }
+  if (!data) throw new Error('Overpass no respondió tras 3 intentos (servidor público sobrecargado)');
+
+  const nodes = {};
+  data.elements.filter(e => e.type === 'node').forEach(n => { nodes[n.id] = n; });
+
+  const buildings = [];
+  const forestWays = [];
+  const trees = [];
+
+  data.elements.forEach(el => {
+    if (el.type === 'node' && el.tags && el.tags.natural === 'tree') {
+      trees.push({ lat: el.lat, lon: el.lon });
+    }
+    if (el.type === 'way' && el.tags) {
+      const coords = el.nodes.map(id => nodes[id]).filter(Boolean).map(n => ({ lat: n.lat, lon: n.lon }));
+      if (coords.length < 3) return;
+      if (el.tags.building) {
+        const levels = parseInt(el.tags['building:levels']) || null;
+        const height = parseFloat(el.tags.height) || (levels ? levels * 3 : 6 + Math.random() * 6);
+        buildings.push({ coords, height });
+      } else if (el.tags.landuse === 'forest' || el.tags.natural === 'wood') {
+        forestWays.push(coords);
+      }
+    }
+  });
+
+  return { buildings, forestWays, trees };
+}
+
+function pointInPolygon(x, z, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i].x, zi = poly[i].z, xj = poly[j].x, zj = poly[j].z;
+    const intersect = ((zi > z) !== (zj > z)) && (x < (xj - xi) * (z - zi) / (zj - zi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+// ---------- scene building ----------
+function buildTree(x, y, z) {
+  const group = new THREE.Group();
+  const trunkH = 2 + Math.random() * 2;
+  const trunk = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.15, 0.22, trunkH, 6),
+    new THREE.MeshLambertMaterial({ color: 0x5a3d24 })
+  );
+  trunk.position.y = trunkH / 2;
+  const crownR = 1.5 + Math.random() * 1.5;
+  const crown = new THREE.Mesh(
+    new THREE.ConeGeometry(crownR, crownR * 1.8, 7),
+    new THREE.MeshLambertMaterial({ color: 0x2f6b34 })
+  );
+  crown.position.y = trunkH + crownR * 0.7;
+  group.add(trunk, crown);
+  group.position.set(x, y, z);
+  return group;
+}
+
+function buildBuildingMesh(footprint, height, projector, elevGrid, bbox) {
+  const shapePts = footprint.map(p => projector.toLocal(p.lat, p.lon));
+  const flat = [];
+  shapePts.forEach(p => flat.push(p.x, p.z));
+  const idxs = earcut(flat);
+  if (!idxs.length) return null;
+
+  // altura de terreno en el centro del edificio, para asentarlo
+  const cx = shapePts.reduce((s, p) => s + p.x, 0) / shapePts.length;
+  const cz = shapePts.reduce((s, p) => s + p.z, 0) / shapePts.length;
+  const u = (cx - bbox.minX) / (bbox.maxX - bbox.minX);
+  const v = (cz - bbox.minZ) / (bbox.maxZ - bbox.minZ);
+  const baseY = sampleElevationBilinear(elevGrid, THREE.MathUtils.clamp(u, 0, 1), 1 - THREE.MathUtils.clamp(v, 0, 1)) - elevGrid.refElevation;
+
+  const geo = new THREE.BufferGeometry();
+  const verts = [];
+  // paredes (extrusión simple por segmento)
+  for (let i = 0; i < shapePts.length; i++) {
+    const a = shapePts[i], b = shapePts[(i + 1) % shapePts.length];
+    verts.push(a.x, baseY, a.z,  b.x, baseY, b.z,  b.x, baseY + height, b.z);
+    verts.push(a.x, baseY, a.z,  b.x, baseY + height, b.z,  a.x, baseY + height, a.z);
+  }
+  // techo
+  for (let i = 0; i < idxs.length; i += 3) {
+    [idxs[i], idxs[i + 1], idxs[i + 2]].forEach(k => verts.push(shapePts[k].x, baseY + height, shapePts[k].z));
+  }
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  geo.computeVertexNormals();
+  const mat = new THREE.MeshLambertMaterial({ color: 0xcfc7b8 });
+  return new THREE.Mesh(geo, mat);
+}
+
+async function generate() {
+  const btn = document.getElementById('genBtn');
+  btn.disabled = true;
+  logEl.textContent = '';
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('viewer').style.display = 'none';
+
+  try {
+    const centerLat = parseFloat(document.getElementById('lat').value);
+    const centerLon = parseFloat(document.getElementById('lon').value);
+    const radius = parseFloat(document.getElementById('radius').value);
+    const camHeight = parseFloat(document.getElementById('camHeight').value);
+    const projector = makeProjector(centerLat, centerLon);
+
+    log('1/5 — pidiendo elevación (Open-Elevation)...');
+    const elevGrid = await fetchElevationGrid(centerLat, centerLon, radius, 13);
+    elevGrid.refElevation = sampleElevationBilinear(elevGrid, 0.5, 0.5);
+
+    log('2/5 — bajando textura satelital...');
+    const sat = await fetchBestSatelliteTexture(centerLat, centerLon, radius);
+
+    log('3/5 — pidiendo edificios y árboles (OSM/Overpass)...');
+    const osm = await fetchOsmFeatures(centerLat, centerLon, radius);
+    log(`  ${osm.buildings.length} edificios, ${osm.trees.length} árboles puntuales, ${osm.forestWays.length} polígonos de bosque`);
+
+    log('4/5 — armando escena 3D...');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x8fc0e8);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x445544, 1.1));
+    const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+    sun.position.set(1, 1.5, 0.5);
+    scene.add(sun);
+
+    // terreno
+    const segs = 64;
+    const terrainGeo = new THREE.PlaneGeometry(radius * 2, radius * 2, segs, segs);
+    terrainGeo.rotateX(-Math.PI / 2);
+    const posAttr = terrainGeo.attributes.position;
+    for (let i = 0; i < posAttr.count; i++) {
+      const x = posAttr.getX(i), z = posAttr.getZ(i);
+      const u = (x + radius) / (radius * 2);
+      const v = (z + radius) / (radius * 2);
+      const elev = sampleElevationBilinear(elevGrid, u, 1 - v);
+      posAttr.setY(i, elev - elevGrid.refElevation);
+    }
+    terrainGeo.computeVertexNormals();
+    const satTexture = new THREE.CanvasTexture(sat.canvas);
+    satTexture.flipY = true;
+    const terrainMat = new THREE.MeshLambertMaterial({ map: satTexture });
+    const terrain = new THREE.Mesh(terrainGeo, terrainMat);
+    scene.add(terrain);
+
+    const bboxLocal = { minX: -radius, maxX: radius, minZ: -radius, maxZ: radius };
+
+    // edificios
+    osm.buildings.forEach(b => {
+      const mesh = buildBuildingMesh(b.coords, b.height, projector, elevGrid, bboxLocal);
+      if (mesh) scene.add(mesh);
+    });
+
+    // árboles puntuales de OSM
+    osm.trees.forEach(t => {
+      const p = projector.toLocal(t.lat, t.lon);
+      if (Math.abs(p.x) > radius || Math.abs(p.z) > radius) return;
+      const u = (p.x + radius) / (radius * 2), v = (p.z + radius) / (radius * 2);
+      const y = sampleElevationBilinear(elevGrid, u, 1 - v) - elevGrid.refElevation;
+      scene.add(buildTree(p.x, y, p.z));
+    });
+
+    // relleno de bosque: puntos aleatorios dentro de los polígonos landuse=forest/wood
+    osm.forestWays.forEach(way => {
+      const poly = way.map(p => projector.toLocal(p.lat, p.lon));
+      const xs = poly.map(p => p.x), zs = poly.map(p => p.z);
+      const minX = Math.max(Math.min(...xs), -radius), maxX = Math.min(Math.max(...xs), radius);
+      const minZ = Math.max(Math.min(...zs), -radius), maxZ = Math.min(Math.max(...zs), radius);
+      const area = (maxX - minX) * (maxZ - minZ);
+      const count = Math.min(120, Math.floor(area / 25));
+      for (let i = 0; i < count; i++) {
+        const x = minX + Math.random() * (maxX - minX);
+        const z = minZ + Math.random() * (maxZ - minZ);
+        if (!pointInPolygon(x, z, poly)) continue;
+        const u = (x + radius) / (radius * 2), v = (z + radius) / (radius * 2);
+        const y = sampleElevationBilinear(elevGrid, u, 1 - v) - elevGrid.refElevation;
+        scene.add(buildTree(x, y, z));
+      }
+    });
+
+    log('5/5 — renderizando cubemap y convirtiendo a equirectangular...');
+    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    renderer.setSize(512, 512);
+    renderer.setPixelRatio(1);
+
+    const camY = elevGrid.refElevation - elevGrid.refElevation + camHeight; // altura sobre el punto central del terreno (ya relativizado)
+    const cubeRT = new THREE.WebGLCubeRenderTarget(1024, { format: THREE.RGBAFormat });
+    const cubeCam = new THREE.CubeCamera(0.5, radius * 4, cubeRT);
+    cubeCam.position.set(0, camY, 0);
+    scene.add(cubeCam);
+    cubeCam.update(renderer, scene);
+
+    const equiW = 4096, equiH = 2048;
+    const equiScene = new THREE.Scene();
+    const equiCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const equiMat = new THREE.ShaderMaterial({
+      uniforms: { tCube: { value: cubeRT.texture } },
+      vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position,1.0); }`,
+      fragmentShader: `
+        varying vec2 vUv;
+        uniform samplerCube tCube;
+        #define PI 3.14159265359
+        void main(){
+          float lon = (vUv.x - 0.5) * 2.0 * PI;
+          float lat = (0.5 - vUv.y) * PI;
+          vec3 dir = normalize(vec3(sin(lon) * cos(lat), sin(lat), -cos(lon) * cos(lat)));
+          gl_FragColor = textureCube(tCube, dir);
+        }
+      `
+    });
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), equiMat);
+    equiScene.add(quad);
+    renderer.setSize(equiW, equiH);
+    const equiTarget = new THREE.WebGLRenderTarget(equiW, equiH);
+    renderer.setRenderTarget(equiTarget);
+    renderer.render(equiScene, equiCam);
+    renderer.setRenderTarget(null);
+
+    const buffer = new Uint8Array(equiW * equiH * 4);
+    renderer.readRenderTargetPixels(equiTarget, 0, 0, equiW, equiH, buffer);
+
+    const canvas = document.getElementById('equirectCanvas');
+    canvas.width = equiW; canvas.height = equiH;
+    const ctx = canvas.getContext('2d');
+    // el mapeo lat/lon del shader ya compensa el origen abajo-izquierda de
+    // WebGL readPixels; una segunda inversión acá pondría el cielo abajo.
+    const imgData = new ImageData(new Uint8ClampedArray(buffer.buffer), equiW, equiH);
+    ctx.putImageData(imgData, 0, 0);
+
+    document.getElementById('result').style.display = 'block';
+    const dlLink = document.createElement('a');
+    dlLink.className = 'dl';
+    dlLink.textContent = 'Descargar equirectangular (PNG)';
+    dlLink.href = canvas.toDataURL('image/png');
+    dlLink.download = 'panorama-sintetico.png';
+    document.getElementById('dlWrap').innerHTML = '';
+    document.getElementById('dlWrap').appendChild(dlLink);
+
+    window.__lastPanoramaDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    log('Listo.');
+  } catch (err) {
+    log('ERROR: ' + err.message);
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Visor 360 mínimo propio (evita depender de librerías externas de visor):
+// esfera con la textura por dentro + drag manual para mirar alrededor.
+let panoState = null;
+function toggleViewer() {
+  const viewerEl = document.getElementById('viewer');
+  if (viewerEl.style.display === 'block') {
+    viewerEl.style.display = 'none';
+    if (panoState) cancelAnimationFrame(panoState.raf);
+    return;
+  }
+  viewerEl.style.display = 'block';
+  viewerEl.innerHTML = '';
+
+  const width = viewerEl.clientWidth, height = viewerEl.clientHeight;
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(width, height);
+  viewerEl.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(80, width / height, 0.1, 10);
+  const geo = new THREE.SphereGeometry(5, 60, 40);
+  geo.scale(-1, 1, 1); // ver la textura desde adentro de la esfera
+  const texture = new THREE.TextureLoader().load(window.__lastPanoramaDataUrl);
+  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: texture }));
+  scene.add(mesh);
+
+  let theta = 0, phi = 0, dragging = false, lastX = 0, lastY = 0;
+  function updateCamera() {
+    const phiClamped = Math.max(-1.4, Math.min(1.4, phi));
+    camera.position.set(0, 0, 0);
+    camera.lookAt(
+      Math.cos(phiClamped) * Math.sin(theta),
+      Math.sin(phiClamped),
+      Math.cos(phiClamped) * Math.cos(theta)
+    );
+  }
+  updateCamera();
+
+  const onDown = (e) => { dragging = true; lastX = e.clientX; lastY = e.clientY; viewerEl.classList.add('dragging'); };
+  const onUp = () => { dragging = false; viewerEl.classList.remove('dragging'); };
+  const onMove = (e) => {
+    if (!dragging) return;
+    theta -= (e.clientX - lastX) * 0.005;
+    phi += (e.clientY - lastY) * 0.005;
+    lastX = e.clientX; lastY = e.clientY;
+    updateCamera();
+  };
+  const onWheel = (e) => {
+    camera.fov = Math.max(30, Math.min(100, camera.fov + e.deltaY * 0.03));
+    camera.updateProjectionMatrix();
+    e.preventDefault();
+  };
+  renderer.domElement.addEventListener('pointerdown', onDown);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointermove', onMove);
+  renderer.domElement.addEventListener('wheel', onWheel, { passive: false });
+
+  panoState = { raf: null };
+  function animate() {
+    renderer.render(scene, camera);
+    panoState.raf = requestAnimationFrame(animate);
+  }
+  animate();
+}
+</script>
+</body>
+</html>

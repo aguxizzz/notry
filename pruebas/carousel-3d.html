@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Carrousel 3D — prueba</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card-w: 260px;
+    --card-h: 340px;
+    --radius: 420px;
+    --gold: #d4af37;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: #f2f2f2;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    padding: 40px 20px;
+  }
+
+  .top-text, .bottom-text {
+    text-align: center;
+    max-width: 560px;
+  }
+
+  .top-text h1 {
+    margin: 0 0 8px;
+    font-size: 1.6rem;
+    letter-spacing: 0.02em;
+  }
+
+  .top-text p, .bottom-text p {
+    margin: 0;
+    color: #a3a7b0;
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+
+  .scene {
+    position: relative;
+    width: 100%;
+    max-width: 900px;
+    height: 420px;
+    perspective: 1400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .carousel {
+    position: relative;
+    width: var(--card-w);
+    height: var(--card-h);
+    transform-style: preserve-3d;
+    transition: transform 0.7s cubic-bezier(0.65, 0, 0.35, 1);
+  }
+
+  .card {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--card-w);
+    height: var(--card-h);
+    border-radius: 16px;
+    overflow: hidden;
+    background: #1c1f26;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backface-visibility: hidden;
+    transition: filter 0.7s ease, opacity 0.7s ease;
+  }
+
+  .card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .card.is-back {
+    filter: brightness(0.45) saturate(0.6);
+  }
+
+  .card.is-side {
+    filter: brightness(0.7) saturate(0.8);
+  }
+
+  .card-label {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    font-size: 0.8rem;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.45);
+    padding: 4px 8px;
+    border-radius: 8px;
+    text-align: center;
+    backdrop-filter: blur(2px);
+  }
+
+  .controls {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+  }
+
+  .controls button {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+  }
+
+  .controls button:hover {
+    background: var(--gold);
+    color: #1a1a1a;
+    transform: translateY(-2px);
+  }
+
+  .dots {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    transition: background 0.3s ease;
+  }
+
+  .dot.active {
+    background: var(--gold);
+  }
+</style>
+</head>
+<body>
+
+  <div class="top-text">
+    <h1>Carrousel 3D — placeholders</h1>
+    <p>El elemento activo queda al frente; los otros tres rotan detrás, a la izquierda y a la derecha en profundidad.</p>
+  </div>
+
+  <div class="scene">
+    <div class="carousel" id="carousel">
+      <div class="card" data-index="0">
+        <img src="https://picsum.photos/seed/carousel1/500/650" alt="placeholder 1" />
+        <div class="card-label">Imagen 1</div>
+      </div>
+      <div class="card" data-index="1">
+        <img src="https://picsum.photos/seed/carousel2/500/650" alt="placeholder 2" />
+        <div class="card-label">Imagen 2</div>
+      </div>
+      <div class="card" data-index="2">
+        <img src="https://picsum.photos/seed/carousel3/500/650" alt="placeholder 3" />
+        <div class="card-label">Imagen 3</div>
+      </div>
+      <div class="card" data-index="3">
+        <img src="https://picsum.photos/seed/carousel4/500/650" alt="placeholder 4" />
+        <div class="card-label">Imagen 4</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="prevBtn" aria-label="Anterior">‹</button>
+    <button id="nextBtn" aria-label="Siguiente">›</button>
+  </div>
+
+  <div class="dots" id="dots"></div>
+
+  <div class="bottom-text">
+    <p>Texto debajo del carrousel. Podés reemplazar las imágenes de picsum.photos por las reales cuando esté listo.</p>
+  </div>
+
+  <script>
+    const RADIUS = 380; // distancia del centro a cada tarjeta
+    const cards = Array.from(document.querySelectorAll('.card'));
+    const carousel = document.getElementById('carousel');
+    const dotsContainer = document.getElementById('dots');
+    const total = cards.length;
+    let current = 0;
+
+    // Posiciona cada tarjeta en su lugar fijo del anillo (90° entre sí)
+    cards.forEach((card, i) => {
+      card.style.transform = `rotateY(${i * 90}deg) translateZ(${RADIUS}px)`;
+    });
+
+    // Genera los puntos indicadores
+    cards.forEach((_, i) => {
+      const dot = document.createElement('div');
+      dot.className = 'dot';
+      dot.dataset.index = i;
+      dotsContainer.appendChild(dot);
+    });
+    const dots = Array.from(dotsContainer.children);
+
+    function render() {
+      // Rota el anillo entero para que "current" quede al frente
+      carousel.style.transform = `rotateY(${-current * 90}deg)`;
+
+      cards.forEach((card, i) => {
+        const diff = ((i - current) % total + total) % total; // 0=frente,1=derecha-atrás,2=atrás,3=izquierda-atrás
+        card.classList.remove('is-back', 'is-side');
+        if (diff === 2) card.classList.add('is-back');
+        else if (diff === 1 || diff === 3) card.classList.add('is-side');
+      });
+
+      dots.forEach((dot, i) => dot.classList.toggle('active', i === current));
+    }
+
+    function next() {
+      current = (current + 1) % total;
+      render();
+    }
+
+    function prev() {
+      current = (current - 1 + total) % total;
+      render();
+    }
+
+    document.getElementById('nextBtn').addEventListener('click', next);
+    document.getElementById('prevBtn').addEventListener('click', prev);
+    dots.forEach((dot) => dot.addEventListener('click', () => {
+      current = Number(dot.dataset.index);
+      render();
+    }));
+
+    render();
+  </script>
+</body>
+</html>
