@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Modales del visor · exploración</title>
+  <style>
+    :root {
+      --ink: #17201f;
+      --ink-soft: #5e6661;
+      --paper: #f3efe7;
+      --paper-2: #ebe5da;
+      --cream: #fffdf8;
+      --gold: #c49b4e;
+      --gold-deep: #9b752e;
+      --green: #347255;
+      --line: rgba(23, 32, 31, .14);
+      --white-line: rgba(255, 255, 255, .2);
+      --shadow: 0 24px 70px rgba(8, 14, 13, .28);
+      --display: "Space Grotesk", "Avenir Next", sans-serif;
+      --body: "Outfit", "Avenir Next", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--paper); }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 9% 0%, rgba(196, 155, 78, .15), transparent 30rem),
+        var(--paper);
+      font-family: var(--body);
+      padding: clamp(28px, 5vw, 72px) clamp(18px, 5vw, 80px) 80px;
+    }
+
+    button, a { font: inherit; }
+    button { cursor: pointer; }
+    .lab { margin: 0 auto; max-width: 1280px; }
+    .intro {
+      align-items: end;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      gap: 30px;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 540px);
+      padding-bottom: clamp(30px, 5vw, 56px);
+    }
+    .eyebrow, .variant-index, .type-label {
+      color: var(--gold-deep);
+      font: 700 .68rem/1 var(--display);
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    h1 {
+      font: 650 clamp(2.45rem, 5.5vw, 5.7rem)/.88 var(--display);
+      letter-spacing: -.075em;
+      margin: 16px 0 0;
+      max-width: 8ch;
+    }
+    .intro-copy { color: #5f625d; font-size: 1rem; line-height: 1.65; margin: 0; max-width: 58ch; }
+    .intro-note { border-left: 2px solid var(--gold); color: #756f64; font-size: .79rem; line-height: 1.55; margin: 20px 0 0; padding-left: 14px; }
+
+    .variants { display: grid; gap: 54px; margin-top: 54px; }
+    .variant { display: grid; gap: 18px; }
+    .variant-copy { align-items: end; display: flex; gap: 24px; justify-content: space-between; }
+    .variant-title h2 { font: 650 clamp(1.4rem, 2.2vw, 2rem)/1 var(--display); letter-spacing: -.045em; margin: 9px 0 0; }
+    .variant-note { color: var(--ink-soft); font-size: .82rem; line-height: 1.5; margin: 0; max-width: 55ch; }
+    .type-switch {
+      align-items: center;
+      background: rgba(255, 255, 255, .43);
+      border: 1px solid var(--line);
+      border-radius: 99px;
+      display: flex;
+      gap: 3px;
+      padding: 3px;
+    }
+    .type-switch button {
+      background: transparent;
+      border: 0;
+      border-radius: 99px;
+      color: #6c706b;
+      font-size: .7rem;
+      font-weight: 700;
+      padding: 7px 12px;
+    }
+    .type-switch button.active { background: var(--ink); color: var(--cream); }
+
+    .viewer {
+      background-color: #4d5e50;
+      background-image:
+        linear-gradient(180deg, rgba(9, 14, 12, .04), rgba(9, 14, 12, .38)),
+        url("../fotos_equirrectangulares/exterior_occidente.jpg");
+      background-position: center;
+      background-size: cover;
+      border: 1px solid rgba(23, 32, 31, .18);
+      box-shadow: 0 14px 38px rgba(23, 32, 31, .12);
+      height: min(660px, 69vw);
+      min-height: 530px;
+      overflow: hidden;
+      position: relative;
+    }
+    .viewer::before {
+      background: linear-gradient(90deg, rgba(7, 13, 11, .28), transparent 28%, transparent 72%, rgba(7, 13, 11, .2));
+      content: "";
+      inset: 0;
+      position: absolute;
+    }
+    .viewer-brand { color: #fff; font: 700 .7rem var(--display); left: 22px; letter-spacing: .13em; position: absolute; text-shadow: 0 2px 8px #000; top: 22px; }
+    .viewer-hint { bottom: 18px; color: rgba(255,255,255,.76); font: 600 .62rem var(--display); left: 22px; letter-spacing: .1em; position: absolute; text-shadow: 0 2px 8px #000; text-transform: uppercase; }
+    .hotspot { left: 25%; position: absolute; top: 56%; }
+    .hotspot::before { background: rgba(60, 146, 94, .28); border: 1.5px solid rgba(255,255,255,.88); content: ""; display: block; height: 68px; transform: perspective(80px) rotateX(58deg) rotateZ(-8deg); width: 105px; }
+    .hotspot span { background: var(--green); border-radius: 99px; color: #fff; font-size: .64rem; font-weight: 700; left: 22px; padding: 5px 9px; position: absolute; top: 21px; white-space: nowrap; }
+
+    .panel { color: var(--ink); position: absolute; }
+    .panel button { border: 0; }
+    .close {
+      align-items: center;
+      background: transparent;
+      color: inherit;
+      display: flex;
+      font-size: 1.3rem;
+      height: 38px;
+      justify-content: center;
+      opacity: .62;
+      width: 38px;
+    }
+    .status { align-items: center; color: var(--green); display: inline-flex; font-size: .68rem; font-weight: 750; gap: 7px; letter-spacing: .08em; text-transform: uppercase; }
+    .status::before { background: currentColor; border-radius: 50%; content: ""; height: 7px; width: 7px; }
+    .panel h3 { font: 650 1.55rem/1.06 var(--display); letter-spacing: -.045em; margin: 0; }
+    .metric-label { color: #7a7d76; font-size: .62rem; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
+    .metric-value { font: 650 1.15rem var(--display); letter-spacing: -.03em; }
+    .description { color: #62675f; font-size: .82rem; line-height: 1.55; margin: 0; }
+    .primary { align-items: center; background: var(--gold); color: #fff; display: flex; font-size: .78rem; font-weight: 750; gap: 8px; justify-content: center; min-height: 44px; padding: 0 18px; text-decoration: none; }
+    .secondary { align-items: center; background: transparent; border: 1px solid rgba(23,32,31,.18) !important; color: #42564a; display: flex; font-size: .76rem; font-weight: 700; justify-content: center; min-height: 42px; padding: 0 16px; }
+    /* 01: sidecar — low obstruction, viewer-first. */
+    .variant-a .viewer { border-radius: 3px; }
+    .variant-a .viewer::after { background: linear-gradient(90deg, transparent 45%, rgba(7,12,11,.48)); content: ""; inset: 0; position: absolute; }
+    .variant-a .panel {
+      backdrop-filter: blur(18px);
+      background: rgba(250, 247, 240, .93);
+      bottom: 18px;
+      box-shadow: var(--shadow);
+      flex-direction: column;
+      right: 18px;
+      top: 18px;
+      width: min(390px, calc(100% - 36px));
+      z-index: 1;
+    }
+    .variant-a .panel-head { align-items: start; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; padding: 25px 22px 21px 26px; }
+    .variant-a .panel-head-copy { display: grid; gap: 11px; }
+    .variant-a .panel-body { display: flex; flex: 1; flex-direction: column; gap: 22px; padding: 23px 26px 25px; }
+    .variant-a .metric-row { border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 1fr 1fr; padding-bottom: 21px; }
+    .variant-a .metric { display: grid; gap: 6px; }
+    .variant-a .metric + .metric { border-left: 1px solid var(--line); padding-left: 22px; }
+    .variant-a .availability { background: rgba(52,114,85,.08); border-left: 2px solid var(--green); color: #3d6651; font-size: .79rem; line-height: 1.45; padding: 12px 14px; }
+    .variant-a .actions { display: grid; gap: 8px; margin-top: auto; }
+    .variant-a .primary, .variant-a .secondary { border-radius: 2px; }
+    .variant-a .poi-image { background: url("../infopanelexample.jpeg") center/cover; height: 210px; margin: 0 0 2px; }
+    .variant-a .poi-kicker { align-items: center; display: flex; gap: 10px; }
+    .variant-a .poi-icon { background: var(--gold); color: #fff; display: grid; font-size: 1rem; height: 34px; place-items: center; width: 34px; }
+
+    /* 02: editorial centered card — warmer, more narrative. */
+    .variant-b .viewer { border-radius: 18px; }
+    .variant-b .viewer::after { background: rgba(8, 13, 12, .39); content: ""; inset: 0; position: absolute; }
+    .variant-b .panel {
+      background: var(--cream);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      left: 50%;
+      max-height: calc(100% - 52px);
+      overflow: hidden;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(460px, calc(100% - 40px));
+      z-index: 1;
+    }
+    .variant-b .panel-head { background: #1c2724; color: var(--cream); padding: 24px 26px 22px; position: relative; }
+    .variant-b .panel-head .close { position: absolute; right: 12px; top: 12px; }
+    .variant-b .panel-head-copy { display: grid; gap: 12px; padding-right: 38px; }
+    .variant-b .status { color: #8ed0a6; }
+    .variant-b .panel-body { display: grid; gap: 18px; padding: 22px 26px 26px; }
+    .variant-b .metric-row { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+    .variant-b .metric { background: var(--paper); border-radius: 10px; display: grid; gap: 5px; padding: 13px 15px; }
+    .variant-b .actions { display: grid; gap: 9px; grid-template-columns: 1.35fr 1fr; }
+    .variant-b .primary, .variant-b .secondary { border-radius: 9px; }
+    .variant-b .poi-image { background: url("../infopanelexample.jpeg") center/cover; height: 235px; }
+    .variant-b .panel-poi .panel-body { padding-top: 20px; }
+    .variant-b .poi-caption { align-items: start; display: grid; gap: 10px; grid-template-columns: 38px 1fr; }
+    .variant-b .poi-icon { background: rgba(196,155,78,.13); border-radius: 10px; color: var(--gold-deep); display: grid; height: 38px; place-items: center; width: 38px; }
+
+    /* 03: bottom sheet — spatial context and mobile behavior. */
+    .variant-c .viewer { border-radius: 3px; }
+    .variant-c .viewer::after { background: linear-gradient(0deg, rgba(8,13,12,.38), transparent 55%); content: ""; inset: 0; position: absolute; }
+    .variant-c .panel {
+      background: rgba(255, 253, 248, .97);
+      bottom: 0;
+      display: flex;
+      left: 0;
+      min-height: 225px;
+      right: 0;
+      z-index: 1;
+    }
+    .variant-c .panel::before { background: var(--gold); content: ""; left: 0; position: absolute; top: 0; bottom: 0; width: 5px; }
+    .variant-c .panel-head { display: flex; flex: 0 0 30%; padding: 28px 24px 26px 32px; position: relative; }
+    .variant-c .panel-head-copy { display: flex; flex-direction: column; gap: 13px; }
+    .variant-c .panel-head .close { position: absolute; right: 0; top: 12px; }
+    .variant-c .panel-body { align-items: start; border-left: 1px solid var(--line); display: grid; flex: 1; gap: 20px; grid-template-columns: minmax(170px, .8fr) minmax(230px, 1.3fr) minmax(190px, .8fr); padding: 27px 28px; }
+    .variant-c .metric-row { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+    .variant-c .metric { display: grid; gap: 6px; }
+    .variant-c .availability { color: #416551; font-size: .79rem; line-height: 1.5; }
+    .variant-c .actions { display: grid; gap: 8px; }
+    .variant-c .primary, .variant-c .secondary { border-radius: 2px; }
+    .variant-c .panel-poi .panel-head { background: url("../infopanelexample.jpeg") center/cover; flex-basis: 37%; min-height: 225px; }
+    .variant-c .panel-poi .panel-head::after { background: linear-gradient(180deg, rgba(10,15,14,.12), rgba(10,15,14,.58)); content: ""; inset: 0; position: absolute; }
+    .variant-c .panel-poi .panel-head-copy { color: #fff; justify-content: end; position: relative; z-index: 1; }
+    .variant-c .panel-poi .panel-head .close { color: #fff; z-index: 2; }
+    .variant-c .panel-poi .panel-body { grid-template-columns: 1.4fr .8fr; }
+    .variant-c .poi-meta { align-items: center; display: flex; gap: 11px; }
+    .variant-c .poi-icon { background: var(--gold); color: #fff; display: grid; height: 36px; place-items: center; width: 36px; }
+
+    /* Content toggle lives after the variant display rules to win the cascade. */
+    .variant .panel-poi { display: none; }
+    .variant[data-view="poi"] .panel-lot { display: none; }
+    .variant[data-view="poi"] .panel-poi { display: flex; }
+
+    .recommendation { border-top: 1px solid var(--line); display: grid; gap: 28px; grid-template-columns: 170px 1fr; margin-top: 62px; padding-top: 28px; }
+    .recommendation h2 { font: 650 1.1rem var(--display); letter-spacing: -.03em; margin: 0; }
+    .recommendation p { color: var(--ink-soft); font-size: .86rem; line-height: 1.65; margin: 0; max-width: 75ch; }
+
+    @media (max-width: 780px) {
+      body { padding-left: 14px; padding-right: 14px; }
+      .intro { align-items: start; grid-template-columns: 1fr; }
+      .variant-copy { align-items: start; flex-direction: column; }
+      .viewer { height: 680px; min-height: 0; }
+      .viewer-brand { left: 15px; top: 16px; }
+      .hotspot { left: 11%; top: 31%; }
+      .variant-a .panel { bottom: 12px; left: 12px; right: 12px; top: auto; width: auto; }
+      .variant-a .panel-head { padding: 20px 16px 17px 20px; }
+      .variant-a .panel-body { gap: 16px; padding: 18px 20px 20px; }
+      .variant-a .poi-image { height: 170px; }
+      .variant-b .panel { width: calc(100% - 24px); }
+      .variant-b .panel-head { padding: 22px 20px 19px; }
+      .variant-b .panel-body { padding: 19px 20px 21px; }
+      .variant-b .actions { grid-template-columns: 1fr; }
+      .variant-c .panel { border-radius: 18px 18px 0 0; flex-direction: column; min-height: 0; }
+      .variant-c .panel::before { border-radius: 99px; bottom: auto; height: 4px; left: 50%; top: 8px; transform: translateX(-50%); width: 38px; }
+      .variant-c .panel-head { flex-basis: auto; padding: 28px 20px 18px; }
+      .variant-c .panel-head .close { right: 9px; top: 17px; }
+      .variant-c .panel-body { border-left: 0; border-top: 1px solid var(--line); gap: 17px; grid-template-columns: 1fr; padding: 18px 20px 20px; }
+      .variant-c .panel-poi .panel-head { flex-basis: auto; min-height: 190px; }
+      .variant-c .panel-poi .panel-body { grid-template-columns: 1fr; }
+      .recommendation { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="lab">
+    <header class="intro">
+      <div>
+        <span class="eyebrow">Visor · laboratorio 02</span>
+        <h1>Fichas que dejan ver.</h1>
+      </div>
+      <div>
+        <p class="intro-copy">Tres maneras de mostrar información de lotes y puntos de interés sin perder el contexto del recorrido. Cada propuesta usa los mismos datos y acciones que existen hoy.</p>
+        <p class="intro-note">Usá “Lote / POI” en cada variante. La página también responde al ancho de la ventana para revisar el comportamiento móvil.</p>
+      </div>
+    </header>
+
+    <section class="variants">
+      <article class="variant variant-a" data-view="lot">
+        <div class="variant-copy">
+          <div class="variant-title"><span class="variant-index">01 · RECOMENDADA</span><h2>Ficha lateral</h2></div>
+          <p class="variant-note">La información se desplaza al borde y el lote sigue visible. Es la más clara para recorrer, comparar y cerrar rápido.</p>
+          <div class="type-switch" aria-label="Contenido de la variante 1"><button class="active" data-view="lot">Lote</button><button data-view="poi">POI</button></div>
+        </div>
+        <div class="viewer">
+          <span class="viewer-brand">LAS ACACIAS</span><div class="hotspot"><span>Lote 24</span></div><span class="viewer-hint">Arrastrá para explorar · 360°</span>
+          <section class="panel panel-lot">
+            <header class="panel-head"><div class="panel-head-copy"><span class="status">Disponible</span><h3>Lote 24</h3></div><button class="close" aria-label="Cerrar">×</button></header>
+            <div class="panel-body"><div class="metric-row"><div class="metric"><span class="metric-label">Superficie</span><span class="metric-value">420 m²</span></div><div class="metric"><span class="metric-label">Orientación</span><span class="metric-value">Noroeste</span></div></div><p class="description">Lote interno con frente amplio, próximo al acceso principal y al espacio verde central.</p><div class="availability">Disponible para recibir consultas. Un asesor puede ayudarte con condiciones y financiación.</div><div class="actions"><button class="primary">Solicitar contacto →</button><button class="secondary">Escribir por WhatsApp</button></div></div>
+          </section>
+          <section class="panel panel-poi">
+            <div class="poi-image"></div><header class="panel-head"><div class="panel-head-copy"><div class="poi-kicker"><span class="poi-icon">⌂</span><span class="type-label">Punto de interés</span></div><h3>Club house</h3></div><button class="close" aria-label="Cerrar">×</button></header>
+            <div class="panel-body"><p class="description">Un espacio de encuentro con salón de usos múltiples, galería y vistas al parque central.</p><div class="actions"><button class="primary">Ver ubicación →</button><button class="secondary">Más información</button></div></div>
+          </section>
+        </div>
+      </article>
+
+      <article class="variant variant-b" data-view="lot">
+        <div class="variant-copy">
+          <div class="variant-title"><span class="variant-index">02 · EDITORIAL</span><h2>Tarjeta protagonista</h2></div>
+          <p class="variant-note">Conserva el modal centrado, pero suma contraste, una jerarquía más decidida y mejor lugar para la fotografía.</p>
+          <div class="type-switch" aria-label="Contenido de la variante 2"><button class="active" data-view="lot">Lote</button><button data-view="poi">POI</button></div>
+        </div>
+        <div class="viewer">
+          <span class="viewer-brand">LAS ACACIAS</span><div class="hotspot"><span>Lote 24</span></div><span class="viewer-hint">Arrastrá para explorar · 360°</span>
+          <section class="panel panel-lot">
+            <header class="panel-head"><button class="close" aria-label="Cerrar">×</button><div class="panel-head-copy"><span class="status">Disponible</span><h3>Lote 24</h3></div></header>
+            <div class="panel-body"><div class="metric-row"><div class="metric"><span class="metric-label">Superficie</span><span class="metric-value">420 m²</span></div><div class="metric"><span class="metric-label">Orientación</span><span class="metric-value">Noroeste</span></div></div><p class="description">Lote interno con frente amplio, próximo al acceso principal y al espacio verde central.</p><div class="actions"><button class="primary">Solicitar contacto</button><button class="secondary">WhatsApp</button></div></div>
+          </section>
+          <section class="panel panel-poi">
+            <div class="poi-image"></div><header class="panel-head"><button class="close" aria-label="Cerrar">×</button><div class="panel-head-copy"><span class="status">Punto de interés</span><h3>Club house</h3></div></header>
+            <div class="panel-body"><div class="poi-caption"><span class="poi-icon">⌂</span><p class="description">Salón de usos múltiples, galería semicubierta y vistas abiertas al parque central.</p></div><div class="actions"><button class="primary">Ver ubicación</button><button class="secondary">Más información</button></div></div>
+          </section>
+        </div>
+      </article>
+
+      <article class="variant variant-c" data-view="lot">
+        <div class="variant-copy">
+          <div class="variant-title"><span class="variant-index">03 · CONTEXTUAL</span><h2>Bandeja inferior</h2></div>
+          <p class="variant-note">Mantiene libre la línea de horizonte y escala muy bien a móvil. En escritorio se siente más como una herramienta que como un popup.</p>
+          <div class="type-switch" aria-label="Contenido de la variante 3"><button class="active" data-view="lot">Lote</button><button data-view="poi">POI</button></div>
+        </div>
+        <div class="viewer">
+          <span class="viewer-brand">LAS ACACIAS</span><div class="hotspot"><span>Lote 24</span></div><span class="viewer-hint">Arrastrá para explorar · 360°</span>
+          <section class="panel panel-lot">
+            <header class="panel-head"><div class="panel-head-copy"><span class="status">Disponible</span><h3>Lote 24</h3></div><button class="close" aria-label="Cerrar">×</button></header>
+            <div class="panel-body"><div class="metric-row"><div class="metric"><span class="metric-label">Superficie</span><span class="metric-value">420 m²</span></div><div class="metric"><span class="metric-label">Orientación</span><span class="metric-value">Noroeste</span></div></div><p class="availability">Lote interno próximo al acceso principal y al espacio verde central. Disponible para recibir consultas.</p><div class="actions"><button class="primary">Solicitar contacto →</button><button class="secondary">WhatsApp</button></div></div>
+          </section>
+          <section class="panel panel-poi">
+            <header class="panel-head"><div class="panel-head-copy"><span class="type-label">Punto de interés</span><h3>Club house</h3></div><button class="close" aria-label="Cerrar">×</button></header>
+            <div class="panel-body"><div class="poi-meta"><span class="poi-icon">⌂</span><div><span class="metric-label">Amenities</span><div class="metric-value">Encuentro & descanso</div></div></div><p class="description">Salón de usos múltiples, galería semicubierta y vistas abiertas al parque central.</p><div class="actions"><button class="primary">Ver ubicación →</button><button class="secondary">Más información</button></div></div>
+          </section>
+        </div>
+      </article>
+    </section>
+
+    <aside class="recommendation"><h2>Mi lectura</h2><p>Avanzaría con la <strong>01 · Ficha lateral</strong>: deja más panorama disponible, diferencia mejor lote y POI, y permite crecer en contenido sin volver a centrar toda la atención. Para móvil tomaría el gesto y la estructura de la <strong>03 · Bandeja inferior</strong>.</p></aside>
+  </main>
+
+  <script>
+    document.querySelectorAll('.type-switch').forEach((switcher) => {
+      switcher.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-view]');
+        if (!button) return;
+        const variant = switcher.closest('.variant');
+        variant.dataset.view = button.dataset.view;
+        switcher.querySelectorAll('button').forEach((item) => item.classList.toggle('active', item === button));
+      });
+    });
+  </script>
+</body>
+</html>

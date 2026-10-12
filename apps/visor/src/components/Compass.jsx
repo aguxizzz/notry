@@ -54,7 +54,10 @@ export function Compass({ yaw, northOffset = null, visible, logoUrl }) {
             viewBox="0 0 100 100"
             aria-hidden="true"
           >
-            <circle cx="50" cy="50" r="45" className="compass-frame" />
+            <path
+              d="M 39.72 6.19 L 50 -2.8 L 60.28 6.19 A 45 45 0 1 1 39.72 6.19 Z"
+              className="compass-frame"
+            />
             <g
               className="compass-rose-rotating"
               style={{ transform: `rotate(${rotation}deg)` }}
@@ -87,8 +90,6 @@ export function Compass({ yaw, northOffset = null, visible, logoUrl }) {
                 <text x="80" y="53" className="compass-label">E</text>
               </g>
             </g>
-            <polygon points="50,0 56,10 44,10" className="compass-heading-pointer" />
-            <polyline points="44,10 50,0 56,10" className="compass-heading-pointer-edge" />
           </svg>
         </div>
       </div>

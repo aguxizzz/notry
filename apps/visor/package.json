@@ -5,15 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:local": "VITE_API_BASE=http://localhost:8000/api/v1 vite",
     "build": "vite build",
     "test:stages": "node scripts/test-stage-switcher.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@arcgis/core": "^5.1.24",
     "@photo-sphere-viewer/core": "^5.14.1",
     "@photo-sphere-viewer/markers-plugin": "^5.14.1",
     "@vercel/og": "^0.11.1",
     "dompurify": "^3.2.6",
+    "polygon-clipping": "^0.15.7",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },

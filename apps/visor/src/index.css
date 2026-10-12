@@ -57,6 +57,18 @@
   position: relative;
   width: 230px;
   height: var(--poi-callout-stem);
+  /* Geometría anclada desde abajo: el título y el chip se apilan sobre la
+     guía, y la guía nunca baja de un largo mínimo. Antes la guía se
+     calculaba desde el título (top) y, al alejar el zoom, el título
+     compensado por la escala de PSV se comía todo el alto y la guía
+     desaparecía. */
+  --poi-scale: var(--poi-callout-marker-scale, 1);
+  --poi-title-h: calc(var(--poi-callout-font-size, 15px) * 1.2);
+  --poi-gap: calc(8px / var(--poi-scale));
+  --poi-stem-len: max(
+    calc(var(--poi-callout-stem) - var(--poi-title-h) - var(--poi-gap)),
+    calc(28px / var(--poi-scale))
+  );
   color: rgba(255, 255, 255, 0.98);
   pointer-events: auto;
   cursor: pointer;
@@ -64,7 +76,7 @@
 
 .poi-callout__title {
   position: absolute;
-  top: 0;
+  bottom: calc(var(--poi-stem-len) + var(--poi-gap));
   left: 50%;
   transform: translateX(-50%);
   width: max-content;
@@ -91,16 +103,16 @@
 .poi-callout__stem {
   position: absolute;
   bottom: 0;
-  top: calc(var(--poi-callout-font-size, 15px) * 1.2 + (8px / var(--poi-callout-marker-scale, 1)));
+  height: var(--poi-stem-len);
   left: 50%;
-  width: calc(1px / var(--poi-callout-marker-scale, 1));
+  width: calc(1.5px / var(--poi-callout-marker-scale, 1));
   transform: translateX(-50%);
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 
-.poi-callout--photo .poi-callout__stem {
-  top: calc(var(--poi-callout-font-size, 15px) * 1.2 + (48px / var(--poi-callout-marker-scale, 1)));
+.poi-callout--photo {
+  --poi-gap: calc(48px / var(--poi-scale));
 }
 
 .poi-callout__dot {
@@ -117,7 +129,7 @@
 
 .poi-callout__chip {
   position: absolute;
-  top: calc(var(--poi-callout-font-size, 15px) * 1.2 + (10px / var(--poi-callout-marker-scale, 1)));
+  bottom: calc(var(--poi-stem-len) + (8px / var(--poi-scale)));
   left: 50%;
   width: calc(30px / var(--poi-callout-marker-scale, 1));
   height: calc(30px / var(--poi-callout-marker-scale, 1));
@@ -136,6 +148,75 @@
   display: block;
 }
 
+/* Tarjeta vertical de un POI "place" con foto: la imagen se ve entera (no un
+   thumbnail chico) y el pie muestra título + distancia, todo sin abrir el
+   panel. Se ancla igual que el chip: bottom = fin de la guía + gap. */
+.poi-callout--card {
+  --poi-gap: calc(4px / var(--poi-scale));
+  --poi-stem-len: max(var(--poi-callout-stem), calc(20px / var(--poi-scale)));
+}
+
+.poi-card {
+  position: absolute;
+  bottom: calc(var(--poi-stem-len) + var(--poi-gap));
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(120px / var(--poi-scale));
+  height: calc(150px / var(--poi-scale));
+  border-radius: calc(14px / var(--poi-scale));
+  overflow: hidden;
+  display: block;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  border: calc(2px / var(--poi-scale)) solid rgba(255, 255, 255, 0.92);
+}
+
+.poi-card__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.poi-card__footer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(2px / var(--poi-scale));
+  padding: calc(20px / var(--poi-scale)) calc(8px / var(--poi-scale)) calc(8px / var(--poi-scale));
+  background: linear-gradient(to top, rgba(10, 12, 16, 0.92) 40%, transparent);
+  color: #fff;
+  text-align: center;
+}
+
+.poi-card__title {
+  font: 700 calc(14px / var(--poi-scale)) / 1.15 var(--font-body, sans-serif);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.poi-card__distance {
+  display: flex;
+  align-items: center;
+  gap: calc(4px / var(--poi-scale));
+  font: 600 calc(12px / var(--poi-scale)) / 1 var(--font-body, sans-serif);
+  opacity: 0.92;
+}
+
+.poi-card__distance svg {
+  width: calc(13px / var(--poi-scale));
+  height: calc(13px / var(--poi-scale));
+  flex-shrink: 0;
+}
+
 .bp-poly {
   cursor: pointer;
   outline: none;
@@ -149,32 +230,26 @@
   transition: filter var(--t-fast);
 }
 
-/* Keep state colors recognizable while interacting. A generic brightness
-   filter washes the reserved blue toward white and is almost imperceptible
-   on the low-opacity sold red over a panorama. */
+/* Estado del lote: sin color distintivo (pedido del cliente) — un mismo
+   glow grisáceo/blanco al hacer hover, sin importar disponible/no
+   disponible/vendido/reservado. */
+.bp-poly--default:hover polygon,
+.bp-poly--default.bp-poly--focused polygon,
+.bp-poly--default:focus-visible polygon,
 .bp-poly--sold:hover polygon,
 .bp-poly--sold.bp-poly--focused polygon,
-.bp-poly--sold:focus-visible polygon {
-  fill: rgba(239, 68, 68, 0.38);
-  stroke: rgba(248, 113, 113, 1);
-}
+.bp-poly--sold:focus-visible polygon,
 .bp-poly--reserved:hover polygon,
 .bp-poly--reserved.bp-poly--focused polygon,
-.bp-poly--reserved:focus-visible polygon {
-  fill: rgba(59, 130, 246, 0.34);
-  stroke: rgba(96, 165, 250, 1);
-}
+.bp-poly--reserved:focus-visible polygon,
 .bp-poly--available:hover polygon,
 .bp-poly--available.bp-poly--focused polygon,
-.bp-poly--available:focus-visible polygon {
-  fill: rgba(34, 197, 94, 0.34);
-  stroke: rgba(74, 222, 128, 1);
-}
+.bp-poly--available:focus-visible polygon,
 .bp-poly--unavailable:hover polygon,
 .bp-poly--unavailable.bp-poly--focused polygon,
 .bp-poly--unavailable:focus-visible polygon {
-  fill: rgba(107, 114, 128, 0.42);
-  stroke: rgba(209, 213, 219, 1);
+  fill: rgba(255, 255, 255, 0.22);
+  stroke: rgba(255, 255, 255, 0.95);
 }
 .bp-poly--recommended:hover polygon,
 .bp-poly--recommended.bp-poly--focused polygon,
@@ -297,22 +372,73 @@ html, body {
   width: 100%;
   height: 100vh;
 }
+/* ?showcase=1: rota el visor (vertical) 90° para que ocupe toda la ventana
+   landscape a resolución nativa al grabar — ver comentario en main.jsx. */
+.showcase-rotate {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vh;
+  height: 100vw;
+  transform-origin: top left;
+  transform: rotate(90deg) translateY(-100%);
+  overflow: hidden;
+}
+.showcase-rotate #root {
+  height: 100%;
+}
+/* El cursor del SO no rota con el transform del contenedor (es independiente
+   del DOM), así que se reemplaza por una flecha custom ya dibujada rotada
+   90° para que visualmente coincida con el contenido acostado. !important
+   porque botones/links definen su propio `cursor` (ej. pointer) con
+   selectores más específicos que si no, pisan esta regla en los hovers. */
+.showcase-rotate,
+.showcase-rotate * {
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="rotate(90 16 16)"><path d="M16 4L26 26L16 20L6 26Z" fill="black" stroke="white" stroke-width="1.5"/></g></svg>') 28 16, auto !important;
+}
 #viewer-container {
   width: 100%;
   height: 100%;
 }
+.satellite-viewer {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+.satellite-viewer__canvas {
+  width: 100%;
+  height: 100%;
+}
+.satellite-viewer__error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  text-align: center;
+  padding: 24px;
+}
 
 /* =============================================
    BACKDROP
+   Mobile-first: por defecto el modal es un bottom sheet (ancho completo,
+   anclado abajo). Desde 641px de ancho —o en celulares apaisados, donde
+   sobra ancho pero falta alto— pasa a ser un modal centrado. Ver el bloque
+   "MODAL CENTRADO" más abajo.
    ============================================= */
 #info-backdrop {
   position: fixed;
   inset: 0;
-  background: var(--backdrop-bg);
   z-index: 100;
+  box-sizing: border-box;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
+  /* Franja superior siempre libre: es donde se toca para cerrar. */
+  padding: max(20px, env(safe-area-inset-top)) 0 0;
+  background: var(--backdrop-bg);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -326,35 +452,138 @@ html, body {
 
 /* =============================================
    PANEL MODAL
+   #info-panel-wrap es LA tarjeta (fondo, radio, sombra): galería y panel
+   son piezas planas adentro. Así la elevación se declara una sola vez y no
+   hay costuras entre piezas. Su altura nunca supera la del backdrop; lo que
+   no entra se scrollea dentro de #info-panel-content.
    ============================================= */
-#info-panel {
+#info-panel-wrap {
+  --panel-radius: 20px;
   position: relative;
-  width: min(400px, calc(100vw - 2rem));
-  max-height: min(88vh, 620px);
+  z-index: 101;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  max-height: 100%;
+  min-height: 0;
   background: var(--panel-bg);
+  border-radius: var(--panel-radius) var(--panel-radius) 0 0;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transform: translateY(100%);
+  transition: transform var(--t);
+}
+#info-backdrop.visible #info-panel-wrap {
+  transform: translateY(0);
+}
+/* Grab handle del sheet. Vive en el wrap para quedar siempre arriba de todo,
+   sobre la galería si la hay. */
+#info-panel-wrap::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  z-index: 5;
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.22);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+#info-panel {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   color: var(--text-primary);
   font-family: 'Space Grotesk', sans-serif;
-  font-size: clamp(13px, 2vw, 14px);
-  border-radius: var(--panel-radius);
-  border: 1px solid var(--panel-border);
-  box-shadow: var(--shadow);
+  font-size: 14px;
   box-sizing: border-box;
-  overflow: hidden;
-  z-index: 101;
-  transform: translateY(20px);
-  opacity: 0;
-  transition: transform var(--t), opacity var(--t);
 }
-#info-backdrop.visible #info-panel {
-  transform: translateY(0);
-  opacity: 1;
+
+/* =============================================
+   GALLERY PANE — imágenes del lote. Arriba del panel en el sheet,
+   a la izquierda en el modal centrado.
+   La imagen va en absolute: así su tamaño natural nunca infla la altura de
+   la galería (y por arrastre, la del modal entero).
+   ============================================= */
+#info-panel-gallery {
+  position: relative;
+  flex: 0 0 auto;
+  height: clamp(96px, 24dvh, 220px);
+  background: var(--input-bg);
 }
-/* POI photo view — larger stage for the image, same panel chrome */
-#info-panel.info-panel-photo {
-  width: min(1100px, calc(100vw - 2rem));
-  max-height: min(92vh, 900px);
+#info-gallery-stage {
+  position: absolute;
+  inset: 0;
+  touch-action: pan-y;
+}
+#info-gallery-stage img {
+  position: absolute;
+  inset: 12px;
+  width: calc(100% - 24px);
+  height: calc(100% - 24px);
+  object-fit: contain;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+/* Selector de imagen: píldora blanca abajo al centro, adentro del marco. */
+#info-gallery-tabs {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--panel-bg);
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+}
+#info-gallery-tabs button {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+/* Área táctil de 44px sin agrandar la píldora. */
+#info-gallery-tabs button::after {
+  content: '';
+  position: absolute;
+  inset: -9px -3px;
+}
+#info-gallery-tabs button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+#info-gallery-tabs button.active {
+  background: var(--accent);
+  color: #fff;
+}
+@media (hover: hover) {
+  #info-gallery-tabs button:not(.active):hover {
+    color: var(--text-primary);
+    background: var(--input-bg);
+  }
 }
 
 /* =============================================
@@ -362,130 +591,181 @@ html, body {
    ============================================= */
 #info-panel-header {
   position: relative;
+  flex: 0 0 auto;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 1.1rem 0.75rem 1rem;
-  flex-shrink: 0;
+  padding: 1.4rem 0.5rem 0.85rem;
   background: var(--panel-bg);
   border-bottom: 1px solid var(--panel-border);
 }
-/* Generous gold band — the defining visual anchor */
-#info-panel-header::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 5px;
-  background: linear-gradient(
-    90deg,
-    var(--accent) 0%,
-    var(--accent-hover) 50%,
-    var(--accent) 100%
-  );
-  border-radius: var(--panel-radius) var(--panel-radius) 0 0;
-  box-shadow: 0 0 16px rgba(197, 160, 89, 0.35);
+/* Cuando hay galería el handle ya quedó sobre la imagen: el header no lo
+   necesita y arranca más compacto. */
+.has-gallery #info-panel-header {
+  padding-top: 0.85rem;
 }
-
 #info-panel-header-left,
 #info-panel-header-right {
-  flex: 0 0 40px;
+  flex: 0 0 44px;
 }
 #info-panel-header-right {
   display: flex;
   justify-content: flex-end;
 }
-/* Lot title — the dominant visual element of the header */
+/* Título del lote — el elemento dominante del header */
 #info-panel-header-center {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.45rem;
   min-width: 0;
   text-align: center;
-  padding-top: 0.15rem;
+  padding-top: 0.3rem;
 }
 #info-panel-lot-title {
   font-size: clamp(1.15rem, 3.5vw, 1.4rem);
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--text-primary);
-  line-height: 1.1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.15;
   max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
-#info-panel-form-title-header {
-  font-size: clamp(0.9rem, 2.2vw, 1.05rem);
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: 0.01em;
-}
-
-/* Botones cerrar / volver */
-#info-panel-back,
+/* Botón cerrar — 44px: mínimo táctil */
 #info-panel-close {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border: none;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  border-radius: 9px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
+  -webkit-tap-highlight-color: transparent;
   transition: color var(--t-fast), background var(--t-fast);
 }
-#info-panel-back {
-  margin-top: -4px; /* optical alignment with title */
+@media (hover: hover) {
+  #info-panel-close:hover {
+    color: var(--text-primary);
+    background: var(--input-bg);
+  }
 }
-#info-panel-close:hover,
-#info-panel-back:hover {
-  color: var(--text-primary);
-  background: var(--input-bg);
-}
-#info-panel-close:focus-visible,
-#info-panel-back:focus-visible {
+#info-panel-close:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-/* Refined X icon using SVG lines — no "×" character */
 #info-panel-close svg {
-  width: 17px;
-  height: 17px;
-  stroke-width: 2.2;
-}
-#info-panel-back svg {
   width: 18px;
   height: 18px;
+  stroke-width: 2.2;
 }
 
 /* =============================================
-   CONTENIDO — área scrollable
+   CONTENIDO — único scroller del modal
    ============================================= */
 #info-panel-content {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  padding: 1.25rem 1.5rem 1.5rem;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 1.1rem clamp(1rem, 5vw, 1.5rem) calc(1.25rem + env(safe-area-inset-bottom));
   font-family: 'Outfit', sans-serif;
+  scrollbar-width: thin;
+  scrollbar-color: var(--input-border) transparent;
 }
-#info-panel-content::-webkit-scrollbar { width: 4px; }
-#info-panel-content::-webkit-scrollbar-track { background: transparent; }
-#info-panel-content::-webkit-scrollbar-thumb {
-  background: var(--input-border);
-  border-radius: 4px;
+
+/* =============================================
+   MODAL CENTRADO
+   ≥641px de ancho, o celular apaisado (alto ≤500px con ancho suficiente para
+   poner galería y panel lado a lado). El wrap se achica por flex antes de
+   desbordar; si el alto no alcanza, scrollea el contenido.
+   ============================================= */
+@media (min-width: 641px), (min-width: 480px) and (max-height: 500px) {
+  #info-backdrop {
+    align-items: center;
+    padding:
+      max(16px, env(safe-area-inset-top))
+      max(16px, env(safe-area-inset-right))
+      max(16px, env(safe-area-inset-bottom))
+      max(16px, env(safe-area-inset-left));
+  }
+  #info-panel-wrap {
+    --panel-radius: 14px;
+    flex-direction: row;
+    width: auto;
+    max-width: 100%;
+    border-radius: var(--panel-radius);
+    opacity: 0;
+    transform: translateY(20px);
+    transition: transform var(--t), opacity var(--t);
+  }
+  #info-backdrop.visible #info-panel-wrap {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  #info-panel-wrap::before {
+    display: none;
+  }
+  /* El width explícito importa: el wrap es shrink-to-fit y sin él tomaría el
+     max-content del texto (una línea larguísima) en vez del flex-basis. */
+  #info-panel {
+    flex: 0 1 400px;
+    width: 400px;
+    min-width: 240px;
+  }
+  /* Foto de POI: escenario más ancho, mismo chrome */
+  #info-panel.info-panel-photo {
+    flex-basis: 1100px;
+    width: 1100px;
+  }
+  #info-panel-gallery {
+    flex: 0 1 clamp(220px, 24vw, 340px);
+    width: clamp(220px, 24vw, 340px);
+    min-width: 150px;
+    height: auto;
+    min-height: 240px;
+    border-right: 1px solid var(--panel-border);
+  }
+  .has-gallery #info-panel-header {
+    padding-top: 1.1rem;
+  }
+  #info-panel-header {
+    padding: 1.1rem 0.5rem 0.85rem;
+  }
+  #info-panel-content {
+    padding: 1.25rem 1.5rem 1.5rem;
+  }
+}
+/* Apaisado corto: cada píxel vertical cuenta */
+@media (max-height: 500px) {
+  #info-panel-header {
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+  }
+  #info-panel-header-center {
+    padding-top: 0;
+    gap: 0.3rem;
+  }
+  #info-panel-content {
+    padding-top: 0.9rem;
+  }
 }
 
 /* Lote specs (Superficie / Valor) — two-column card with icons */
 .lote-specs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
   gap: 0.5rem;
 }
 .lote-spec-item {
@@ -493,6 +773,7 @@ html, body {
   align-items: center;
   gap: 0.6rem;
   padding: 0.75rem;
+  min-width: 0;
   background: var(--input-bg);
   border-radius: 10px;
 }
@@ -542,6 +823,15 @@ html, body {
   padding: 0.25rem 0 0.5rem;
 }
 
+/* Status message — request already submitted for this lot */
+.lote-status-submitted {
+  font-style: normal;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--estado-available-accent) 12%, transparent);
+  border-radius: 10px;
+  padding: 0.65rem 0.9rem;
+}
+
 /* Status message — sold/reserved */
 .lote-status-unavailable {
   font-size: clamp(0.85rem, 1.5vw, 0.9rem);
@@ -550,34 +840,6 @@ html, body {
   text-align: center;
   padding: 0.25rem 0 0.5rem;
 }
-
-/* Primary request CTA */
-.btn-request {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0.75rem 1.5rem;
-  background: var(--accent);
-  color: #ffffff;
-  border: none;
-  border-radius: var(--btn-radius);
-  font-size: 15px;
-  font-weight: 700;
-  font-family: inherit;
-  cursor: pointer;
-  letter-spacing: 0.01em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
-  text-decoration: none;
-  transition: background var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
-}
-.btn-request:hover {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(197, 160, 89, 0.3);
-}
-.btn-request:active { transform: translateY(0); box-shadow: none; }
 
 /* Financing text */
 .lote-financing {
@@ -637,7 +899,63 @@ html, body {
   font-size: 1rem;
   color: var(--text-secondary);
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
+
+/* Servicios del loteo — filas en una sola tarjeta: nombre a la izquierda,
+   estado alineado a la derecha. Simétrico a cualquier ancho. */
+.lote-services {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--input-bg);
+  border-radius: 10px;
+}
+.service-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 0.85rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.service-row + .service-row {
+  border-top: 1px solid var(--panel-border);
+}
+.service-row svg {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+.service-row__label {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.service-row__status {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.service-row__status::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.service-row.is-available svg,
+.service-row.is-available .service-row__status { color: var(--estado-available-accent); }
+.service-row.is-in_progress svg,
+.service-row.is-in_progress .service-row__status { color: #9a6400; }
 
 /* Estado label — positioned in the header, text + dot, colored by data-estado */
 .estado-badge {
@@ -673,6 +991,13 @@ html, body {
 #info-content {
   color: var(--text-secondary);
   line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+#info-content img,
+#info-content video,
+#info-content iframe {
+  max-width: 100%;
+  height: auto;
 }
 #info-content p { margin: 0 0 0.4rem; }
 #info-content p:last-child { margin-bottom: 0; }
@@ -682,13 +1007,14 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
+  margin-top: 0.85rem;
 }
 #info-actions button,
 #info-actions a {
   width: 100%;
   box-sizing: border-box;
   padding: 0.65rem 1rem;
-  min-height: 42px;
+  min-height: 44px;
   border-radius: var(--btn-radius);
   font-size: 14px;
   font-weight: 700;
@@ -703,14 +1029,17 @@ html, body {
   color: #ffffff;
   border: none;
 }
-#info-actions button:hover {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(197, 160, 89, 0.3);
+@media (hover: hover) {
+  #info-actions button:hover {
+    background: var(--accent-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(197, 160, 89, 0.3);
+  }
 }
 #info-actions button:active { transform: translateY(0); box-shadow: none; }
 
-/* Botón directo de WhatsApp (verde marca), secundario respecto al gold "Solicitar contacto" */
+/* Botón de WhatsApp — el CTA de contacto final del panel, tiene que leerse como
+   la acción principal (verde marca sólido, no un botón secundario). */
 #info-actions .btn-wa-direct {
   width: 100%;
   box-sizing: border-box;
@@ -718,15 +1047,19 @@ html, body {
   align-items: center;
   justify-content: center;
   gap: 0.6rem;
-  background: rgba(37, 211, 102, 0.08);
-  color: #168a43;
-  border: 1px solid rgba(37, 211, 102, 0.35);
+  background: #22a35a;
+  color: #ffffff;
+  border: none;
   border-radius: var(--btn-radius);
+  font-weight: 800;
+  box-shadow: 0 4px 14px rgba(34, 163, 90, 0.28);
 }
-#info-actions .btn-wa-direct:hover {
-  background: rgba(37, 211, 102, 0.14);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.18);
+@media (hover: hover) {
+  #info-actions .btn-wa-direct:hover {
+    background: #1c8a4b;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(34, 163, 90, 0.35);
+  }
 }
 #info-actions .btn-wa-direct:active { transform: translateY(0); box-shadow: none; }
 
@@ -755,6 +1088,7 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
+  min-width: 0;
 }
 
 .poi-label {
@@ -778,9 +1112,23 @@ html, body {
   width: fit-content;
 }
 
+.poi-distance {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.poi-distance svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
 .poi-photo-view {
   margin: 0;
-  min-height: 180px;
+  min-height: min(180px, 40dvh);
   display: grid;
   place-items: center;
   background: #f7f5f1;
@@ -790,11 +1138,13 @@ html, body {
 .poi-photo-view img {
   display: block;
   width: 100%;
-  max-height: min(68vh, 620px);
+  max-height: min(68dvh, 620px);
   object-fit: contain;
 }
+/* La foto se limita para que header + padding + foto entren en la pantalla
+   sin scroll; si el alto es extremo, el contenido scrollea igual. */
 .info-panel-photo .poi-photo-view img {
-  max-height: min(82vh, 800px);
+  max-height: max(160px, calc(100dvh - 190px));
 }
 
 .poi-empty-state {
@@ -814,6 +1164,7 @@ html, body {
   width: 100%;
   box-sizing: border-box;
   padding: 0.7rem 1rem;
+  min-height: 44px;
   background: transparent;
   color: var(--accent);
   border: 1.5px solid var(--accent);
@@ -827,11 +1178,13 @@ html, body {
   transition: background var(--t-fast), color var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
 }
 
-.poi-link-btn:hover {
-  background: var(--accent);
-  color: #fff;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(197, 160, 89, 0.28);
+@media (hover: hover) {
+  .poi-link-btn:hover {
+    background: var(--accent);
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(197, 160, 89, 0.28);
+  }
 }
 
 .poi-link-btn:active { transform: translateY(0); box-shadow: none; }
@@ -846,50 +1199,6 @@ html, body {
 .precal-form-inner form {
   display: flex;
   flex-direction: column;
-}
-#precal-detail-summary {
-  padding-bottom: 1.25rem;
-  margin-bottom: 1.25rem;
-  border-bottom: 1px solid var(--panel-border);
-}
-#precal-detail-title {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--accent);
-  margin-bottom: 0.25rem;
-}
-#precal-detail-meta {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
-}
-.precal-meta-item {
-  background: var(--input-bg);
-  border: 1px solid var(--panel-border);
-  border-radius: 10px;
-  padding: 0.75rem 0.75rem;
-  text-align: center;
-  transition: background var(--t-fast), border-color var(--t-fast);
-}
-.precal-meta-item:last-child {
-  grid-column: 1 / -1;
-}
-.precal-meta-label {
-  display: block;
-  font-size: clamp(0.65rem, 1vw, 0.72rem);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-  margin-bottom: 0.35rem;
-}
-.precal-meta-value {
-  display: block;
-  font-size: clamp(0.9rem, 2vw, 1.1rem);
-  font-weight: 800;
-  color: var(--text-primary);
-  line-height: 1.1;
 }
 .info-panel-form label {
   display: block;
@@ -908,7 +1217,8 @@ html, body {
   border-radius: 10px;
   background: var(--input-bg);
   color: var(--text-primary);
-  font-size: 15px;
+  /* 16px: por debajo, iOS Safari hace zoom al enfocar el campo */
+  font-size: 16px;
   font-family: inherit;
   box-sizing: border-box;
   transition: border-color var(--t-fast), box-shadow var(--t-fast), background var(--t-fast);
@@ -922,7 +1232,7 @@ html, body {
   border-radius: var(--btn-radius);
   background: var(--input-bg);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
   box-sizing: border-box;
   cursor: pointer;
@@ -939,8 +1249,32 @@ html, body {
   box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.15);
   background: #fafaf8;
 }
+.precal-form-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: -0.35rem 0 1rem;
+  padding: 0.65rem 0.85rem;
+  background: rgba(168, 40, 40, 0.08);
+  border-radius: 8px;
+  color: var(--estado-sold-accent);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  animation: precal-error-in 0.2s ease;
+}
+.precal-form-error svg {
+  flex: none;
+}
+
+@keyframes precal-error-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 .btn-enviar {
   width: 100%;
+  min-height: 48px;
   margin-top: 0.5rem;
   padding: 0.8rem 1.25rem;
   background: var(--accent);
@@ -954,33 +1288,14 @@ html, body {
   letter-spacing: 0.01em;
   transition: background var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
 }
-.btn-enviar:hover {
-  background: var(--accent-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(197, 160, 89, 0.28);
+@media (hover: hover) {
+  .btn-enviar:hover:not(:disabled) {
+    background: var(--accent-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(197, 160, 89, 0.28);
+  }
 }
 .btn-enviar:active { transform: translateY(0); box-shadow: none; }
-
-/* =============================================
-   ANIMACIONES DE TRANSICIÓN ENTRE VISTAS
-   ============================================= */
-@keyframes slide-from-right {
-  from { opacity: 0; transform: translateX(22px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-@keyframes slide-from-left {
-  from { opacity: 0; transform: translateX(-22px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-
-/* La vista de formulario siempre entra desde la derecha */
-.info-panel-form {
-  animation: slide-from-right 0.22s ease;
-}
-/* La vista de detalle entra desde la izquierda al volver */
-#info-panel-view.anim-from-left {
-  animation: slide-from-left 0.22s ease;
-}
 
 /* =============================================
    HOVER EN POLÍGONOS
@@ -993,51 +1308,42 @@ html, body {
   filter: brightness(1.5) saturate(1.1);
 }
 
-/* Status-aware hover for panorama polygons. Explicit fills preserve the
-   original semantic color instead of letting brightness shift the hue.
-   El fill va solo al polígono de relleno: el borde siempre debe quedar
-   con fill:none (JS), o el trazo pasa a ser una forma sólida con
-   pointer-events "auto" que tapa el lote entero y se come los clicks
-   (visto con lotes recomendados + estado reservado/vendido). */
-.psv-marker--lot-sold {
-  transition: filter var(--t-fast);
+/* Manzanas/calles de fondo (render_surfaces): decorativas, sin hover ni
+   click — pointer-events:none via svgStyle no alcanza porque PSV lo aplica
+   como atributo de presentación SVG, que la propia clase .psv-marker del
+   plugin (pointer-events: auto) le gana en la cascada. */
+.psv-marker--render-surface {
+  pointer-events: none !important;
+  cursor: default !important;
 }
-.psv-marker--lot-sold:hover:not(.psv-marker--lot-border) {
-  fill: rgba(239, 68, 68, 0.36);
-}
-.psv-marker--lot-sold:hover {
-  stroke: rgba(248, 113, 113, 1);
-  filter: drop-shadow(0 0 3px rgba(239, 68, 68, 0.55));
-}
-.psv-marker--lot-reserved {
-  transition: filter var(--t-fast);
-}
-.psv-marker--lot-reserved:hover:not(.psv-marker--lot-border) {
-  fill: rgba(59, 130, 246, 0.34);
-}
-.psv-marker--lot-reserved:hover {
-  stroke: rgba(96, 165, 250, 1);
-  filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.45));
-}
-.psv-marker--lot-available {
-  transition: filter var(--t-fast);
-}
-.psv-marker--lot-available:hover:not(.psv-marker--lot-border) {
-  fill: rgba(34, 197, 94, 0.34);
-}
-.psv-marker--lot-available:hover {
-  stroke: rgba(74, 222, 128, 1);
-  filter: drop-shadow(0 0 3px rgba(34, 197, 94, 0.45));
-}
+
+/* Estado del lote: sin color distintivo (pedido del cliente) — un mismo
+   glow grisáceo/blanco al hacer hover, sin importar disponible/no
+   disponible/vendido/reservado. El fill va solo al polígono de relleno: el
+   borde siempre debe quedar con fill:none (JS), o el trazo pasa a ser una
+   forma sólida con pointer-events "auto" que tapa el lote entero y se come
+   los clicks (visto con lotes recomendados + estado reservado/vendido). */
+.psv-marker--lot-default,
+.psv-marker--lot-sold,
+.psv-marker--lot-reserved,
+.psv-marker--lot-available,
 .psv-marker--lot-unavailable {
   transition: filter var(--t-fast);
 }
+.psv-marker--lot-default:hover:not(.psv-marker--lot-border),
+.psv-marker--lot-sold:hover:not(.psv-marker--lot-border),
+.psv-marker--lot-reserved:hover:not(.psv-marker--lot-border),
+.psv-marker--lot-available:hover:not(.psv-marker--lot-border),
 .psv-marker--lot-unavailable:hover:not(.psv-marker--lot-border) {
-  fill: rgba(107, 114, 128, 0.42);
+  fill: rgba(255, 255, 255, 0.22);
 }
+.psv-marker--lot-default:hover,
+.psv-marker--lot-sold:hover,
+.psv-marker--lot-reserved:hover,
+.psv-marker--lot-available:hover,
 .psv-marker--lot-unavailable:hover {
-  stroke: rgba(209, 213, 219, 1);
-  filter: drop-shadow(0 0 3px rgba(107, 114, 128, 0.55));
+  stroke: rgba(255, 255, 255, 0.95);
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.5));
 }
 
 /* Recomendado por el simulador de compra: dorado, siempre por encima del
@@ -1077,19 +1383,22 @@ html, body {
   from { opacity: 0; transform: scale(0.88); }
   to   { opacity: 1; transform: scale(1); }
 }
-.info-panel-form {
-  position: relative;
+@keyframes precal-draw {
+  to { stroke-dashoffset: 0; }
 }
 .precal-form-inner {
   transition: opacity 0.2s;
 }
+/* Cubre todo el panel (no solo la sección del form) mientras se envía la
+   solicitud, para no dejar specs/comentarios/WhatsApp visibles a medias
+   detrás de la tarjeta de feedback. */
 .precal-overlay {
   position: absolute;
   inset: 0;
+  z-index: 5;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
+  overflow-y: auto;
+  background: var(--panel-bg);
 }
 .precal-feedback {
   display: flex;
@@ -1097,68 +1406,103 @@ html, body {
   align-items: center;
   justify-content: center;
   gap: 0.875rem;
-  padding: 3rem 2rem;
-  background: rgba(247, 245, 241, 0.96);
-  border-radius: calc(var(--btn-radius) * 1.5);
+  width: 100%;
+  /* margin:auto centra cuando sobra alto y deja scrollear (sin cortar el
+     inicio) cuando falta, cosa que justify-content:center no hace. */
+  margin: auto;
+  padding: 1.75rem 1.25rem;
   animation: fade-scale-in 0.28s ease;
   pointer-events: auto;
   text-align: center;
 }
-.precal-feedback span {
-  font-size: clamp(1.1rem, 4vw, 1.6rem);
-  font-weight: 700;
+
+/* Ícono de estado — mismo lenguaje visual que los badges de estado del lote */
+.precal-badge {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
-.precal-loading svg { color: var(--text-muted); animation: spin 0.9s linear infinite; }
-.precal-loading span { color: var(--text-muted); }
-.precal-success svg { color: #1e6e3e; }
-.precal-success span { color: #1e6e3e; }
-.precal-success-detail {
-  font-size: clamp(0.8rem, 1.5vw, 0.9rem);
-  font-weight: 600;
+.precal-badge--loading { background: var(--input-bg); }
+.precal-badge--loading svg { animation: spin 1.1s linear infinite; transform-origin: center; }
+.precal-badge-track { stroke: var(--input-border); fill: none; }
+.precal-badge-arc { stroke: var(--accent); fill: none; }
+.precal-badge--success { background: rgba(30, 110, 62, 0.09); }
+.precal-badge--success svg { color: var(--estado-available-accent); }
+.precal-check {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: precal-draw 0.45s 0.25s ease forwards;
+}
+.precal-badge--error { background: rgba(168, 40, 40, 0.09); }
+.precal-badge--error svg { color: var(--estado-sold-accent); }
+
+.precal-feedback-title {
+  font-size: clamp(1.05rem, 3.4vw, 1.25rem);
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+.precal-loading .precal-feedback-title { color: var(--text-secondary); font-weight: 700; }
+.precal-feedback-detail {
   font-family: 'Outfit', sans-serif;
+  font-size: clamp(0.8rem, 1.5vw, 0.9rem);
+  font-weight: 500;
   color: var(--text-muted);
-  line-height: 1.5;
-  max-width: 260px;
-  text-align: center;
+  line-height: 1.55;
+  max-width: min(260px, 100%);
 }
-.precal-error svg { color: #a82828; }
-.precal-error span { color: #a82828; }
+
 .btn-retry {
   margin-top: 0.25rem;
-  padding: 0.5rem 1.2rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.7rem 1.25rem;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   border: 1px solid var(--input-border);
   border-radius: var(--btn-radius);
-  font-size: 13px;
+  font-size: 0.85rem;
+  font-weight: 700;
   font-family: inherit;
   cursor: pointer;
   transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
 }
-.btn-retry:hover {
-  background: var(--input-bg);
-  border-color: var(--accent);
-  color: var(--accent);
+@media (hover: hover) {
+  .btn-retry:hover {
+    background: var(--input-bg);
+    border-color: var(--accent);
+    color: var(--accent-hover);
+  }
 }
 .btn-cerrar {
   margin-top: 0.25rem;
-  padding: 0.55rem 1.5rem;
-  background: #1e6e3e;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.7rem 1.25rem;
+  background: var(--accent);
   color: #ffffff;
   border: none;
   border-radius: var(--btn-radius);
-  font-size: 13px;
+  font-size: 0.85rem;
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;
-  transition: background var(--t-fast), transform var(--t-fast);
+  transition: background var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
 }
-.btn-cerrar:hover {
-  background: #175c33;
-  transform: translateY(-1px);
+@media (hover: hover) {
+  .btn-cerrar:hover {
+    background: var(--accent-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(197, 160, 89, 0.28);
+  }
 }
 .btn-cerrar:active {
   transform: translateY(0);
+  box-shadow: none;
 }
 .btn-enviar:disabled {
   opacity: 0.55;
@@ -1170,36 +1514,67 @@ html, body {
 /* =============================================
    VIEW TOGGLE BUTTON
    ============================================= */
-.view-toggle {
+.view-toggle-group {
   position: fixed;
   /* Safe-area insets for iOS notch / home indicator */
-  top: calc(16px + env(safe-area-inset-top));
-  right: calc(16px + env(safe-area-inset-right));
+  top: 50%;
+  left: calc(16px + env(safe-area-inset-left));
+  transform: translateY(-50%);
   z-index: 90;
-
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.view-toggle {
   /* 44px min touch target (WCAG AA / Apple HIG) */
-  min-width: 44px;
-  min-height: 44px;
-  padding: 10px 14px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  transition: width 0.2s ease, box-shadow 0.15s ease;
 
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   color: #1a1a1a;
   border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
+  border-radius: 999px;
+  overflow: hidden;
   font-size: clamp(0.75rem, 1.5vw, 0.85rem);
   font-family: 'Space Grotesk', sans-serif;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
+  justify-content: flex-start;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: box-shadow 0.15s ease;
   user-select: none;
   -webkit-user-select: none;
+}
+.view-toggle__icon {
+  flex: 0 0 42px; /* 44px menos el borde de 1px por lado */
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.view-toggle__label {
+  white-space: nowrap;
+  font-weight: 500;
+  padding-right: 16px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.view-toggle:focus-visible {
+  width: 160px;
+}
+.view-toggle:focus-visible .view-toggle__label { opacity: 1; }
+@media (hover: hover) {
+  .view-toggle:hover { width: 160px; }
+  .view-toggle:hover .view-toggle__label {
+    opacity: 1;
+    transition-delay: 0.08s;
+  }
 }
 .view-toggle:focus { outline: none; }
 .view-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -1379,6 +1754,210 @@ html, body {
 }
 
 /* =============================================
+   PANTALLA DE CARGA INICIAL
+   ============================================= */
+.viewer-loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  background: #1a1a1a;
+}
+
+.viewer-loading-screen__logo {
+  max-width: min(180px, 40vw);
+  max-height: 80px;
+  object-fit: contain;
+}
+
+.viewer-loading-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(260px, 60vw);
+}
+
+.viewer-loading-bar__track {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+}
+
+.viewer-loading-bar__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.25s ease-out;
+}
+
+.viewer-loading-bar__track--indeterminate .viewer-loading-bar__fill {
+  width: 40%;
+  transition: none;
+  animation: viewer-bar-indeterminate 1.2s ease-in-out infinite;
+}
+
+@keyframes viewer-bar-indeterminate {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+.viewer-loading-bar__pct {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.65);
+  letter-spacing: 0.02em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .viewer-loading-bar__track--indeterminate .viewer-loading-bar__fill {
+    animation: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+}
+
+/* PSV trae su propio loader/fondo por defecto (gris, "Loading...") que puede
+   asomar antes del primer setPanorama o si falla la carga. Lo apagamos: la
+   pantalla de carga propia (arriba) y el pill de error ya cubren esos casos. */
+.psv-container {
+  background: #1a1a1a !important;
+}
+.psv-loader-container {
+  display: none !important;
+}
+
+/* =============================================
+   ONBOARDING (gestos del visor, primera visita)
+   ============================================= */
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: onboarding-fade-in 0.25s ease;
+}
+
+.onboarding-card {
+  width: min(360px, 100%);
+  box-sizing: border-box;
+  padding: 28px 24px 24px;
+  border-radius: var(--panel-radius);
+  background: var(--panel-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--panel-border);
+  font-family: 'Space Grotesk', sans-serif;
+  box-shadow: var(--shadow);
+  animation: onboarding-scale-in 0.25s ease;
+}
+
+.onboarding-card__heading {
+  margin: 0 0 22px;
+  font-size: clamp(1rem, 3.6vw, 1.15rem);
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.onboarding-card__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.onboarding-card__step {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.onboarding-card__icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  background: rgba(197, 160, 89, 0.12);
+}
+
+.onboarding-card__step-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 2px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.onboarding-card__step-text strong {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.onboarding-card__cta {
+  width: 100%;
+  margin-top: 24px;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: var(--btn-radius);
+  background: var(--accent);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
+}
+.onboarding-card__cta:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(197, 160, 89, 0.28);
+}
+.onboarding-card__cta:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+@keyframes onboarding-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes onboarding-scale-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-overlay,
+  .onboarding-card {
+    animation: none;
+  }
+}
+
+/* =============================================
    ACCESIBILIDAD
    ============================================= */
 .sr-only {
@@ -1394,9 +1973,9 @@ html, body {
 }
 @media (prefers-reduced-motion: reduce) {
   #info-backdrop,
+  #info-panel-wrap,
   #info-panel,
   #info-panel-close,
-  #info-panel-back,
   #info-actions button,
   .btn-enviar,
   .precal-form-inner,
@@ -1404,11 +1983,11 @@ html, body {
   .info-panel-form select {
     transition: none;
   }
-  .info-panel-form,
-  #info-panel-view.anim-from-left,
   .precal-feedback,
+  .precal-form-error,
   .precal-overlay {
     animation: none;
   }
-  .precal-loading svg { animation: none; }
+  .precal-badge--loading svg { animation: none; }
+  .precal-check { animation: none; stroke-dashoffset: 0; }
 }

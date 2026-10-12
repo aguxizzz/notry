@@ -56,8 +56,11 @@ export function detectOrigin() {
 // Calculado una vez: el referrer/query no cambian durante la sesión del visor (SPA).
 const CHANNEL = detectOrigin();
 
+// ?showcase=1 (grabación para Cursorful): nunca mandar analítica real.
+const IS_SHOWCASE = new URLSearchParams(window.location.search).get('showcase') === '1';
+
 export function trackEvent(loteoId, eventType, target = {}) {
-  if (!loteoId) return;
+  if (!loteoId || IS_SHOWCASE) return;
   const body = {
     loteo_id: loteoId,
     session_id: getSessionId(),
