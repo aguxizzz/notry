@@ -1,6 +1,6 @@
 .stage-switcher {
   position: fixed;
-  bottom: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   z-index: 40;
@@ -107,7 +107,7 @@
 }
 
 @media (max-width: 480px) {
-  .stage-switcher { bottom: 16px; }
+  .stage-switcher { bottom: calc(16px + env(safe-area-inset-bottom)); }
   .stage-switcher-btn { padding: 7px 12px; font-size: 0.78rem; }
   .stage-switcher-label { max-width: 100px; }
 }

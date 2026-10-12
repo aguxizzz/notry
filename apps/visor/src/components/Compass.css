@@ -36,6 +36,7 @@
   fill: rgba(250, 248, 242, 0.88);
   stroke: rgba(23, 32, 31, 0.18);
   stroke-width: 1.2;
+  stroke-linejoin: round;
 }
 
 .compass-rose-rotating {
@@ -76,18 +77,6 @@
   stroke: rgba(23, 32, 31, 0.26);
 }
 
-/* Fixed pointer: reads as a rim tab molded from the frame itself, not a floating arrow. */
-.compass-heading-pointer {
-  fill: rgba(250, 248, 242, 0.88);
-}
-
-.compass-heading-pointer-edge {
-  fill: none;
-  stroke: rgba(23, 32, 31, 0.18);
-  stroke-width: 1.2;
-  stroke-linejoin: round;
-}
-
 /* Project logo — centered at the top of the screen */
 .compass-logo {
   position: fixed;
@@ -112,12 +101,33 @@
 
   .compass-circle,
   .compass-rose {
-    width: 84px;
-    height: 84px;
+    width: 76px;
+    height: 76px;
+  }
+
+  .compass-frame {
+    fill: rgba(250, 248, 242, 0.72);
   }
 
   .pres-viewer-overlay .compass-wrap {
     top: calc(68px + env(safe-area-inset-top));
+  }
+}
+
+/* Pantallas muy chicas (iPhone SE y similares): la brújula se reduce aún
+   más para no competir con el logo centrado ni con el botón de vista. */
+@media (max-width: 380px) {
+  .compass-circle,
+  .compass-rose {
+    width: 64px;
+    height: 64px;
+  }
+
+  .compass-label {
+    font-size: 9.5px;
+  }
+  .compass-label--north {
+    font-size: 10.5px;
   }
 }
 

@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, Fragment } from 'react';
+import { getLoteBadgeSvg, STATUS_FILL_COLORS, STATUS_FILL_FALLBACK } from '../annotations.js';
 
+// Por defecto el lote no lleva relleno de color (pedido del cliente, ver
+// annotations.js): el polígono queda transparente y solo se ve su borde. Con el
+// estilo `status_fill` se pinta con el relleno suave de estado (ver
+// STATUS_FILL_COLORS). `recommended`/`muted` no son colores de estado, se mantienen.
 const POLY_VAR = {
-  available: { fill: 'rgba(34,197,94,0.24)',  stroke: 'rgba(34,197,94,0.9)'  },
-  unavailable: { fill: 'rgba(107,114,128,0.30)', stroke: 'rgba(75,85,99,0.95)' },
-  sold:      { fill: 'rgba(239,68,68,0.24)',  stroke: 'rgba(239,68,68,0.9)'  },
-  reserved:  { fill: 'rgba(59,130,246,0.24)', stroke: 'rgba(59,130,246,0.9)' },
-  default:   { fill: 'rgba(0,100,255,0.28)',  stroke: 'rgba(0,100,255,0.9)'  },
+  default:   { fill: 'transparent',  stroke: 'rgba(255,255,255,0.9)'  },
   recommended: { fill: 'rgba(197,160,89,0.42)', stroke: 'rgba(197,160,89,0.95)' },
   muted: { fill: 'rgba(160,160,160,0.20)', stroke: 'rgba(255,255,255,0.6)' },
 };
@@ -33,6 +34,9 @@ export default function BlueprintViewer({
   hasStageSwitcher,
   recommendedIds,
   focusMode,
+  loteLabels,
+  badgeStyle = 'default',
+  badgeColors = false,
 }) {
   const containerRef = useRef(null);
   const transformRef = useRef(null);
@@ -45,11 +49,6 @@ export default function BlueprintViewer({
 
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0 });
-  // Posición de mousedown/touchstart (cualquier botón), para distinguir un
-  // click real de un drag que arranca y termina sobre el mismo lote: sin esto,
-  // arrastrar para panear con el botón izquierdo (que no hace pan, ver
-  // handlePanStart) terminaba seleccionando el lote al soltar.
-  const pointerDownPosRef = useRef(null);
   const zoomRef = useRef(zoom);
   const panXRef = useRef(0);
   const panYRef = useRef(0);
@@ -147,10 +146,7 @@ export default function BlueprintViewer({
     setZoom((prev) => Math.max(0.5, Math.min(5, prev * delta)));
   }, []);
 
-  const DRAG_THRESHOLD_PX = 6;
-
   const handlePanStart = (e) => {
-    pointerDownPosRef.current = { x: e.clientX, y: e.clientY };
     if (e.button !== 1) return;
     isPanningRef.current = true;
     panStartRef.current = { x: e.clientX - panXRef.current, y: e.clientY - panYRef.current };
@@ -175,7 +171,6 @@ export default function BlueprintViewer({
   const handleTouchStart = useCallback((e) => {
     if (e.touches.length === 1) {
       const t = e.touches[0];
-      pointerDownPosRef.current = { x: t.clientX, y: t.clientY };
       touchStateRef.current = { mode: 'pan', lastX: t.clientX, lastY: t.clientY };
     } else if (e.touches.length === 2) {
       const [t0, t1] = e.touches;
@@ -252,11 +247,6 @@ export default function BlueprintViewer({
 
   const handlePolygonClick = (e, ann) => {
     e.stopPropagation();
-    const start = pointerDownPosRef.current;
-    if (start) {
-      const dist = Math.hypot(e.clientX - start.x, e.clientY - start.y);
-      if (dist > DRAG_THRESHOLD_PX) return;
-    }
     onMarkerSelect && onMarkerSelect(ann);
   };
 
@@ -380,12 +370,26 @@ export default function BlueprintViewer({
               const isFocused = hoveredId === id || selectedId === id;
               const stem = Math.max(40, Math.min(260, Number(ann.callout_stem_height) || 96));
               const isPhotoPin = Boolean(ann.image_url);
+              // "place" (default): el pin muestra la foto real recortada en
+              // círculo. "perspective": pin genérico color sólido, el click
+              // abre la foto grande (ver InfoPanel).
+              const isPlaceThumb = isPhotoPin && (ann.poi_kind ?? 'place') !== 'perspective';
               return (
                 <g key={id} role="button" tabIndex={0} aria-label={ann.tooltip ?? id}
                   className={`bp-poly bp-callout${isFocused ? ' bp-poly--focused' : ''}`}
                   onClick={(e) => handlePolygonClick(e, ann)} onKeyDown={(e) => handlePolygonKeyDown(e, ann)}
                   onMouseEnter={() => handlePolygonHover(null, ann)} onMouseLeave={() => handlePolygonHover(null, null)}>
-                  {isPhotoPin ? (
+                  {isPlaceThumb ? (
+                    <>
+                      <clipPath id={`bp-poi-thumb-clip-${id}`}>
+                        <circle cx={point.x} cy={point.y - 25} r="13" />
+                      </clipPath>
+                      <circle cx={point.x} cy={point.y - 25} r="15" fill="#fffdf8" />
+                      <image href={ann.image_url} x={point.x - 13} y={point.y - 38} width="26" height="26" preserveAspectRatio="xMidYMid slice" clipPath={`url(#bp-poi-thumb-clip-${id})`} />
+                      <circle cx={point.x} cy={point.y - 25} r="13" fill="none" stroke="#fffdf8" strokeWidth="2" />
+                      <line x1={point.x} y1={point.y - 12} x2={point.x} y2={point.y} stroke="#fffdf8" strokeWidth="1.5" />
+                    </>
+                  ) : isPhotoPin ? (
                     <>
                       <path d={`M ${point.x} ${point.y} C ${point.x - 10} ${point.y - 13}, ${point.x - 12} ${point.y - 20}, ${point.x - 12} ${point.y - 25} A 12 12 0 1 1 ${point.x + 12} ${point.y - 25} C ${point.x + 12} ${point.y - 20}, ${point.x + 10} ${point.y - 13}, ${point.x} ${point.y}`} fill={ann.color || '#c5a059'} stroke="#fffdf8" strokeWidth="2" strokeLinejoin="round" />
                       <circle cx={point.x} cy={point.y - 25} r="4" fill="#fffdf8" />
@@ -403,39 +407,84 @@ export default function BlueprintViewer({
               return null;
             }
 
-            const isRecommended = !isPoi && Boolean(recommendedIds?.has(ann.uuid || ann.id));
+            const annId = ann.uuid || ann.id;
+            const isRecommended = !isPoi && Boolean(recommendedIds?.has(annId));
             const isMuted = !isPoi && !isRecommended && Boolean(focusMode) && (recommendedIds?.size ?? 0) > 0;
+            const rawStatusKey = ann.status || ann.estado;
             const polyVar = isPoi
               ? getPoiVar(ann.color)
-              : getPolyVar(isRecommended ? 'recommended' : isMuted ? 'muted' : (ann.status || ann.estado));
-            const statusKey = isRecommended ? 'recommended' : isMuted ? 'muted' : (ann.status || ann.estado || 'default');
-            const isHovered = hoveredId === (ann.uuid || ann.id);
-            const isSelected = selectedId === (ann.uuid || ann.id);
+              : getPolyVar(isRecommended ? 'recommended' : isMuted ? 'muted' : rawStatusKey);
+            const statusKey = isRecommended ? 'recommended' : isMuted ? 'muted' : (rawStatusKey || 'default');
+            // status_fill: relleno suave por estado (inline para ganarle al
+            // fill blanco del hover en index.css; el brillo del hover sigue).
+            const isStatusFill = !isPoi && badgeStyle === 'status_fill' && !isRecommended && !isMuted;
+            const statusFillColor = isStatusFill ? (STATUS_FILL_COLORS[rawStatusKey] ?? STATUS_FILL_FALLBACK) : null;
+            const isHovered = hoveredId === annId;
+            const isSelected = selectedId === annId;
             const isFocused  = isHovered || isSelected;
 
             const pts = ann.blueprint_coordinates.map(([nx, ny]) => normToSvg(nx, ny));
             if (pts.some(p => !Number.isFinite(p.x) || !Number.isFinite(p.y))) return null;
             const ptsStr = pts.map((p) => `${p.x},${p.y}`).join(' ');
 
+            // Badge (código/número corto) en el centroide del lote, igual que
+            // en modo panorama (annotations.js). Sin badgeColors: vendido/
+            // reservado/no disponible no muestran badge (pedido del cliente).
+            // Con badgeColors: se muestra siempre, coloreado según estado.
+            const label = !isPoi ? (loteLabels?.get?.(annId) ?? loteLabels?.[annId]) : null;
+            const isUnavailableStatus = rawStatusKey === 'sold' || rawStatusKey === 'reserved' || rawStatusKey === 'unavailable';
+            const showBadge = Boolean(label) && badgeStyle !== 'status_fill' && (badgeColors || !isUnavailableStatus);
+            let badgeNode = null;
+            if (showBadge) {
+              const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+              const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+              const badge = getLoteBadgeSvg(label, badgeStyle, rawStatusKey, badgeColors);
+              // El badge es de tamaño fijo en px de pantalla; en mobile el
+              // blueprint suele quedar fiteado bastante angosto (portrait vs
+              // plano panorámico), así que sin este escalado el badge se ve
+              // desproporcionado frente a lotes muy chicos en pantalla.
+              const badgeHeightPx = Math.max(14, Math.min(30, dw * 0.038));
+              const badgeWidthPx = Math.round(badgeHeightPx * (badge.width / badge.height));
+              const sizedHtml = badge.html.replace('<svg ', '<svg width="100%" height="100%" ');
+              badgeNode = (
+                <foreignObject
+                  x={cx - badgeWidthPx / 2}
+                  y={cy - badgeHeightPx / 2}
+                  width={badgeWidthPx}
+                  height={badgeHeightPx}
+                  style={{ pointerEvents: 'none', overflow: 'visible' }}
+                >
+                  <div
+                    xmlns="http://www.w3.org/1999/xhtml"
+                    style={{ width: '100%', height: '100%' }}
+                    dangerouslySetInnerHTML={{ __html: sizedHtml }}
+                  />
+                </foreignObject>
+              );
+            }
+
             return (
-              <g
-                key={ann.uuid || ann.id}
-                role="button"
-                tabIndex={0}
-                aria-label={ann.tooltip ?? (ann.uuid || ann.id)}
-                className={`bp-poly bp-poly--${isPoi ? 'poi' : statusKey}${isFocused ? ' bp-poly--focused' : ''}`}
-                onClick={(e) => handlePolygonClick(e, ann)}
-                onKeyDown={(e) => handlePolygonKeyDown(e, ann)}
-                onMouseEnter={(e) => handlePolygonHover(e, ann)}
-                onMouseLeave={(e) => handlePolygonHover(e, null)}
-              >
-                <polygon
-                  points={ptsStr}
-                  fill={polyVar.fill}
-                  stroke={polyVar.stroke}
-                  strokeWidth="2"
-                />
-              </g>
+              <Fragment key={annId}>
+                <g
+                  role="button"
+                  tabIndex={0}
+                  aria-label={ann.tooltip ?? annId}
+                  className={`bp-poly bp-poly--${isPoi ? 'poi' : statusKey}${isFocused ? ' bp-poly--focused' : ''}`}
+                  onClick={(e) => handlePolygonClick(e, ann)}
+                  onKeyDown={(e) => handlePolygonKeyDown(e, ann)}
+                  onMouseEnter={(e) => handlePolygonHover(e, ann)}
+                  onMouseLeave={(e) => handlePolygonHover(e, null)}
+                >
+                  <polygon
+                    points={ptsStr}
+                    fill={polyVar.fill}
+                    stroke={polyVar.stroke}
+                    strokeWidth="2"
+                    style={statusFillColor ? { fill: statusFillColor } : undefined}
+                  />
+                </g>
+                {badgeNode}
+              </Fragment>
             );
           })}
         </svg>
