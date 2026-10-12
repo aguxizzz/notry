@@ -2,7 +2,7 @@ import { ImageResponse } from '@vercel/og';
 
 export const config = { runtime: 'edge' };
 
-const BACKEND = 'https://notry-back.onrender.com';
+const BACKEND = 'https://notry-back.vercel.app';
 
 export default async function handler(req) {
   const { searchParams } = new URL(req.url);
