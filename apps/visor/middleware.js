@@ -21,7 +21,7 @@ const BOT_USER_AGENTS = [
   'embedly',
 ];
 
-const BACKEND = 'https://notry-back.onrender.com';
+const BACKEND = 'https://notry-back.vercel.app';
 
 // Matches /loteos/{uuid}/visor_data and /loteos/{uuid}/group_visor_data in a URL string.
 // Los links de compartir usan group_visor_data (agrupamiento por etapas), así que el prefijo

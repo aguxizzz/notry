@@ -1,4 +1,4 @@
-export const API_BASE = 'https://notry-back.onrender.com/api/v1';
+export const API_BASE = import.meta.env.VITE_API_BASE || 'https://notry-back.vercel.app/api/v1';
 
 export const fetchWithTimeout = (url, options, ms = 30000) => {
   const controller = new AbortController();

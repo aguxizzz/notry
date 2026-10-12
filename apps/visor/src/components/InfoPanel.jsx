@@ -87,7 +87,7 @@ const IconWaste = () => (
   </svg>
 );
 
-const PRE_CALIFICACION_URL = 'https://notry-back.onrender.com/api/v1/public/pre-qualification';
+const PRE_CALIFICACION_URL = 'https://notry-back.vercel.app/api/v1/public/pre-qualification';
 
 const ESTADO_CONFIG = {
   available: { accent: 'var(--estado-available-accent)', accentHover: 'var(--estado-available-accent-h)', label: 'Disponible' },
