@@ -65,6 +65,7 @@ export default function InventarioView({
   allProspectosList,
   onNavigateToProspect,
   contractsState,
+  isVisorOnly = false,
 }) {
   const [attentionFilter, setAttentionFilter] = useState(null);
   const inventoryPanelRef = useRef(null);
@@ -179,8 +180,10 @@ export default function InventarioView({
       <PageLayout className="inventario-page">
         <PageHeader
           eyebrow="Inventario comercial"
-          title="Inventario"
-          description="Controlá disponibilidad, valores y pendientes de lotes y loteos."
+          title={isVisorOnly ? 'Lotes' : 'Inventario'}
+          description={isVisorOnly
+            ? `${stats.total} lotes registrados.`
+            : 'Controlá disponibilidad, valores y pendientes de lotes y loteos.'}
           actions={
             <Button
               size="sm"
@@ -192,7 +195,7 @@ export default function InventarioView({
           }
         />
 
-        <SummaryBand
+        {!isVisorOnly && <SummaryBand
           className="inv-summary"
           aria-label="Resumen del inventario"
           lead={
@@ -239,7 +242,7 @@ export default function InventarioView({
             hint="promedio por lote"
             value={fmtMoney(stats.ticket)}
           />
-        </SummaryBand>
+        </SummaryBand>}
 
         {/* Tabla de gestión */}
         <Panel
@@ -253,9 +256,11 @@ export default function InventarioView({
             className="inv-phead"
             eyebrow="Gestión"
             title={inventoryTab === 'lotes' ? 'Lotes' : 'Loteos'}
-            sub={inventoryTab === 'lotes'
-              ? 'Disponibilidad, valores y prospectos asociados'
-              : 'Desarrollos, publicación y configuración del visor'}
+            sub={isVisorOnly
+              ? 'Disponibilidad y valores de los lotes'
+              : inventoryTab === 'lotes'
+                ? 'Disponibilidad, valores y prospectos asociados'
+                : 'Desarrollos, publicación y configuración del visor'}
           />
           <InventarioControls
             inventoryTab={inventoryTab}
@@ -270,9 +275,10 @@ export default function InventarioView({
             inventoryLoading={inventoryLoading}
             syncLoading={syncLoading}
             inventoryLoteosLoading={inventoryLoteosLoading}
+            isVisorOnly={isVisorOnly}
           />
 
-          {activeAttentionRule && (
+          {!isVisorOnly && activeAttentionRule && (
             <div className="inv-attention-filter">
               <span className="inv-attention-filter-copy" role="status" aria-live="polite">
                 <span className="inv-attention-filter-label">Filtro de atención</span>
@@ -319,90 +325,94 @@ export default function InventarioView({
           </ErrorBoundary>
         </Panel>
 
-        {/* Fila: pendientes operativos + actividad reciente */}
-        <div className="inv-row3">
-            <Panel as="section" className="inv-mod inv-attn">
+        {!isVisorOnly && (
+          <>
+            {/* Fila: pendientes operativos + actividad reciente */}
+            <div className="inv-row3">
+                <Panel as="section" className="inv-mod inv-attn">
+                  <SectionHeader
+                    tier="aside"
+                    className="inv-mod-head"
+                    eyebrow="Control"
+                    title="Pendientes operativos"
+                    sub="Inconsistencias que requieren una acción"
+                  />
+                  <div className="inv-alerts">
+                    {INVENTORY_ATTENTION_ORDER.map(ruleKey => {
+                      const rule = INVENTORY_ATTENTION_RULES[ruleKey];
+                      return (
+                        <AlertCard
+                          key={rule.key}
+                          tone={rule.tone}
+                          n={stats.attention[rule.key]}
+                          label={rule.label}
+                          sub={rule.sub}
+                          active={attentionFilter === rule.key}
+                          onClick={() => handleAttentionSelect(rule.key)}
+                          controls="inventory-results"
+                        />
+                      );
+                    })}
+                  </div>
+                </Panel>
+
+                <Panel as="section" className="inv-mod inv-activity">
+                  <ActivityFeed
+                    activities={inventoryActivities}
+                    sectionTitle="Actividad reciente"
+                    sectionSubtitle="Últimos movimientos del inventario"
+                  />
+                </Panel>
+            </div>
+
+            {/* Velocidad de venta */}
+            <Panel as="section" className="inv-mod">
               <SectionHeader
                 tier="aside"
                 className="inv-mod-head"
-                eyebrow="Control"
-                title="Pendientes operativos"
-                sub="Inconsistencias que requieren una acción"
+                eyebrow="Ritmo"
+                title="Velocidad de venta"
+                sub="Lotes vendidos por mes"
               />
-              <div className="inv-alerts">
-                {INVENTORY_ATTENTION_ORDER.map(ruleKey => {
-                  const rule = INVENTORY_ATTENTION_RULES[ruleKey];
-                  return (
-                    <AlertCard
-                      key={rule.key}
-                      tone={rule.tone}
-                      n={stats.attention[rule.key]}
-                      label={rule.label}
-                      sub={rule.sub}
-                      active={attentionFilter === rule.key}
-                      onClick={() => handleAttentionSelect(rule.key)}
-                      controls="inventory-results"
-                    />
-                  );
-                })}
-              </div>
+              <SalesVelocityChart months={stats.monthlySales} />
             </Panel>
 
-            <Panel as="section" className="inv-mod inv-activity">
-              <ActivityFeed
-                activities={inventoryActivities}
-                sectionTitle="Actividad reciente"
-                sectionSubtitle="Últimos movimientos del inventario"
-              />
-            </Panel>
-        </div>
-
-        {/* Velocidad de venta */}
-        <Panel as="section" className="inv-mod">
-          <SectionHeader
-            tier="aside"
-            className="inv-mod-head"
-            eyebrow="Ritmo"
-            title="Velocidad de venta"
-            sub="Lotes vendidos por mes"
-          />
-          <SalesVelocityChart months={stats.monthlySales} />
-        </Panel>
-
-        {/* Precio promedio */}
-        <Panel as="section" className="inv-mod">
-            <SectionHeader tier="aside" className="inv-mod-head" eyebrow="Valores" title="Precio promedio" sub="Valores de venta del inventario" />
-            <div className="inv-prices">
-              <div className="inv-prices-hero">
-                <div className="inv-k">Precio promedio por m²</div>
-                <div className="inv-pv">{fmtMoney(stats.pricePerM2)}</div>
-                <div className="inv-r">Rango {fmtMoney(stats.minPrice)} – {fmtMoney(stats.maxPrice)} por lote</div>
-                <div className="inv-kpis">
-                  <div className="inv-kpi">
-                    <div className="inv-kpi-v">{fmtMoney(stats.ticket)}</div>
-                    <div className="inv-kpi-l">Ticket prom.</div>
-                  </div>
-                  <div className="inv-kpi">
-                    <div className="inv-kpi-v">{fmtMoney(stats.valorEstimado)}</div>
-                    <div className="inv-kpi-l">Valor total</div>
-                  </div>
-                </div>
-              </div>
-              {priceBars.length > 0 && (
-                <div className="inv-hbars">
-                  {priceBars.map(d => (
-                    <div className="inv-hbar" key={d.name}>
-                      <span className="inv-hbar-nm" title={d.name}>{d.name}</span>
-                      <div className="inv-hbar-track">
-                        <i style={{ width: `${Math.max(4, (d.avgPrice / maxBarPrice) * 100)}%` }} />
+            {/* Precio promedio */}
+            <Panel as="section" className="inv-mod">
+                <SectionHeader tier="aside" className="inv-mod-head" eyebrow="Valores" title="Precio promedio" sub="Valores de venta del inventario" />
+                <div className="inv-prices">
+                  <div className="inv-prices-hero">
+                    <div className="inv-k">Precio promedio por m²</div>
+                    <div className="inv-pv">{fmtMoney(stats.pricePerM2)}</div>
+                    <div className="inv-r">Rango {fmtMoney(stats.minPrice)} – {fmtMoney(stats.maxPrice)} por lote</div>
+                    <div className="inv-kpis">
+                      <div className="inv-kpi">
+                        <div className="inv-kpi-v">{fmtMoney(stats.ticket)}</div>
+                        <div className="inv-kpi-l">Ticket prom.</div>
                       </div>
-                      <span className="inv-hbar-v">{fmtMoney(d.avgPrice)}</span>
+                      <div className="inv-kpi">
+                        <div className="inv-kpi-v">{fmtMoney(stats.valorEstimado)}</div>
+                        <div className="inv-kpi-l">Valor total</div>
+                      </div>
                     </div>
-                  ))}
+                  </div>
+                  {priceBars.length > 0 && (
+                    <div className="inv-hbars">
+                      {priceBars.map(d => (
+                        <div className="inv-hbar" key={d.name}>
+                          <span className="inv-hbar-nm" title={d.name}>{d.name}</span>
+                          <div className="inv-hbar-track">
+                            <i style={{ width: `${Math.max(4, (d.avgPrice / maxBarPrice) * 100)}%` }} />
+                          </div>
+                          <span className="inv-hbar-v">{fmtMoney(d.avgPrice)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-        </Panel>
+            </Panel>
+          </>
+        )}
       </PageLayout>
     </ShellLayout>
   );

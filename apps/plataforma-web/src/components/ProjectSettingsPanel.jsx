@@ -46,12 +46,20 @@ const EMPTY_BRANDING = {
   logo_secondary: '',
   lote_badge_style: 'default',
   lote_badge_colors: false,
+  lote_plano_style: 'inherit',
 };
 
 const LOTE_BADGE_STYLE_OPTIONS = [
   { value: 'default', label: 'Píldora blanca (default)' },
   { value: 'ghost', label: 'Contorno fantasma' },
   { value: 'status_ring', label: 'Anillo de estado' },
+  { value: 'status_fill', label: 'Color por estado (relleno suave, sin badge)' },
+];
+
+// En el plano, "inherit" replica lo elegido para el panorama.
+const LOTE_PLANO_STYLE_OPTIONS = [
+  { value: 'inherit', label: 'Igual que en panorama (default)' },
+  ...LOTE_BADGE_STYLE_OPTIONS,
 ];
 
 // Vacío/null → null; si no, número. Para comparar cotizaciones sin que "1500.50" vs 1500.5 cuente como cambio.
@@ -105,6 +113,13 @@ export default function ProjectSettingsPanel({
     normalizeRate(cementRate) !== normalizeRate(org?.cement_bag_rate_ars) ||
     normalizeRate(usdRate) !== normalizeRate(org?.usd_ars_rate)
   );
+
+  // El check "colorear según estado" aplica al estilo default, en panorama y/o plano.
+  const panoramaBadgeStyle = branding.lote_badge_style || 'default';
+  const planoBadgeStyle = branding.lote_plano_style && branding.lote_plano_style !== 'inherit'
+    ? branding.lote_plano_style
+    : panoramaBadgeStyle;
+  const usesDefaultBadge = panoramaBadgeStyle === 'default' || planoBadgeStyle === 'default';
 
   // Carga perezosa de las fuentes del selector, solo una vez.
   useEffect(() => {
@@ -403,7 +418,15 @@ export default function ProjectSettingsPanel({
               options={LOTE_BADGE_STYLE_OPTIONS}
             />
 
-            {(branding.lote_badge_style || 'default') === 'default' && (
+            <Select
+              id="project-lote-plano-style"
+              label="Estilo de lotes en el plano (visor)"
+              value={branding.lote_plano_style || 'inherit'}
+              onChange={e => setBrandingField('lote_plano_style', e.target.value)}
+              options={LOTE_PLANO_STYLE_OPTIONS}
+            />
+
+            {usesDefaultBadge && (
               <div className="form-group">
                 <label className="project-checkbox" htmlFor="project-lote-badge-colors">
                   <input
