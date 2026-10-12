@@ -15,8 +15,8 @@ import './AccountModal.css';
 
 // Secciones agrupadas para la navegación lateral. `requires` limita quién las ve:
 // - owner: solo el owner de la org (identidad visual, finanzas del proyecto y
-//   acciones destructivas sobre datos). "Finanzas" no aplica a orgs visor_only
-//   (sin simulador), de ahí `hideIf`.
+//   acciones destructivas sobre datos). "Equipo", "Datos" y "Finanzas" no
+//   aplican a orgs visor_only (sin CRM ni simulador), de ahí `hideIf`.
 // - superAdmin: alta de organizaciones cliente nuevas.
 const NAV_GROUPS = [
   {
@@ -28,8 +28,8 @@ const NAV_GROUPS = [
   {
     label: 'Organización',
     items: [
-      { id: 'equipo', label: 'Equipo', icon: <Users size={18} /> },
-      { id: 'datos', label: 'Datos', icon: <Database size={18} />, requires: 'owner' },
+      { id: 'equipo', label: 'Equipo', icon: <Users size={18} />, hideIf: 'isVisorOnly' },
+      { id: 'datos', label: 'Datos', icon: <Database size={18} />, requires: 'owner', hideIf: 'isVisorOnly' },
     ],
   },
   {
@@ -186,7 +186,7 @@ export default function AccountModal({
           {activeSection === 'perfil' && (
             <ProfileCard user={user} setUser={setUser} apiFetch={apiFetch} addToast={addToast} />
           )}
-          {activeSection === 'equipo' && (
+          {activeSection === 'equipo' && !isVisorOnly && (
             <TeamPanel
               user={user}
               apiFetch={apiFetch}
@@ -228,7 +228,7 @@ export default function AccountModal({
               setOrg={setOrg}
             />
           )}
-          {activeSection === 'datos' && isOwner && (
+          {activeSection === 'datos' && isOwner && !isVisorOnly && (
             <DataPanel apiFetch={apiFetch} addToast={addToast} />
           )}
           {activeSection === 'organizaciones' && isSuperAdmin && (

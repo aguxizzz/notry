@@ -21,29 +21,37 @@ const Sidebar = ({ user, activeItem, onItemClick, onOpenAccount, onOpenShare, sh
   const nameWords = user?.full_name?.trim().split(/\s+/) || [];
   const displayName = nameWords.length >= 3 ? nameWords.slice(0, 2).join(' ') : user?.full_name || 'Mi cuenta';
 
-  // Orgs visor_only (tier "solo visor") solo administran Proyectos/Loteos/Lotes
-  // y ven Análisis; sin Inicio (Kanban), Clientes ni Cobranzas.
-  const menuSections = [
-    {
-      id: 'panorama',
-      label: 'Panorama',
-      items: [
-        ...(isVisorOnly ? [] : [{ id: 'inicio', label: 'Inicio', icon: <Home size={20} /> }]),
-        { id: 'analisis', label: 'Análisis', icon: <BarChart2 size={20} /> },
-      ],
-    },
-    {
-      id: 'operacion',
-      label: 'Operación',
-      items: [
-        { id: 'inventario', label: 'Inventario', icon: <Package size={20} /> },
-        ...(isVisorOnly ? [] : [
+  // Orgs visor_only (tier "solo visor") solo administran la tabla de Lotes:
+  // sin Inicio (Kanban), Análisis, Clientes ni Cobranzas.
+  const menuSections = isVisorOnly
+    ? [
+      {
+        id: 'operacion',
+        label: 'Operación',
+        items: [
+          { id: 'inventario', label: 'Lotes', icon: <Package size={20} /> },
+        ],
+      },
+    ]
+    : [
+      {
+        id: 'panorama',
+        label: 'Panorama',
+        items: [
+          { id: 'inicio', label: 'Inicio', icon: <Home size={20} /> },
+          { id: 'analisis', label: 'Análisis', icon: <BarChart2 size={20} /> },
+        ],
+      },
+      {
+        id: 'operacion',
+        label: 'Operación',
+        items: [
+          { id: 'inventario', label: 'Inventario', icon: <Package size={20} /> },
           { id: 'clientes', label: 'Clientes', icon: <Users size={20} /> },
           { id: 'cobranzas', label: 'Cobranzas', icon: <CreditCard size={20} /> },
-        ]),
-      ],
-    },
-  ];
+        ],
+      },
+    ];
 
   return (
     <aside className={`sidebar ${isOpen ? 'sidebar--open' : ''}`} data-active-view={activeItem}>

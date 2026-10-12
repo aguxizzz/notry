@@ -94,8 +94,9 @@ const OWNER_VIEW_HEADERS = {
 };
 
 // Orgs con plan `visor_only` (Fase 3 del tier de visor standalone) no ven el
-// CRM completo: solo Proyectos → Loteos/Lotes + Análisis.
-const HIDDEN_VIEWS_VISOR_ONLY = ['inicio', 'clientes', 'cobranzas'];
+// CRM completo: solo la tabla de Lotes dentro de Inventario (ver isVisorOnly
+// pasado a InventarioView, que a su vez recorta tabs/paneles a solo lotes).
+const HIDDEN_VIEWS_VISOR_ONLY = ['inicio', 'clientes', 'cobranzas', 'analisis'];
 
 function PlatformApp() {
   // 'lote_owner' cubre tanto cuentas lote_owner como super_admin: ambas ven la
@@ -804,6 +805,7 @@ function PlatformApp() {
                   allProspectosList={allProspectosList}
                   onNavigateToProspect={handleNavigateToProspect}
                   contractsState={contractsState}
+                  isVisorOnly={isVisorOnly}
                 />
               )}
 

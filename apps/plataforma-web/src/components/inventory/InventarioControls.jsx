@@ -18,6 +18,7 @@ export default function InventarioControls({
   inventoryLoading,
   syncLoading,
   inventoryLoteosLoading,
+  isVisorOnly = false,
 }) {
   const loteoFilterOptions = [
     { value: '', label: 'Loteo: Todos' },
@@ -25,26 +26,28 @@ export default function InventarioControls({
   ];
   return (
     <DataToolbar className="inventory-controls inv-toolbar">
-      <div className="inv-seg" role="tablist" aria-label="Ver tabla de">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={inventoryTab === 'lotes'}
-          className={inventoryTab === 'lotes' ? 'on' : ''}
-          onClick={() => onTabChange('lotes')}
-        >
-          Lotes
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={inventoryTab === 'loteos'}
-          className={inventoryTab === 'loteos' ? 'on' : ''}
-          onClick={() => onTabChange('loteos')}
-        >
-          Loteos
-        </button>
-      </div>
+      {!isVisorOnly && (
+        <div className="inv-seg" role="tablist" aria-label="Ver tabla de">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={inventoryTab === 'lotes'}
+            className={inventoryTab === 'lotes' ? 'on' : ''}
+            onClick={() => onTabChange('lotes')}
+          >
+            Lotes
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={inventoryTab === 'loteos'}
+            className={inventoryTab === 'loteos' ? 'on' : ''}
+            onClick={() => onTabChange('loteos')}
+          >
+            Loteos
+          </button>
+        </div>
+      )}
 
       {inventoryTab === 'lotes' ? (
         <>

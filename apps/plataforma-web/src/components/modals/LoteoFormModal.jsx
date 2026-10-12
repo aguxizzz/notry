@@ -1,7 +1,8 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Button, Loader } from '../../ui/components';
 import '../../ui/components/Modal.css';
 import ImageUploadField from '../ImageUploadField';
+import LocationPickerMap from '../LocationPickerMap';
 
 /**
  * LoteoFormModal — unified modal for creating and editing loteos.
@@ -33,8 +34,12 @@ export default function LoteoFormModal({
   onUploadEvent,
 }) {
   const modalRef = useRef(null);
+  const [locationPickerOpen, setLocationPickerOpen] = useState(false);
 
   const isCreate = mode === 'create';
+  const hasCoords =
+    formData.latitude !== '' && formData.latitude != null &&
+    formData.longitude !== '' && formData.longitude != null;
 
   useEffect(() => {
     if (!isOpen || (isCreate ? false : isClosing)) return;
@@ -50,7 +55,7 @@ export default function LoteoFormModal({
     <div className="modal-overlay" onClick={onClose}>
       <div
         ref={modalRef}
-        className="modal-card"
+        className="modal-card modal-card--wide"
         onClick={e => e.stopPropagation()}
         aria-modal="true"
         role="dialog"
@@ -108,26 +113,22 @@ export default function LoteoFormModal({
             />
           </div>
           <div className="form-group">
-            <label htmlFor={isCreate ? 'loteo-latitude' : 'edit-loteo-latitude'}>Latitud</label>
-            <input
-              id={isCreate ? 'loteo-latitude' : 'edit-loteo-latitude'}
-              type="number"
-              step="any"
-              value={formData.latitude}
-              onChange={e => onFieldChange('latitude', e.target.value)}
-              autoComplete="off"
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor={isCreate ? 'loteo-longitude' : 'edit-loteo-longitude'}>Longitud</label>
-            <input
-              id={isCreate ? 'loteo-longitude' : 'edit-loteo-longitude'}
-              type="number"
-              step="any"
-              value={formData.longitude}
-              onChange={e => onFieldChange('longitude', e.target.value)}
-              autoComplete="off"
-            />
+            <label>Ubicación</label>
+            <div className="location-summary">
+              <span className="location-summary__coords">
+                {hasCoords
+                  ? `${Number(formData.latitude).toFixed(6)}, ${Number(formData.longitude).toFixed(6)}`
+                  : 'Sin definir'}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setLocationPickerOpen(true)}
+              >
+                Seleccionar ubicación
+              </Button>
+            </div>
           </div>
           {error && (
             <div className="status-message error">
@@ -155,6 +156,69 @@ export default function LoteoFormModal({
           </div>
         </form>
       </div>
+      {locationPickerOpen && (
+        <div
+          className="location-overlay"
+          onClick={e => {
+            e.stopPropagation();
+            setLocationPickerOpen(false);
+          }}
+        >
+          <div
+            className="location-overlay__panel"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="location-overlay__header">
+              <h4>Seleccionar ubicación</h4>
+              <button
+                type="button"
+                className="location-overlay__close"
+                onClick={() => setLocationPickerOpen(false)}
+                aria-label="Cerrar"
+              >
+                ×
+              </button>
+            </div>
+            <LocationPickerMap
+              latitude={formData.latitude === '' ? null : formData.latitude}
+              longitude={formData.longitude === '' ? null : formData.longitude}
+              onChange={({ latitude, longitude }) => {
+                onFieldChange('latitude', latitude);
+                onFieldChange('longitude', longitude);
+              }}
+            />
+            <div className="form-group form-group--coords location-overlay__coords">
+              <div>
+                <label htmlFor={isCreate ? 'loteo-latitude' : 'edit-loteo-latitude'}>Latitud</label>
+                <input
+                  id={isCreate ? 'loteo-latitude' : 'edit-loteo-latitude'}
+                  type="number"
+                  step="any"
+                  value={formData.latitude}
+                  onChange={e => onFieldChange('latitude', e.target.value)}
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <label htmlFor={isCreate ? 'loteo-longitude' : 'edit-loteo-longitude'}>Longitud</label>
+                <input
+                  id={isCreate ? 'loteo-longitude' : 'edit-loteo-longitude'}
+                  type="number"
+                  step="any"
+                  value={formData.longitude}
+                  onChange={e => onFieldChange('longitude', e.target.value)}
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+            <div className="location-overlay__footer">
+              <Button type="button" size="sm" onClick={() => setLocationPickerOpen(false)}>
+                Listo
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
