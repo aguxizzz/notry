@@ -61,74 +61,266 @@ ul {
 }
 
 /* =============================================
-   STAGE — fachada ↔ planta
+   STAGE — fachada (maqueta 3D) ↔ planta
+   La entrada a un piso la hace la maqueta 3D (Facade.jsx): la cámara se
+   asoma sobre la losa del piso elegido y baja la mirada hasta su tapa. Cuando
+   llega (--swap), la planta 2D interactiva aparece encima en el mismo lugar y
+   la maqueta se oculta.
    ============================================= */
 .stage {
   position: fixed;
   inset: 0;
   overflow: hidden;
+  background: radial-gradient(120% 90% at 50% 40%, #e9e8e4 0%, #d2d2ce 100%);
+
+  /* --k estira o acorta todos los tiempos de la maqueta. La primera entrada
+     es la más lenta; después de volver a la fachada (data-quick) se acorta. */
+  /* Valores de esta regla = vuelta a la fachada. La cámara va en dos partes:
+     rig (encuadre/zoom) y tilt (giro), cada una con su tiempo y su curva. */
+  --k: 1;
+  --t-rig: 0.85s;
+  --d-rig: 0s;
+  --e-rig: cubic-bezier(0.4, 0, 0.3, 1);
+  --t-tilt: 0.85s;
+  --d-tilt: 0.05s;
+  --e-tilt: cubic-bezier(0.45, 0, 0.4, 1);
+  --t-lift: 0.6s;
+  --d-lift: 0.3s;
+  --e-lift: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --t-fade: 0.4s;
+  --d-fade: 0.3s;
+  --t-low: 0.15s;
+  --d-low: 0s;
+  --t-env: 0.45s;
+  --d-env: 0.35s;
+  --t-swap: 1.07s;
+  --swap: calc(var(--t-swap) * var(--k));
+  --d-ui: calc(0.55s * var(--k));
+  --d-pins: calc(var(--swap) + 60ms);
+  --pin-step: 60ms;
+  --t-floor: 0.44s;
+}
+.stage[data-view='floor'] {
+  /* El giro arranca primero (se asoma) y el acercamiento lo sigue. */
+  --t-tilt: 1.05s;
+  --d-tilt: 0s;
+  --e-tilt: cubic-bezier(0.37, 0, 0.35, 1);
+  --t-rig: 0.95s;
+  --d-rig: 0.1s;
+  --e-rig: cubic-bezier(0.45, 0, 0.2, 1);
+  --t-lift: 0.7s;
+  --d-lift: 0s;
+  --t-fade: 0.45s;
+  --d-fade: 0.1s;
+  --t-low: 0.2s;
+  --d-low: 0.85s;
+  --t-env: 0.4s;
+  --d-env: 0.05s;
+}
+/* Cambio de piso estando ya en planta: la maqueta (oculta) se reacomoda más
+   rápido, por si se vuelve a la fachada enseguida. */
+.stage[data-view='floor'][data-mode='switch'] {
+  --t-rig: 0.6s;
+  --d-rig: 0s;
+  --t-tilt: 0.6s;
+  --d-tilt: 0s;
+  --t-lift: 0.6s;
+  --t-fade: 0.35s;
+  --d-fade: 0s;
+}
+.stage[data-quick] {
+  --k: 0.9;
+  --pin-step: 40ms;
+}
+
+.svg-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
 }
 
 .layer {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  transition:
-    transform 0.95s var(--ease),
-    opacity 0.55s ease,
-    filter 0.55s ease;
 }
 
-/* Al entrar a un piso la fachada hace zoom hacia ese piso y se disuelve. */
-.layer--facade {
-  transform-origin: var(--ox) var(--oy);
-}
-.stage[data-view='floor'] .layer--facade {
-  transform: scale(5);
-  opacity: 0;
-  filter: blur(8px);
-  pointer-events: none;
-}
-
+/* La planta 2D se muestra recién cuando la cámara llegó: es idéntica a la
+   tapa 3D, así que el reemplazo no se ve. Al volver se va enseguida. */
 .layer--floor {
-  background: radial-gradient(120% 90% at 50% 40%, #e9e8e4 0%, #d2d2ce 100%);
-  transform: scale(0.8);
+  /* Contexto propio: el z-index de cada planta (por piso) no compite con la UI. */
+  isolation: isolate;
   opacity: 0;
   pointer-events: none;
+  transition: opacity calc(0.15s * var(--k)) ease;
 }
 .stage[data-view='floor'] .layer--floor {
-  transform: none;
   opacity: 1;
   pointer-events: auto;
-  transition-delay: 0.22s;
+  transition: opacity 0.1s linear var(--swap);
 }
 
 /* =============================================
-   FACHADA
+   FACHADA — maqueta 3D
    ============================================= */
-.facade {
+.bld {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+/* Ya en planta la maqueta no se ve (y no se compone): así las plantas 2D
+   pueden ser translúcidas al cambiar de piso sin que asome la tapa. */
+.stage[data-view='floor'] .bld {
+  visibility: hidden;
+  transition: visibility 0s linear calc(var(--swap) + 0.15s);
+}
+.bld.no-anim,
+.bld.no-anim * {
+  transition: none !important;
+}
+
+.bld-rig,
+.bld-tilt,
+.bld-floor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+}
+/* El transform de la cámara lo escribe Facade.jsx (depende del viewport). */
+.bld-rig {
+  transform-origin: 0 0;
+  transition: transform calc(var(--t-rig) * var(--k)) var(--e-rig) calc(var(--d-rig) * var(--k));
+}
+.bld-tilt {
+  transform-origin: 0 0;
+  transition: transform calc(var(--t-tilt) * var(--k)) var(--e-tilt) calc(var(--d-tilt) * var(--k));
+}
+
+/* Mundo: unidades de la fachada, origen en el centro de la base del
+   edificio, Y hacia abajo, Z hacia el espectador. */
+.bld-floor {
+  transform: translate3d(0, var(--y), 0);
+  transition: transform calc(var(--t-lift) * var(--k)) var(--e-lift) calc(var(--d-lift) * var(--k));
+}
+/* La opacidad va en las caras y no en el piso: en un elemento preserve-3d la
+   opacidad aplana a los hijos. */
+.bld-floor > * {
+  position: absolute;
+  transition: opacity calc(var(--t-fade) * var(--k)) ease calc(var(--d-fade) * var(--k));
+}
+.stage[data-view='floor'] .bld-floor[data-rel='above'] {
+  transform: translate3d(0, calc(var(--y) - var(--lift)), 0);
+}
+.stage[data-view='floor'] .bld-floor[data-rel='above'] > * {
+  opacity: 0;
+}
+
+.bld-floor__front {
+  top: 0;
+  left: calc(var(--w) / -2);
   display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.facade-neighbour {
-  fill: #cdcdc9;
-}
-.facade-ground {
-  fill: #a8a8a4;
-}
-
-.facade-floor {
-  cursor: pointer;
+  width: var(--w);
+  height: var(--h);
+  padding: 0;
+  border: 0;
+  background: none;
   outline: none;
-  animation: floor-rise 0.7s var(--ease-out) both;
+  transform: translateZ(calc(var(--depth) / 2));
+}
+.bld-floor__front svg {
+  display: block;
+  overflow: visible;
+  animation: floor-rise 0.7s var(--ease-out) backwards;
   animation-delay: calc(var(--i) * 55ms + 120ms);
   transition: opacity var(--t-fast);
 }
-.facade:has(.facade-floor.is-hover) .facade-floor:not(.is-hover) {
+.bld:has(.bld-floor.is-hover) .bld-floor:not(.is-hover) .bld-floor__front svg {
   opacity: 0.82;
 }
+.stage[data-view='floor'] .bld-floor__front {
+  pointer-events: none;
+}
+
+/* La tapa se dibuja a tamaño de planta y se achica para entrar en la huella:
+   así al final del giro no queda una textura estirada. */
+.bld-floor__top {
+  top: calc(var(--plan-h) / -2);
+  left: calc(var(--plan-w) / -2);
+  width: var(--plan-w);
+  height: var(--plan-h);
+  transform: rotateX(90deg) scale(var(--top-scale));
+  backface-visibility: hidden;
+  pointer-events: none;
+}
+.bld-floor__top svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+/* Con la cámara ya arriba, los frentes de abajo quedan de canto: se apagan
+   para que no asomen las losas por los costados de la planta. */
+.stage[data-view='floor'] .bld-floor:not([data-rel='above']) .bld-floor__front {
+  opacity: 0;
+}
+.bld-floor:not([data-rel='above']) .bld-floor__front {
+  transition-duration: calc(var(--t-low) * var(--k));
+  transition-delay: calc(var(--d-low) * var(--k));
+}
+
+/* Entorno: cielo y vecinos en un plano vertical detrás del edificio, suelo en
+   un plano horizontal. Al girar la cámara se van solos. Son capas chicas
+   escaladas, y el suelo va partido en dos (delante y detrás del cielo) para
+   que ningún plano cruce a otro: si se cruzan, el navegador los ordena mal y
+   el cielo tapa el suelo. */
+.bld-sky,
+.bld-hood,
+.bld-ground {
+  position: absolute;
+  transition: opacity calc(var(--t-env) * var(--k)) ease calc(var(--d-env) * var(--k));
+}
+.bld-sky {
+  left: calc(var(--sky-w) / -8);
+  top: calc(var(--sky-h) / -4);
+  width: calc(var(--sky-w) / 4);
+  height: calc(var(--sky-h) / 4);
+  transform-origin: 50% 100%;
+  background:
+    radial-gradient(50% 50% at 62% 86%, rgba(197, 160, 89, 0.38), rgba(197, 160, 89, 0)),
+    linear-gradient(#c9c9c6 0%, #e4e3df 70%, #efe9dc 100%);
+  transform: translateZ(-140px) scale(4);
+}
+.bld-hood {
+  left: 0;
+  top: 0;
+  transform: translateZ(-139.95px);
+}
+.bld-hood i {
+  position: absolute;
+  background: #cdcdc9;
+}
+.bld-ground {
+  left: -200px;
+  top: -32px;
+  width: 400px;
+  height: 64px;
+  background: #a8a8a4;
+  transform: translateZ(180.1px) rotateX(90deg) scale(10);
+}
+.bld-ground--back {
+  top: -63px;
+  height: 126px;
+  transform: translateZ(-770.1px) rotateX(90deg) scale(10);
+}
+.stage[data-view='floor'] .bld-sky,
+.stage[data-view='floor'] .bld-hood,
+.stage[data-view='floor'] .bld-ground {
+  opacity: 0;
+}
+
 .facade-floor__body {
   fill: #a2a29e;
 }
@@ -149,8 +341,8 @@ ul {
     fill var(--t-fast),
     stroke var(--t-fast);
 }
-.facade-floor.is-hover .facade-floor__hit,
-.facade-floor:focus-visible .facade-floor__hit {
+.bld-floor.is-hover .facade-floor__hit,
+.bld-floor__front:focus-visible .facade-floor__hit {
   fill: rgba(197, 160, 89, 0.48);
   stroke: var(--accent);
 }
@@ -173,6 +365,7 @@ ul {
   pointer-events: none;
   transform: translate(calc(-100% - 22px), -50%);
   animation: tip-in 0.22s var(--ease-out) both;
+  transition: top 0.26s var(--ease-out);
 }
 .floor-tip::after {
   content: '';
@@ -207,32 +400,50 @@ ul {
   width: 100%;
   height: 100%;
 }
-.plan--enter-up {
-  animation: plan-from-top 0.65s var(--ease-out) both;
+/* Cambio de piso como una pila, la misma
+   metáfora que la entrada 3D: al bajar, el piso actual se despega hacia la
+   cámara y deja ver el de abajo; al subir, el de arriba se apoya encima. Son
+   transiciones (no keyframes) para poder interrumpirlas, y solo transform +
+   opacity: no repinta nada. */
+.plan {
+  transform-origin: 50% 50%;
+  transition:
+    transform var(--t-floor) var(--ease-out),
+    opacity calc(var(--t-floor) * 0.68) ease;
 }
-.plan--enter-down {
-  animation: plan-from-bottom 0.65s var(--ease-out) both;
-}
-.plan--exit-up {
-  animation: plan-from-bottom 0.5s var(--ease) both reverse;
+.plan[data-pos='up'] {
+  opacity: 0;
+  transform: scale(1.09);
   pointer-events: none;
 }
-.plan--exit-down {
-  animation: plan-from-top 0.5s var(--ease) both reverse;
+.plan[data-pos='down'] {
+  opacity: 0;
+  transform: scale(0.96);
   pointer-events: none;
+  /* El que queda abajo se apaga más lento: así no se ve el fondo vacío
+     mientras el nuevo llega desde arriba. */
+  transition-duration: var(--t-floor), calc(var(--t-floor) * 0.95);
 }
 
-@keyframes plan-from-top {
-  from {
-    opacity: 0;
-    transform: translateY(-55%) scale(0.94);
-  }
+/* Manzana fija debajo de las plantas. Durante la entrada aparece mientras la
+   cámara gira (detrás de la maqueta); su sombra de losa se apaga cuando entra
+   la planta 2D, que trae la suya. */
+.plan-base {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity calc(0.2s * var(--k)) ease;
 }
-@keyframes plan-from-bottom {
-  from {
-    opacity: 0;
-    transform: translateY(55%) scale(0.94);
-  }
+.stage[data-view='floor'] .plan-base {
+  opacity: 1;
+  transition: opacity calc(0.5s * var(--k)) ease calc(0.7s * var(--k));
+}
+.stage[data-view='floor'] .plan-base__shadow {
+  opacity: 0;
+  transition: opacity 0s linear var(--swap);
 }
 
 .plan-camera {
@@ -326,7 +537,12 @@ ul {
   transform-box: fill-box;
   transform-origin: 50% 30%;
   animation: pin-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  animation-delay: calc(var(--i) * 70ms + 380ms);
+  animation-delay: calc(var(--i) * var(--pin-step) + var(--d-pins));
+}
+/* Al cambiar de piso los pines ya vienen puestos: solo se animan al entrar
+   desde la fachada. */
+.plan[data-from] .plan-pin__pop {
+  animation: none;
 }
 .plan-pin__dot {
   fill: var(--status);
@@ -472,7 +688,7 @@ ul {
   transform: translate(-50%, -16px);
 }
 .floor-title.is-visible {
-  transition-delay: 0.45s;
+  transition-delay: var(--d-ui);
 }
 .floor-title strong {
   font: 600 18px/1.3 var(--font-title);
@@ -508,7 +724,7 @@ ul {
   transform: translate(-50%, 16px);
 }
 .legend.is-visible {
-  transition-delay: 0.5s;
+  transition-delay: var(--d-ui);
 }
 .legend li {
   display: flex;
@@ -533,6 +749,26 @@ ul {
   gap: 2px;
   width: 104px;
   padding: 8px;
+  --rail-item-h: 34px;
+}
+.rail__list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+/* Fondo del piso activo: uno solo, que se desliza entre ítems. */
+.rail__indicator {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: var(--rail-item-h);
+  border-radius: var(--btn-radius);
+  background: var(--accent);
+  transform: translateY(calc(var(--i) * (var(--rail-item-h) + 2px)));
+  transition: transform 0.32s var(--ease-out);
+  animation: tip-fade 0.3s ease both;
 }
 .rail__title {
   padding: 4px 0 8px;
@@ -547,7 +783,7 @@ ul {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 34px;
+  height: var(--rail-item-h);
   padding: 0;
   border: 0;
   border-radius: var(--btn-radius);
@@ -562,8 +798,9 @@ ul {
 .rail__item.is-hover {
   background: rgba(255, 255, 255, 0.7);
 }
-.rail__item.is-active {
-  background: var(--accent);
+.rail__item.is-active,
+.rail__item.is-active:hover {
+  background: transparent;
   color: #ffffff;
 }
 .rail__dot {
@@ -737,9 +974,9 @@ ul {
     right: 8px;
     width: 76px;
     padding: 6px;
+    --rail-item-h: 30px;
   }
   .rail__item {
-    height: 30px;
     font-size: 13px;
   }
   .rail__dot {
