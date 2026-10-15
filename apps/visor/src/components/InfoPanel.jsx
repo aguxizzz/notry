@@ -2,6 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react
 import DOMPurify from 'dompurify';
 import { POI_ICON_MARKERS } from '../icons/poiIcons';
 import { trackEvent } from '../analytics.js';
+import { API_BASE } from '../api/config.js';
 
 const IconLink = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -45,7 +46,7 @@ const IconDollar = () => (
   </svg>
 );
 
-const IconWhatsApp = () => (
+export const IconWhatsApp = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413"/>
   </svg>
@@ -87,7 +88,7 @@ const IconWaste = () => (
   </svg>
 );
 
-const SERVICE_DEFS = {
+export const SERVICE_DEFS = {
   water: { label: 'Agua potable', Icon: IconWater },
   electricity: { label: 'Luz eléctrica', Icon: IconElectricity },
   gas: { label: 'Gas', Icon: IconGas },
@@ -96,7 +97,7 @@ const SERVICE_DEFS = {
   waste: { label: 'Recolección de residuos', Icon: IconWaste },
 };
 
-const PRE_CALIFICACION_URL = 'https://notry-back.vercel.app/api/v1/public/pre-qualification';
+const PRE_CALIFICACION_URL = `${API_BASE}/public/pre-qualification`;
 
 const ESTADO_CONFIG = {
   available: { accent: 'var(--estado-available-accent)', accentHover: 'var(--estado-available-accent-h)', label: 'Disponible' },
@@ -106,7 +107,7 @@ const ESTADO_CONFIG = {
 };
 
 // Set to true to re-enable price display
-const SHOW_PRICE = false;
+export const SHOW_PRICE = false;
 const PHONE_ALLOWED = /^\+?[0-9][0-9\s().-]*$/;
 const PERSON_NAME_ALLOWED = /^[\p{L}][\p{L}\p{M}\s.'-]*$/u;
 
@@ -123,7 +124,7 @@ const isValidPersonName = (value) => {
 
 const SUBMITTED_LOTS_KEY = 'notry_precal_submitted';
 
-const getSubmittedLotsSet = () => {
+export const getSubmittedLotsSet = () => {
   try {
     const raw = JSON.parse(localStorage.getItem(SUBMITTED_LOTS_KEY));
     return new Set(Array.isArray(raw) ? raw : []);
@@ -132,7 +133,7 @@ const getSubmittedLotsSet = () => {
   }
 };
 
-const markLotAsSubmitted = (key) => {
+export const markLotAsSubmitted = (key) => {
   try {
     const set = getSubmittedLotsSet();
     set.add(key);
@@ -142,7 +143,7 @@ const markLotAsSubmitted = (key) => {
   }
 };
 
-const formatPrice = (price) => {
+export const formatPrice = (price) => {
   if (!price) return '';
   const num = parseFloat(price);
   if (isNaN(num)) return price;
@@ -167,7 +168,7 @@ const formatDistance = (value, unit) => {
 const SHOWCASE_NOMBRE = 'Juan Pérez';
 const SHOWCASE_NUMERO = '+54 9 11 5555-0123';
 
-function PrecalificacionForm({ lotDetail, onClose, origin, loteoId, submitStatus, setSubmitStatus, onSubmitted, showcase = false }) {
+export function PrecalificacionForm({ lotDetail, onClose, origin, loteoId, submitStatus, setSubmitStatus, onSubmitted, showcase = false }) {
   const [nombre, setNombre] = useState(showcase ? SHOWCASE_NOMBRE : '');
   const [numero, setNumero] = useState(showcase ? SHOWCASE_NUMERO : '');
   const [formError, setFormError] = useState('');
@@ -278,7 +279,7 @@ function PrecalificacionForm({ lotDetail, onClose, origin, loteoId, submitStatus
 
 // Feedback de envío (loading/success/error) — se renderiza cubriendo todo
 // el panel, no solo la sección del form.
-function PrecalificacionOverlay({ submitStatus, setSubmitStatus, onClose }) {
+export function PrecalificacionOverlay({ submitStatus, setSubmitStatus, onClose }) {
   if (submitStatus === 'idle') return null;
   return (
     <div className="precal-overlay">
@@ -327,7 +328,7 @@ function PrecalificacionOverlay({ submitStatus, setSubmitStatus, onClose }) {
 // Duration must match --t in index.css (0.28s)
 const CLOSE_DURATION_MS = 280;
 
-export function InfoPanel({ isOpen, title, content, markerId, detail = {}, services = null, origin, whatsappPhone, hideContactForm = false, loteoId, onClose, onGoToStage, showcase = false }) {
+export function InfoPanel({ isOpen, title, content, markerId, detail = {}, docked = false, services = null, origin, whatsappPhone, hideContactForm = false, loteoId, onClose, onGoToStage, showcase = false }) {
   const [isClosing, setIsClosing] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [submitStatus, setSubmitStatus] = useState('idle'); // 'idle' | 'loading' | 'success' | 'error'
@@ -336,18 +337,18 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, servi
 
   // Holds the frozen content shown during the close animation.
   // Update synchronously when opening to ensure content shows on first render.
-  const displayRef = useRef({ title, content, markerId, detail, services });
+  const displayRef = useRef({ title, content, markerId, detail, services, docked });
   if (isOpen) {
-    displayRef.current = { title, content, markerId, detail, services };
+    displayRef.current = { title, content, markerId, detail, services, docked };
   }
 
   useLayoutEffect(() => {
     // This effect ensures displayRef is updated even if the panel doesn't fully open
     // (though it should already be updated synchronously above for the first render)
     if (isOpen) {
-      displayRef.current = { title, content, markerId, detail, services };
+      displayRef.current = { title, content, markerId, detail, services, docked };
     }
-  }, [isOpen, title, content, markerId, detail, services]);
+  }, [isOpen, title, content, markerId, detail, services, docked]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -449,7 +450,7 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, servi
   return (
     <div
       id="info-backdrop"
-      className={isOpen ? 'visible' : ''}
+      className={`${isOpen ? 'visible' : ''}${display.docked ? ' docked' : ''}`}
       onClick={(e) => { if (e.target === e.currentTarget) { closingRef.current = true; onClose(); } }}
     >
       <div id="info-panel-wrap" className={hasGallery ? 'has-gallery' : undefined}>
@@ -477,7 +478,7 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, servi
           </div>
         )}
 
-        <div id="info-panel" className={isPhotoPoi ? 'info-panel-photo' : undefined} role="dialog" aria-modal="true" aria-live="polite" style={panelAccentStyle}>
+        <div id="info-panel" className={isPhotoPoi ? 'info-panel-photo' : undefined} role="dialog" aria-modal={display.docked ? undefined : 'true'} aria-live="polite" style={panelAccentStyle}>
 
         <header id="info-panel-header">
           <div id="info-panel-header-left" />
