@@ -52,6 +52,48 @@ function generateThumbnail(file) {
   });
 }
 
+// Reescala a `maxSize` px en el lado más largo y recomprime en webp. Para fotos
+// que se muestran a pantalla completa pero no necesitan el original (galería de
+// carga del visor): una foto de cámara de 8 MB queda en ~200-400 KB.
+function compressImage(file, maxSize, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      const ratio = Math.min(1, maxSize / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.round(img.naturalWidth * ratio);
+      const h = Math.round(img.naturalHeight * ratio);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(objectUrl);
+
+      canvas.toBlob(
+        (blob) => {
+          canvas.width = 0;
+          canvas.height = 0;
+          img.src = '';
+          if (!blob) { reject(new Error('No se pudo comprimir la imagen')); return; }
+          const newName = file.name.replace(/\.[^.]+$/, '') + '.webp';
+          resolve({ file: new File([blob], newName, { type: 'image/webp' }), width: w, height: h });
+        },
+        'image/webp',
+        quality
+      );
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Error al leer la imagen'));
+    };
+
+    img.src = objectUrl;
+  });
+}
+
 function xhrRequest(method, url, { headers = {}, body, onProgress, logout, requiresAuth = true } = {}) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -116,7 +158,16 @@ function uploadOriginalToR2(uploadUrl, file, onProgress) {
 }
 
 export function createUploadFn(token, logout) {
-  return async function uploadImage(file, { onConvertProgress, onUploadProgress, kind } = {}) {
+  return async function uploadImage(file, { onConvertProgress, onUploadProgress, kind, maxSize } = {}) {
+    // Con maxSize se sube solo la versión comprimida (sin thumbnail ni original).
+    if (maxSize) {
+      const { file: compressed, width, height } = await compressImage(file, maxSize);
+      onConvertProgress?.(100);
+      const presign = await getPresignedUrl(token, logout, compressed, kind);
+      await uploadOriginalToR2(presign.upload_url, compressed, onUploadProgress);
+      return { url: presign.public_url, thumbnailUrl: null, width, height };
+    }
+
     const { file: thumbFile, width, height } = await generateThumbnail(file);
     onConvertProgress?.(40);
     const thumbResult = await uploadThumbnail(

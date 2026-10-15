@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Wallet } from 'lucide-react';
 import ImageUploadField from './ImageUploadField';
+import LoadingGalleryField from './LoadingGalleryField';
 import { Select, Panel, FeedbackState } from '../ui/components';
 import { createProject, updateProject, assignLoteos, unassignLoteo } from '../api/projects';
 import { updateOrg } from '../api/organizations';
@@ -94,6 +95,9 @@ export default function ProjectSettingsPanel({
     ...(project?.branding ?? {}),
   });
 
+  // Respaldo de la pantalla de carga del visor para loteos sin galería propia.
+  const [loadingGallery, setLoadingGallery] = useState(project?.loading_gallery ?? []);
+
   const initialFinance = project?.finance_config ?? null;
   const [viewerLoteoId, setViewerLoteoId] = useState(initialFinance?.viewer_loteo_id ?? '');
   const [plazos, setPlazos] = useState(
@@ -106,7 +110,7 @@ export default function ProjectSettingsPanel({
 
   // Sin botón de guardar: el modal de Configuración consulta `dirty` al cerrarse.
   // El snapshot cubre todo lo que persiste el proyecto; `baseline` se actualiza tras guardar.
-  const draftSnapshot = JSON.stringify({ name, slug, branding, viewerLoteoId, plazos, writingThresholdPercent });
+  const draftSnapshot = JSON.stringify({ name, slug, branding, loadingGallery, viewerLoteoId, plazos, writingThresholdPercent });
   const [baseline, setBaseline] = useState(draftSnapshot);
   const projectDirty = draftSnapshot !== baseline;
   const ratesDirty = section === 'finanzas' && (
@@ -215,6 +219,7 @@ export default function ProjectSettingsPanel({
       slug: slug.trim() || null,
       branding: Object.keys(brandingPayload).length ? brandingPayload : null,
       finance_config: financeConfig,
+      loading_gallery: loadingGallery,
     };
     try {
       if (project) {
@@ -467,6 +472,16 @@ export default function ProjectSettingsPanel({
                   onUploadEvent={onUploadEvent}
                 />
               </div>
+            </div>
+
+            <div className="form-group">
+              <LoadingGalleryField
+                value={loadingGallery}
+                onChange={setLoadingGallery}
+                hint="Se muestran mientras carga el recorrido 360° en los loteos que no tengan fotos propias."
+                uploadFn={uploadFn}
+                onUploadEvent={onUploadEvent}
+              />
             </div>
 
             {project && (

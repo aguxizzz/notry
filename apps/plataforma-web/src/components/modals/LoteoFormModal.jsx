@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Button, Loader } from '../../ui/components';
 import '../../ui/components/Modal.css';
 import ImageUploadField from '../ImageUploadField';
+import LoadingGalleryField from '../LoadingGalleryField';
 import LocationPickerMap from '../LocationPickerMap';
 
 /**
@@ -12,7 +13,7 @@ import LocationPickerMap from '../LocationPickerMap';
  * @param {boolean} props.isOpen
  * @param {boolean} [props.isClosing] - true during the 200ms closing animation (edit mode only)
  * @param {Function} props.onClose
- * @param {Object} props.formData - { name, slug, image_url, blueprint_url }
+ * @param {Object} props.formData - { name, slug, image_url, blueprint_url, loading_gallery }
  * @param {Function} props.onFieldChange - (field, value) => void
  * @param {Function} props.onSubmit
  * @param {boolean} props.loading
@@ -110,6 +111,15 @@ export default function LoteoFormModal({
               uploadFn={uploadFn}
               onUploadEvent={onUploadEvent}
               kind="plano"
+            />
+          </div>
+          <div className="form-group">
+            <LoadingGalleryField
+              value={formData.loading_gallery}
+              onChange={gallery => onFieldChange('loading_gallery', gallery)}
+              hint="Se muestran mientras carga el recorrido 360°. Si el loteo no tiene, se usan las del proyecto."
+              uploadFn={uploadFn}
+              onUploadEvent={onUploadEvent}
             />
           </div>
           <div className="form-group">
