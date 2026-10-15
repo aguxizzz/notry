@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prototipo — órbita alrededor del lote</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root { --accent: #c8a04f; --ink: #1a1a1a; --paper: #fbfaf7; --muted: #6b6b66; --line: #e6e2d8; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1418; font-family: 'Space Grotesk', system-ui, sans-serif; color: var(--ink); }
+    canvas#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+    canvas#scene.dragging { cursor: grabbing; }
+    canvas#scene.over-lot { cursor: pointer; }
+
+    #loading { position: fixed; inset: 0; display: grid; place-items: center; background: #0d1418; color: #e9e4d6; font-size: 15px; letter-spacing: .02em; transition: opacity .5s; z-index: 10; }
+    #loading.done { opacity: 0; pointer-events: none; }
+
+    #hover-label { position: fixed; pointer-events: none; padding: 5px 10px; border-radius: 999px; background: rgba(20, 20, 20, .82); color: #fff; font-size: 12.5px; font-weight: 500; transform: translate(-50%, -160%); white-space: nowrap; opacity: 0; transition: opacity .12s; z-index: 4; }
+    #hover-label.on { opacity: 1; }
+
+    #lab { position: fixed; left: 16px; bottom: 16px; width: 290px; padding: 14px 16px 12px; border-radius: 12px; background: rgba(251, 250, 247, .94); backdrop-filter: blur(8px); box-shadow: 0 8px 30px rgba(0, 0, 0, .28); font-size: 12.5px; z-index: 5; }
+    #lab h2 { margin: 0 0 10px; font-size: 12px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+    #lab label { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; margin-bottom: 9px; }
+    #lab label span.v { font-variant-numeric: tabular-nums; color: var(--muted); }
+    #lab input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); margin: 0; }
+    #lab .row { display: flex; gap: 8px; margin-top: 4px; }
+    #lab button { flex: 1; padding: 8px 6px; border: 1px solid var(--line); border-radius: 8px; background: #fff; font: inherit; font-weight: 500; cursor: pointer; }
+    #lab button:hover { border-color: var(--accent); }
+    #lab hr { border: 0; border-top: 1px solid var(--line); margin: 10px 0; }
+    #lab p.hint { margin: 8px 0 0; color: var(--muted); line-height: 1.4; }
+
+    #ficha { position: fixed; top: 16px; right: 16px; bottom: 16px; width: 360px; max-width: calc(100vw - 32px); padding: 22px 22px 20px; border-radius: 14px; background: var(--paper); box-shadow: 0 12px 40px rgba(0, 0, 0, .32); display: flex; flex-direction: column; gap: 16px; transform: translateX(calc(100% + 32px)); transition: transform .55s cubic-bezier(.2, .8, .2, 1); z-index: 6; }
+    #ficha.open { transform: none; }
+    #ficha header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+    #ficha h1 { margin: 0 0 6px; font-size: 22px; font-weight: 600; overflow-wrap: anywhere; }
+    #ficha .estado { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+    #ficha .estado i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    #ficha .close { border: 0; background: none; font-size: 22px; line-height: 1; cursor: pointer; color: var(--muted); padding: 2px 6px; }
+    #ficha .dato { padding: 12px 14px; border-radius: 10px; background: #f3f1ea; }
+    #ficha .dato small { display: block; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+    #ficha .dato b { font-size: 17px; font-weight: 600; }
+    #ficha .spacer { flex: 1; }
+    #ficha .cta { padding: 13px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; font: inherit; font-weight: 600; font-size: 14.5px; }
+    #ficha .nota { margin: 0; font-size: 12px; color: var(--muted); text-align: center; }
+  </style>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+  <div id="loading">Cargando panorama…</div>
+  <div id="hover-label"></div>
+
+  <aside id="ficha" aria-hidden="true">
+    <header>
+      <div>
+        <h1 id="ficha-nombre">Lote</h1>
+        <span class="estado" id="ficha-estado"><i></i><span>Disponible</span></span>
+      </div>
+      <button class="close" id="ficha-cerrar" aria-label="Cerrar">×</button>
+    </header>
+    <div class="dato"><small>Superficie</small><b id="ficha-sup">—</b></div>
+    <div class="spacer"></div>
+    <button class="cta" type="button">Solicitar información</button>
+    <p class="nota">Ficha de mentira: solo para ver el encuadre.</p>
+  </aside>
+
+  <section id="lab">
+    <h2>Prototipo órbita</h2>
+    <label>Nivelación adelante/atrás <span class="v" id="v-tiltx"></span><input id="tiltx" type="range" min="-15" max="15" step="0.05" /></label>
+    <label>Nivelación izquierda/derecha <span class="v" id="v-tiltz"></span><input id="tiltz" type="range" min="-15" max="15" step="0.05" /></label>
+    <hr />
+    <label>Velocidad de órbita <span class="v" id="v-speed"></span><input id="speed" type="range" min="0" max="20" step="0.5" value="5.5" /></label>
+    <label>Altura de la cámara <span class="v" id="v-elev"></span><input id="elev" type="range" min="10" max="80" step="1" value="40" /></label>
+    <label>Tamaño del lote en pantalla <span class="v" id="v-fill"></span><input id="fill" type="range" min="10" max="60" step="1" value="35" /></label>
+    <div class="row">
+      <button id="btn-top" type="button">Vista cenital</button>
+      <button id="btn-dron" type="button">Volver al dron</button>
+    </div>
+    <p class="hint">La nivelación se aplica solo al despegar del dron; desde el dron vale 0.</p>
+    <p class="hint">Click en un lote: gira, hace zoom y orbita. Arrastrar mueve la cámara, la rueda acerca. Esc vuelve.</p>
+  </section>
+
+  <script type="module" src="./orbita-lote.js"></script>
+</body>
+</html>

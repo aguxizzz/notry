@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Prototipo — panel y leyenda del visor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&family=Oswald:wght@700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <!-- Barra del prototipo: no es parte del diseño -->
+  <div id="proto-bar" role="toolbar" aria-label="Controles del prototipo">
+    <span class="pb-title">Prototipo</span>
+    <div class="pb-seg">
+      <button data-proto="v" data-value="1">1 · Panel</button>
+      <button data-proto="v" data-value="2">2 · Flotante</button>
+      <button data-proto="v" data-value="3">3 · Carrusel</button>
+    </div>
+    <button data-proto="mobile" title="Ver en marco de celular (390×844)">Celular</button>
+    <button data-proto="onb" title="Volver a mostrar la bienvenida de esta versión">Repetir bienvenida</button>
+    <button data-proto="hide" class="pb-hide" title="Ocultar esta barra (tecla H)" aria-label="Ocultar barra">×</button>
+  </div>
+  <button id="proto-show" data-proto="hide" aria-label="Mostrar barra del prototipo">Prototipo</button>
+
+  <div id="app">
+    <div id="viewer"></div>
+    <div id="plano" hidden><img alt="Plano del loteo" /></div>
+    <div id="ui"></div>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <div id="loading"><div class="ld-box"><span class="ld-spin"></span><span class="ld-txt">Cargando panorama…</span></div></div>
+  </div>
+
+  <script type="module" src="/design-lab/leyenda.js"></script>
+</body>
+</html>
