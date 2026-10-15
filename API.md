@@ -592,29 +592,6 @@ Requires `lote_owner` or `super_admin` role.
 
 No authentication required.
 
-### Get Lot (Public)
-**GET** `/api/v1/public/lots/{lote_id}`
-
-Public lot detail for 360° viewer.
-
-**Response `200`:**
-```json
-{
-  "id": "uuid",
-  "name": "Lote 1",
-  "status": "available",
-  "price": 100000.00,
-  "area_m2": 500.00,
-  "loteo_id": "uuid",
-  "coordinates_360": [[x1, y1], ...]
-}
-```
-
-**Errors:**
-- `404` - Lot not found or sold
-
----
-
 ### Register Lot Click
 **POST** `/api/v1/public/lots/{lote_id}/click`
 
@@ -660,75 +637,6 @@ Public form submission. Creates a prospect in `primer_contacto` category.
 
 **Errors:**
 - `404` - Lot not found
-
----
-
-## Dashboard
-
-### Get Summary
-**GET** `/api/v1/dashboard/summary`
-
-Returns KPIs and inventory summary.
-
-**Query Parameters:**
-| Param | Type | Description |
-|-------|------|-------------|
-| `only` | string | If `lote_counts`, returns only lot counts by status |
-
-**Response `200` (full):**
-```json
-{
-  "total_lotes": 100,
-  "lotes_disponibles": 60,
-  "lotes_vendidos": 30,
-  "lotes_reservados": 10,
-  "total_prospectos": 50,
-  "valor_inventario": 6000000.00,
-  "valor_vendido": 3000000.00
-}
-```
-
-**Response `200` (lote_counts only):**
-```json
-{
-  "lotes_disponibles": 60,
-  "lotes_vendidos": 30,
-  "lotes_reservados": 10
-}
-```
-
----
-
-### Get Inventory
-**GET** `/api/v1/dashboard/inventory`
-
-Returns paginated list of lots with prospect names.
-
-**Query Parameters:**
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `limit` | integer | 50 | Items per page (max 100) |
-| `offset` | integer | 0 | Pagination offset |
-
-**Response `200`:**
-```json
-{
-  "items": [
-    {
-      "id": "uuid",
-      "name": "Lote 1",
-      "price": 100000.00,
-      "area_m2": 500.00,
-      "status": "available",
-      "loteo_id": "uuid",
-      "prospect_names": ["Juan Perez", "Maria Lopez"]
-    }
-  ],
-  "total": 100,
-  "limit": 50,
-  "offset": 0
-}
-```
 
 ---
 
@@ -1032,50 +940,6 @@ Marks an installment as paid. Requires `advisor` or `super_admin` role.
 ## Activity Logs
 
 Tracks CRM activity (calls, meetings, notes, etc.) per entity.
-
-### List Activity Logs
-**GET** `/api/v1/activity-logs`
-
-Lists activity logs with pagination and filters.
-
-**Query Parameters:**
-| Param | Type | Description |
-|-------|------|-------------|
-| `entity_type` | string | Filter by entity type: `prospect`, `lote`, `contract` |
-| `entity_id` | UUID | Filter by entity (requires `entity_type`) |
-| `activity_type` | string | Filter by activity type |
-| `lote_owner_id` | UUID | Filter by lot owner (must have access) |
-| `limit` | integer | Items per page (max 100, default 50) |
-| `offset` | integer | Pagination offset |
-
-**Response `200`:**
-```json
-{
-  "items": [
-    {
-      "id": "uuid",
-      "activity_type": "call_made",
-      "entity_type": "prospect",
-      "entity_id": "uuid",
-      "lote_owner_id": "uuid",
-      "user_id": "uuid",
-      "description": "Llamada de seguimiento",
-      "extra_data": null,
-      "created_at": "2024-01-15T10:30:00Z",
-      "user_full_name": "Juan Perez"
-    }
-  ],
-  "total": 25,
-  "limit": 50,
-  "offset": 0
-}
-```
-
-**Errors:**
-- `400` - `entity_id` requires `entity_type`
-- `403` - No access to the specified `lote_owner_id`
-
----
 
 ### Create Activity Log
 **POST** `/api/v1/activity-logs`

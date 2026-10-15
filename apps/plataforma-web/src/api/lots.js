@@ -1,22 +1,6 @@
 import { API_BASE } from '../config';
 import { logActivity } from './activityLogs';
 
-export async function fetchInventory({ apiFetch, setInventoryLoading, setInventoryLots, setInventoryLotsHasMore, PAGE_SIZE, name, status, signal }) {
-  setInventoryLoading(true);
-  try {
-    const params = new URLSearchParams({ limit: PAGE_SIZE, offset: 0 });
-    if (name) params.set('name', name);
-    if (status) params.set('status', status);
-    const data = await apiFetch(`${API_BASE}/lots?${params}`, { signal });
-    setInventoryLots(data.items);
-    setInventoryLotsHasMore(data.items.length === PAGE_SIZE);
-  } catch (error) {
-    if (error.name !== 'AbortError') console.error(error);
-  } finally {
-    setInventoryLoading(false);
-  }
-}
-
 // fetchInventoryBg — fire-and-forget refresh, no loading state
 export async function fetchInventoryBg({ apiFetch, setInventoryLots, setInventoryLotsHasMore, PAGE_SIZE, name, status, addToast }) {
   try {

@@ -50,33 +50,3 @@ export async function changePassword({ apiFetch, current_password, new_password 
   });
 }
 
-export function buildLogoutHandler({
-  setView, setToken, setUser, setLots, setLoteos, setSelectedLot,
-  setAdminSubView, setInventoryLots, setInventoryLoteos,
-  setInventoryLotsHasMore, setInventorySearch, setInventoryStatusFilter,
-  setInventoryTab, setAllProspectosList,
-  setProspectosCategoryFilter,
-  setClicksCache, setVisorDataCache, setReportsCache, setDashboardSummary,
-}) {
-  return function logout() {
-    setView('login');
-    setToken(null);
-    setUser(null);
-    setLots(null);
-    setLoteos(null);
-    setSelectedLot(null);
-    setAdminSubView('lotes');
-    setInventoryLots([]);
-    setInventoryLotsHasMore(false);
-    setInventorySearch('');
-    setInventoryStatusFilter('');
-    setInventoryTab('lotes');
-    setInventoryLoteos([]);
-    setAllProspectosList([]);
-    setProspectosCategoryFilter('');
-    setClicksCache({});
-    setVisorDataCache({});
-    setReportsCache({});
-    setDashboardSummary(null);
-  };
-}

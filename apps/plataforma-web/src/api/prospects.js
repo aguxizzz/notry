@@ -31,18 +31,6 @@ export async function createProspect({ apiFetch, addProspectForm, setAddProspect
   }
 }
 
-export async function fetchAdvisors({ apiFetch, setAdvisorsLoading, setAdvisorsList }) {
-  setAdvisorsLoading(true);
-  try {
-    const data = await apiFetch(`${API_BASE}/advisors`);
-    setAdvisorsList(Array.isArray(data) ? data : []);
-  } catch (error) {
-    console.error(error);
-  } finally {
-    setAdvisorsLoading(false);
-  }
-}
-
 export async function saveEditProspect({ apiFetch, editingProspectId, editProspectForm, addToast, setEditProspectLoading, setEditProspectError, setEditProspectClosing, setEditProspectModalOpen, setEditingProspectId, onUpdateProspect, loteOwnerId, addActivity }) {
   setEditProspectLoading(true);
   setEditProspectError(null);

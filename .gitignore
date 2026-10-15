@@ -1,7 +1,8 @@
 # Dependencias
 node_modules/
 
-# Builds locales (cada app igual versiona su dist si hace falta)
+# Builds
+dist/
 .vite/
 
 # Logs
@@ -15,3 +16,6 @@ npm-debug.log*
 # Capturas de Playwright (el helper escribe en /tmp por defecto)
 /screenshots/
 *.shot.png
+
+# Archivos privados / entregables (no código): propuestas, PDFs, etc.
+/_privado/

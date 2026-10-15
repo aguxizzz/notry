@@ -4,12 +4,6 @@ const UNIT_LABELS = {
   cemento: 'Bolsas de cemento',
 };
 
-const UNIT_SHORT = {
-  pesos: 'ARS',
-  dolares: 'USD',
-  cemento: 'bolsas',
-};
-
 export function unitLabel(unitType) {
   return UNIT_LABELS[unitType] || unitType || 'Sin unidad';
 }
@@ -133,6 +127,3 @@ export function nextPendingInstallment(contract) {
     })[0] || null;
 }
 
-export function unitShort(unitType) {
-  return UNIT_SHORT[unitType] || unitType || '';
-}
