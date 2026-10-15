@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { InfoPanel } from './InfoPanel.jsx';
+import { LotPanel, LotFloat, MapControls, FLOAT_SHEET_RATIO } from './LotPanel.jsx';
+import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin';
 import { LoadingScreen } from './LoadingScreen.jsx';
 import { OnboardingOverlay } from './OnboardingOverlay.jsx';
-import { useViewer } from '../hooks/useViewer.js';
+import { useViewer, focusMarker, CENTERED_PANEL_QUERY } from '../hooks/useViewer.js';
+import { annotationsToOrbitLots, markersToOrbitSurfaces } from '../lotOrbit.js';
 import { annotationsToMarkers } from '../annotations.js';
 import { renderSurfacesToMarkers } from '../renderSurfaces.js';
 import { getLoteLabels } from '../loteLabels.js';
 import BlueprintViewer from './BlueprintViewer.jsx';
-import StageSwitcher from './StageSwitcher.jsx';
 import { Compass } from './Compass.jsx';
 import { useCompass } from '../hooks/useCompass.js';
 import { API_BASE } from '../api/config.js';
@@ -52,21 +54,52 @@ export function getViewerDataUrl() {
 // El slug de proyecto en el path (si lo hay), para pedir el branding aparte
 // del group_visor_data — el logo tiene que aparecer en pantalla de carga
 // aunque el fetch pesado (lotes, pois, etc.) todavía no haya respondido.
-function getProjectSlugFromPath() {
-  const [projectSlug] = getSlugPartsFromPath();
-  return projectSlug ?? null;
+// El loteo (si viene) es para que la galería de carga sea la misma etapa con la que abre.
+function getBrandingSlugsFromPath() {
+  const [projectSlug, loteoSlug] = getSlugPartsFromPath();
+  return { projectSlug: projectSlug ?? null, loteoSlug: loteoSlug ?? null };
 }
 
-export async function fetchProjectBranding(projectSlug) {
+export async function fetchProjectBranding(projectSlug, loteoSlug = null) {
   if (!projectSlug) return null;
+  const query = loteoSlug ? `?loteo=${encodeURIComponent(loteoSlug)}` : '';
   try {
-    const res = await fetch(`${API_BASE}/public/projects/by-slug/${projectSlug}/branding`);
+    const res = await fetch(`${API_BASE}/public/projects/by-slug/${projectSlug}/branding${query}`);
     if (!res.ok) return null;
     return await res.json();
   } catch (_) {
     return null;
   }
 }
+
+// Fotos del desarrollo para la pantalla de carga: [{ url, caption }]. El back
+// las entrega ya resueltas (las del loteo, o las del proyecto como respaldo).
+// Acepta también strings sueltos por si alguna vez llegan solo URLs.
+const MAX_LOADING_GALLERY = 6;
+function normalizeLoadingGallery(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => (typeof item === 'string' ? { url: item } : item))
+    .filter((item) => typeof item?.url === 'string' && item.url)
+    .map((item) => ({ url: item.url, caption: item.caption?.trim() || '' }))
+    .slice(0, MAX_LOADING_GALLERY);
+}
+
+// Solo dev: ?loadingGallery=demo usa los recortes del mockup (design-lab/)
+// para probar la galería sin datos cargados en el back.
+const DEV_LOADING_GALLERY = import.meta.env.DEV
+  && new URLSearchParams(window.location.search).get('loadingGallery') === 'demo'
+  ? [
+      { url: '/design-lab/carga-assets/render-2.jpg', caption: 'Acceso principal' },
+      { url: '/design-lab/carga-assets/render-3.jpg', caption: 'Club house y amenities' },
+      { url: '/design-lab/carga-assets/render-1.jpg', caption: 'Espacios verdes' },
+      { url: '/design-lab/carga-assets/render-4.jpg', caption: 'Vista aérea del loteo' },
+    ]
+  : null;
+
+// Cuánto queda montada la pantalla de carga después de terminar, para que
+// se disuelva sobre el visor (coincide con la transición de .is-done).
+const LOADING_FADE_MS = 1000;
 
 export async function fetchViewerData() {
   const queryDataUrl = getViewerDataUrl();
@@ -107,6 +140,7 @@ export function normalizeToGroup(data) {
       stages: data.stages,
       project: data.project ?? null,
       loteoLogoUrl: data.loteo_logo_url ?? null,
+      loadingGallery: normalizeLoadingGallery(data.loading_gallery),
       whatsappPhone: data.whatsapp_phone ?? null,
       hideContactForm: data.hide_contact_form ?? false,
       __usingFallback: data.__usingFallback,
@@ -118,6 +152,7 @@ export function normalizeToGroup(data) {
     stages: [{ id: 'single', name: '', orden: 0, visor: data }],
     project: null,
     loteoLogoUrl: null,
+    loadingGallery: normalizeLoadingGallery(data?.loading_gallery),
     whatsappPhone: data?.whatsapp_phone ?? null,
     hideContactForm: data?.hide_contact_form ?? false,
     __usingFallback: data?.__usingFallback,
@@ -125,6 +160,61 @@ export function normalizeToGroup(data) {
 }
 
 const PANEL_CLOSED = { isOpen: false, title: '', content: '', markerId: null, detail: {} };
+
+function lotPanelState(ann, id, docked = false) {
+  return {
+    isOpen: true,
+    title: ann?.tooltip ?? id,
+    content: ann?.content ?? '',
+    markerId: id,
+    detail: { price: ann?.price, area_m2: ann?.area_m2, estado: ann?.status ?? ann?.estado, comments: ann?.comments ?? null, image_urls: ann?.image_urls ?? [] },
+    docked,
+  };
+}
+
+// Escritorio con lugar para el panel lateral (lista de lotes + ficha). En
+// celular y apaisado chico va el flotante (LotFloat).
+const LOT_PANEL_QUERY = '(min-width: 768px) and (min-height: 520px)';
+
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mql = window.matchMedia(query);
+    const onChange = () => setMatches(mql.matches);
+    onChange();
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, [query]);
+  return matches;
+}
+
+// Cuánto tapa la ficha acoplada, para que la órbita encuadre el lote en lo
+// que queda libre: al costado en escritorio, abajo en celular.
+const ORBIT_PANEL_MARGIN = 16;
+
+// Con el panel lateral la ficha vive adentro: lo que tapa es el panel. En
+// celular tapan la barra de arriba y la ficha, que sube desde abajo.
+function getLotPanelInsets() {
+  const float = document.getElementById('lot-float');
+  if (float) {
+    const top = float.querySelector('.lf-top')?.getBoundingClientRect().bottom ?? 0;
+    return { top: top + ORBIT_PANEL_MARGIN / 2, bottom: Math.round(window.innerHeight * FLOAT_SHEET_RATIO) };
+  }
+  const lotPanel = document.getElementById('lot-panel');
+  if (!lotPanel) return null;
+  if (lotPanel.dataset.collapsed === '1') return {};
+  return { left: lotPanel.getBoundingClientRect().right + ORBIT_PANEL_MARGIN };
+}
+
+function getOrbitInsets() {
+  const panelInsets = getLotPanelInsets();
+  if (panelInsets) return panelInsets;
+  const wrap = document.getElementById('info-panel-wrap');
+  if (!wrap) return null;
+  return window.matchMedia(CENTERED_PANEL_QUERY).matches
+    ? { right: wrap.offsetWidth + ORBIT_PANEL_MARGIN, bottom: 0 }
+    : { right: 0, bottom: wrap.offsetHeight };
+}
 
 // Panorama es la vista por defecto salvo que la etapa no tenga panorama y sí
 // blueprint (etapa blueprint-only) — caso real: el editor permite guardar
@@ -141,50 +231,25 @@ function initialViewModeForGroup(group) {
   return defaultViewModeForVisor(entryStage?.visor);
 }
 
+// Lotes que no pasan los filtros del panel: se apagan en la foto (relleno
+// oscuro, borde tenue, badge translúcido) en vez de desaparecer.
+const DIM_FILL = 'rgba(10,10,10,0.42)';
+function dimFilteredMarkers(markers, visibleIds, lotIds) {
+  return markers.map((m) => {
+    const [id, kind] = String(m.id).split('__');
+    if (!lotIds.has(id) || visibleIds.has(id)) return m;
+    if (!kind) return { ...m, svgStyle: { ...m.svgStyle, fill: DIM_FILL } };
+    if (kind === 'border') return { ...m, svgStyle: { ...m.svgStyle, stroke: 'rgba(255,255,255,0.3)' } };
+    if (kind === 'badge') return { ...m, style: { ...m.style, opacity: 0.28 } };
+    return m;
+  });
+}
+
 const IconBackArrow = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="15 18 9 12 15 6" />
   </svg>
 );
-
-const VIEW_MODE_LABELS = {
-  panorama: 'Ver panorama',
-  blueprint: 'Ver plano',
-  satellite: 'Ver vista satelital',
-};
-
-const VIEW_MODE_SHORT_LABELS = {
-  panorama: 'Modo panorama',
-  blueprint: 'Modo plano',
-  satellite: 'Modo satélite',
-};
-
-const VIEW_MODE_ICONS = {
-  panorama: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="9" />
-      <ellipse cx="12" cy="12" rx="4" ry="9" />
-      <path d="M3 12h18" />
-    </svg>
-  ),
-  blueprint: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <rect x="3" y="3" width="7" height="7" />
-      <rect x="14" y="3" width="7" height="7" />
-      <rect x="14" y="14" width="7" height="7" />
-      <rect x="3" y="14" width="7" height="7" />
-    </svg>
-  ),
-  satellite: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M13 7 9 3 5 7l4 4" />
-      <path d="M17 11l4 4-4 4-4-4" />
-      <path d="m8 12 4 4" />
-      <path d="m10.5 9.5 4 4" />
-      <path d="M3 21c2-1 3-2 4-4" />
-    </svg>
-  ),
-};
 
 /**
  * Experiencia 360° del visor (panorama + blueprint + markers + panel de info).
@@ -200,6 +265,7 @@ const isShowcaseMode = new URLSearchParams(window.location.search).get('showcase
 export default function ViewerExperience({ preloadedGroup = null, onBackToPresentation = null }) {
   const [group, setGroup] = useState(preloadedGroup);
   const [earlyLogoUrl, setEarlyLogoUrl] = useState(null);
+  const [earlyGallery, setEarlyGallery] = useState([]);
   const [currentStageId, setCurrentStageId] = useState(preloadedGroup?.entryStageId ?? null);
   const [committedStageId, setCommittedStageId] = useState(null);
   const [loading, setLoading] = useState(!preloadedGroup);
@@ -219,6 +285,9 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
   const autoEnabledFocusRef = useRef(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const onboardingCheckedRef = useRef(false);
+  const usePanel = useMediaQuery(LOT_PANEL_QUERY);
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [lotFilter, setLotFilter] = useState(null);
 
   // Al llegar recomendados (por query param o por el simulador), el modo
   // foco arranca activado una sola vez. Si el usuario lo apaga a mano, no
@@ -250,9 +319,12 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
   useEffect(() => {
     if (preloadedGroup) return;
     let cancelled = false;
-    fetchProjectBranding(getProjectSlugFromPath())
+    const { projectSlug, loteoSlug } = getBrandingSlugsFromPath();
+    fetchProjectBranding(projectSlug, loteoSlug)
       .then((branding) => {
-        if (!cancelled && branding?.logo_primary) setEarlyLogoUrl(branding.logo_primary);
+        if (cancelled) return;
+        if (branding?.logo_primary) setEarlyLogoUrl(branding.logo_primary);
+        setEarlyGallery(normalizeLoadingGallery(branding?.loading_gallery));
       });
     return () => { cancelled = true; };
   }, [preloadedGroup, loadAttempt]);
@@ -433,13 +505,26 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
     () => renderSurfacesToMarkers(rawData?.renderSurfaces),
     [rawData?.renderSurfaces]
   );
-  const markers = useMemo(
+  const baseMarkers = useMemo(
     () => [
       ...surfaceMarkers,
       ...annotationsToMarkers(annotations, rawData?.snapThreshold, recommendedIds, focusMode, loteLabels, badgeStyle, badgeColors),
     ],
     [surfaceMarkers, annotations, rawData?.snapThreshold, recommendedIds, focusMode, loteLabels, badgeStyle, badgeColors]
   );
+  const lotIds = useMemo(
+    () => new Set(annotations.filter((a) => a.type === 'polygon').map((a) => a.uuid ?? a.id)),
+    [annotations]
+  );
+  const markers = useMemo(
+    () => (lotFilter ? dimFilteredMarkers(baseMarkers, lotFilter, lotIds) : baseMarkers),
+    [baseMarkers, lotFilter, lotIds]
+  );
+  const orbitLots = useMemo(
+    () => annotationsToOrbitLots(annotations, { recommendedIds, focusMode, badgeStyle }),
+    [annotations, recommendedIds, focusMode, badgeStyle]
+  );
+  const orbitSurfaces = useMemo(() => markersToOrbitSurfaces(surfaceMarkers), [surfaceMarkers]);
   const viewerData = useMemo(
     () => viewMode === 'blueprint' || viewMode === 'satellite' || !rawData
       ? null
@@ -450,13 +535,15 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
           stageId: currentStage?.id ?? null,
           panoramaUrl: rawData.panoramaUrl,
           markers,
+          orbitLots,
+          orbitSurfaces,
           annotations,
           requestNonce: retryNonce,
         },
-    [viewMode, currentStage?.id, rawData, markers, annotations, retryNonce]
+    [viewMode, currentStage?.id, rawData, markers, orbitLots, orbitSurfaces, annotations, retryNonce]
   );
 
-  const handleMarkerSelect = useCallback((marker, markersPlugin) => {
+  const handleMarkerSelect = useCallback((marker, markersPlugin, viewer, orbit) => {
     // Ignore synthetic markers (border polylines, icon overlays, lote badges,
     // manzana/calle de fondo)
     if (marker.id.includes('__border__') || marker.id.includes('__icon') || marker.id.includes('__badge') || marker.id.startsWith('render-')) return;
@@ -493,14 +580,12 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
 
     if (!isShowcaseMode) postLoteClick(marker.id);
     trackEvent(currentStage?.id, 'lote_click', { type: 'lote', id: marker.id });
+    // Órbita alrededor del lote con la ficha acoplada; si no se puede
+    // (panorama parcial, movimiento reducido), vuelo simple con la ficha modal.
+    const orbiting = Boolean(orbit?.select(marker.id));
+    if (!orbiting) focusMarker(viewer, marker, getLotPanelInsets());
 
-    setPanel({
-      isOpen: true,
-      title: ann?.tooltip ?? marker.id,
-      content: ann?.content ?? '',
-      markerId: marker.id,
-      detail: { price: ann?.price, area_m2: ann?.area_m2, estado: ann?.status ?? ann?.estado, comments: ann?.comments ?? null, image_urls: ann?.image_urls ?? [] },
-    });
+    setPanel(lotPanelState(ann, marker.id, orbiting));
   }, [annotationsById, stageNameById, currentStage?.id]);
 
   const handleBlueprintSelect = useCallback((ann) => {
@@ -545,8 +630,16 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
     setPanel(PANEL_CLOSED);
   }, []);
 
+  // Click en otro lote estando ya en órbita (los markers de PSV están ocultos).
+  const handleOrbitPick = useCallback((id, orbit) => {
+    if (!orbit.select(id)) return;
+    if (!isShowcaseMode) postLoteClick(id);
+    trackEvent(currentStage?.id, 'lote_click', { type: 'lote', id });
+    setPanel(lotPanelState(annotationsById[id], id, true));
+  }, [annotationsById, currentStage?.id]);
+
   const { yaw: compassYaw, onPositionChange } = useCompass();
-  const viewerRef = useViewer(
+  const { containerRef: viewerRef, orbitRef, viewerRef: psvRef } = useViewer(
     viewerData,
     handleMarkerSelect,
     handleMarkerUnselect,
@@ -556,7 +649,85 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
     handleStageReady,
     handleStageError,
     handleStageProgress,
+    handleOrbitPick,
+    getOrbitInsets,
   );
+
+  // Cerrar la ficha (X, Esc, envío del form, cambio de etapa) vuelve al dron.
+  useEffect(() => {
+    if (!panel.isOpen) orbitRef.current?.exit();
+  }, [panel.isOpen, orbitRef]);
+
+  // Elegir un lote desde el panel: mismo recorrido que tocarlo en la foto.
+  const selectLotById = useCallback((id) => {
+    const ann = annotationsById[id];
+    if (!ann || ann.type !== 'polygon') return;
+    if (!isShowcaseMode) postLoteClick(id);
+    trackEvent(currentStage?.id, 'lote_click', { type: 'lote', id });
+    let orbiting = false;
+    const viewer = psvRef.current;
+    if (viewMode === 'panorama' && viewer) {
+      orbiting = Boolean(orbitRef.current?.select(id));
+      if (!orbiting) {
+        try {
+          focusMarker(viewer, viewer.getPlugin(MarkersPlugin).getMarker(id), getLotPanelInsets());
+        } catch (_) { /* el lote no tiene polígono en el panorama */ }
+      }
+    }
+    setPanelCollapsed(false);
+    setPanel(lotPanelState(ann, id, orbiting));
+  }, [annotationsById, currentStage?.id, viewMode, orbitRef, psvRef]);
+
+  const closeLot = useCallback(() => setPanel(PANEL_CLOSED), []);
+
+  // "Cerca": lleva la cámara al lugar, sin abrir nada encima.
+  const flyToPoi = useCallback((id) => {
+    const viewer = psvRef.current;
+    if (viewMode !== 'panorama' || !viewer) return;
+    setPanel(PANEL_CLOSED);
+    try {
+      const marker = viewer.getPlugin(MarkersPlugin).getMarker(id);
+      const pos = marker?.state?.position;
+      if (!pos) return;
+      const insets = getLotPanelInsets() ?? {};
+      const zoom = 40;
+      const hFov = viewer.dataHelper.vFovToHFov(viewer.dataHelper.zoomLevelToFov(zoom));
+      const yaw = pos.yaw - ((insets.left ?? 0) / 2 / viewer.state.size.width) * hFov * (Math.PI / 180);
+      viewer.animate({ yaw, pitch: pos.pitch, zoom, speed: 1100 });
+    } catch (_) { /* el lugar no está en el panorama */ }
+  }, [viewMode, psvRef]);
+
+  const zoomBy = useCallback((delta) => {
+    const viewer = psvRef.current;
+    if (!viewer) return;
+    viewer.animate({ zoom: Math.max(0, Math.min(100, viewer.getZoomLevel() + delta)), speed: 400 });
+  }, [psvRef]);
+  const resetView = useCallback(() => {
+    const viewer = psvRef.current;
+    if (!viewer) return;
+    viewer.animate({ ...(homePosition ?? { yaw: 0, pitch: 0 }), zoom: 50, speed: 900 });
+  }, [psvRef, homePosition]);
+
+  // El resto del visor (brújula, avisos de etapa) se acomoda al panel.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('lp-on', usePanel);
+    root.classList.toggle('lp-collapsed', usePanel && panelCollapsed);
+    root.classList.toggle('lf-on', !usePanel);
+    return () => root.classList.remove('lp-on', 'lp-collapsed', 'lf-on');
+  }, [usePanel, panelCollapsed]);
+
+  // Link por lote (?lote=slug|id, lo genera "Copiar link" de la ficha): se
+  // abre una sola vez, apenas la etapa de entrada terminó de cargar.
+  const deepLinkDoneRef = useRef(false);
+  useEffect(() => {
+    if (deepLinkDoneRef.current || committedStageId === null || committedStageId !== currentStage?.id) return;
+    deepLinkDoneRef.current = true;
+    const wanted = new URLSearchParams(window.location.search).get('lote');
+    if (!wanted) return;
+    const ann = annotations.find((a) => a.type === 'polygon' && (a.slug === wanted || (a.uuid ?? a.id) === wanted));
+    if (ann) setTimeout(() => selectLotById(ann.uuid ?? ann.id), 400);
+  }, [committedStageId, currentStage?.id, annotations, selectLotById]);
 
   const selectViewMode = useCallback((mode) => {
     setViewMode((current) => {
@@ -574,6 +745,35 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
     });
   }, [currentStage?.id]);
 
+  const loadingActive = loading || !group || !rawData || (committedStageId === null && !stageError);
+  const [loadingFading, setLoadingFading] = useState(false);
+  const wasLoadingRef = useRef(loadingActive);
+  useEffect(() => {
+    const was = wasLoadingRef.current;
+    wasLoadingRef.current = loadingActive;
+    if (loadingActive || !was) { setLoadingFading(false); return undefined; }
+    setLoadingFading(true);
+    const t = setTimeout(() => setLoadingFading(false), LOADING_FADE_MS);
+    return () => clearTimeout(t);
+  }, [loadingActive]);
+
+  const loadingGallery = useMemo(() => {
+    if (DEV_LOADING_GALLERY) return DEV_LOADING_GALLERY;
+    return group?.loadingGallery?.length ? group.loadingGallery : earlyGallery;
+  }, [group?.loadingGallery, earlyGallery]);
+
+  // Misma key en las dos ramas de abajo: al pasar de "cargando datos" a
+  // "cargando panorama" la galería sigue donde estaba en vez de reiniciarse.
+  const loadingScreen = (loadingActive || loadingFading) && (
+    <LoadingScreen
+      key="loading-screen"
+      logoUrl={group?.project?.logo_primary ?? earlyLogoUrl}
+      progress={stageProgress}
+      gallery={loadingGallery}
+      done={!loadingActive}
+    />
+  );
+
   if (loadError) {
     return (
       <div className="viewer-load-error" role="alert">
@@ -586,14 +786,12 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
   }
 
   if (loading || !group || !rawData) {
-    return <LoadingScreen logoUrl={group?.project?.logo_primary ?? earlyLogoUrl} progress={stageProgress} />;
+    return <>{loadingScreen}</>;
   }
 
   return (
     <>
-      {committedStageId === null && !stageError && (
-        <LoadingScreen logoUrl={group?.project?.logo_primary ?? earlyLogoUrl} progress={stageProgress} />
-      )}
+      {loadingScreen}
 
       <OnboardingOverlay
         visible={showOnboarding}
@@ -635,26 +833,6 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
         </button>
       )}
 
-      {availableViewModes.length > 1 && (
-        <div className="view-toggle-group" role="group" aria-label="Modo de vista">
-          {availableViewModes.map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              className="view-toggle"
-              style={viewMode === mode ? { background: 'var(--accent)', color: '#1a1a1a', borderColor: 'transparent' } : {}}
-              onClick={() => selectViewMode(mode)}
-              aria-pressed={viewMode === mode}
-              aria-label={VIEW_MODE_LABELS[mode]}
-              title={VIEW_MODE_LABELS[mode]}
-            >
-              <span className="view-toggle__icon">{VIEW_MODE_ICONS[mode]}</span>
-              <span className="view-toggle__label">{VIEW_MODE_SHORT_LABELS[mode]}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
       {viewMode === 'blueprint' ? (
         <BlueprintViewer
           blueprintUrl={blueprintUrl}
@@ -662,7 +840,7 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
           selectedId={panel.markerId}
           onMarkerSelect={handleBlueprintSelect}
           onMarkerHover={() => {}}
-          hasStageSwitcher={stages.length > 1}
+          hasStageSwitcher={!usePanel}
           recommendedIds={recommendedIds}
           focusMode={focusMode}
           loteLabels={loteLabels}
@@ -680,16 +858,6 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
         </Suspense>
       ) : (
         <div id="viewer-container" ref={viewerRef} />
-      )}
-
-      {stages.length > 1 && (
-        <StageSwitcher
-          stages={stages}
-          currentStageId={committedStageId}
-          pendingStageId={stagePending ? currentStage?.id : null}
-          progress={stageProgress}
-          onSelect={goToStage}
-        />
       )}
 
       {(stagePending || currentStage?.id !== committedStageId) && !stageError && (
@@ -714,12 +882,79 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
         </div>
       )}
 
+      {usePanel && (
+        <>
+          <LotPanel
+            project={group?.project}
+            stageName={currentStage?.name || null}
+            stages={stages}
+            currentStageId={currentStage?.id}
+            stageBusy={stagePending}
+            onSelectStage={goToStage}
+            viewModes={availableViewModes}
+            viewMode={viewMode}
+            onSelectViewMode={selectViewMode}
+            annotations={annotations}
+            labels={loteLabels}
+            services={currentStage?.visor?.services ?? null}
+            selectedId={panel.isOpen && panel.detail?.type !== 'poi' ? panel.markerId : null}
+            onSelectLot={selectLotById}
+            onCloseLot={closeLot}
+            onPoiSelect={flyToPoi}
+            onFilterChange={setLotFilter}
+            collapsed={panelCollapsed}
+            onToggleCollapsed={() => setPanelCollapsed((v) => !v)}
+            whatsappPhone={group?.whatsappPhone}
+            hideContactForm={group?.hideContactForm}
+            origin={VISIT_ORIGIN}
+            loteoId={currentStage?.id}
+            showcase={isShowcaseMode}
+          />
+          {viewMode === 'panorama' && (
+            <MapControls
+              onZoomIn={() => zoomBy(12)}
+              onZoomOut={() => zoomBy(-12)}
+              onReset={resetView}
+              hidden={Boolean(panel.isOpen && panel.docked)}
+            />
+          )}
+        </>
+      )}
+
+      {!usePanel && (
+        <LotFloat
+          project={group?.project}
+          stageName={currentStage?.name || null}
+          stages={stages}
+          currentStageId={currentStage?.id}
+          stageBusy={stagePending}
+          onSelectStage={goToStage}
+          viewModes={availableViewModes}
+          viewMode={viewMode}
+          onSelectViewMode={selectViewMode}
+          annotations={annotations}
+          labels={loteLabels}
+          services={currentStage?.visor?.services ?? null}
+          selectedId={panel.isOpen && panel.detail?.type !== 'poi' ? panel.markerId : null}
+          onSelectLot={selectLotById}
+          onCloseLot={closeLot}
+          onPoiSelect={flyToPoi}
+          onFilterChange={setLotFilter}
+          whatsappPhone={group?.whatsappPhone}
+          hideContactForm={group?.hideContactForm}
+          origin={VISIT_ORIGIN}
+          loteoId={currentStage?.id}
+          showcase={isShowcaseMode}
+        />
+      )}
+
       <InfoPanel
-        isOpen={panel.isOpen}
+        isOpen={panel.isOpen && panel.detail?.type === 'poi'}
         title={panel.title}
         content={panel.content}
         markerId={panel.markerId}
         detail={panel.detail}
+        docked={Boolean(panel.docked)}
         services={currentStage?.visor?.services ?? null}
         origin={VISIT_ORIGIN}
         whatsappPhone={group?.whatsappPhone}

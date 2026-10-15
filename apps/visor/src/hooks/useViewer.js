@@ -3,6 +3,7 @@ import { Viewer, EquirectangularAdapter, Cache } from '@photo-sphere-viewer/core
 import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin';
 import '@photo-sphere-viewer/core/index.css';
 import '@photo-sphere-viewer/markers-plugin/index.css';
+import { createLotOrbit } from '../lotOrbit.js';
 
 const TRANSITION = { speed: 600, rotation: true, effect: 'black' };
 const STALL_TIMEOUT_MS = 45_000;
@@ -36,6 +37,91 @@ function safelySetMarkers(plugin, markers) {
   }
 }
 
+const FOCUS_DURATION_MS = 1100;
+// Cuanto del area libre (la que no tapa la ficha) ocupa el lote al terminar.
+const FOCUS_FILL = 0.55;
+// Mismo breakpoint que el layout de la ficha en index.css: modal centrado
+// (escritorio / celular apaisado) vs hoja inferior (celular).
+export const CENTERED_PANEL_QUERY = '(min-width: 641px), (min-width: 480px) and (max-height: 500px)';
+
+/**
+ * Vuela la camara hasta un marker poligonal (lote) y hace zoom para encuadrarlo.
+ * El destino queda descentrado hacia la zona que la ficha no tapa: a la
+ * izquierda del modal en escritorio, arriba de la hoja inferior en celular.
+ * `insets` ({ left, right, top, bottom } en px) reemplaza esa suposicion
+ * cuando la ficha vive en otro lado (el panel lateral).
+ * Nunca aleja el zoom: si el usuario ya estaba mas cerca, solo reencuadra.
+ */
+export function focusMarker(viewer, marker, insets = null) {
+  const ring = marker?.definition?.[0];
+  const center = marker?.state?.position;
+  if (!viewer || !center || !Array.isArray(ring) || ring.length < 3) return;
+
+  const { dataHelper } = viewer;
+  const toUnit = (yaw, pitch) => dataHelper.sphericalCoordsToVector3({ yaw, pitch }).normalize();
+  const centerDir = toUnit(center.yaw, center.pitch);
+
+  // Diametro angular del lote: sirve igual cerca del nadir, donde medir en
+  // yaw/pitch se deforma.
+  let radius = 0;
+  for (const [yaw, pitch] of ring) radius = Math.max(radius, centerDir.angleTo(toUnit(yaw, pitch)));
+  const lotSize = Math.min(Math.PI / 2, radius * 2);
+
+  // Fraccion del viewport que queda libre y hacia donde se corre el lote.
+  let freeWidth; let freeHeight; let shiftX; let shiftY;
+  if (insets) {
+    const { width, height } = viewer.state.size;
+    const { left = 0, right = 0, top = 0, bottom = 0 } = insets;
+    freeWidth = Math.max(0.1, (width - left - right) / width);
+    freeHeight = Math.max(0.1, (height - top - bottom) / height);
+    shiftX = (right - left) / (2 * width);
+    shiftY = (bottom - top) / (2 * height);
+  } else {
+    const centeredPanel = window.matchMedia(CENTERED_PANEL_QUERY).matches;
+    freeWidth = centeredPanel ? 0.3 : 0.85;
+    freeHeight = centeredPanel ? 0.7 : 0.3;
+    shiftX = centeredPanel ? 0.32 : 0;
+    shiftY = centeredPanel ? 0 : 0.3;
+  }
+
+  const toDeg = 180 / Math.PI;
+  const vFovNeeded = Math.max(
+    (lotSize / (freeHeight * FOCUS_FILL)) * toDeg,
+    dataHelper.hFovToVFov(Math.min(170, (lotSize / (freeWidth * FOCUS_FILL)) * toDeg)),
+  );
+  const zoom = Math.max(
+    viewer.getZoomLevel(),
+    dataHelper.fovToZoomLevel(Math.min(viewer.config.maxFov, Math.max(viewer.config.minFov, vFovNeeded))),
+  );
+
+  // Corrimiento en pantalla (unidades de tangente) que debe tener el lote
+  // respecto del centro: negativo en X = a la izquierda, positivo en Y = arriba.
+  const vFov = dataHelper.zoomLevelToFov(zoom);
+  const offsetX = -shiftX * 2 * Math.tan((dataHelper.vFovToHFov(vFov) / toDeg) / 2);
+  const offsetY = shiftY * 2 * Math.tan((vFov / toDeg) / 2);
+
+  // Se busca la direccion de camara que proyecta el centro del lote en ese
+  // punto. Los ejes de pantalla dependen de la propia camara, asi que se
+  // itera; converge en pocas vueltas.
+  let target = { yaw: center.yaw, pitch: center.pitch };
+  for (let i = 0; i < 8; i += 1) {
+    const right = toUnit(target.yaw + Math.PI / 2, 0);
+    const up = toUnit(target.yaw, target.pitch + Math.PI / 2);
+    const dir = centerDir.clone()
+      .addScaledVector(right, -offsetX)
+      .addScaledVector(up, -offsetY)
+      .normalize();
+    target = dataHelper.vector3ToSphericalCoords(dir);
+  }
+
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    viewer.rotate(target);
+    viewer.zoom(zoom);
+    return;
+  }
+  viewer.animate({ yaw: target.yaw, pitch: target.pitch, zoom, speed: FOCUS_DURATION_MS });
+}
+
 /**
  * Coordina una unica instancia de Photo Sphere Viewer por sesion panorama.
  * Cada seleccion invalida la anterior (latest-wins); ningun callback de una
@@ -51,9 +137,12 @@ export function useViewer(
   onStageReady = null,
   onStageError = null,
   onStageProgress = null,
+  onLotPick = null,
+  getOrbitInsets = null,
 ) {
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
+  const orbitRef = useRef(null);
   const sessionRef = useRef(0);
   const requestRef = useRef(0);
   const visibleStageRef = useRef(null);
@@ -67,11 +156,15 @@ export function useViewer(
     onStageReady,
     onStageError,
     onStageProgress,
+    onLotPick,
+    getOrbitInsets,
   };
 
   const stageId = viewerData?.stageId ?? viewerData?.panoramaUrl ?? null;
   const panoramaUrl = viewerData?.panoramaUrl ?? null;
   const markers = viewerData?.markers ?? [];
+  const orbitLots = viewerData?.orbitLots ?? null;
+  const orbitSurfaces = viewerData?.orbitSurfaces ?? null;
   const requestNonce = viewerData?.requestNonce ?? 0;
   const active = Boolean(panoramaUrl);
 
@@ -92,8 +185,14 @@ export function useViewer(
     });
     viewerRef.current = viewer;
 
+    const orbit = createLotOrbit(viewer, {
+      onPick: (id) => callbacksRef.current.onLotPick?.(id, orbit),
+      getInsets: () => callbacksRef.current.getOrbitInsets?.() ?? null,
+    });
+    orbitRef.current = orbit;
+
     const mp = viewer.getPlugin(MarkersPlugin);
-    const handleSelect = ({ marker }) => callbacksRef.current.onMarkerSelect?.(marker, mp);
+    const handleSelect = ({ marker }) => callbacksRef.current.onMarkerSelect?.(marker, mp, viewer, orbit);
     const handleUnselect = () => callbacksRef.current.onMarkerUnselect?.();
     const handlePosition = (event) => callbacksRef.current.onPositionChange?.(event.position.yaw);
 
@@ -107,6 +206,8 @@ export function useViewer(
       if (viewerRef.current === viewer) viewerRef.current = null;
       visibleStageRef.current = null;
       visiblePanoramaRef.current = null;
+      if (orbitRef.current === orbit) orbitRef.current = null;
+      try { orbit.destroy(); } catch (_) { /* cleanup idempotente */ }
       try { viewer.destroy(); } catch (_) { /* cleanup idempotente */ }
     };
   }, [active]);
@@ -156,6 +257,9 @@ export function useViewer(
 
     const samePanorama = panoramaUrl === visiblePanoramaRef.current;
     const sameStage = stageId === visibleStageRef.current;
+    // La orbita dibuja con la textura y los lotes de la etapa visible: si
+    // cambia, se corta sin animacion antes de tocar el panorama.
+    if (!samePanorama || !sameStage) orbitRef.current?.exit({ immediate: true });
     if (samePanorama && !sameStage && homePosition) viewer.rotate(homePosition);
     const load = samePanorama
       ? Promise.resolve(true)
@@ -172,6 +276,7 @@ export function useViewer(
       viewer.removeEventListener('load-progress', handleProgress);
 
       const markersOk = safelySetMarkers(mp, markers);
+      orbitRef.current?.setLots(orbitLots, orbitSurfaces);
       visiblePanoramaRef.current = panoramaUrl;
       visibleStageRef.current = stageId;
       callbacksRef.current.onStageProgress?.({ stageId, progress: 100 });
@@ -195,7 +300,7 @@ export function useViewer(
       viewer.removeEventListener('load-progress', handleProgress);
       if (requestRef.current === requestId) requestRef.current += 1;
     };
-  }, [stageId, panoramaUrl, markers, homePosition, requestNonce]);
+  }, [stageId, panoramaUrl, markers, orbitLots, orbitSurfaces, homePosition, requestNonce]);
 
   // Precarga conservadora: una sola candidata pequena, durante idle y nunca
   // en conexiones lentas. El browser/CDN sigue siendo el cache principal.
@@ -233,5 +338,5 @@ export function useViewer(
     Cache.ttl = 120;
   }, []);
 
-  return containerRef;
+  return { containerRef, orbitRef, viewerRef };
 }
