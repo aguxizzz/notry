@@ -14,12 +14,6 @@ export function formatRelativeContact(dateStr) {
   return date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
 }
 
-// Iniciales a partir del nombre del asesor.
-export function initialsFromName(name) {
-  if (!name) return '?';
-  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-}
-
 export function buildWhatsAppUrl(phone) {
   if (!phone) return null;
   const cleanPhone = phone.replace(/[^\d+]/g, '');
