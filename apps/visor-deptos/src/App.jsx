@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import Facade from './components/Facade.jsx';
-import FloorPlan from './components/FloorPlan.jsx';
+import FloorPlan, { PlanBase } from './components/FloorPlan.jsx';
 import FloorRail from './components/FloorRail.jsx';
 import UnitPanel from './components/UnitPanel.jsx';
-import { FACADE, FLOOR_BY_ID, PROJECT_NAME, STATUS, availableCount, unitsOfFloor } from './data.js';
+import { FLOOR_BY_ID, PROJECT_NAME, STATUS, availableCount, unitsOfFloor } from './data.js';
 
 const NARROW_QUERY = '(max-width: 720px)';
 
@@ -18,17 +18,12 @@ function useIsNarrow() {
   );
 }
 
-// Punto en pantalla de un piso de la fachada. Replica el encuadre del SVG
-// (xMidYMax slice) para no depender de medir el DOM mientras está escalado.
-function floorScreenPoint(floor) {
-  const scale = Math.max(window.innerWidth / FACADE.width, window.innerHeight / FACADE.height);
-  const toX = (vx) => window.innerWidth / 2 + (vx - FACADE.width / 2) * scale;
-  const toY = (vy) => window.innerHeight - (FACADE.height - vy) * scale;
-  return {
-    left: toX(FACADE.x),
-    centerX: toX(FACADE.x + FACADE.w / 2),
-    centerY: toY(floor.y + floor.h / 2),
-  };
+// Punto en pantalla del frente de un piso de la fachada (para el tooltip).
+// Se mide el DOM: con la perspectiva el frente no cae exacto donde diría el
+// encuadre 2D.
+function floorScreenPoint(id) {
+  const box = document.querySelector(`[data-front="${id}"]`).getBoundingClientRect();
+  return { left: box.left, centerY: box.top + box.height / 2 };
 }
 
 function floorSummary(floor) {
@@ -42,16 +37,22 @@ export default function App() {
   const isNarrow = useIsNarrow();
   const [view, setView] = useState('facade');
   const [floorId, setFloorId] = useState('4');
-  const [slide, setSlide] = useState(null); // 'up' | 'down' al cambiar de piso
-  const [leaving, setLeaving] = useState(null); // piso saliente durante el slide
+  // Plantas montadas: la activa más las que todavía están saliendo. `from` es
+  // de dónde entró ('up' | 'down'), o null si se llegó desde la fachada.
+  const [plans, setPlans] = useState([{ id: '4', from: null }]);
+  // Cada entrada desde la fachada remonta la planta (re-anima los pines).
+  const [entry, setEntry] = useState(0);
+  // 'enter' (desde la fachada) o 'switch' (cambio de piso ya adentro).
+  const [mode, setMode] = useState('enter');
+  // La primera entrada a un piso es lenta; después todo va más rápido.
+  const [quick, setQuick] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [hover, setHover] = useState(null);
-  const [origin, setOrigin] = useState({ x: 0, y: 0 });
 
   const floor = FLOOR_BY_ID[floorId];
 
   const handleHover = useCallback((id) => {
-    setHover(id ? { id, ...floorScreenPoint(FLOOR_BY_ID[id]) } : null);
+    setHover(id ? { id, ...floorScreenPoint(id) } : null);
   }, []);
 
   const goToFloor = useCallback(
@@ -59,30 +60,32 @@ export default function App() {
       setSelectedUnit(null);
       setHover(null);
       if (view === 'facade') {
-        const point = floorScreenPoint(FLOOR_BY_ID[id]);
-        setOrigin({ x: point.centerX, y: point.centerY });
-        setSlide(null);
-        setLeaving(null);
+        setPlans([{ id, from: null }]);
+        setEntry((n) => n + 1);
+        setMode('enter');
         setFloorId(id);
         setView('floor');
         return;
       }
       if (id === floorId) return;
-      const dir = FLOOR_BY_ID[id].index > FLOOR_BY_ID[floorId].index ? 'up' : 'down';
-      setLeaving({ id: floorId, dir });
-      setSlide(dir);
+      setMode('switch');
+      const from = FLOOR_BY_ID[id].index > FLOOR_BY_ID[floorId].index ? 'up' : 'down';
+      // Si el piso todavía está saliendo se reutiliza: vuelve desde donde esté.
+      setPlans((list) => (list.some((p) => p.id === id) ? list : [...list, { id, from }]));
       setFloorId(id);
     },
     [view, floorId]
   );
 
+  const dropPlan = useCallback((id) => {
+    setPlans((list) => list.filter((p) => p.id !== id));
+  }, []);
+
   const backToFacade = useCallback(() => {
-    const point = floorScreenPoint(FLOOR_BY_ID[floorId]);
-    setOrigin({ x: point.centerX, y: point.centerY });
     setSelectedUnit(null);
-    setLeaving(null);
+    setQuick(true);
     setView('facade');
-  }, [floorId]);
+  }, []);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -101,34 +104,45 @@ export default function App() {
     <div
       className="stage"
       data-view={view}
-      style={{ '--ox': `${origin.x}px`, '--oy': `${origin.y}px` }}
+      data-mode={mode}
+      data-quick={quick || undefined}
     >
+      {/* Una sola definición del rayado de balcones para todas las plantas. */}
+      <svg className="svg-defs" aria-hidden="true">
+        <defs>
+          <pattern id="plan-hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="10" stroke="rgba(60,60,60,0.22)" strokeWidth="2" />
+          </pattern>
+        </defs>
+      </svg>
+
+      <PlanBase selectedUnit={inFloor ? selectedUnit : null} isNarrow={isNarrow} />
+
       <div className="layer layer--facade" inert={inFloor}>
-        <Facade hoverId={hover?.id} onHover={handleHover} onEnter={goToFloor} />
+        <Facade view={view} floorId={floorId} hoverId={hover?.id} onHover={handleHover} onEnter={goToFloor} />
       </div>
 
       <div className="layer layer--floor" inert={!inFloor}>
-        {leaving && (
-          <FloorPlan
-            key={`leaving-${leaving.id}`}
-            floor={FLOOR_BY_ID[leaving.id]}
-            motion={`exit-${leaving.dir}`}
-            isNarrow={isNarrow}
-            onMotionEnd={() => setLeaving(null)}
-          />
-        )}
-        <FloorPlan
-          key={floorId}
-          floor={floor}
-          motion={slide ? `enter-${slide}` : null}
-          selectedUnit={selectedUnit}
-          isNarrow={isNarrow}
-          onSelect={setSelectedUnit}
-        />
+        {plans.map(({ id, from }) => {
+          const item = FLOOR_BY_ID[id];
+          const active = id === floorId;
+          return (
+            <FloorPlan
+              key={`${id}-${entry}`}
+              floor={item}
+              pos={active ? 'in' : item.index > floor.index ? 'up' : 'down'}
+              from={from}
+              selectedUnit={active ? selectedUnit : null}
+              isNarrow={isNarrow}
+              onSelect={setSelectedUnit}
+              onGone={() => dropPlan(id)}
+            />
+          );
+        })}
       </div>
 
       {!inFloor && hoverFloor && (
-        <div className="floor-tip glass" style={{ left: hover.left, top: hover.centerY }} key={hover.id}>
+        <div className="floor-tip glass" style={{ left: hover.left, top: hover.centerY }}>
           <strong>{hoverFloor.name}</strong>
           <span>{floorSummary(hoverFloor)}</span>
         </div>
