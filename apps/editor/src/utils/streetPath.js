@@ -131,7 +131,7 @@ export function mergeStreetAxis(existingAxis, end, newPoints) {
   return [...rest.slice().reverse(), ...existingAxis];
 }
 
-function pointInPolygon([px, py], ring) {
+export function pointInPolygon([px, py], ring) {
   let inside = false;
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
     const [xi, yi] = ring[i];

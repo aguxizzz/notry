@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
-  FIRST_TEMP_POINT_ID, PREFIX, calibPointId, domSelectorForPrefix, editCornerId, editMidpointId,
+  FIRST_TEMP_POINT_ID, MARKER_ID, PREFIX, calibPointId, domSelectorForPrefix, editCornerId, editMidpointId,
   ghostId, isCalibrationMarker, isStreetAxisHandle, isSurfaceCalleMarker, isSurfaceMarker, markerIdFromDomId,
   parseCalibPointId, parseEditCornerId, parseEditMidpointId, parseStreetAxisId, parseStreetAxisMidId,
   selectableAnnotationId, streetAxisId, streetAxisMidId, surfaceCalleId, surfaceCalleUnionId, surfaceManzanaId,
@@ -69,6 +69,8 @@ describe('superficies', () => {
     expect(isSurfaceMarker(surfaceManzanaId('m1'))).toBe(true);
     expect(isSurfaceMarker(surfaceCalleId('s1'))).toBe(true);
     expect(isSurfaceMarker(surfaceCalleUnionId(2))).toBe(true);
+    // El contorno de selección es fondo también: el click pasa al panorama.
+    expect(isSurfaceMarker(MARKER_ID.surfaceSelection)).toBe(true);
     expect(isSurfaceMarker(streetAxisId('s1', 0))).toBe(false);
     expect(isSurfaceMarker('lot-1')).toBe(false);
     expect(isSurfaceMarker(undefined)).toBe(false);
