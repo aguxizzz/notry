@@ -1,23 +1,23 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { fetchVisorData, getLoteo, listLoteos, patchLoteo, visorDataUrl } from './api/loteos';
+import { visorDataUrl } from './api/loteos';
 import { createUploadFn } from './api/upload';
 import { useAuth } from './hooks/useAuth';
+import { useCalibration } from './hooks/useCalibration';
 import { useDraft } from './hooks/useDraft';
+import { useGeoCalibration } from './hooks/useGeoCalibration';
 import { useHistory } from './hooks/useHistory';
+import { useLoteoData } from './hooks/useLoteoData';
 import { useLotOperations } from './hooks/useLotOperations';
 import { usePoiOperations } from './hooks/usePoiOperations';
 import { useSaveAll } from './hooks/useSaveAll';
 import { useDisplayAnnotations } from './hooks/useDisplayAnnotations';
-import { computeProjector, isProjectorValid } from './utils/panoramaProjection';
-import { computeHomography, applyHomography, isHomographyValid } from './utils/homography';
 import { projectPolygon, projectLotAnnotations, unimportLotAnnotations } from './utils/projection';
 import {
-  hasLocationIn, isCallout, newPendingLot, normalizeApiAnnotation, toModeAnnotation, withAnchor, withShapeCoords,
+  hasLocationIn, isCallout, newPendingLot, normalizeApiAnnotation, withAnchor, withShapeCoords,
 } from './utils/annotationModel';
 import {
-  FIRST_TEMP_POINT_ID, MARKER_ID, geoCalibPointId, isCalibrationMarker, parseCalibPointId, selectableAnnotationId,
+  FIRST_TEMP_POINT_ID, isCalibrationMarker, parseCalibPointId, selectableAnnotationId,
 } from './utils/markerIds';
-import { isCalibrationPairTooClose } from './utils/calibration';
 import { detectLotPolygon } from './utils/lotDetection';
 import { DEFAULT_RENDER_SURFACES, surfacesForDirtyCheck } from './utils/renderSurfaces';
 import { useRenderSurfaces } from './hooks/useRenderSurfaces';
@@ -35,60 +35,57 @@ import DocumentBar from './components/DocumentBar';
 import ProjectPanel from './components/ProjectPanel';
 import CalibrationOverlay from './components/CalibrationOverlay';
 import GeoCalibrationOverlay from './components/GeoCalibrationOverlay';
-import { fetchImage } from './utils/fetchImage';
 import './App.css';
 
 function App() {
   const { confirm, notify } = useUIFeedback();
   const [activeTool, setActiveTool] = useState('select');
   const [annotations, setAnnotations] = useState([]);
-  // Calibration: correspondence points between blueprint and panorama spaces
-  // Each entry: { blueprint: [nx, ny], panorama: [textureX, textureY] }
-  // Declared before useHistory so undo/redo can snapshot calibration too.
-  const [calibrationPoints, setCalibrationPoints] = useState([]);
-  const [calibrationNotice, setCalibrationNotice] = useState('');
-  // Blueprint points clicked in the current calibration batch, queued up
-  // waiting to be matched (in order) against panorama clicks. Batch size is
-  // 4 minus however many pairs already exist (so the first pass collects up
-  // to 4 points before switching views), or 1 for later ad-hoc additions.
-  const [pendingBlueprintPoints, setPendingBlueprintPoints] = useState([]);
-  // Geo calibration (blueprint↔lat/lng, module 5): a separate, simpler pair
-  // list. One point at a time — click blueprint, then click the map, pair
-  // is added. Not wired into useHistory's undo/redo (would require touching
-  // the shared composite-snapshot shape used by the blueprint↔panorama flow
-  // above); undo/redo for these points is intentionally not supported yet.
-  const [geoCalibrationPoints, setGeoCalibrationPoints] = useState([]);
-  const [pendingGeoBlueprintPoint, setPendingGeoBlueprintPoint] = useState(null);
-  const [panoramaDimensions, setPanoramaDimensions] = useState(null);
+  const [mode, setMode] = useState('panorama'); // 'panorama' | 'blueprint' | 'render'
+  const { token: accessToken, user, handleLogin, handleLogout, activeOrgId, setActiveOrgId } = useAuth();
+  const getViewerPositionRef = useRef(null);
+  // Snapshot of annotations as last saved/loaded — used to diff before saving
+  const savedAnnotationsRef = useRef([]);
+  // Arranca igual que el estado inicial de useRenderSurfaces, para que el diff
+  // no se dispare en loteos que nunca tocaron el modo Render.
+  const savedRenderSurfacesRef = useRef(DEFAULT_RENDER_SURFACES);
 
-  // Derived projector — recomputed whenever calibration points or panorama
-  // dimensions change. Fits the homography with the ray direction as target
-  // (valid over the whole sphere), not a pixel or gnomonic tangent-plane
-  // coordinate — see panoramaProjection.js.
-  const homography = useMemo(() => {
-    if (calibrationPoints.length < 4 || !panoramaDimensions) return null;
-    const projector = computeProjector(
-      calibrationPoints.map(c => ({ src: c.blueprint, dst: c.panorama })),
-      panoramaDimensions
-    );
-    return isProjectorValid(projector) ? projector : null;
-  }, [calibrationPoints, panoramaDimensions]);
+  // Todos los cambios que se pueden deshacer guardan snapshot antes de aplicarse.
+  const snapshotHistory = () => pushHistory(annotations);
+
+  const loteo = useLoteoData({
+    accessToken, user, activeOrgId, notify, getViewerPositionRef,
+    onDataLoaded: (data, ctx) => applyLoadedData(data, ctx),
+  });
+  const { loteoId, selectedLoteo, panoramaUrl, blueprintUrl } = loteo;
+
+  // Pares plano↔panorama y la proyección que sale de ellos (ver useCalibration).
+  const calibration = useCalibration({
+    mode, activeTool, setActiveTool,
+    panoramaDimensions: loteo.panoramaDimensions,
+    onBeforeChange: snapshotHistory,
+    confirm,
+    goToView: view => handleModeChange(view, { silent: true }),
+  });
+  const { homography } = calibration;
 
   // Modo Render: manzanas/calles sobre el panorama (ver useRenderSurfaces).
-  // Las shapes entran al historial: antes de cada cambio se guarda snapshot.
-  const render = useRenderSurfaces({
-    homography,
-    onBeforeChange: () => pushHistory(annotations),
-  });
+  const render = useRenderSurfaces({ homography, onBeforeChange: snapshotHistory });
   const { pushHistory, undo, redo, canUndo, canRedo, removeAnnotationFromHistory } = useHistory({
-    annotations, setAnnotations, calibrationPoints, setCalibrationPoints,
+    annotations, setAnnotations,
+    calibrationPoints: calibration.points, setCalibrationPoints: calibration.setPoints,
     renderManzanaShapes: render.manzanas, setRenderManzanaShapes: render.setManzanas,
     renderCalleShapes: render.calles, setRenderCalleShapes: render.setCalles,
   });
   const { endWidthDrag: endStreetWidthDrag } = render;
+
+  // Pares plano↔lat/lng para el modo satelital (ver useGeoCalibration).
+  const geo = useGeoCalibration({
+    activeTool, setActiveTool, annotations, setAnnotations, onBeforeChange: snapshotHistory, confirm, notify,
+  });
+
   const isDraggingPolygonRef = useRef(false);
   const preDragAnnotationsRef = useRef(null);
-  const isDraggingCalibrationRef = useRef(false);
   const keyboardStateRef = useRef(null);
   const [selectedId, setSelectedId] = useState(null);
   const [drawingPolygon, setDrawingPolygon] = useState([]);
@@ -100,64 +97,13 @@ function App() {
   const [autoDetectError, setAutoDetectError] = useState(null);
   const [autoDetectLotsGenerated, setAutoDetectLotsGenerated] = useState(0);
 
-  const [panoramaUrl, setPanoramaUrl] = useState(null);
-  const [blueprintUrl, setBlueprintUrl] = useState(null);
-  const [mode, setMode] = useState('panorama'); // 'panorama' | 'blueprint' | 'render'
-  const [snapThreshold, setSnapThreshold] = useState(5);
-  const [homePosition, setHomePosition] = useState(null);
-  const [northOffset, setNorthOffset] = useState(null);
-  const getViewerPositionRef = useRef(null);
   const [viewerReady, setViewerReady] = useState(false);
-  const [isLoadingDefault, setIsLoadingDefault] = useState(true);
-  const [loteoId, setLoteoId] = useState(null);
-  const [siblingStages, setSiblingStages] = useState([]);
-  const { token: accessToken, user, handleLogin, handleLogout, activeOrgId, setActiveOrgId } = useAuth();
-  const hasDataParam = new URLSearchParams(window.location.search).has('data');
-  // super_admin sin org resuelta (ver useAuth: pasa cuando hay ?data= sin un
-  // ?orgId= que lo acompañe — link viejo, o esta misma pestaña reusada tras
-  // cambiar de cuenta) no puede confiar en el loteo del link: no hay forma de
-  // saber a qué org pertenece sin abrirlo. Se lo trata como si no hubiera
-  // ?data= — cae al listado en vez de arriesgarse a mostrar un loteo ajeno.
-  const untrustedDirectLink = user?.role === 'super_admin' && hasDataParam && !activeOrgId;
-  // Gatea los fetches org-scoped (loteos, siblingStages) hasta que se sepa el
-  // rol y, si es super_admin, ya eligió (o el link trajo) una org — evita
-  // 400s del backend (falta X-Active-Org-Id).
-  const hasOrgContext = Boolean(user) && (user.role !== 'super_admin' || Boolean(activeOrgId));
-
-  // Si el link no es confiable, se limpia ?data=/&from= de la URL — así, una
-  // vez elegida una org en el listado, no queda un ?data= viejo compitiendo
-  // por mostrarse (ver bug reportado 2026-09-04: se abría un loteo de la org
-  // anterior al elegir la nueva).
-  useEffect(() => {
-    if (!untrustedDirectLink) return;
-    const params = new URLSearchParams(window.location.search);
-    params.delete('data');
-    params.delete('from');
-    const cleaned = window.location.pathname + (params.toString() ? `?${params.toString()}` : '');
-    window.history.replaceState({}, '', cleaned);
-  }, [untrustedDirectLink]);
   const uploadFn = useMemo(() => createUploadFn(accessToken, handleLogout), [accessToken, handleLogout]);
-  const [selectedLoteo, setSelectedLoteo] = useState(null);
-  const [loteoAccessDenied, setLoteoAccessDenied] = useState(false);
-
-  // useAuth ya limpia ?data=/&orgId= de la URL al hacer logout, pero el
-  // loteo cargado sigue en memoria (la SPA no remonta) — sin este reset, al
-  // loguearse con otra cuenta en la misma pestaña se reintentaba abrir el
-  // loteo/etapa de la sesión anterior (bug reportado 2026-09-05).
-  useEffect(() => {
-    if (accessToken) return;
-    setLoteoId(null);
-    setSelectedLoteo(null);
-    setLoteoAccessDenied(false);
-  }, [accessToken]);
-  // Snapshot of annotations as last saved/loaded — used to diff before saving
-  const savedAnnotationsRef = useRef([]);
-  const savedCalibrationRef = useRef([]);
-  const savedGeoCalibrationRef = useRef([]);
-  // Arranca igual que el estado inicial de useRenderSurfaces, para que el diff
-  // no se dispare en loteos que nunca tocaron el modo Render.
-  const savedRenderSurfacesRef = useRef(DEFAULT_RENDER_SURFACES);
-  const { pendingDraft, loadDraft, clearDraft } = useDraft({ annotations, loteoId, savedAnnotationsRef, calibrationPoints, savedCalibrationRef, panoramaDimensions });
+  const { pendingDraft, loadDraft, clearDraft } = useDraft({
+    annotations, loteoId, savedAnnotationsRef,
+    calibrationPoints: calibration.points, savedCalibrationRef: calibration.savedRef,
+    panoramaDimensions: loteo.panoramaDimensions,
+  });
   const {
     isCreatingLote,
     pendingMode, setPendingMode,
@@ -183,147 +129,36 @@ function App() {
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [projectPanelOpen, setProjectPanelOpen] = useState(true);
   const [projectPanelTab, setProjectPanelTab] = useState('project');
-  // Track blob URLs to revoke and prevent memory leak
-  const prevPanoramaUrlRef = useRef(null);
   const {
     isSavingAll,
     sessionExpiredDuringSave, clearSessionExpired,
     handleSaveAll,
   } = useSaveAll({
     annotations, setAnnotations, token: accessToken, loteoId, savedAnnotationsRef, onAfterSave: clearDraft,
-    calibrationPoints, savedCalibrationRef,
-    geoCalibrationPoints, savedGeoCalibrationRef,
+    calibrationPoints: calibration.points, savedCalibrationRef: calibration.savedRef,
+    geoCalibrationPoints: geo.points, savedGeoCalibrationRef: geo.savedRef,
     renderSurfaces: render.surfaces, savedRenderSurfacesRef,
   });
 
-
-
-  // Cuando se carga vía ?data=URL, selectedLoteo queda null — lo cargamos aparte
-  useEffect(() => {
-    if (!loteoId || selectedLoteo || !accessToken || !hasOrgContext) return;
-    getLoteo(accessToken, loteoId)
-      .then(data => setSelectedLoteo(data))
-      .catch(() => setLoteoAccessDenied(true));
-  }, [loteoId, selectedLoteo, accessToken, hasOrgContext]);
-
-  // Carga los datos del loteo desde la URL recibida por query string.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const dataUrl = params.get('data');
-    let extractedLoteoId = null;
-    // StrictMode monta este efecto dos veces en dev: la corrida descartada no debe
-    // aplicar estado ni crear/revocar blob URLs (con la imagen en caché ambas
-    // resuelven casi a la vez y se pisan el blob que el visor está cargando).
-    let cancelled = false;
-
-    if (dataUrl) {
-      const match = dataUrl.match(/\/loteos\/([^/?]+)/);
-      if (match) {
-        extractedLoteoId = match[1];
-        // Initialize route-derived editor state once on mount.
-        setLoteoId(extractedLoteoId);
-      }
+  // Lo editable que trae el loteo (lo llama useLoteoData al terminar de cargar).
+  function applyLoadedData(data, { loteoId: loadedLoteoId, panoramaDimensions }) {
+    if (Array.isArray(data.annotations)) {
+      const mappedAnnotations = data.annotations.map(normalizeApiAnnotation);
+      setAnnotations(mappedAnnotations);
+      savedAnnotationsRef.current = mappedAnnotations;
+      // Check for draft from previous session
+      loadDraft(loadedLoteoId, panoramaDimensions);
     }
-
-    if (dataUrl) {
-      fetchVisorData(dataUrl)
-        .then(async data => {
-          if (cancelled) return;
-          if (data.annotations && Array.isArray(data.annotations)) {
-            const mappedAnnotations = data.annotations.map(normalizeApiAnnotation);
-            setAnnotations(mappedAnnotations);
-            savedAnnotationsRef.current = mappedAnnotations;
-
-            // Check for draft from previous session
-            loadDraft(extractedLoteoId, data.panoramaWidth && data.panoramaHeight
-              ? { width: data.panoramaWidth, height: data.panoramaHeight }
-              : null);
-          }
-
-          if (data.panoramaUrl && typeof data.panoramaUrl === 'string') {
-            setPanoramaDimensions(data.panoramaWidth && data.panoramaHeight
-              ? { width: data.panoramaWidth, height: data.panoramaHeight }
-              : null);
-            try {
-              const imgRes = await fetchImage(data.panoramaUrl);
-              if (imgRes.ok) {
-                const blob = await imgRes.blob();
-                if (cancelled) return;
-                // Revoke previous blob URL if exists
-                if (prevPanoramaUrlRef.current?.startsWith('blob:')) {
-                  URL.revokeObjectURL(prevPanoramaUrlRef.current);
-                }
-                const newUrl = URL.createObjectURL(blob);
-                prevPanoramaUrlRef.current = newUrl;
-                setPanoramaUrl(newUrl);
-              } else {
-                setPanoramaUrl(data.panoramaUrl);
-              }
-            } catch {
-              if (cancelled) return;
-              setPanoramaUrl(data.panoramaUrl);
-            }
-          }
-          if (cancelled) return;
-          if (data.blueprintUrl && typeof data.blueprintUrl === 'string') {
-            setBlueprintUrl(data.blueprintUrl);
-          }
-          if (Array.isArray(data.calibrationPoints) && data.calibrationPoints.length > 0) {
-            const withIds = data.calibrationPoints.map(p =>
-              p._id ? p : { ...p, _id: crypto.randomUUID() }
-            );
-            setCalibrationPoints(withIds);
-            savedCalibrationRef.current = withIds;
-          }
-          if (Array.isArray(data.geoCalibrationPoints) && data.geoCalibrationPoints.length > 0) {
-            const withIds = data.geoCalibrationPoints.map(p =>
-              p._id ? p : { ...p, _id: crypto.randomUUID() }
-            );
-            setGeoCalibrationPoints(withIds);
-            savedGeoCalibrationRef.current = withIds;
-          }
-          if (data.renderSurfaces && typeof data.renderSurfaces === 'object') {
-            savedRenderSurfacesRef.current = render.load(data.renderSurfaces);
-          }
-          if (data.snapThreshold != null) {
-            setSnapThreshold(data.snapThreshold);
-          }
-          if (data.homeYaw != null && data.homePitch != null) {
-            setHomePosition({ yaw: data.homeYaw, pitch: data.homePitch });
-          }
-          if (data.northOffset != null) {
-            setNorthOffset(data.northOffset);
-          }
-        })
-        .catch(err => {
-          if (cancelled) return;
-          notify(`No se pudo cargar el JSON desde la URL: ${err.message}`, { variant: 'error' });
-        })
-        .finally(() => { if (!cancelled) setIsLoadingDefault(false); });
-      return () => { cancelled = true; };
+    if (Array.isArray(data.calibrationPoints) && data.calibrationPoints.length > 0) {
+      calibration.load(data.calibrationPoints);
     }
-
-    setIsLoadingDefault(false);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Etapas hermanas del proyecto (para que un POI pueda navegar a otra etapa).
-  useEffect(() => {
-    if (!loteoId || !accessToken || !hasOrgContext) return;
-    let cancelled = false;
-    listLoteos(accessToken, { limit: 100 })
-      .then(data => {
-        if (cancelled || !data?.items) return;
-        const me = data.items.find(l => l.id === loteoId);
-        if (!me?.project_id) { setSiblingStages([]); return; }
-        const siblings = data.items
-          .filter(l => l.project_id === me.project_id && l.id !== loteoId)
-          .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-          .map(l => ({ id: l.id, name: l.name }));
-        setSiblingStages(siblings);
-      })
-      .catch(() => { if (!cancelled) setSiblingStages([]); });
-    return () => { cancelled = true; };
-  }, [loteoId, accessToken, hasOrgContext]);
+    if (Array.isArray(data.geoCalibrationPoints) && data.geoCalibrationPoints.length > 0) {
+      geo.load(data.geoCalibrationPoints);
+    }
+    if (data.renderSurfaces && typeof data.renderSurfaces === 'object') {
+      savedRenderSurfacesRef.current = render.load(data.renderSurfaces);
+    }
+  }
 
   // Reset pending panel state when selection changes
   useEffect(() => {
@@ -335,61 +170,12 @@ function App() {
 
   const handleViewerClick = async (textureX, textureY) => {
     if (activeTool === 'calibrate-geo') {
-      // Blueprint click only — GeoCalibrationOverlay renders BlueprintEditor
-      // and GeoCalibrationMap side by side, so this always comes from the
-      // blueprint pane. Re-clicking overwrites any still-unmatched point.
-      setPendingGeoBlueprintPoint([textureX, textureY]);
+      geo.pickBlueprintPoint([textureX, textureY]);
       return;
     }
 
     if (activeTool === 'calibrate') {
-      if (mode === 'blueprint') {
-        // 4 pairs is the hard cap — the projection is precise enough by then,
-        // and beyond that more points added ad-hoc do more harm than good.
-        // Delete a pair first (dropping below 4) to replace it.
-        if (calibrationPoints.length >= 4) return;
-        // Collecting phase: queue this point. Batch size is whatever's left
-        // to reach 4 pairs — fixed for the whole collecting phase since
-        // calibrationPoints only changes during the matching phase below.
-        const batchSize = 4 - calibrationPoints.length;
-        const nextPending = [...pendingBlueprintPoints, [textureX, textureY]];
-        setPendingBlueprintPoints(nextPending);
-        if (nextPending.length >= batchSize) {
-          handleModeChange('panorama', { silent: true });
-        }
-      } else if (pendingBlueprintPoints.length > 0) {
-        // Matching phase: match this panorama click against the oldest
-        // still-queued blueprint point, in the same order they were placed.
-        const pendingBp = pendingBlueprintPoints[0];
-        const panoramaPoint = [textureX, textureY];
-        const tooClose = calibrationPoints.some(pair =>
-          isCalibrationPairTooClose(pair, pendingBp, panoramaPoint)
-        );
-        if (tooClose && !(await confirm(
-          'Este punto está muy cerca de uno existente.\nPuede afectar la estabilidad de la calibración. ¿Agregar de todas formas?',
-          { title: 'Punto de calibración cercano', confirmLabel: 'Agregar de todas formas' }
-        ))) return;
-
-        const newPair = {
-          _id: crypto.randomUUID(),
-          blueprint: pendingBp,
-          panorama: panoramaPoint,
-        };
-        setCalibrationPoints(prev => [...prev, newPair]);
-        const remainingPending = pendingBlueprintPoints.slice(1);
-        setPendingBlueprintPoints(remainingPending);
-        const completedPairCount = calibrationPoints.length + 1;
-        if (remainingPending.length === 0) {
-          // Batch done. Return to the blueprint and Select mode so the user
-          // can immediately straighten the reference points without needing
-          // another tool change.
-          handleModeChange('blueprint', { silent: true });
-          if (completedPairCount === 4) {
-            setActiveTool('select');
-            setCalibrationNotice('Calibración lista. Ajustá los puntos en el plano si hace falta.');
-          }
-        }
-      }
+      await calibration.handleClick([textureX, textureY]);
       return;
     }
 
@@ -488,61 +274,6 @@ function App() {
     setActiveTool('select');
   };
 
-  const cancelCalibration = () => {
-    setPendingBlueprintPoints([]);
-    setActiveTool('select');
-  };
-
-  const cancelGeoCalibration = () => {
-    setPendingGeoBlueprintPoint(null);
-    setActiveTool('select');
-  };
-
-  const handleGeoMapPointPicked = ({ latitude, longitude }) => {
-    if (!pendingGeoBlueprintPoint) return;
-    const newPair = { _id: crypto.randomUUID(), blueprint: pendingGeoBlueprintPoint, geo: [latitude, longitude] };
-    setGeoCalibrationPoints(prev => [...prev, newPair]);
-    setPendingGeoBlueprintPoint(null);
-  };
-
-  const handleDeleteGeoCalibrationPoint = (index) => {
-    setGeoCalibrationPoints(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleClearGeoCalibration = async () => {
-    if (geoCalibrationPoints.length === 0) return;
-    const ok = await confirm('¿Borrar toda la calibración geográfica?', {
-      title: 'Borrar calibración geográfica', danger: true, confirmLabel: 'Borrar',
-    });
-    if (!ok) return;
-    setGeoCalibrationPoints([]);
-    setActiveTool('select');
-  };
-
-  // Baked (non-reactive) computation: re-run manually via the "Actualizar
-  // polígonos satelitales" button whenever geoCalibrationPoints or any lot's
-  // blueprint_coordinates change — same criterion as the rest of the
-  // calibration system (nothing here recomputes automatically).
-  const handleUpdateGeoPolygons = () => {
-    if (geoCalibrationPoints.length < 4) return;
-    const correspondences = geoCalibrationPoints.map(p => ({ src: p.blueprint, dst: [p.geo[1], p.geo[0]] }));
-    const H = computeHomography(correspondences);
-    if (!isHomographyValid(H)) {
-      notify('No se pudo calcular una calibración geográfica válida con estos puntos.', { variant: 'error' });
-      return;
-    }
-    pushHistory(annotations);
-    setAnnotations(prev => prev.map(a => {
-      if (a.type !== 'polygon' || !a.blueprint_coordinates?.length) return a;
-      const geo_coordinates = a.blueprint_coordinates.map(([nx, ny]) => {
-        const [lng, lat] = applyHomography(H, [nx, ny]);
-        return [lat, lng];
-      });
-      return { ...a, geo_coordinates };
-    }));
-    notify('Polígonos satelitales actualizados.', { variant: 'success' });
-  };
-
   const handleAutoDetectClick = async (textureX, textureY) => {
     if (!blueprintUrl) return;
     setAutoDetectLoading(true);
@@ -575,83 +306,6 @@ function App() {
     setInspectorOpen(true);
   };
 
-  // Escape while in calibrate tool: discard the pending batch and go back to
-  // blueprint to pick again (without exiting the tool). Already-completed
-  // pairs are untouched — undo separately with Ctrl+Z if needed. If there's
-  // no pending batch, exit the tool entirely.
-  const handleEscapeCalibration = () => {
-    if (pendingBlueprintPoints.length > 0) {
-      setPendingBlueprintPoints([]);
-      handleModeChange('blueprint', { silent: true });
-    } else {
-      cancelCalibration();
-    }
-  };
-
-  const handleEscapeGeoCalibration = () => {
-    if (pendingGeoBlueprintPoint) setPendingGeoBlueprintPoint(null);
-    else cancelGeoCalibration();
-  };
-
-  const handleDeleteCalibrationPoint = (index) => {
-    // undo-able: the composite snapshot captures the current calibrationPoints
-    pushHistory(annotations);
-    setCalibrationPoints(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleClearCalibration = async () => {
-    if (calibrationPoints.length === 0) return;
-    const ok = await confirm('¿Borrar toda la calibración? (podés deshacer con Ctrl+Z)', {
-      title: 'Borrar calibración', danger: true, confirmLabel: 'Borrar',
-    });
-    if (!ok) return;
-    pushHistory(annotations);
-    setCalibrationPoints([]);
-    setActiveTool('select');
-  };
-
-  // Los errores (ApiError) los muestra ProjectPanel — acá solo se propagan.
-  const handleCaptureHome = async () => {
-    const pos = getViewerPositionRef.current?.();
-    if (!pos) throw new Error('El visor no está listo');
-    const saved = await patchLoteo(accessToken, loteoId, { home_yaw: pos.yaw, home_pitch: pos.pitch });
-    setHomePosition({ yaw: saved.home_yaw, pitch: saved.home_pitch });
-    return saved;
-  };
-
-  const handleSetNorth = async () => {
-    const pos = getViewerPositionRef.current?.();
-    if (!pos) throw new Error('El visor no está listo');
-    const saved = await patchLoteo(accessToken, loteoId, { north_offset: pos.yaw });
-    setNorthOffset(saved.north_offset);
-    return saved;
-  };
-
-  const handleResetHome = async () => {
-    const saved = await patchLoteo(accessToken, loteoId, { home_yaw: null, home_pitch: null });
-    setHomePosition(null);
-    return saved;
-  };
-
-  const handleResetNorth = async () => {
-    const saved = await patchLoteo(accessToken, loteoId, { north_offset: null });
-    setNorthOffset(null);
-    return saved;
-  };
-
-  const handleSaveProjectSettings = async ({ name, snapThreshold: nextSnapThreshold }) => {
-    if (!loteoId) throw new Error('No se encontró el loteo que querés configurar.');
-    const saved = await patchLoteo(accessToken, loteoId, {
-      ...(name ? { name } : {}),
-      snap_threshold: nextSnapThreshold,
-    });
-    if (saved.snap_threshold != null) setSnapThreshold(saved.snap_threshold);
-    setSelectedLoteo(prev => prev
-      ? { ...prev, name: saved.name ?? prev.name }
-      : { ...saved, name: saved.name ?? name });
-    return saved;
-  };
-
   const handleModeChange = async (nextMode, { silent = false } = {}) => {
     if (nextMode === mode) return;
     if (!silent) {
@@ -680,7 +334,7 @@ function App() {
   // from the project panel.
   const handleToolChange = (tool) => {
     setActiveTool(tool);
-    if (tool === 'calibrate') setCalibrationNotice('');
+    if (tool === 'calibrate') calibration.setNotice('');
     if (tool !== 'polygon') setDrawingPolygon([]);
     if (tool !== 'rect') setRectStart(null);
     if (tool === 'calibrate') {
@@ -710,30 +364,23 @@ function App() {
     setActiveTool('select');
   }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When calibrate tool is activated, start in blueprint so the user picks the reference there first
+  // When calibrate tool is activated, start in blueprint so the user picks the
+  // reference there first. (El lote pendiente lo resetea useCalibration.)
   useEffect(() => {
     if (activeTool === 'calibrate' && blueprintUrl) {
-      // Entering calibration intentionally resets its pending batch.
-      setPendingBlueprintPoints([]);
       setSelectedId(null);
       setMode('blueprint');
       setProjectPanelOpen(true);
       setProjectPanelTab('project');
     }
-    // When leaving calibrate tool, clean up any pending batch
-    if (activeTool !== 'calibrate') {
-      setPendingBlueprintPoints([]);
-    }
   }, [activeTool]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Entering/leaving geo calibration: reset its pending (unmatched) point.
+  // Entrando a geo calibración (el punto sin par lo resetea useGeoCalibration).
   useEffect(() => {
     if (activeTool === 'calibrate-geo') {
       setSelectedId(null);
       setProjectPanelOpen(true);
       setProjectPanelTab('project');
-    } else {
-      setPendingGeoBlueprintPoint(null);
     }
   }, [activeTool]);
 
@@ -847,37 +494,8 @@ function App() {
 
   const { displayAnnotations, selectedMarker } = useDisplayAnnotations({
     annotations, selectedId, mode, drawingPolygon,
-    calibrationPoints, pendingBlueprintPoints, homography,
+    calibrationPoints: calibration.points, pendingBlueprintPoints: calibration.pending, homography,
   });
-
-  // Blueprint-pane annotations for the geo calibration overlay: existing lot
-  // outlines (for spatial reference) plus the calibration points themselves.
-  const geoDisplayAnnotations = useMemo(() => {
-    const lots = annotations
-      .filter(a => a.type === 'polygon' && a.blueprint_coordinates?.length >= 3)
-      .map(a => toModeAnnotation(a, 'blueprint'));
-    const points = geoCalibrationPoints.map((pair, i) => ({
-      id: geoCalibPointId(pair._id),
-      type: 'calibration-point',
-      position: { textureX: pair.blueprint[0], textureY: pair.blueprint[1] },
-      label: String(i + 1),
-      svgStyle: { fill: '#22c55e', stroke: '#fff', strokeWidth: '2' },
-    }));
-    const pending = pendingGeoBlueprintPoint ? [{
-      id: MARKER_ID.geoCalibPending,
-      type: 'calibration-point',
-      position: { textureX: pendingGeoBlueprintPoint[0], textureY: pendingGeoBlueprintPoint[1] },
-      label: String(geoCalibrationPoints.length + 1),
-      svgStyle: { fill: '#22c55e', stroke: '#fff', strokeWidth: '2', opacity: 0.5 },
-    }] : [];
-    return [...lots, ...points, ...pending];
-  }, [annotations, geoCalibrationPoints, pendingGeoBlueprintPoint]);
-
-  const geoPolygons = useMemo(
-    () => annotations.filter(a => a.type === 'polygon' && a.geo_coordinates?.length >= 3),
-    [annotations]
-  );
-
 
   const handlePolygonUpdate = (markerId, newPolygonPixels) => {
     if (!isDraggingPolygonRef.current) {
@@ -889,53 +507,8 @@ function App() {
     )));
   };
 
-  // Live calibration drag (panorama): update calibrationPoints on every move so
-  // the homography recomputes and ghost polygons reproject in real time.
-  const handleCalibrationDragLive = (markerId, x, y) => {
-    const ptId = parseCalibPointId(markerId);
-    if (!ptId) return;
-    if (!isDraggingCalibrationRef.current) {
-      isDraggingCalibrationRef.current = true;
-      // Snapshot on first move while calibrationPoints is still pre-drag, so a
-      // single Ctrl+Z reverts the whole drag.
-      pushHistory(annotations);
-    }
-    const coordKey = mode === 'blueprint' ? 'blueprint' : 'panorama';
-    // Panorama coords are PSV pixel coordinates — do NOT clamp to [0,1].
-    // Blueprint coords are normalized [0,1] and need clamping.
-    let cx, cy;
-    if (coordKey === 'blueprint') {
-      cx = Math.max(0, Math.min(1, x));
-      cy = Math.max(0, Math.min(1, y));
-    } else {
-      cx = x;
-      cy = y;
-    }
-    setCalibrationPoints(prev => prev.map(p =>
-      p._id === ptId ? { ...p, [coordKey]: [cx, cy] } : p
-    ));
-  };
-
   const handleMarkerDragEnd = (markerId, textureX, textureY) => {
-    // Calibration point dragged — update only the coord for the current mode
-    // (blueprint or panorama), leaving the other untouched. Homography recomputes via useMemo.
-    const ptId = parseCalibPointId(markerId);
-    if (ptId) {
-      // Panorama live-drag path already applied the change + history during move
-      if (isDraggingCalibrationRef.current) {
-        isDraggingCalibrationRef.current = false;
-        return;
-      }
-      // Blueprint (no live drag): snapshot then apply on drop.
-      const coordKey = mode === 'blueprint' ? 'blueprint' : 'panorama';
-      const cx = Math.max(0, Math.min(1, textureX));
-      const cy = Math.max(0, Math.min(1, textureY));
-      pushHistory(annotations);
-      setCalibrationPoints(prev => prev.map(p =>
-        p._id === ptId ? { ...p, [coordKey]: [cx, cy] } : p
-      ));
-      return;
-    }
+    if (calibration.dragEnd(markerId, textureX, textureY)) return;
 
     pushHistory(annotations);
     setAnnotations(prevAnnotations => prevAnnotations.map(a => {
@@ -1045,8 +618,7 @@ function App() {
     // incluye): se resuelven por id antes de mirar selectedMarker.
     const calibPairId = parseCalibPointId(selectedId);
     if (calibPairId) {
-      const idx = calibrationPoints.findIndex(p => p._id === calibPairId);
-      if (idx !== -1) handleDeleteCalibrationPoint(idx);
+      calibration.deletePointById(calibPairId);
       setSelectedId(null);
       return;
     }
@@ -1106,8 +678,8 @@ function App() {
       setActiveTool,
       cancelPolygon,
       cancelRect,
-      handleEscapeCalibration,
-      handleEscapeGeoCalibration,
+      handleEscapeCalibration: calibration.escape,
+      handleEscapeGeoCalibration: geo.escape,
       activeTool,
       mode,
       saveAll: handleSaveAll,
@@ -1116,26 +688,8 @@ function App() {
   });
 
 
-
-
-
-  // Red de seguridad para cuando el loteo cargado no pertenece a la cuenta
-  // activa (ver reset por logout más arriba): descarta el ?data=/&orgId=/&from=
-  // de la URL y el loteo en memoria para volver al listado sin recargar la página.
-  const handleBackToList = () => {
-    const params = new URLSearchParams(window.location.search);
-    params.delete('data');
-    params.delete('orgId');
-    params.delete('from');
-    const cleaned = window.location.pathname + (params.toString() ? `?${params.toString()}` : '');
-    window.history.replaceState({}, '', cleaned);
-    setLoteoId(null);
-    setSelectedLoteo(null);
-    setLoteoAccessDenied(false);
-  };
-
-  const handleLoteoSelect = (loteo) => {
-    const dataUrl = visorDataUrl(loteo.id);
+  const handleLoteoSelect = (item) => {
+    const dataUrl = visorDataUrl(item.id);
     // Lleva la org activa al link para que, si se refresca o reabre esa
     // pestaña, siga sabiendo con qué org corresponde ese loteo (ver useAuth).
     const orgIdParam = activeOrgId ? `&orgId=${encodeURIComponent(activeOrgId)}` : '';
@@ -1155,7 +709,7 @@ function App() {
     return null;
   }
 
-  if (!selectedLoteo && (!hasDataParam || untrustedDirectLink)) {
+  if (!selectedLoteo && (!loteo.hasDataParam || loteo.untrustedDirectLink)) {
     return (
       <LoteoList
         token={accessToken}
@@ -1168,19 +722,19 @@ function App() {
     );
   }
 
-  if (loteoAccessDenied) {
+  if (loteo.loteoAccessDenied) {
     return (
       <div className="access-screen">
         <h2>No tenés acceso a este loteo</h2>
         <p>Este loteo no pertenece a tu cuenta. Pedile el acceso al dueño o volvé al listado.</p>
-        <button type="button" className="btn-primary" style={{ width: 'auto' }} onClick={handleBackToList}>
+        <button type="button" className="btn-primary" style={{ width: 'auto' }} onClick={loteo.backToList}>
           Volver al listado
         </button>
       </div>
     );
   }
 
-  if (hasDataParam && !selectedLoteo) {
+  if (loteo.hasDataParam && !selectedLoteo) {
     return (
       <div className="access-screen">
         <div className="access-screen__spinner" />
@@ -1193,8 +747,8 @@ function App() {
   const savedRenderSurfacesForDirtyCheck = surfacesForDirtyCheck(savedRenderSurfacesRef.current);
   const hasUnsavedChanges = (
     JSON.stringify(annotations) !== JSON.stringify(savedAnnotationsRef.current)
-    || JSON.stringify(calibrationPoints) !== JSON.stringify(savedCalibrationRef.current)
-    || JSON.stringify(geoCalibrationPoints) !== JSON.stringify(savedGeoCalibrationRef.current)
+    || JSON.stringify(calibration.points) !== JSON.stringify(calibration.savedRef.current)
+    || JSON.stringify(geo.points) !== JSON.stringify(geo.savedRef.current)
     || JSON.stringify(renderSurfacesForDirtyCheck) !== JSON.stringify(savedRenderSurfacesForDirtyCheck)
   );
 
@@ -1202,7 +756,7 @@ function App() {
     <div className="editor-container">
       <DraftBanner
         draft={pendingDraft}
-        onRestore={(draft) => { setAnnotations(draft.annotations); setCalibrationPoints(draft.calibrationPoints ?? []); clearDraft(); }}
+        onRestore={(draft) => { setAnnotations(draft.annotations); calibration.setPoints(draft.calibrationPoints ?? []); clearDraft(); }}
         onDiscard={clearDraft}
       />
 
@@ -1240,31 +794,31 @@ function App() {
             onMarkerSelect={(id) => setSelectedId(selectableAnnotationId(id))}
             onPolygonUpdate={handlePolygonUpdate}
             onMarkerDragEnd={handleMarkerDragEnd}
-            onMarkerDrag={handleCalibrationDragLive}
+            onMarkerDrag={calibration.dragLive}
             getPositionRef={getViewerPositionRef}
             onViewerReadyChange={setViewerReady}
-            onPanoramaDimensions={setPanoramaDimensions}
-            calibrationPoints={calibrationPoints}
-            pendingBlueprintPoints={pendingBlueprintPoints}
-            onCancelCalibration={cancelCalibration}
-            onDeleteCalibrationPoint={handleDeleteCalibrationPoint}
-            onClearCalibration={handleClearCalibration}
+            onPanoramaDimensions={loteo.setPanoramaDimensions}
+            calibrationPoints={calibration.points}
+            pendingBlueprintPoints={calibration.pending}
+            onCancelCalibration={calibration.cancel}
+            onDeleteCalibrationPoint={calibration.deletePoint}
+            onClearCalibration={calibration.clear}
           />
         ) : activeTool === 'calibrate-geo' ? (
           <GeoCalibrationOverlay
             blueprintUrl={blueprintUrl}
-            annotations={geoDisplayAnnotations}
+            annotations={geo.overlayAnnotations}
             onBlueprintClick={handleViewerClick}
             latitude={selectedLoteo?.latitude}
             longitude={selectedLoteo?.longitude}
-            geoCalibrationPoints={geoCalibrationPoints}
-            pendingGeoBlueprintPoint={pendingGeoBlueprintPoint}
-            onMapPointPicked={handleGeoMapPointPicked}
-            geoPolygons={geoPolygons}
-            onCancelCalibration={cancelGeoCalibration}
-            onDeleteCalibrationPoint={handleDeleteGeoCalibrationPoint}
-            onClearCalibration={handleClearGeoCalibration}
-            onUpdateGeoPolygons={handleUpdateGeoPolygons}
+            geoCalibrationPoints={geo.points}
+            pendingGeoBlueprintPoint={geo.pending}
+            onMapPointPicked={geo.pickMapPoint}
+            geoPolygons={geo.polygons}
+            onCancelCalibration={geo.cancel}
+            onDeleteCalibrationPoint={geo.deletePoint}
+            onClearCalibration={geo.clear}
+            onUpdateGeoPolygons={geo.updatePolygons}
           />
         ) : (
         <>
@@ -1274,8 +828,8 @@ function App() {
           activeTab={projectPanelTab}
           onTabChange={setProjectPanelTab}
           projectName={selectedLoteo?.name ?? ''}
-          snapThreshold={snapThreshold}
-          onSaveSettings={handleSaveProjectSettings}
+          snapThreshold={loteo.snapThreshold}
+          onSaveSettings={loteo.saveSettings}
           panoramaUrl={panoramaUrl}
           blueprintUrl={blueprintUrl}
           mode={mode}
@@ -1285,15 +839,15 @@ function App() {
             setSelectedId(id);
             setInspectorOpen(true);
           }}
-          calibrationPoints={calibrationPoints}
-          pendingBlueprintPoints={pendingBlueprintPoints}
+          calibrationPoints={calibration.points}
+          pendingBlueprintPoints={calibration.pending}
           homography={homography}
-          calibrationNotice={calibrationNotice}
+          calibrationNotice={calibration.notice}
           activeTool={activeTool}
           onEnterCalibration={() => handleToolChange('calibrate')}
-          onCancelCalibration={cancelCalibration}
-          onDeleteCalibrationPoint={handleDeleteCalibrationPoint}
-          onClearCalibration={handleClearCalibration}
+          onCancelCalibration={calibration.cancel}
+          onDeleteCalibrationPoint={calibration.deletePoint}
+          onClearCalibration={calibration.clear}
           autoDetectParams={autoDetectParams}
           onAutoDetectParamsChange={setAutoDetectParams}
           autoDetectLoading={autoDetectLoading}
@@ -1302,16 +856,16 @@ function App() {
           onProjectMissing={() => importPolygonsFromBlueprint({ overwrite: false })}
           onReprojectAll={() => importPolygonsFromBlueprint({ overwrite: true })}
           onRemoveAllFromPanorama={handleUnimportAll}
-          homePosition={homePosition}
-          northOffset={northOffset}
-          onCaptureHome={handleCaptureHome}
-          onResetHome={handleResetHome}
-          onSetNorth={handleSetNorth}
-          onResetNorth={handleResetNorth}
+          homePosition={loteo.homePosition}
+          northOffset={loteo.northOffset}
+          onCaptureHome={loteo.captureHome}
+          onResetHome={loteo.resetHome}
+          onSetNorth={loteo.setNorth}
+          onResetNorth={loteo.resetNorth}
           canOrientPanorama={!!loteoId && !!panoramaUrl && mode === 'panorama' && viewerReady}
           loteoLatitude={selectedLoteo?.latitude}
           loteoLongitude={selectedLoteo?.longitude}
-          geoCalibrationPoints={geoCalibrationPoints}
+          geoCalibrationPoints={geo.points}
           onEnterGeoCalibration={() => handleToolChange('calibrate-geo')}
         />
 
@@ -1332,12 +886,12 @@ function App() {
             canRedo={canRedo}
             onUndo={undo}
             onRedo={redo}
-            calibrationPoints={calibrationPoints}
+            calibrationPoints={calibration.points}
             render={render}
           />
 
           <div className="viewer-surface">
-            {isLoadingDefault ? (
+            {loteo.isLoading ? (
               <div className="viewer-feedback">Cargando loteo…</div>
             ) : mode === 'blueprint' && blueprintUrl ? (
               <BlueprintEditor
@@ -1361,10 +915,10 @@ function App() {
                 onMarkerSelect={handleMarkerSelect}
                 onPolygonUpdate={handlePolygonUpdate}
                 onMarkerDragEnd={handleMarkerDragEnd}
-                onMarkerDrag={handleCalibrationDragLive}
+                onMarkerDrag={calibration.dragLive}
                 getPositionRef={getViewerPositionRef}
                 onViewerReadyChange={setViewerReady}
-                onPanoramaDimensions={setPanoramaDimensions}
+                onPanoramaDimensions={loteo.setPanoramaDimensions}
                 render={render}
               />
             ) : (
@@ -1376,7 +930,7 @@ function App() {
             )}
           </div>
 
-          {calibrationNotice && (
+          {calibration.notice && (
             <div className="calibration-complete-overlay" role="dialog" aria-modal="true" aria-labelledby="calibration-complete-title">
               <div className="calibration-complete-overlay__card">
                 <div className="calibration-complete-overlay__icon"><Check size={20} /></div>
@@ -1387,12 +941,12 @@ function App() {
                 <button
                   type="button"
                   className="editor-icon-btn"
-                  onClick={() => setCalibrationNotice('')}
+                  onClick={() => calibration.setNotice('')}
                   aria-label="Cerrar aviso de calibración"
                 >
                   <X size={16} />
                 </button>
-                <button type="button" className="editor-btn editor-btn--primary" onClick={() => setCalibrationNotice('')}>
+                <button type="button" className="editor-btn editor-btn--primary" onClick={() => calibration.setNotice('')}>
                   Entendido
                 </button>
               </div>
@@ -1420,7 +974,7 @@ function App() {
           onAssignTargetChange={setAssignTargetId}
           isAssigning={isAssigning}
           onAssign={() => handleAssignToExistingLot(selectedMarker)}
-          siblingStages={siblingStages}
+          siblingStages={loteo.siblingStages}
           accessToken={accessToken}
           uploadFn={uploadFn}
           onPoiFieldChange={(field, value) => {
