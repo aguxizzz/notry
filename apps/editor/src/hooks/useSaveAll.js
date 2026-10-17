@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { bulkSaveLoteo } from '../api/loteos';
 import {
-  polygonChanged, poiChanged, buildLotItem, buildPoiUpdateItem, buildPoiCreateItem,
+  polygonChanged, poiChanged, buildLotItem, buildPoiUpdateItem, buildPoiCreateItem, isPendingPoiValid,
 } from '../utils/saveAllPayload';
 import { useUIFeedback } from './useUIFeedback';
 
@@ -30,13 +30,7 @@ export function useSaveAll({ annotations, setAnnotations, token, loteoId, savedA
         notify('No se encontró el loteo_id para guardar los lugares nuevos.', { variant: 'error' });
         return;
       }
-      const invalidPendingPoi = pendingPois.find(poi => {
-        const isCallout = poi.variant === 'callout' || poi.marker_variant === 'callout';
-        const hasPosition = isCallout
-          ? !!(poi.panorama_anchor || poi.blueprint_anchor)
-          : !!(poi.panorama_coordinates?.length >= 3 || poi.blueprint_coordinates?.length >= 3);
-        return !(poi.title ?? poi.tooltip ?? '').trim() || !hasPosition;
-      });
+      const invalidPendingPoi = pendingPois.find(poi => !isPendingPoiValid(poi));
       if (invalidPendingPoi) {
         notify('Revisá que cada lugar nuevo tenga título y ubicación antes de guardar.', { variant: 'error' });
         return;

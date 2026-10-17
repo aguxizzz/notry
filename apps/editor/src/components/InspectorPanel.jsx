@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react';
 import POIInspector from './POIInspector';
 import PendingPolygonInspector from './PendingPolygonInspector';
 import LoteInspector from './LoteInspector';
+import { hasLocationIn } from '../utils/annotationModel';
 
 export default function InspectorPanel({
   inspectorOpen,
@@ -34,11 +35,9 @@ export default function InspectorPanel({
     }
   }, [selectedMarker?.id, selectedMarker?.type]);
 
+  // Lotes existentes sin geometría en esta vista: candidatos para "Asignar existente".
   const lotsWithEmptyCoords = annotations.filter(a =>
-    a.type === 'polygon' && !a.pending && a.uuid &&
-    (mode === 'panorama'
-      ? (!a.panorama_coordinates || a.panorama_coordinates.length === 0)
-      : (!a.blueprint_coordinates || a.blueprint_coordinates.length === 0))
+    a.type === 'polygon' && !a.pending && a.uuid && !hasLocationIn(a, mode)
   );
 
   return (

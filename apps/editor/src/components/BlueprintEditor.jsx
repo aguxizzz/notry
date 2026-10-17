@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { getLotSvgStyle } from '../utils/lotStyles';
+import { FIRST_TEMP_POINT_ID } from '../utils/markerIds';
 import { fetchImage } from '../utils/fetchImage';
 
 export default function BlueprintEditor({
@@ -212,7 +213,7 @@ export default function BlueprintEditor({
     if (isSnappedRef.current && activeToolRef.current === 'polygon') {
       e.stopPropagation();
       isSnappedRef.current = false;
-      onMarkerSelectRef.current && onMarkerSelectRef.current('temp-pt-0');
+      onMarkerSelectRef.current && onMarkerSelectRef.current(FIRST_TEMP_POINT_ID);
       return;
     }
 
@@ -251,15 +252,6 @@ export default function BlueprintEditor({
     if (calibEl && (activeToolRef.current === 'select' || activeToolRef.current === 'calibrate')) {
       e.stopPropagation();
       const markerId = calibEl.getAttribute('data-marker-id');
-      draggingMarkerRef.current = { markerId, isDrag: false, lastNorm: null };
-      return;
-    }
-
-    const calloutEl = e.target.closest('[data-type="callout"]');
-    if (calloutEl && activeToolRef.current === 'select') {
-      e.stopPropagation();
-      const markerId = calloutEl.getAttribute('data-marker-id');
-      onMarkerSelectRef.current && onMarkerSelectRef.current(markerId);
       draggingMarkerRef.current = { markerId, isDrag: false, lastNorm: null };
       return;
     }
@@ -573,20 +565,7 @@ export default function BlueprintEditor({
               );
             }
 
-            // Finished POI polygons
-            if (ann.type === 'poi' && ann.variant === 'callout' && ann.position) {
-              const { x, y } = normToSvg(ann.position.textureX, ann.position.textureY);
-              const stem = Math.max(40, Math.min(260, Number(ann.callout_stem_height) || 96)) / zoom;
-              const poiColor = ann.color || '#fff';
-              return (
-                <g key={ann.id} data-type="callout" data-marker-id={ann.id} style={{ cursor: 'grab' }}>
-                  <line x1={x} y1={y} x2={x} y2={y - stem} stroke={poiColor} strokeWidth={Math.max(1, 1.5 / zoom)} />
-                  <circle cx={x} cy={y} r={Math.max(1.5, 3 / zoom)} fill={poiColor} />
-                  <text x={x + 8 / zoom} y={y - stem} textAnchor="start" fill={poiColor} fontSize={Math.max(10, 15 / zoom)} fontWeight="600" dominantBaseline="hanging" paintOrder="stroke" stroke="#171713" strokeWidth={Math.max(2, 4 / zoom)} strokeLinejoin="round" pointerEvents="none">{ann.tooltip || 'Lugar'}</text>
-                </g>
-              );
-            }
-
+            // POIs de área (los callout no se muestran en el plano, ver toModeAnnotations)
             if (ann.type === 'poi' && ann.polygonPixels && ann.polygonPixels.length >= 3) {
               const pts = ann.polygonPixels.map(([nx, ny]) => normToSvg(nx, ny));
               const polyStr = pts.map((p) => `${p.x},${p.y}`).join(' ');
@@ -691,7 +670,7 @@ export default function BlueprintEditor({
             if (ann.type === 'point' && ann.position) {
               const { x, y } = normToSvg(ann.position.textureX, ann.position.textureY);
               const r = ann.radius || 4;
-              const isFirstPoint = ann.id === 'temp-pt-0' && isSnapped;
+              const isFirstPoint = ann.id === FIRST_TEMP_POINT_ID && isSnapped;
 
               return (
                 <g key={ann.id}>

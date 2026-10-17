@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { errorMessage } from '../api/client';
 import { assignLotCoordinates, createLot, deleteLot } from '../api/lots';
+import { getShapeCoords, spaceForMode, withShapeCoords } from '../utils/annotationModel';
 import { parseNumberOrZero } from '../utils/saveAllUtils';
 import { useUIFeedback } from './useUIFeedback';
 
@@ -34,22 +35,17 @@ export function useLotOperations({
 
     setIsAssigning(true);
     try {
+      const coords = getShapeCoords(selectedMarker, mode);
       await assignLotCoordinates(token, {
         uuid: targetLot.uuid,
-        polygonPoints: selectedMarker.polygonPixels || [],
-        space: mode === 'blueprint' ? 'blueprint' : 'panorama',
+        polygonPoints: coords,
+        space: spaceForMode(mode),
       });
 
+      // El polígono pendiente desaparece: su geometría pasa al lote elegido.
       setAnnotations(prev => prev
         .filter(a => a.id !== selectedId)
-        .map(a => {
-          if (a.id !== assignTargetId) return a;
-          const updated = { ...a };
-          if (mode === 'blueprint') updated.blueprint_coordinates = selectedMarker.polygonPixels;
-          else updated.panorama_coordinates = selectedMarker.polygonPixels;
-          updated.polygonPixels = selectedMarker.polygonPixels;
-          return updated;
-        })
+        .map(a => (a.id === assignTargetId ? withShapeCoords(a, mode, coords) : a))
       );
       setSelectedId(assignTargetId);
     } catch (error) {
@@ -62,7 +58,8 @@ export function useLotOperations({
   const handleCreateLote = async (selectedMarker) => {
     if (!selectedMarker?.tooltip?.trim()) { notify('El nombre es requerido.', { variant: 'error' }); return; }
     if (!loteoId) { notify('No se encontró el loteo_id.', { variant: 'error' }); return; }
-    if (!selectedMarker?.polygonPixels) { notify('Seleccioná un polígono antes de crear un lote.', { variant: 'error' }); return; }
+    const coords = getShapeCoords(selectedMarker, mode);
+    if (!coords.length) { notify('Seleccioná un polígono antes de crear un lote.', { variant: 'error' }); return; }
 
     setIsCreatingLote(true);
     try {
@@ -73,12 +70,12 @@ export function useLotOperations({
         area_m2: parseNumberOrZero(selectedMarker.area_m2),
         ...(selectedMarker.comments?.trim() && { comments: selectedMarker.comments.trim() }),
         loteo_id: loteoId,
-        ...(mode === 'blueprint'
-          ? { blueprint_coordinates: selectedMarker.polygonPixels }
-          : { coordinates_360: selectedMarker.polygonPixels }),
+        ...(spaceForMode(mode) === 'blueprint'
+          ? { blueprint_coordinates: coords }
+          : { coordinates_360: coords }),
       });
       setAnnotations(prev => prev.map(a =>
-        a.id === selectedId ? {
+        a.id === selectedId ? withShapeCoords({
           ...a,
           id: lote.id,
           uuid: lote.id,
@@ -89,10 +86,7 @@ export function useLotOperations({
           status: lote.status,
           slug: lote.slug,
           comments: lote.comments,
-          ...(mode === 'blueprint'
-            ? { blueprint_coordinates: a.polygonPixels }
-            : { panorama_coordinates: a.polygonPixels }),
-        } : a
+        }, mode, coords) : a
       ));
       setSelectedId(lote.id);
       onAfterCreate?.();

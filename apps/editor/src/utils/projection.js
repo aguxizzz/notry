@@ -1,4 +1,5 @@
 import { applyProjector } from './panoramaProjection.js';
+import { withShapeCoords } from './annotationModel.js';
 
 // Each vertex is now placed at its true spherical position (see
 // panoramaProjection.js), but PSV's polygonPixel marker still draws a plain
@@ -51,7 +52,9 @@ export function projectPolygonDense(coordinates, projector) {
     : null;
 }
 
-export function projectLotAnnotations(annotations, projector, { overwrite = false, mode = 'panorama' } = {}) {
+// Escribe `panorama_coordinates`; la geometría que se ve en pantalla se
+// deriva de ahí (ver toModeAnnotation en annotationModel.js).
+export function projectLotAnnotations(annotations, projector, { overwrite = false } = {}) {
   let count = 0;
   const nextAnnotations = annotations.map(annotation => {
     const canProject = annotation.type === 'polygon'
@@ -63,25 +66,15 @@ export function projectLotAnnotations(annotations, projector, { overwrite = fals
     const projected = projectPolygon(annotation.blueprint_coordinates, projector);
     if (!projected) return annotation;
     count += 1;
-    return {
-      ...annotation,
-      panorama_coordinates: projected,
-      ...(mode === 'panorama' ? { polygonPixels: projected } : {}),
-    };
+    return withShapeCoords(annotation, 'panorama', projected);
   });
 
   return { annotations: nextAnnotations, count };
 }
 
-export function unimportLotAnnotations(annotations, ids, mode = 'panorama') {
+export function unimportLotAnnotations(annotations, ids) {
   const targetIds = ids instanceof Set ? ids : new Set(ids);
   return annotations.map(annotation => (
-    targetIds.has(annotation.id)
-      ? {
-          ...annotation,
-          panorama_coordinates: [],
-          ...(mode === 'panorama' ? { polygonPixels: [] } : {}),
-        }
-      : annotation
+    targetIds.has(annotation.id) ? withShapeCoords(annotation, 'panorama', []) : annotation
   ));
 }

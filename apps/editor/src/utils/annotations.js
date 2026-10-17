@@ -1,4 +1,5 @@
 import { getLotSvgStyle } from './lotStyles.js';
+import { isCallout } from './annotationModel.js';
 
 const POI_PHOTO_CHIP_ICON = `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2.4" stroke="#8e7343" stroke-width="1.7"/><circle cx="12" cy="13" r="3.4" stroke="#8e7343" stroke-width="1.7"/><path d="M8 6l1.2-2h5.6L16 6" stroke="#8e7343" stroke-width="1.7" stroke-linejoin="round"/></svg>`;
 
@@ -90,7 +91,7 @@ export function annotationsToMarkers(annotations) {
         return { ...base, svgStyle: getLotSvgStyle(ann), polygonPixels: points };
       }
       case 'poi': {
-        if (ann.variant === 'callout' || ann.marker_variant === 'callout') {
+        if (isCallout(ann)) {
           const anchor = ann.panorama_anchor;
           if (!anchor) return null;
           const hasPhoto = !!ann.image_url;
