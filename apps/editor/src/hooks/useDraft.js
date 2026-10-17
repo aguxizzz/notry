@@ -6,7 +6,7 @@ const scalePoints = (points, scaleX, scaleY) => Array.isArray(points)
     : point)
   : points;
 
-function rescaleDraft(draft, currentDimensions) {
+export function rescaleDraft(draft, currentDimensions) {
   const previous = draft.panoramaDimensions;
   if (!previous?.width || !previous?.height || !currentDimensions?.width || !currentDimensions?.height) {
     return draft;

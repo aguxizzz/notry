@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { getLotSvgStyle } from '../utils/lotStyles';
+import { fetchImage } from '../utils/fetchImage';
 
 export default function BlueprintEditor({
   blueprintUrl,
@@ -16,6 +18,8 @@ export default function BlueprintEditor({
   const svgRef = useRef(null);
   const [imgDims, setImgDims] = useState({ w: 1, h: 1 });
   const [isImageLoaded, setIsImageLoaded] = useState(false);
+  const [blueprintSrc, setBlueprintSrc] = useState(null); // blob URL del plano ya descargado
+  const [loadError, setLoadError] = useState(null);
   const [cursorNorm, setCursorNorm] = useState(null);
   const [isSnapped, setIsSnapped] = useState(false);
   const [draggingMarkerPreview, setDraggingMarkerPreview] = useState(null);
@@ -66,20 +70,46 @@ export default function BlueprintEditor({
     displayDimsRef.current = displayDims;
   }, [zoom, panX, panY, displayDims]);
 
-  // Load image
+  // Load image — vía fetchImage + blob URL (igual que el panorama en App.jsx):
+  // con un <img crossOrigin> directo, si el navegador tiene el plano cacheado
+  // de una carga sin CORS (ej. la miniatura en la plataforma), la respuesta
+  // cacheada no trae headers CORS y la imagen falla sin decir por qué.
   useEffect(() => {
     if (!blueprintUrl) return;
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      setImgDims({ w: img.width, h: img.height });
-      setIsImageLoaded(true);
+    let cancelled = false;
+    let objectUrl = null;
+    setIsImageLoaded(false);
+    setLoadError(null);
+    (async () => {
+      try {
+        const res = await fetchImage(blueprintUrl);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+          if (cancelled) return;
+          setImgDims({ w: img.width, h: img.height });
+          setBlueprintSrc(objectUrl);
+          setIsImageLoaded(true);
+        };
+        img.onerror = () => {
+          if (cancelled) return;
+          console.error('Error loading blueprint: la imagen no se pudo decodificar', blueprintUrl);
+          setLoadError('El archivo del plano no es una imagen válida.');
+        };
+        img.src = objectUrl;
+      } catch (err) {
+        if (cancelled) return;
+        console.error(`Error loading blueprint (${err.message})`, blueprintUrl);
+        setLoadError(`No se pudo descargar el plano (${err.message}).`);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-    img.onerror = () => {
-      console.error('Error loading blueprint');
-      setIsImageLoaded(false);
-    };
-    img.src = blueprintUrl;
   }, [blueprintUrl]);
 
   // Calculate the image's natural display size (at zoom=1, pan=0)
@@ -413,7 +443,7 @@ export default function BlueprintEditor({
           color: '#999'
         }}
       >
-        {blueprintUrl ? 'Cargando plano…' : 'Sin plano'}
+        {!blueprintUrl ? 'Sin plano' : loadError ?? 'Cargando plano…'}
       </div>
     );
   }
@@ -455,8 +485,7 @@ export default function BlueprintEditor({
       >
         <img
           ref={imgRef}
-          src={blueprintUrl}
-          crossOrigin="anonymous"
+          src={blueprintSrc}
           style={{
             position: 'absolute',
             top: 0,
@@ -492,14 +521,7 @@ export default function BlueprintEditor({
               const polyStr = pts.map((p) => `${p.x},${p.y}`).join(' ');
               const isSelected = ann.id === selectedId;
 
-              const statusKey = ann.status ?? ann.estado;
-              const statusStyles = {
-                available: { fill: 'rgba(34,197,94,0.15)',  stroke: 'rgba(22,163,74,0.5)',  strokeWidth: '2' },
-                unavailable: { fill: 'rgba(107,114,128,0.25)', stroke: 'rgba(75,85,99,0.75)', strokeWidth: '2' },
-                sold:      { fill: 'rgba(239,68,68,0.25)',   stroke: 'rgba(220,38,38,0.7)',  strokeWidth: '2' },
-                reserved:  { fill: 'rgba(59,130,246,0.22)',  stroke: 'rgba(37,99,235,0.65)', strokeWidth: '2' },
-              };
-              const style = statusKey && statusStyles[statusKey] ? statusStyles[statusKey] : (ann.svgStyle || {});
+              const style = getLotSvgStyle(ann);
 
               return (
                 <g key={ann.id}>

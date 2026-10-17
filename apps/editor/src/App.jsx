@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { API_BASE, fetchWithTimeout, authHeaders } from './api/config';
+import { fetchVisorData, getLoteo, listLoteos, patchLoteo, visorDataUrl } from './api/loteos';
 import { createUploadFn } from './api/upload';
 import { useAuth } from './hooks/useAuth';
 import { useDraft } from './hooks/useDraft';
@@ -28,7 +28,6 @@ import DocumentBar from './components/DocumentBar';
 import ProjectPanel from './components/ProjectPanel';
 import CalibrationOverlay from './components/CalibrationOverlay';
 import GeoCalibrationOverlay from './components/GeoCalibrationOverlay';
-import AutoDetectInspector from './components/AutoDetectInspector';
 import { fetchImage } from './utils/fetchImage';
 import './App.css';
 
@@ -328,10 +327,7 @@ function App() {
   // Cuando se carga vía ?data=URL, selectedLoteo queda null — lo cargamos aparte
   useEffect(() => {
     if (!loteoId || selectedLoteo || !accessToken || !hasOrgContext) return;
-    fetch(`${API_BASE}/loteos/${loteoId}`, {
-      headers: authHeaders(accessToken),
-    })
-      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+    getLoteo(accessToken, loteoId)
       .then(data => setSelectedLoteo(data))
       .catch(() => setLoteoAccessDenied(true));
   }, [loteoId, selectedLoteo, accessToken, hasOrgContext]);
@@ -356,11 +352,7 @@ function App() {
     }
 
     if (dataUrl) {
-      fetch(dataUrl)
-        .then(res => {
-          if (!res.ok) throw new Error(`Error ${res.status}`);
-          return res.json();
-        })
+      fetchVisorData(dataUrl)
         .then(async data => {
           if (cancelled) return;
           if (data.annotations && Array.isArray(data.annotations)) {
@@ -471,10 +463,7 @@ function App() {
   useEffect(() => {
     if (!loteoId || !accessToken || !hasOrgContext) return;
     let cancelled = false;
-    fetchWithTimeout(`${API_BASE}/loteos?limit=100`, {
-      headers: authHeaders(accessToken),
-    })
-      .then(res => (res.ok ? res.json() : null))
+    listLoteos(accessToken, { limit: 100 })
       .then(data => {
         if (cancelled || !data?.items) return;
         const me = data.items.find(l => l.id === loteoId);
@@ -788,16 +777,11 @@ function App() {
     setActiveTool('select');
   };
 
+  // Los errores (ApiError) los muestra ProjectPanel — acá solo se propagan.
   const handleCaptureHome = async () => {
     const pos = getViewerPositionRef.current?.();
     if (!pos) throw new Error('El visor no está listo');
-    const res = await fetchWithTimeout(`${API_BASE}/loteos/${loteoId}`, {
-      method: 'PATCH',
-      headers: authHeaders(accessToken, { 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ home_yaw: pos.yaw, home_pitch: pos.pitch }),
-    });
-    if (!res.ok) throw new Error(`Error ${res.status}`);
-    const saved = await res.json();
+    const saved = await patchLoteo(accessToken, loteoId, { home_yaw: pos.yaw, home_pitch: pos.pitch });
     setHomePosition({ yaw: saved.home_yaw, pitch: saved.home_pitch });
     return saved;
   };
@@ -805,53 +789,29 @@ function App() {
   const handleSetNorth = async () => {
     const pos = getViewerPositionRef.current?.();
     if (!pos) throw new Error('El visor no está listo');
-    const res = await fetchWithTimeout(`${API_BASE}/loteos/${loteoId}`, {
-      method: 'PATCH',
-      headers: authHeaders(accessToken, { 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ north_offset: pos.yaw }),
-    });
-    if (!res.ok) throw new Error(`Error ${res.status}`);
-    const saved = await res.json();
+    const saved = await patchLoteo(accessToken, loteoId, { north_offset: pos.yaw });
     setNorthOffset(saved.north_offset);
     return saved;
   };
 
   const handleResetHome = async () => {
-    const res = await fetchWithTimeout(`${API_BASE}/loteos/${loteoId}`, {
-      method: 'PATCH',
-      headers: authHeaders(accessToken, { 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ home_yaw: null, home_pitch: null }),
-    });
-    if (!res.ok) throw new Error('No se pudo restablecer la vista inicial.');
-    const saved = await res.json();
+    const saved = await patchLoteo(accessToken, loteoId, { home_yaw: null, home_pitch: null });
     setHomePosition(null);
     return saved;
   };
 
   const handleResetNorth = async () => {
-    const res = await fetchWithTimeout(`${API_BASE}/loteos/${loteoId}`, {
-      method: 'PATCH',
-      headers: authHeaders(accessToken, { 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ north_offset: null }),
-    });
-    if (!res.ok) throw new Error('No se pudo restablecer el norte.');
-    const saved = await res.json();
+    const saved = await patchLoteo(accessToken, loteoId, { north_offset: null });
     setNorthOffset(null);
     return saved;
   };
 
   const handleSaveProjectSettings = async ({ name, snapThreshold: nextSnapThreshold }) => {
     if (!loteoId) throw new Error('No se encontró el loteo que querés configurar.');
-    const res = await fetchWithTimeout(`${API_BASE}/loteos/${loteoId}`, {
-      method: 'PATCH',
-      headers: authHeaders(accessToken, { 'Content-Type': 'application/json' }),
-      body: JSON.stringify({
-        ...(name ? { name } : {}),
-        snap_threshold: nextSnapThreshold,
-      }),
+    const saved = await patchLoteo(accessToken, loteoId, {
+      ...(name ? { name } : {}),
+      snap_threshold: nextSnapThreshold,
     });
-    if (!res.ok) throw new Error('No se pudo guardar la configuración del loteo.');
-    const saved = await res.json();
     if (saved.snap_threshold != null) setSnapThreshold(saved.snap_threshold);
     setSelectedLoteo(prev => prev
       ? { ...prev, name: saved.name ?? prev.name }
@@ -1356,7 +1316,7 @@ function App() {
   };
 
   const handleLoteoSelect = (loteo) => {
-    const dataUrl = `${API_BASE}/loteos/${loteo.id}/visor_data`;
+    const dataUrl = visorDataUrl(loteo.id);
     // Lleva la org activa al link para que, si se refresca o reabre esa
     // pestaña, siga sabiendo con qué org corresponde ese loteo (ver useAuth).
     const orgIdParam = activeOrgId ? `&orgId=${encodeURIComponent(activeOrgId)}` : '';

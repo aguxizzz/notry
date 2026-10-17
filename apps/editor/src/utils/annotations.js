@@ -1,3 +1,5 @@
+import { getLotSvgStyle } from './lotStyles.js';
+
 const POI_PHOTO_CHIP_ICON = `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2.4" stroke="#8e7343" stroke-width="1.7"/><circle cx="12" cy="13" r="3.4" stroke="#8e7343" stroke-width="1.7"/><path d="M8 6l1.2-2h5.6L16 6" stroke="#8e7343" stroke-width="1.7" stroke-linejoin="round"/></svg>`;
 
 const escapeHtml = value => String(value).replace(
@@ -85,16 +87,7 @@ export function annotationsToMarkers(annotations) {
         const points = (ann.polygonPixels ?? ann.polygon ?? []).filter(
           pt => Array.isArray(pt) && pt.length === 2 && typeof pt[0] === 'number' && typeof pt[1] === 'number'
         );
-        const statusKey = ann.status ?? ann.estado;
-        const estadoStyles = {
-          available: { fill: 'rgba(34,197,94,0.15)',  stroke: 'rgba(22,163,74,0.5)',  strokeWidth: '2' },
-          sold:      { fill: 'rgba(239,68,68,0.25)',   stroke: 'rgba(220,38,38,0.7)',  strokeWidth: '2' },
-          reserved:  { fill: 'rgba(59,130,246,0.40)',  stroke: 'rgba(37,99,235,0.80)', strokeWidth: '2' },
-        };
-        const svgStyle = !ann.pending && statusKey && estadoStyles[statusKey]
-          ? estadoStyles[statusKey]
-          : (ann.svgStyle ?? {});
-        return { ...base, svgStyle, polygonPixels: points };
+        return { ...base, svgStyle: getLotSvgStyle(ann), polygonPixels: points };
       }
       case 'poi': {
         if (ann.variant === 'callout' || ann.marker_variant === 'callout') {

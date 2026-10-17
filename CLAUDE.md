@@ -33,7 +33,11 @@ npm run dev       # servidor de desarrollo (Vite)
 npm run build     # build de producción
 npm run lint      # eslint (no existe en visor)
 npm run preview   # previsualizar build
+npm run test      # vitest (solo editor por ahora: matemática de proyección, streetPath, payload de guardado)
 ```
+
+En el editor, los tests van al lado del módulo (`*.test.js`). `src/test/syntheticCamera.js` arma una
+cámara con geometría conocida para testear la proyección contra la verdad, no contra la propia implementación.
 
 ## Testeo visual (Playwright)
 
