@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { errorMessage } from '../api/client';
 import { assignLotCoordinates, createLot, deleteLot } from '../api/lots';
-import { getShapeCoords, spaceForMode, withShapeCoords } from '../utils/annotationModel';
+import { getShapeCoords, reinsertAnnotation, spaceForMode, withShapeCoords } from '../utils/annotationModel';
 import { parseNumberOrZero } from '../utils/saveAllUtils';
 import { useUIFeedback } from './useUIFeedback';
 
@@ -97,19 +97,27 @@ export function useLotOperations({
     }
   };
 
-  const handleRemoveLot = async (marker) => {
-    if (!marker.uuid) return true;
+  // Eliminar un lote guardado de la base (no se puede deshacer). Es
+  // optimista: tras confirmar, el lote desaparece al toque y la API corre
+  // atrás; si falla, vuelve a su lugar. `onDeleted` corre solo si la API
+  // confirmó (App limpia ahí el snapshot de guardado y el historial).
+  const handleDeleteLot = async (marker, { onDeleted } = {}) => {
+    const original = annotations.find(a => a.id === marker?.id);
+    if (!original?.uuid) return;
     const confirmed = await confirm(
-      `¿Eliminar el lote "${marker.tooltip || marker.uuid}" de la base de datos? Esta acción no se puede deshacer.`,
+      `¿Eliminar el lote "${original.tooltip || original.uuid}" de la base de datos? Esta acción no se puede deshacer.`,
       { title: 'Eliminar lote', danger: true, confirmLabel: 'Eliminar' }
     );
-    if (!confirmed) return false;
+    if (!confirmed) return;
+    const index = annotations.indexOf(original);
+    setAnnotations(prev => prev.filter(a => a.id !== original.id));
+    setSelectedId(prev => (prev === original.id ? null : prev));
     try {
-      await deleteLot(token, marker.uuid);
-      return true;
+      await deleteLot(token, original.uuid);
+      onDeleted?.(original);
     } catch (error) {
+      setAnnotations(prev => reinsertAnnotation(prev, original, index));
       reportError('eliminar el lote', error);
-      return false;
     }
   };
 
@@ -120,6 +128,6 @@ export function useLotOperations({
     isAssigning,
     handleCreateLote,
     handleAssignToExistingLot,
-    handleRemoveLot,
+    handleDeleteLot,
   };
 }

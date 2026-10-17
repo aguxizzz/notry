@@ -46,6 +46,16 @@ export function withShapeCoords(ann, mode, coords) {
   return { ...rest, [coordsKey(mode)]: coords };
 }
 
+/**
+ * Rollback de un borrado optimista: vuelve a poner `ann` donde estaba. Si
+ * mientras tanto volvió a aparecer (p. ej. por un undo), no la duplica.
+ */
+export function reinsertAnnotation(list, ann, index) {
+  if (list.some(a => a.id === ann.id)) return list;
+  const at = Math.max(0, Math.min(index, list.length));
+  return [...list.slice(0, at), ann, ...list.slice(at)];
+}
+
 export const getAnchor = (ann, mode) => ann?.[anchorKey(mode)] ?? null;
 
 export function withAnchor(ann, mode, point) {

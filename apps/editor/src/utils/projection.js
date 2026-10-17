@@ -72,9 +72,13 @@ export function projectLotAnnotations(annotations, projector, { overwrite = fals
   return { annotations: nextAnnotations, count };
 }
 
-export function unimportLotAnnotations(annotations, ids) {
+/**
+ * "Quitar de esta vista": vacía la geometría de los lotes en una vista
+ * (panorama por defecto) y deja la de la otra. El lote sigue existiendo.
+ */
+export function unimportLotAnnotations(annotations, ids, mode = 'panorama') {
   const targetIds = ids instanceof Set ? ids : new Set(ids);
   return annotations.map(annotation => (
-    targetIds.has(annotation.id) ? withShapeCoords(annotation, 'panorama', []) : annotation
+    targetIds.has(annotation.id) ? withShapeCoords(annotation, mode, []) : annotation
   ));
 }

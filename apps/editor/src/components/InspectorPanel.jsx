@@ -11,8 +11,9 @@ export default function InspectorPanel({
   mode,
   homography,
   onImportFromBlueprint,
-  onUnimportSelected,
   onDelete,
+  onDeleteLot,
+  onRemoveFromPanorama,
   updateSelected,
   updateNestedSelected,
   // Lot — pending
@@ -55,9 +56,32 @@ export default function InspectorPanel({
                 <h3 style={{ margin: 0, fontSize: 'var(--text-lg)', fontWeight: 'var(--weight-bold)', color: '#c5a059', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                   {selectedMarker.type}
                 </h3>
-                <button onClick={onDelete} style={{ background: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', padding: '4px 10px', cursor: 'pointer', fontSize: 'var(--text-base)' }}>
-                  Borrar
-                </button>
+                {selectedMarker.type === 'polygon' && selectedMarker.uuid ? (
+                  // Lote guardado: quitarlo de la vista (default, Supr, se
+                  // deshace) es distinto de borrarlo de la base.
+                  <div style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      className="editor-btn editor-btn--secondary"
+                      onClick={onDelete}
+                      title={`Lo saca de la vista ${mode === 'blueprint' ? 'Plano' : 'Panorama'}. El lote y su ubicación en la otra vista quedan. Se deshace con Ctrl+Z (Supr)`}
+                    >
+                      Quitar de esta vista
+                    </button>
+                    <button
+                      type="button"
+                      className="editor-btn editor-btn--danger"
+                      onClick={onDeleteLot}
+                      title="Borra el lote de la base de datos. No se puede deshacer"
+                    >
+                      Eliminar lote
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button" className="editor-btn editor-btn--danger" onClick={onDelete} title="Borrar (Supr)">
+                    Borrar
+                  </button>
+                )}
               </div>
             )}
 
@@ -133,7 +157,8 @@ export default function InspectorPanel({
                   onUpdateSelected={updateSelected}
                   homography={homography}
                   onImportFromBlueprint={onImportFromBlueprint}
-                  onUnimportSelected={onUnimportSelected}
+                  onRemoveFromPanorama={onRemoveFromPanorama}
+                  editorMode={mode}
                   uploadFn={uploadFn}
                 />
               )

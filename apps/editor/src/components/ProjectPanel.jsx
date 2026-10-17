@@ -369,8 +369,14 @@ export default function ProjectPanel({
                 <button type="button" className="editor-btn editor-btn--secondary" onClick={onReprojectAll} disabled={!homography || projectableLots.length === 0}>
                   <RotateCcw size={15} /> Reproyectar todos ({projectableLots.length})
                 </button>
-                <button type="button" className="editor-btn editor-btn--danger" onClick={onRemoveAllFromPanorama} disabled={importedLots.length === 0}>
-                  Quitar todos del panorama ({importedLots.length})
+                <button
+                  type="button"
+                  className="editor-btn editor-btn--secondary"
+                  onClick={onRemoveAllFromPanorama}
+                  disabled={importedLots.length === 0}
+                  title="Saca los polígonos del panorama para volver a proyectarlos. Los lotes y sus polígonos del plano no se tocan"
+                >
+                  Desubicar del panorama ({importedLots.length})
                 </button>
               </details>
             </ProjectSection>
