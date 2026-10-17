@@ -5,15 +5,14 @@ import {
   Layers,
   MapPin,
   MousePointer2,
-  PenLine,
   Pentagon,
   Redo2,
-  Route,
   Square,
   Type,
   Undo2,
   Wand2,
 } from 'lucide-react';
+import { RenderStatus, RenderTools } from './RenderToolbar';
 
 const TOOLS = [
   { id: 'select', icon: MousePointer2, label: 'Seleccionar', shortcut: 'V' },
@@ -24,20 +23,6 @@ const TOOLS = [
   // "rectángulo" se deforma igual que cualquier otro polígono.
   { id: 'rect', icon: Square, label: 'Rectángulo', shortcut: '2' },
 ];
-
-const RENDER_LAYERS = [
-  { key: 'lotes', label: 'Lotes' },
-  { key: 'manzanas', label: 'Manzanas' },
-  { key: 'calles', label: 'Calles' },
-];
-
-// Reemplaza el slider libre (10-300) por 10 opciones discretas.
-// Mínimo: -20% del mínimo anterior (10 -> 8). Máximo: 75% del máximo anterior (300 -> 225).
-const STREET_WIDTH_MIN = 8;
-const STREET_WIDTH_MAX = 225;
-const STREET_WIDTH_OPTIONS = Array.from({ length: 10 }, (_, i) =>
-  Math.round(STREET_WIDTH_MIN + ((STREET_WIDTH_MAX - STREET_WIDTH_MIN) * i) / 9)
-);
 
 export default function Toolbar({
   activeTool,
@@ -56,27 +41,7 @@ export default function Toolbar({
   onUndo,
   onRedo,
   calibrationPoints,
-  renderTestMode,
-  onRenderTestModeChange,
-  renderDrawingPtsCount = 0,
-  onFinishRenderShape,
-  onCancelRenderDrawing,
-  renderLayersVisible,
-  onToggleRenderLayer,
-  renderColorMode,
-  onRenderColorModeChange,
-  renderManzanaOpacity = 1,
-  onRenderManzanaOpacityChange,
-  hasRenderShapes,
-  onClearRenderShapes,
-  renderStreetWidth = 60,
-  onRenderStreetWidthChange,
-  renderStreetEditMode,
-  onToggleRenderStreetEditMode,
-  renderStreetEditTarget,
-  hasStreetPathShapes,
-  streetEditWidth = 60,
-  onStreetEditWidthChange,
+  render,
 }) {
   const isRenderMode = mode === 'render';
 
@@ -119,129 +84,7 @@ export default function Toolbar({
         <span className="toolbar-divider" aria-hidden="true" />
 
         {isRenderMode ? (
-          <div className="toolbar-tools" aria-label="Herramientas de render">
-            <button
-              type="button"
-              className={`tool-btn${renderTestMode === 'manzana' ? ' active' : ''}`}
-              onClick={() => onRenderTestModeChange(renderTestMode === 'manzana' ? null : 'manzana')}
-              title="Dibujar manzana (1)"
-              aria-label="Dibujar manzana. Atajo 1"
-            >
-              <Pentagon size={18} />
-              <span>Manzana</span>
-              <kbd>1</kbd>
-            </button>
-            <button
-              type="button"
-              className={`tool-btn${renderTestMode === 'calle' ? ' active' : ''}`}
-              onClick={() => onRenderTestModeChange(renderTestMode === 'calle' ? null : 'calle')}
-              title="Dibujar calle: trazá el eje central, el contorno se genera con ancho constante (2)"
-              aria-label="Dibujar calle. Atajo 2"
-            >
-              <Square size={18} />
-              <span>Calle</span>
-              <kbd>2</kbd>
-            </button>
-            {renderTestMode === 'calle' && (
-              <label className="render-opacity-control" title="Ancho de la calle (px de textura): se traza por su eje central, la Ruta">
-                <Route size={16} />
-                <span>Ancho</span>
-                <select
-                  value={renderStreetWidth}
-                  onChange={(e) => onRenderStreetWidthChange(Number(e.target.value))}
-                >
-                  {STREET_WIDTH_OPTIONS.map(w => (
-                    <option key={w} value={w}>{w}</option>
-                  ))}
-                </select>
-              </label>
-            )}
-
-            <button
-              type="button"
-              className={`tool-btn${renderStreetEditMode ? ' active' : ''}`}
-              onClick={onToggleRenderStreetEditMode}
-              disabled={!hasStreetPathShapes}
-              title="Editar ruta: clickeá una calle para mover, agregar o quitar puntos de su eje (3)"
-              aria-label="Editar ruta. Atajo 3"
-            >
-              <PenLine size={18} />
-              <span>Editar ruta</span>
-              <kbd>3</kbd>
-            </button>
-            {renderStreetEditMode && renderStreetEditTarget && (
-              <label className="render-opacity-control" title="Ancho de la calle seleccionada (px de textura)">
-                <span>Ancho</span>
-                <input
-                  type="range"
-                  min="10"
-                  max="300"
-                  step="5"
-                  value={streetEditWidth}
-                  onChange={(e) => onStreetEditWidthChange(Number(e.target.value))}
-                />
-              </label>
-            )}
-
-            <span className="toolbar-divider" aria-hidden="true" />
-
-            <div className="render-layers" aria-label="Capas visibles">
-              {RENDER_LAYERS.map(layer => (
-                <label key={layer.key} className="render-layer-toggle">
-                  <input
-                    type="checkbox"
-                    checked={renderLayersVisible?.[layer.key] ?? true}
-                    onChange={() => onToggleRenderLayer(layer.key)}
-                  />
-                  <span>{layer.label}</span>
-                </label>
-              ))}
-            </div>
-
-            <span className="toolbar-divider" aria-hidden="true" />
-
-            <label className="render-opacity-control" title="Opacidad de las manzanas: bajala para ver qué hay debajo mientras dibujás calles">
-              <span>Opacidad manzanas</span>
-              <input
-                type="range"
-                min="0.15"
-                max="1"
-                step="0.05"
-                value={renderManzanaOpacity}
-                onChange={(e) => onRenderManzanaOpacityChange(Number(e.target.value))}
-              />
-            </label>
-
-            <span className="toolbar-divider" aria-hidden="true" />
-
-            <div className="render-color-swatches" aria-label="Color de las superficies">
-              <button
-                type="button"
-                className={`render-color-swatch${renderColorMode === 'light' ? ' is-active' : ''}`}
-                title="Color claro"
-                onClick={() => onRenderColorModeChange('light')}
-              />
-              <button
-                type="button"
-                className={`render-color-swatch render-color-swatch--dark${renderColorMode === 'dark' ? ' is-active' : ''}`}
-                title="Color oscuro"
-                onClick={() => onRenderColorModeChange('dark')}
-              />
-            </div>
-
-            {hasRenderShapes && (
-              <button
-                type="button"
-                className="editor-btn editor-btn--secondary"
-                onClick={onClearRenderShapes}
-                title="Borrar todas las manzanas y calles dibujadas (L)"
-                aria-label="Limpiar. Atajo L"
-              >
-                Limpiar
-                <kbd>L</kbd>
-              </button>
-            )}
-          </div>
+          <RenderTools render={render} />
         ) : (
           <div className="toolbar-tools" aria-label="Herramientas de edición">
             {TOOLS.filter(tool => tool.id === 'rect'
@@ -336,36 +179,7 @@ export default function Toolbar({
         </div>
       )}
 
-      {isRenderMode && renderTestMode && (
-        <div className="drawing-actions" role="status">
-          <span>
-            {renderDrawingPtsCount === 0
-              ? (renderTestMode === 'calle' ? 'Click agrega punto del eje' : 'Click agrega punto')
-              : `${renderDrawingPtsCount} punto${renderDrawingPtsCount === 1 ? '' : 's'}`}
-          </span>
-          <button
-            type="button"
-            className="editor-btn editor-btn--primary"
-            onClick={onFinishRenderShape}
-            disabled={renderDrawingPtsCount < (renderTestMode === 'calle' ? 2 : 3)}
-          >
-            Finalizar {renderTestMode === 'manzana' ? 'manzana' : 'calle'}
-          </button>
-          <button type="button" className="editor-btn editor-btn--secondary" onClick={onCancelRenderDrawing}>
-            Cancelar
-          </button>
-        </div>
-      )}
-
-      {isRenderMode && renderStreetEditMode && (
-        <div className="drawing-actions" role="status">
-          <span>
-            {renderStreetEditTarget
-              ? 'Arrastrá un punto del eje para moverlo, o el punto celeste intermedio para agregar uno nuevo'
-              : 'Clickeá una calle trazada para editar su eje'}
-          </span>
-        </div>
-      )}
+      {isRenderMode && <RenderStatus render={render} />}
     </>
   );
 }

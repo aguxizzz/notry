@@ -19,7 +19,8 @@ import {
 } from './utils/markerIds';
 import { isCalibrationPairTooClose } from './utils/calibration';
 import { detectLotPolygon } from './utils/lotDetection';
-import { buildStreetRibbon, buildProjectedStreetRibbon, findAxisEndpointSnap, mergeStreetAxis } from './utils/streetPath';
+import { DEFAULT_RENDER_SURFACES, surfacesForDirtyCheck } from './utils/renderSurfaces';
+import { useRenderSurfaces } from './hooks/useRenderSurfaces';
 import { useUIFeedback } from './hooks/useUIFeedback';
 import { Check, Image as ImageIcon, X } from 'lucide-react';
 import EditorViewer from './components/EditorViewer';
@@ -58,167 +59,7 @@ function App() {
   // above); undo/redo for these points is intentionally not supported yet.
   const [geoCalibrationPoints, setGeoCalibrationPoints] = useState([]);
   const [pendingGeoBlueprintPoint, setPendingGeoBlueprintPoint] = useState(null);
-  // Modo Render: dibujo de manzanas/calles sobre el panorama. Se persiste como
-  // JSONB (`render_surfaces` en loteos, ver useSaveAll) junto al resto del
-  // "Guardar todo". Las shapes en sí (crear/editar eje/ancho/vaciar) entran al
-  // historial de undo/redo; declaradas antes de useHistory por lo mismo que
-  // calibrationPoints arriba.
-  const [renderManzanaShapes, setRenderManzanaShapes] = useState([]); // [{ id, points }]
-  const [renderCalleShapes, setRenderCalleShapes] = useState([]);
-  const { pushHistory, undo, redo, canUndo, canRedo, removeAnnotationFromHistory } = useHistory({
-    annotations, setAnnotations, calibrationPoints, setCalibrationPoints,
-    renderManzanaShapes, setRenderManzanaShapes, renderCalleShapes, setRenderCalleShapes,
-  });
-  const isDraggingPolygonRef = useRef(false);
-  const preDragAnnotationsRef = useRef(null);
-  const isDraggingCalibrationRef = useRef(false);
-  const isDraggingStreetWidthRef = useRef(false);
-  const keyboardStateRef = useRef(null);
-  const [selectedId, setSelectedId] = useState(null);
-  const [drawingPolygon, setDrawingPolygon] = useState([]);
-  // Rectángulo de 2 clicks: guarda la primera esquina mientras se espera la opuesta
-  const [rectStart, setRectStart] = useState(null);
-  const [renderTestMode, setRenderTestMode] = useState(null); // null | 'manzana' | 'calle'
-  const [renderDrawingPts, setRenderDrawingPts] = useState([]); // [[textureX, textureY], ...]
-  const [renderLayersVisible, setRenderLayersVisible] = useState({ lotes: true, manzanas: true, calles: true });
-  const [renderColorMode, setRenderColorMode] = useState('light');
-  const [renderManzanaOpacity, setRenderManzanaOpacity] = useState(1);
-  // Calle: siempre se traza por eje central + ancho constante ("Ruta"), nunca
-  // por click-polígono libre — el contorno se genera con buildStreetRibbon.
-  const [renderStreetWidth, setRenderStreetWidth] = useState(56);
-  // Edición de eje post-creación: reselecciona una calle ya trazada y permite
-  // arrastrar/agregar puntos de su eje — reconstruye el contorno
-  // (buildStreetRibbon) en cada cambio.
-  const [renderStreetEditMode, setRenderStreetEditMode] = useState(false);
-  const [renderStreetEditTarget, setRenderStreetEditTarget] = useState(null); // id de calle | null
-  const toggleRenderStreetEditMode = () => {
-    setRenderStreetEditMode(v => !v);
-    setRenderStreetEditTarget(null);
-  };
-  // Snapshot enviado/recibido de `render_surfaces` (JSONB en loteos) — shape
-  // estable (nunca null) para que el diff contra savedRenderSurfacesRef en
-  // useSaveAll funcione igual que con calibrationPoints.
-  const renderSurfaces = useMemo(() => ({
-    manzanas: renderManzanaShapes,
-    calles: renderCalleShapes,
-    colorMode: renderColorMode,
-    manzanaOpacity: renderManzanaOpacity,
-    layersVisible: renderLayersVisible,
-  }), [renderManzanaShapes, renderCalleShapes, renderColorMode, renderManzanaOpacity, renderLayersVisible]);
-  const finishRenderShape = () => {
-    if (!renderTestMode) return;
-    const isStreetPath = renderTestMode === 'calle';
-    const minPts = isStreetPath ? 2 : 3;
-    if (renderDrawingPts.length < minPts) return;
-    // Si el primer click de esta Ruta cayó cerca del inicio/final del eje de
-    // otra Ruta ya trazada, no se crea una shape nueva: se mergea en un solo
-    // eje continuo (ver mergeStreetAxis) para que el contorno salga de una
-    // sola pieza en la unión, en vez de dos ribbons con costura.
-    let drawingPts = renderDrawingPts;
-    if (isStreetPath) {
-      const snap = findAxisEndpointSnap(renderDrawingPts[0], renderCalleShapes);
-      if (snap && snap.end !== 'interior') {
-        const target = renderCalleShapes.find(s => s.id === snap.shapeId);
-        const mergedAxis = mergeStreetAxis(target.axis, snap.end, renderDrawingPts);
-        const mergedPoints = buildProjectedStreetRibbon(mergedAxis, target.width, homography)
-          ?? buildStreetRibbon(mergedAxis, target.width);
-        if (mergedPoints.length) {
-          pushHistory(annotations);
-          setRenderCalleShapes(prev => prev.map(s => (
-            s.id === target.id
-              ? { ...s, axis: mergedAxis, points: mergedPoints, curves: mergedPoints.map(() => null) }
-              : s
-          )));
-          setRenderDrawingPts([]);
-          setRenderTestMode(null);
-          return;
-        }
-      }
-      // Vértice interior: no se puede mergear en un solo eje (salen 3
-      // direcciones de ese punto) — queda como shape independiente, pero
-      // arrancando exacto en el vértice para que el ribbon la toque justo
-      // ahí (el borde se junta con boolean union al renderizar).
-      if (snap && snap.end === 'interior') {
-        drawingPts = [snap.point, ...renderDrawingPts.slice(1)];
-      }
-    }
-    // Probar: si hay homografía calibrada, la Ruta pasa por blueprint space
-    // (round-trip vía unprojectPoint) para offsetear/filetear ahí donde el
-    // terreno es plano, en vez de directo en texture space — ver
-    // buildProjectedStreetRibbon en utils/streetPath.js. Cae al método viejo
-    // si no hay calibración o el round-trip da puntos inválidos.
-    const points = isStreetPath
-      ? (buildProjectedStreetRibbon(drawingPts, renderStreetWidth, homography)
-          ?? buildStreetRibbon(drawingPts, renderStreetWidth))
-      : drawingPts;
-    if (!points.length) return;
-    const shape = {
-      id: `test-${renderTestMode}-${Date.now()}`,
-      points,
-      ...(isStreetPath ? { axis: drawingPts, width: renderStreetWidth } : {}),
-    };
-    pushHistory(annotations);
-    if (renderTestMode === 'manzana') setRenderManzanaShapes(prev => [...prev, shape]);
-    else setRenderCalleShapes(prev => [...prev, shape]);
-    setRenderDrawingPts([]);
-    setRenderTestMode(null);
-  };
-  const cancelRenderDrawing = () => {
-    setRenderDrawingPts([]);
-    setRenderTestMode(null);
-  };
-  const handleRenderTestModeChange = (next) => {
-    setRenderTestMode(next);
-    setRenderDrawingPts([]);
-    setRenderStreetEditMode(false);
-    setRenderStreetEditTarget(null);
-  };
-  const clearRenderShapes = () => {
-    if (renderManzanaShapes.length === 0 && renderCalleShapes.length === 0) return;
-    pushHistory(annotations);
-    setRenderManzanaShapes([]);
-    setRenderCalleShapes([]);
-    setRenderDrawingPts([]);
-    setRenderStreetEditTarget(null);
-  };
-  // El eje cambió (arrastre o punto nuevo agregado): recalcula el contorno.
-  // Se llama una sola vez por gesto de arrastre (al soltar, ver EditorViewer),
-  // así que cada llamada es un commit atómico para el historial.
-  const setStreetAxis = (shapeId, newAxis) => {
-    pushHistory(annotations);
-    setRenderCalleShapes(prev => prev.map(shape => {
-      if (shape.id !== shapeId || !shape.axis) return shape;
-      const points = buildProjectedStreetRibbon(newAxis, shape.width, homography)
-        ?? buildStreetRibbon(newAxis, shape.width);
-      return { ...shape, axis: newAxis, points };
-    }));
-  };
-  // El slider de ancho dispara onChange en cada tick del arrastre — solo se
-  // pushea un snapshot al primer tick del gesto (isDraggingStreetWidthRef se
-  // resetea al soltar, ver el efecto de pointerup más abajo), para que un solo
-  // Ctrl+Z revierta todo el arrastre en vez de un tick.
-  const setStreetWidth = (shapeId, width) => {
-    if (!isDraggingStreetWidthRef.current) {
-      isDraggingStreetWidthRef.current = true;
-      pushHistory(annotations);
-    }
-    setRenderCalleShapes(prev => prev.map(shape => {
-      if (shape.id !== shapeId || !shape.axis) return shape;
-      const points = buildProjectedStreetRibbon(shape.axis, width, homography)
-        ?? buildStreetRibbon(shape.axis, width);
-      return { ...shape, width, points };
-    }));
-  };
-  // Auto-detect mode: detection parameters and state
-  const [autoDetectParams, setAutoDetectParams] = useState({ threshold: 128, maxTextDim: 20, epsilon: 2.0 });
-  const [autoDetectLoading, setAutoDetectLoading] = useState(false);
-  const [autoDetectError, setAutoDetectError] = useState(null);
-  const [autoDetectLotsGenerated, setAutoDetectLotsGenerated] = useState(0);
-
-  const [panoramaUrl, setPanoramaUrl] = useState(null);
   const [panoramaDimensions, setPanoramaDimensions] = useState(null);
-  const [blueprintUrl, setBlueprintUrl] = useState(null);
-  const [mode, setMode] = useState('panorama'); // 'panorama' | 'blueprint' | 'render'
 
   // Derived projector — recomputed whenever calibration points or panorama
   // dimensions change. Fits the homography with the ray direction as target
@@ -232,6 +73,36 @@ function App() {
     );
     return isProjectorValid(projector) ? projector : null;
   }, [calibrationPoints, panoramaDimensions]);
+
+  // Modo Render: manzanas/calles sobre el panorama (ver useRenderSurfaces).
+  // Las shapes entran al historial: antes de cada cambio se guarda snapshot.
+  const render = useRenderSurfaces({
+    homography,
+    onBeforeChange: () => pushHistory(annotations),
+  });
+  const { pushHistory, undo, redo, canUndo, canRedo, removeAnnotationFromHistory } = useHistory({
+    annotations, setAnnotations, calibrationPoints, setCalibrationPoints,
+    renderManzanaShapes: render.manzanas, setRenderManzanaShapes: render.setManzanas,
+    renderCalleShapes: render.calles, setRenderCalleShapes: render.setCalles,
+  });
+  const { endWidthDrag: endStreetWidthDrag } = render;
+  const isDraggingPolygonRef = useRef(false);
+  const preDragAnnotationsRef = useRef(null);
+  const isDraggingCalibrationRef = useRef(false);
+  const keyboardStateRef = useRef(null);
+  const [selectedId, setSelectedId] = useState(null);
+  const [drawingPolygon, setDrawingPolygon] = useState([]);
+  // Rectángulo de 2 clicks: guarda la primera esquina mientras se espera la opuesta
+  const [rectStart, setRectStart] = useState(null);
+  // Auto-detect mode: detection parameters and state
+  const [autoDetectParams, setAutoDetectParams] = useState({ threshold: 128, maxTextDim: 20, epsilon: 2.0 });
+  const [autoDetectLoading, setAutoDetectLoading] = useState(false);
+  const [autoDetectError, setAutoDetectError] = useState(null);
+  const [autoDetectLotsGenerated, setAutoDetectLotsGenerated] = useState(0);
+
+  const [panoramaUrl, setPanoramaUrl] = useState(null);
+  const [blueprintUrl, setBlueprintUrl] = useState(null);
+  const [mode, setMode] = useState('panorama'); // 'panorama' | 'blueprint' | 'render'
   const [snapThreshold, setSnapThreshold] = useState(5);
   const [homePosition, setHomePosition] = useState(null);
   const [northOffset, setNorthOffset] = useState(null);
@@ -283,12 +154,9 @@ function App() {
   const savedAnnotationsRef = useRef([]);
   const savedCalibrationRef = useRef([]);
   const savedGeoCalibrationRef = useRef([]);
-  // Default que matchea el estado inicial de renderManzanaShapes/etc, para que
-  // el diff no se dispare espuriamente en loteos que nunca tocaron modo Render.
-  const savedRenderSurfacesRef = useRef({
-    manzanas: [], calles: [], colorMode: 'light', manzanaOpacity: 1,
-    layersVisible: { lotes: true, manzanas: true, calles: true },
-  });
+  // Arranca igual que el estado inicial de useRenderSurfaces, para que el diff
+  // no se dispare en loteos que nunca tocaron el modo Render.
+  const savedRenderSurfacesRef = useRef(DEFAULT_RENDER_SURFACES);
   const { pendingDraft, loadDraft, clearDraft } = useDraft({ annotations, loteoId, savedAnnotationsRef, calibrationPoints, savedCalibrationRef, panoramaDimensions });
   const {
     isCreatingLote,
@@ -325,7 +193,7 @@ function App() {
     annotations, setAnnotations, token: accessToken, loteoId, savedAnnotationsRef, onAfterSave: clearDraft,
     calibrationPoints, savedCalibrationRef,
     geoCalibrationPoints, savedGeoCalibrationRef,
-    renderSurfaces, savedRenderSurfacesRef,
+    renderSurfaces: render.surfaces, savedRenderSurfacesRef,
   });
 
 
@@ -415,19 +283,7 @@ function App() {
             savedGeoCalibrationRef.current = withIds;
           }
           if (data.renderSurfaces && typeof data.renderSurfaces === 'object') {
-            const loaded = {
-              manzanas: data.renderSurfaces.manzanas ?? [],
-              calles: data.renderSurfaces.calles ?? [],
-              colorMode: data.renderSurfaces.colorMode ?? 'light',
-              manzanaOpacity: data.renderSurfaces.manzanaOpacity ?? 1,
-              layersVisible: data.renderSurfaces.layersVisible ?? { lotes: true, manzanas: true, calles: true },
-            };
-            setRenderManzanaShapes(loaded.manzanas);
-            setRenderCalleShapes(loaded.calles);
-            setRenderColorMode(loaded.colorMode);
-            setRenderManzanaOpacity(loaded.manzanaOpacity);
-            setRenderLayersVisible(loaded.layersVisible);
-            savedRenderSurfacesRef.current = loaded;
+            savedRenderSurfacesRef.current = render.load(data.renderSurfaces);
           }
           if (data.snapThreshold != null) {
             setSnapThreshold(data.snapThreshold);
@@ -814,6 +670,8 @@ function App() {
       }
     }
     setSelectedId(null);
+    // Salir de Render descarta la herramienta de dibujo y el trazo en curso.
+    if (mode === 'render') render.resetDrawing();
     setMode(nextMode);
   };
 
@@ -851,14 +709,6 @@ function App() {
     setRectStart(null);
     setActiveTool('select');
   }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Salir del modo Render limpia la herramienta de dibujo activa y el trazo en curso
-  useEffect(() => {
-    if (mode !== 'render') {
-      setRenderTestMode(null);
-      setRenderDrawingPts([]);
-    }
-  }, [mode]);
 
   // When calibrate tool is activated, start in blueprint so the user picks the reference there first
   useEffect(() => {
@@ -904,13 +754,13 @@ function App() {
         isDraggingPolygonRef.current = false;
         preDragAnnotationsRef.current = null;
       }
-      // Solo resetea el flag: el snapshot ya se pusheó en el primer tick del
-      // slider (ver setStreetWidth) — acá no hay nada más que hacer.
-      isDraggingStreetWidthRef.current = false;
+      // El snapshot del slider de ancho ya se guardó en su primer tick: acá
+      // solo se cierra el gesto (ver useRenderSurfaces.setEditTargetWidth).
+      endStreetWidthDrag();
     };
     window.addEventListener('pointerup', handlePointerUp);
     return () => window.removeEventListener('pointerup', handlePointerUp);
-  }, [pushHistory]);
+  }, [pushHistory, endStreetWidthDrag]);
 
   // Keyboard shortcuts — uses ref to always read fresh callbacks without re-registering
   useEffect(() => {
@@ -956,22 +806,21 @@ function App() {
       }
       if (keyboardStateRef.current?.mode === 'render') {
         const key = e.key.toLowerCase();
+        const { render: r } = keyboardStateRef.current;
         if (key === '1') {
-          const s = keyboardStateRef.current;
-          s.onRenderTestModeChange(s.renderTestMode === 'manzana' ? null : 'manzana');
+          r.toggleTool('manzana');
           return;
         }
         if (key === '2') {
-          const s = keyboardStateRef.current;
-          s.onRenderTestModeChange(s.renderTestMode === 'calle' ? null : 'calle');
+          r.toggleTool('calle');
           return;
         }
         if (key === '3') {
-          if (keyboardStateRef.current.hasStreetPathShapes) keyboardStateRef.current.onToggleRenderStreetEditMode();
+          if (r.hasStreetPaths) r.toggleStreetEditMode();
           return;
         }
         if (key === 'l') {
-          if (keyboardStateRef.current.hasRenderShapes) keyboardStateRef.current.onClearRenderShapes();
+          if (r.hasShapes) r.clearShapes();
           return;
         }
       }
@@ -1259,12 +1108,7 @@ function App() {
       activeTool,
       mode,
       saveAll: handleSaveAll,
-      renderTestMode,
-      onRenderTestModeChange: handleRenderTestModeChange,
-      onToggleRenderStreetEditMode: toggleRenderStreetEditMode,
-      onClearRenderShapes: clearRenderShapes,
-      hasRenderShapes: renderManzanaShapes.length > 0 || renderCalleShapes.length > 0,
-      hasStreetPathShapes: renderCalleShapes.some(s => s.axis),
+      render,
     };
   });
 
@@ -1342,11 +1186,8 @@ function App() {
     );
   }
 
-  // layersVisible es un filtro puramente visual (qué capas se ven en el
-  // toolbar de Render) — se guarda en render_surfaces para persistir entre
-  // sesiones, pero no debe contar como "cambio sin guardar".
-  const { layersVisible: _renderSurfacesLayersVisible, ...renderSurfacesForDirtyCheck } = renderSurfaces;
-  const { layersVisible: _savedLayersVisible, ...savedRenderSurfacesForDirtyCheck } = savedRenderSurfacesRef.current ?? {};
+  const renderSurfacesForDirtyCheck = surfacesForDirtyCheck(render.surfaces);
+  const savedRenderSurfacesForDirtyCheck = surfacesForDirtyCheck(savedRenderSurfacesRef.current);
   const hasUnsavedChanges = (
     JSON.stringify(annotations) !== JSON.stringify(savedAnnotationsRef.current)
     || JSON.stringify(calibrationPoints) !== JSON.stringify(savedCalibrationRef.current)
@@ -1489,27 +1330,7 @@ function App() {
             onUndo={undo}
             onRedo={redo}
             calibrationPoints={calibrationPoints}
-            renderTestMode={renderTestMode}
-            onRenderTestModeChange={handleRenderTestModeChange}
-            renderDrawingPtsCount={renderDrawingPts.length}
-            onFinishRenderShape={finishRenderShape}
-            onCancelRenderDrawing={cancelRenderDrawing}
-            renderLayersVisible={renderLayersVisible}
-            onToggleRenderLayer={(key) => setRenderLayersVisible(v => ({ ...v, [key]: !v[key] }))}
-            renderColorMode={renderColorMode}
-            onRenderColorModeChange={setRenderColorMode}
-            renderManzanaOpacity={renderManzanaOpacity}
-            onRenderManzanaOpacityChange={setRenderManzanaOpacity}
-            hasRenderShapes={renderManzanaShapes.length > 0 || renderCalleShapes.length > 0}
-            onClearRenderShapes={clearRenderShapes}
-            renderStreetWidth={renderStreetWidth}
-            onRenderStreetWidthChange={setRenderStreetWidth}
-            renderStreetEditMode={renderStreetEditMode}
-            onToggleRenderStreetEditMode={toggleRenderStreetEditMode}
-            renderStreetEditTarget={renderStreetEditTarget}
-            hasStreetPathShapes={renderCalleShapes.some(s => s.axis)}
-            streetEditWidth={renderCalleShapes.find(s => s.id === renderStreetEditTarget)?.width ?? renderStreetWidth}
-            onStreetEditWidthChange={(width) => renderStreetEditTarget && setStreetWidth(renderStreetEditTarget, width)}
+            render={render}
           />
 
           <div className="viewer-surface">
@@ -1541,21 +1362,7 @@ function App() {
                 getPositionRef={getViewerPositionRef}
                 onViewerReadyChange={setViewerReady}
                 onPanoramaDimensions={setPanoramaDimensions}
-                renderTestMode={renderTestMode}
-                renderDrawingPts={renderDrawingPts}
-                onRenderDrawingPtsChange={setRenderDrawingPts}
-                renderManzanaShapes={renderManzanaShapes}
-                renderCalleShapes={renderCalleShapes}
-                renderLayersVisible={renderLayersVisible}
-                renderColorMode={renderColorMode}
-                renderManzanaOpacity={renderManzanaOpacity}
-                onFinishRenderShape={finishRenderShape}
-                onCancelRenderDrawing={cancelRenderDrawing}
-                renderStreetWidth={renderStreetWidth}
-                renderStreetEditMode={renderStreetEditMode}
-                renderStreetEditTarget={renderStreetEditTarget}
-                onStreetShapeSelect={setRenderStreetEditTarget}
-                onStreetAxisChange={setStreetAxis}
+                render={render}
               />
             ) : (
               <div className="viewer-feedback viewer-feedback--empty">

@@ -4,11 +4,11 @@ import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin';
 import { annotationsToMarkers } from '../utils/annotations';
 import {
   FIRST_TEMP_POINT_ID, MARKER_ID, PREFIX, domSelectorForPrefix, editCornerId, isCalibrationMarker,
-  isGhostMarker, isStreetAxisHandle, isSurfaceCalleMarker, markerIdFromDomId, parseEditCornerId,
+  isGhostMarker, isStreetAxisHandle, isSurfaceMarker, markerIdFromDomId, parseEditCornerId,
   parseEditMidpointId, parseStreetAxisId, parseStreetAxisMidId, streetAxisId, streetAxisMidId,
   surfaceCalleId, surfaceCalleUnionId, surfaceDrawingPointId, surfaceManzanaId,
 } from '../utils/markerIds';
-import { buildStreetRibbon, findAxisEndpointSnap, findStreetShapeAtPoint, unionStreetPolygons } from '../utils/streetPath';
+import { findAxisEndpointSnap, findStreetShapeAtPoint, unionStreetPolygons } from '../utils/streetPath';
 import '@photo-sphere-viewer/core/index.css';
 import '@photo-sphere-viewer/markers-plugin/index.css';
 
@@ -36,21 +36,7 @@ export default function EditorViewer({
   getPositionRef,
   onViewerReadyChange,
   onPanoramaDimensions,
-  renderTestMode,
-  renderDrawingPts,
-  onRenderDrawingPtsChange,
-  renderManzanaShapes,
-  renderCalleShapes,
-  renderLayersVisible,
-  renderColorMode,
-  renderManzanaOpacity = 1,
-  onFinishRenderShape,
-  onCancelRenderDrawing,
-  renderStreetWidth,
-  renderStreetEditMode,
-  renderStreetEditTarget,
-  onStreetShapeSelect,
-  onStreetAxisChange,
+  render,
 }) {
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
@@ -67,49 +53,24 @@ export default function EditorViewer({
   const annotationsRef = useRef(annotations);
   const onPanoramaDimensionsRef = useRef(onPanoramaDimensions);
 
-  // --- Superficies de manzana/calle (modo Render): herramienta de prueba, sin
-  // persistencia — el estado vive en App.jsx y llega acá como props. ---
+  // Modo Render (manzanas/calles): todo el estado y las acciones llegan en un
+  // solo objeto desde useRenderSurfaces. Los listeners de PSV se registran una
+  // vez, así que leen siempre la última versión desde estas refs.
   const modeRef = useRef(mode);
-  const renderTestModeRef = useRef(renderTestMode);
-  const renderDrawingPtsRef = useRef(renderDrawingPts);
+  const renderRef = useRef(render);
   const surfaceMarkerIdsRef = useRef([]);
   const annotationMarkerIdsRef = useRef([]);
-  const renderManzanaShapesRef = useRef(renderManzanaShapes);
-  const renderCalleShapesRef = useRef(renderCalleShapes);
-
-  const renderStreetWidthRef = useRef(renderStreetWidth);
-  const renderStreetEditModeRef = useRef(renderStreetEditMode);
-  const renderStreetEditTargetRef = useRef(renderStreetEditTarget);
-  const onStreetShapeSelectRef = useRef(onStreetShapeSelect);
-  const onStreetAxisChangeRef = useRef(onStreetAxisChange);
 
   useEffect(() => {
     modeRef.current = mode;
-  }, [mode]);
+    renderRef.current = render;
+  }, [mode, render]);
 
-  useEffect(() => {
-    renderTestModeRef.current = renderTestMode;
-  }, [renderTestMode]);
-
-  useEffect(() => {
-    renderDrawingPtsRef.current = renderDrawingPts;
-  }, [renderDrawingPts]);
-
-  useEffect(() => {
-    renderManzanaShapesRef.current = renderManzanaShapes;
-    renderCalleShapesRef.current = renderCalleShapes;
-  }, [renderManzanaShapes, renderCalleShapes]);
-
-  useEffect(() => {
-    renderStreetWidthRef.current = renderStreetWidth;
-  }, [renderStreetWidth]);
-
-  useEffect(() => {
-    renderStreetEditModeRef.current = renderStreetEditMode;
-    renderStreetEditTargetRef.current = renderStreetEditTarget;
-    onStreetShapeSelectRef.current = onStreetShapeSelect;
-    onStreetAxisChangeRef.current = onStreetAxisChange;
-  }, [renderStreetEditMode, renderStreetEditTarget, onStreetShapeSelect, onStreetAxisChange]);
+  const {
+    tool: renderTool, drawingPts: renderDrawingPts, manzanas: renderManzanaShapes, calles: renderCalleShapes,
+    layersVisible: renderLayersVisible, colorMode: renderColorMode, manzanaOpacity: renderManzanaOpacity,
+    streetWidth: renderStreetWidth, streetEditMode: renderStreetEditMode, streetEditTarget: renderStreetEditTarget,
+  } = render;
 
   useEffect(() => {
     onClickRef.current = onClick;
@@ -183,41 +144,41 @@ export default function EditorViewer({
     });
 
     viewerRef.current.addEventListener('click', (e) => {
-      if (modeRef.current === 'render' && renderTestModeRef.current) {
-        onRenderDrawingPtsChange?.(prev => [...prev, [e.data.textureX, e.data.textureY]]);
+      const r = renderRef.current;
+      if (modeRef.current === 'render' && r.tool) {
+        r.setDrawingPts(prev => [...prev, [e.data.textureX, e.data.textureY]]);
         return;
       }
-      if (modeRef.current === 'render' && renderStreetEditModeRef.current) {
+      if (modeRef.current === 'render' && r.streetEditMode) {
         // Los handles del eje tienen su propio manejo en pointerdown/pointerup
         // — no tocar la selección de shape acá.
         if (isStreetAxisHandle(e.data.marker?.id)) return;
         // La unión visual (unionStreetPolygons) funde varias Rutas en un solo
         // marker/id, así que el id del marker clickeado ya no identifica la
         // shape — se busca por posición contra el ribbon de cada shape.
-        const shapeId = findStreetShapeAtPoint([e.data.textureX, e.data.textureY], renderCalleShapesRef.current);
-        onStreetShapeSelectRef.current?.(shapeId);
+        r.selectStreet(findStreetShapeAtPoint([e.data.textureX, e.data.textureY], r.calles));
         return;
       }
-      // Igual que arriba: clickear un marker también dispara este "click" del
-      // viewer (además de "select-marker", que ya seleccionó el marker). Si
-      // lo dejamos pasar, handleViewerClick lo interpreta como click en área
-      // vacía y deselecciona (con activeTool "select") lo que acaba de
-      // seleccionarse — el lote parpadea y hacen falta dos clicks.
-      if (e.data.marker) return;
+      // Clickear un marker también dispara este "click" del viewer (además de
+      // "select-marker", que ya lo seleccionó). Si lo dejamos pasar,
+      // handleViewerClick lo interpreta como click en área vacía y deselecciona
+      // (con activeTool "select") lo que se acaba de seleccionar — el lote
+      // parpadea y hacen falta dos clicks. Las superficies de Render son la
+      // excepción: son fondo, el click pasa como si no hubiera nada (así se
+      // puede dibujar un lote encima de una manzana).
+      if (e.data.marker && !isSurfaceMarker(e.data.marker.id)) return;
       onClickRef.current && onClickRef.current(e.data.textureX, e.data.textureY);
     });
 
     markersPluginRef.current.addEventListener('select-marker', ({ marker }) => {
-      // En modo edición de Rutas la selección la maneja el listener de "click"
-      // del viewer (arriba), por posición y no por id — acá solo hay que evitar
-      // que caiga en onMarkerSelectRef de más abajo.
-      if (renderStreetEditModeRef.current && isSurfaceCalleMarker(marker.id)) {
-        return;
-      }
+      // Las superficies nunca se seleccionan como anotación: en Editar ruta la
+      // calle se elige por posición (listener de "click" de arriba), y en el
+      // resto de los casos son fondo.
+      if (isSurfaceMarker(marker.id)) return;
       // Mientras se está dibujando una manzana/calle, un click sobre un marker
-      // (ej. una manzana ya pintada) no debe seleccionarlo — el "click" del
-      // viewer (arriba) ya agrega el punto en esa misma posición.
-      if (modeRef.current === 'render' && renderTestModeRef.current) return;
+      // no debe seleccionarlo — el "click" del viewer (arriba) ya agrega el
+      // punto en esa misma posición.
+      if (modeRef.current === 'render' && renderRef.current.tool) return;
       onMarkerSelectRef.current && onMarkerSelectRef.current(marker.id);
     });
 
@@ -245,9 +206,27 @@ export default function EditorViewer({
     let draggingStreetAxisPoint = null;
     let isSnappedToFirstPoint = false;
 
-    const getSurfaceShape = (type, shapeId) => {
-      const list = type === 'manzana' ? renderManzanaShapesRef.current : renderCalleShapesRef.current;
-      return list.find(s => s.id === shapeId) ?? null;
+    const getStreetShape = shapeId => renderRef.current.calles.find(s => s.id === shapeId) ?? null;
+
+    // Contorno provisorio de la Ruta cuyo eje se está arrastrando. Las Rutas
+    // se pintan unidas en un solo contorno (unionStreetPolygons), así que no
+    // hay un marker por calle que actualizar en vivo: se dibuja este encima
+    // mientras dura el gesto y se saca al soltar.
+    const showAxisDragPreview = (axis, width) => {
+      const plugin = markersPluginRef.current;
+      if (!plugin) return;
+      const polygonPixels = renderRef.current.ribbonFor(axis, width);
+      if (!polygonPixels?.length) return;
+      const config = {
+        id: MARKER_ID.surfaceAxisDragPreview,
+        polygonPixels,
+        svgStyle: { fill: 'rgba(14,165,233,0.18)', stroke: '#0ea5e9', strokeWidth: '2', strokeDasharray: '6,4', pointerEvents: 'none' },
+        zIndex: 3,
+      };
+      try { plugin.updateMarker(config); } catch { plugin.addMarker(config); }
+    };
+    const hideAxisDragPreview = () => {
+      try { markersPluginRef.current?.removeMarker(MARKER_ID.surfaceAxisDragPreview); } catch { /* ya no está */ }
     };
 
     const blockLeftDrag = (e) => {
@@ -293,7 +272,7 @@ export default function EditorViewer({
       if (axisPoint) {
         e.stopPropagation();
         const shapeId = axisPoint.ownerId;
-        const shape = getSurfaceShape('calle', shapeId);
+        const shape = getStreetShape(shapeId);
         if (shape?.axis) {
           draggingStreetAxisPoint = { shapeId, index: axisPoint.index, axis: [...shape.axis] };
         }
@@ -305,7 +284,7 @@ export default function EditorViewer({
         e.stopPropagation();
         const shapeId = axisMid.ownerId;
         const segIndex = axisMid.index;
-        const shape = getSurfaceShape('calle', shapeId);
+        const shape = getStreetShape(shapeId);
         if (shape?.axis) {
           const texture = getTextureCoordsFromEvent(e);
           const insertAt = segIndex + 1;
@@ -351,13 +330,14 @@ export default function EditorViewer({
           return;
         }
 
-        // Mientras se está dibujando una manzana/calle (modo render), un click
-        // sobre CUALQUIER marker — incluido el propio punto recién colocado —
-        // no debe seleccionarlo ni hacer stopPropagation: el "click" del
-        // viewer es el que agrega el siguiente vértice en esa posición. Si lo
-        // interceptamos acá, el listener de click de PSV pierde ese evento y
-        // el próximo punto termina agregándose en una posición vieja/errónea.
-        if (modeRef.current === 'render' && renderTestModeRef.current) {
+        // Dejar pasar el evento sin seleccionar ni hacer stopPropagation: si lo
+        // interceptamos acá, PSV nunca genera su "click" y el punto no se
+        // agrega (o se agrega en una posición vieja). Aplica a:
+        //  - CUALQUIER marker mientras se dibuja una manzana/calle (incluido
+        //    el propio punto recién colocado);
+        //  - las superficies de Render en cualquier modo: son fondo, encima
+        //    se tiene que poder dibujar un lote o deseleccionar.
+        if ((modeRef.current === 'render' && renderRef.current.tool) || isSurfaceMarker(markerId)) {
           return;
         }
 
@@ -388,9 +368,8 @@ export default function EditorViewer({
     };
 
     const handlePointerMove = (e) => {
-      const isRenderSurfaceDrawing = modeRef.current === 'render'
-        && renderTestModeRef.current
-        && renderDrawingPtsRef.current.length >= 1;
+      const r = renderRef.current;
+      const isRenderSurfaceDrawing = modeRef.current === 'render' && r.tool && r.drawingPts.length >= 1;
 
       if (!draggingCorner && !draggingMarker && !draggingPolygon && !draggingStreetAxisPoint && !isPolyDrawTool(activeToolRef.current) && !isRenderSurfaceDrawing) return;
 
@@ -457,13 +436,11 @@ export default function EditorViewer({
               polylinePixels: pts
             });
 
-            if (renderTestModeRef.current === 'calle') {
+            if (r.tool === 'calle') {
               const previewMarker = markersPlugin.getMarker(MARKER_ID.surfaceStreetPreview);
-              if (previewMarker) {
-                markersPlugin.updateMarker({
-                  id: MARKER_ID.surfaceStreetPreview,
-                  polygonPixels: buildStreetRibbon(pts, renderStreetWidthRef.current),
-                });
+              const polygonPixels = r.ribbonFor(pts, r.streetWidth);
+              if (previewMarker && polygonPixels.length) {
+                markersPlugin.updateMarker({ id: MARKER_ID.surfaceStreetPreview, polygonPixels });
               }
             }
           }
@@ -474,12 +451,7 @@ export default function EditorViewer({
           const newAxis = [...draggingStreetAxisPoint.axis];
           newAxis[index] = [texture.textureX, texture.textureY];
           draggingStreetAxisPoint.axis = newAxis;
-          const shape = getSurfaceShape('calle', shapeId);
-          const width = shape?.width ?? renderStreetWidthRef.current;
-          markersPlugin.updateMarker({
-            id: surfaceCalleId(shapeId),
-            polygonPixels: buildStreetRibbon(newAxis, width),
-          });
+          showAxisDragPreview(newAxis, getStreetShape(shapeId)?.width ?? r.streetWidth);
           if (!draggingStreetAxisPoint.isNew) {
             markersPlugin.updateMarker({
               id: streetAxisId(shapeId, index),
@@ -534,7 +506,8 @@ export default function EditorViewer({
     const handlePointerUp = () => {
       if (draggingStreetAxisPoint) {
         const { shapeId, axis } = draggingStreetAxisPoint;
-        onStreetAxisChangeRef.current?.(shapeId, axis);
+        hideAxisDragPreview();
+        renderRef.current.setStreetAxis(shapeId, axis);
         draggingStreetAxisPoint = null;
         return;
       }
@@ -765,7 +738,7 @@ export default function EditorViewer({
     }
     if (renderDrawingPts.length >= 1) {
       const id = MARKER_ID.surfaceDrawing;
-      const isStreetPath = renderTestMode === 'calle';
+      const isStreetPath = renderTool === 'calle';
       // Si el primer click cae cerca del eje de otra Ruta, se previsualiza ya
       // snappeado al punto exacto (para que la costura de unión se vea bien
       // antes de confirmar) y se resalta ese punto en verde.
@@ -780,11 +753,14 @@ export default function EditorViewer({
       });
       newIds.push(id);
 
-      if (isStreetPath) {
+      // Mismo contorno que va a quedar al finalizar (con calibración, pasa por
+      // el plano — ver streetRibbon).
+      const previewRibbon = isStreetPath ? renderRef.current.ribbonFor(ptsWithCursor, renderStreetWidth) : [];
+      if (previewRibbon.length) {
         const previewId = MARKER_ID.surfaceStreetPreview;
         plugin.addMarker({
           id: previewId,
-          polygonPixels: buildStreetRibbon(ptsWithCursor, renderStreetWidth),
+          polygonPixels: previewRibbon,
           svgStyle: { fill: colors.calle, stroke: '#ffa500', strokeWidth: '1.5', strokeDasharray: '4,4', fillOpacity: 0.6 },
           zIndex: 1,
         });
@@ -804,32 +780,29 @@ export default function EditorViewer({
       });
     }
     surfaceMarkerIdsRef.current = newIds;
-  }, [annotations, isReady, renderManzanaShapes, renderCalleShapes, renderColorMode, renderManzanaOpacity, renderDrawingPts, renderLayersVisible?.manzanas, renderLayersVisible?.calles, renderTestMode, renderStreetWidth, renderStreetEditMode, renderStreetEditTarget]);
+  }, [annotations, isReady, renderManzanaShapes, renderCalleShapes, renderColorMode, renderManzanaOpacity, renderDrawingPts, renderLayersVisible?.manzanas, renderLayersVisible?.calles, renderTool, renderStreetWidth, renderStreetEditMode, renderStreetEditTarget]);
 
   // Escape cancela el dibujo en curso, Enter lo cierra (>=3 puntos, o >=2 para calle/Ruta)
   useEffect(() => {
-    if (mode !== 'render' || !renderTestMode) return;
+    if (mode !== 'render' || !renderTool) return;
     const handleKeyDown = (e) => {
-      const minPts = renderTestMode === 'calle' ? 2 : 3;
-      if (e.key === 'Escape') {
-        onCancelRenderDrawing?.();
-      } else if (e.key === 'Enter' && renderDrawingPts.length >= minPts) {
-        onFinishRenderShape?.();
-      }
+      const r = renderRef.current;
+      if (e.key === 'Escape') r.cancelDrawing();
+      else if (e.key === 'Enter' && r.canFinishShape) r.finishShape();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [mode, renderTestMode, renderDrawingPts, onCancelRenderDrawing, onFinishRenderShape]);
+  }, [mode, renderTool]);
 
   // Cursor crosshair mientras se dibuja una superficie en modo Render
   useEffect(() => {
     if (!viewerRef.current) return;
-    if (mode === 'render' && renderTestMode) {
+    if (mode === 'render' && renderTool) {
       viewerRef.current.container.style.cursor = 'crosshair';
     } else {
       viewerRef.current.container.style.cursor = activeTool === 'select' ? 'default' : 'crosshair';
     }
-  }, [mode, renderTestMode, activeTool]);
+  }, [mode, renderTool, activeTool]);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>

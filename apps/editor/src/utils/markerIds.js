@@ -29,6 +29,8 @@ export const MARKER_ID = {
   calibLink: 'calib-link',
   surfaceDrawing: 'surfacetest-drawing',
   surfaceStreetPreview: 'surfacetest-street-preview',
+  // Contorno provisorio mientras se arrastra un punto del eje de una Ruta.
+  surfaceAxisDragPreview: 'surfacetest-axis-drag-preview',
   geoCalibPending: 'geo-calib-pending',
 };
 
@@ -109,6 +111,13 @@ export const surfaceManzanaId = shapeId => `${PREFIX.surfaceManzana}${shapeId}`;
 export const surfaceDrawingPointId = index => `${PREFIX.surfaceDrawingPoint}${index}`;
 export const isSurfaceCalleMarker = markerId => (
   typeof markerId === 'string' && markerId.startsWith(PREFIX.surfaceCalle)
+);
+// Superficie pintada del modo Render (manzana o calle, sola o unida). Son
+// fondo: un click encima tiene que llegar al panorama como click normal
+// (agregar un punto de lote, deseleccionar), no seleccionar la superficie.
+export const isSurfaceMarker = markerId => (
+  typeof markerId === 'string'
+  && (markerId.startsWith(PREFIX.surfaceCalle) || markerId.startsWith(PREFIX.surfaceManzana))
 );
 
 // ─── DOM de Photo Sphere Viewer ───────────────────────────────────────────────

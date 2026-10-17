@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'vitest';
 import {
   FIRST_TEMP_POINT_ID, PREFIX, calibPointId, domSelectorForPrefix, editCornerId, editMidpointId,
-  ghostId, isCalibrationMarker, isStreetAxisHandle, isSurfaceCalleMarker, markerIdFromDomId,
+  ghostId, isCalibrationMarker, isStreetAxisHandle, isSurfaceCalleMarker, isSurfaceMarker, markerIdFromDomId,
   parseCalibPointId, parseEditCornerId, parseEditMidpointId, parseStreetAxisId, parseStreetAxisMidId,
-  selectableAnnotationId, streetAxisId, streetAxisMidId, surfaceCalleId, surfaceCalleUnionId,
+  selectableAnnotationId, streetAxisId, streetAxisMidId, surfaceCalleId, surfaceCalleUnionId, surfaceManzanaId,
 } from './markerIds.js';
 
 const UUID = '3f2b9c1e-8a4d-4f6b-9c2e-1a2b3c4d5e6f';
@@ -63,6 +63,15 @@ describe('superficies', () => {
     expect(isSurfaceCalleMarker(surfaceCalleId('s1'))).toBe(true);
     expect(isSurfaceCalleMarker(surfaceCalleUnionId(0))).toBe(true);
     expect(isSurfaceCalleMarker('surfacetest-manzana-s1')).toBe(false);
+  });
+
+  test('isSurfaceMarker: manzanas y calles (solas o unidas), no los handles ni lotes', () => {
+    expect(isSurfaceMarker(surfaceManzanaId('m1'))).toBe(true);
+    expect(isSurfaceMarker(surfaceCalleId('s1'))).toBe(true);
+    expect(isSurfaceMarker(surfaceCalleUnionId(2))).toBe(true);
+    expect(isSurfaceMarker(streetAxisId('s1', 0))).toBe(false);
+    expect(isSurfaceMarker('lot-1')).toBe(false);
+    expect(isSurfaceMarker(undefined)).toBe(false);
   });
 
   test('handles de eje', () => {
