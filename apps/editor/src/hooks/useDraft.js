@@ -22,8 +22,12 @@ export function rescaleDraft(draft, currentDimensions) {
     if (annotation.panorama_coordinates) {
       next.panorama_coordinates = scalePoints(annotation.panorama_coordinates, scaleX, scaleY);
     }
+    // Borradores viejos guardaban también polygonPixels (hoy es derivado).
     if (annotation.polygonPixels && annotation.panorama_coordinates) {
       next.polygonPixels = scalePoints(annotation.polygonPixels, scaleX, scaleY);
+    }
+    if (annotation.panorama_anchor) {
+      next.panorama_anchor = scalePoints([annotation.panorama_anchor], scaleX, scaleY)[0];
     }
     if (annotation.polylinePixels) {
       next.polylinePixels = scalePoints(annotation.polylinePixels, scaleX, scaleY);

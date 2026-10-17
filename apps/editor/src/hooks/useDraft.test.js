@@ -31,4 +31,14 @@ describe('rescaleDraft', () => {
     expect(scaled.calibrationPoints[0]).toMatchObject({ blueprint: [0.1, 0.2], panorama: [600, 800] });
     expect(scaled.panoramaDimensions).toEqual({ width: 4000, height: 2000 });
   });
+
+  test('el ancla de un POI callout en el panorama también se escala; la del plano no', () => {
+    const withCallout = {
+      ...draft,
+      annotations: [{ id: 'p', type: 'poi', variant: 'callout', panorama_anchor: [100, 50], blueprint_anchor: [0.3, 0.3] }],
+    };
+    const [poi] = rescaleDraft(withCallout, { width: 4000, height: 2000 }).annotations;
+    expect(poi.panorama_anchor).toEqual([200, 100]);
+    expect(poi.blueprint_anchor).toEqual([0.3, 0.3]);
+  });
 });

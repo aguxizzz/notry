@@ -11,6 +11,12 @@ import { useDisplayAnnotations } from './hooks/useDisplayAnnotations';
 import { computeProjector, isProjectorValid } from './utils/panoramaProjection';
 import { computeHomography, applyHomography, isHomographyValid } from './utils/homography';
 import { projectPolygon, projectLotAnnotations, unimportLotAnnotations } from './utils/projection';
+import {
+  hasLocationIn, isCallout, newPendingLot, normalizeApiAnnotation, toModeAnnotation, withAnchor, withShapeCoords,
+} from './utils/annotationModel';
+import {
+  FIRST_TEMP_POINT_ID, MARKER_ID, geoCalibPointId, isCalibrationMarker, parseCalibPointId, selectableAnnotationId,
+} from './utils/markerIds';
 import { isCalibrationPairTooClose } from './utils/calibration';
 import { detectLotPolygon } from './utils/lotDetection';
 import { buildStreetRibbon, buildProjectedStreetRibbon, findAxisEndpointSnap, mergeStreetAxis } from './utils/streetPath';
@@ -356,22 +362,7 @@ function App() {
         .then(async data => {
           if (cancelled) return;
           if (data.annotations && Array.isArray(data.annotations)) {
-            const mappedAnnotations = data.annotations.map((a, i) => {
-              const ann = { ...a, id: a.id ?? a.uuid ?? `ann-${i}` };
-              // Keep both coordinate systems for mode switching
-              // Store panorama_coordinates/blueprint_coordinates as-is for later retrieval
-              // For initial display, use panorama mode as default
-              ann.variant = ann.marker_variant ?? ann.variant ?? 'area';
-              if (ann.type === 'poi' && ann.variant === 'callout') {
-                const anchor = ann.panorama_anchor ?? ann.panorama_coordinates?.[0];
-                if (anchor) ann.position = { textureX: anchor[0], textureY: anchor[1] };
-              } else if ((ann.type === 'polygon' || ann.type === 'poi') && ann.panorama_coordinates) {
-                ann.polygonPixels = ann.panorama_coordinates;
-              } else if ((ann.type === 'polygon' || ann.type === 'poi') && ann.blueprint_coordinates) {
-                ann.polygonPixels = ann.blueprint_coordinates;
-              }
-              return ann;
-            });
+            const mappedAnnotations = data.annotations.map(normalizeApiAnnotation);
             setAnnotations(mappedAnnotations);
             savedAnnotationsRef.current = mappedAnnotations;
 
@@ -551,16 +542,12 @@ function App() {
         setRectStart([textureX, textureY]);
       } else {
         const [x1, y1] = rectStart;
-        const polygonPixels = [[x1, y1], [textureX, y1], [textureX, textureY], [x1, textureY]];
         const newId = `polygon-${crypto.randomUUID()}`;
-        const newAnn = {
+        const newAnn = newPendingLot({
           id: newId,
-          type: 'polygon',
-          pending: true,
-          polygonPixels,
-          tooltip: '',
-          svgStyle: { fill: 'rgba(255,165,0,0.15)', stroke: '#ffa500', strokeWidth: '2', strokeDasharray: '8,4' },
-        };
+          mode,
+          coords: [[x1, y1], [textureX, y1], [textureX, textureY], [x1, textureY]],
+        });
         pushHistory(annotations);
         setAnnotations([...annotations, newAnn]);
         setRectStart(null);
@@ -587,30 +574,30 @@ function App() {
     }
 
     const newId = `${activeTool}-${crypto.randomUUID()}`;
-    const newAnn = {
-      id: newId,
-      type: activeTool,
-      position: { textureX, textureY },
-      tooltip: `Nuevo ${activeTool}`,
-      svgStyle: { fill: 'rgba(255,0,0,0.3)', stroke: '#c00', strokeWidth: '2' }
-    };
-
-    if (activeTool === 'text') {
-      newAnn.tooltip = "Texto";
-      newAnn.textColor = "#ffffff";
-      newAnn.bgColor = "#ffffff";
-      newAnn.bgOpacity = 0;
-      newAnn.fontSize = 14;
-    }
-
+    let newAnn;
     if (activeTool === 'poi') {
-      newAnn.variant = 'callout';
-      newAnn.pending = true;
-      newAnn.tooltip = 'Nuevo lugar';
-      newAnn.color = '#c5a059';
-      newAnn.callout_stem_height = 96;
-      if (mode === 'blueprint') newAnn.blueprint_anchor = [textureX, textureY];
-      else newAnn.panorama_anchor = [textureX, textureY];
+      newAnn = withAnchor({
+        id: newId,
+        type: 'poi',
+        variant: 'callout',
+        pending: true,
+        tooltip: 'Nuevo lugar',
+        color: '#c5a059',
+        callout_stem_height: 96,
+      }, mode, [textureX, textureY]);
+    } else if (activeTool === 'text') {
+      newAnn = {
+        id: newId,
+        type: 'text',
+        position: { textureX, textureY },
+        tooltip: 'Texto',
+        textColor: '#ffffff',
+        bgColor: '#ffffff',
+        bgOpacity: 0,
+        fontSize: 14,
+      };
+    } else {
+      return;
     }
 
     pushHistory(annotations);
@@ -625,15 +612,8 @@ function App() {
       notify('El polígono necesita al menos 3 puntos', { variant: 'error' });
       return;
     }
-    const newId = `${activeTool}-${Date.now()}`;
-    const newAnn = {
-      id: newId,
-      type: activeTool,
-      pending: true,
-      polygonPixels: drawingPolygon,
-      tooltip: '',
-      svgStyle: { fill: 'rgba(255,165,0,0.15)', stroke: '#ffa500', strokeWidth: '2', strokeDasharray: '8,4' },
-    };
+    const newId = `polygon-${Date.now()}`;
+    const newAnn = newPendingLot({ id: newId, mode, coords: drawingPolygon });
     pushHistory(annotations);
     setAnnotations([...annotations, newAnn]);
     setDrawingPolygon([]);
@@ -721,18 +701,15 @@ function App() {
       return;
     }
 
-    // Convert normalized coords back to image pixel space would happen in detectLotPolygon
-    // For now, assume result.coordinates are already in image pixel space and normalize them
+    // result.coordinates ya viene normalizado [0, 1] (espacio del plano).
     const newId = `lot-${crypto.randomUUID()}`;
-    const newAnn = {
+    const newAnn = newPendingLot({
       id: newId,
-      type: 'polygon',
-      pending: true,
-      polygonPixels: result.coordinates, // Already normalized [0, 1]
-      blueprint_coordinates: result.coordinates,
+      mode: 'blueprint',
+      coords: result.coordinates,
       tooltip: `Lote Auto ${autoDetectLotsGenerated + 1}`,
       svgStyle: { fill: 'rgba(76,175,80,0.15)', stroke: '#4caf50', strokeWidth: '2', strokeDasharray: '4,2' },
-    };
+    });
 
     pushHistory(annotations);
     setAnnotations([...annotations, newAnn]);
@@ -826,13 +803,7 @@ function App() {
         !a.pending
         && (a.type === 'polygon' || (nextMode === 'panorama' && a.type === 'poi'))
       ));
-      const coordKey = nextMode === 'blueprint' ? 'blueprint_coordinates' : 'panorama_coordinates';
-      const anchorKey = nextMode === 'blueprint' ? 'blueprint_anchor' : 'panorama_anchor';
-      const missing = spatialAnnotations.filter(a =>
-        a.type === 'poi' && a.variant === 'callout'
-          ? !a[anchorKey]
-          : !a[coordKey] || a[coordKey].length === 0
-      );
+      const missing = spatialAnnotations.filter(a => !hasLocationIn(a, nextMode));
       if (missing.length > 0) {
         const ok = await confirm(
           `${missing.length} marcador(es) no tienen ubicación en la vista ${nextMode === 'blueprint' ? 'Plano' : 'Panorama'}.\n` +
@@ -1032,16 +1003,16 @@ function App() {
   const geoDisplayAnnotations = useMemo(() => {
     const lots = annotations
       .filter(a => a.type === 'polygon' && a.blueprint_coordinates?.length >= 3)
-      .map(a => ({ ...a, polygonPixels: a.blueprint_coordinates }));
+      .map(a => toModeAnnotation(a, 'blueprint'));
     const points = geoCalibrationPoints.map((pair, i) => ({
-      id: `geo-calib-pt-${pair._id}`,
+      id: geoCalibPointId(pair._id),
       type: 'calibration-point',
       position: { textureX: pair.blueprint[0], textureY: pair.blueprint[1] },
       label: String(i + 1),
       svgStyle: { fill: '#22c55e', stroke: '#fff', strokeWidth: '2' },
     }));
     const pending = pendingGeoBlueprintPoint ? [{
-      id: 'geo-calib-pending',
+      id: MARKER_ID.geoCalibPending,
       type: 'calibration-point',
       position: { textureX: pendingGeoBlueprintPoint[0], textureY: pendingGeoBlueprintPoint[1] },
       label: String(geoCalibrationPoints.length + 1),
@@ -1061,21 +1032,16 @@ function App() {
       isDraggingPolygonRef.current = true;
       preDragAnnotationsRef.current = annotations;
     }
-    setAnnotations(prevAnnotations => prevAnnotations.map(a => {
-      if (a.id === markerId) {
-        const update = { ...a, polygonPixels: newPolygonPixels };
-        if (mode === 'blueprint') update.blueprint_coordinates = newPolygonPixels;
-        else update.panorama_coordinates = newPolygonPixels;
-        return update;
-      }
-      return a;
-    }));
+    setAnnotations(prevAnnotations => prevAnnotations.map(a => (
+      a.id === markerId ? withShapeCoords(a, mode, newPolygonPixels) : a
+    )));
   };
 
   // Live calibration drag (panorama): update calibrationPoints on every move so
   // the homography recomputes and ghost polygons reproject in real time.
   const handleCalibrationDragLive = (markerId, x, y) => {
-    const ptId = markerId.replace('calib-pt-', '');
+    const ptId = parseCalibPointId(markerId);
+    if (!ptId) return;
     if (!isDraggingCalibrationRef.current) {
       isDraggingCalibrationRef.current = true;
       // Snapshot on first move while calibrationPoints is still pre-drag, so a
@@ -1101,14 +1067,14 @@ function App() {
   const handleMarkerDragEnd = (markerId, textureX, textureY) => {
     // Calibration point dragged — update only the coord for the current mode
     // (blueprint or panorama), leaving the other untouched. Homography recomputes via useMemo.
-    if (markerId.startsWith('calib-pt-')) {
+    const ptId = parseCalibPointId(markerId);
+    if (ptId) {
       // Panorama live-drag path already applied the change + history during move
       if (isDraggingCalibrationRef.current) {
         isDraggingCalibrationRef.current = false;
         return;
       }
       // Blueprint (no live drag): snapshot then apply on drop.
-      const ptId = markerId.replace('calib-pt-', '');
       const coordKey = mode === 'blueprint' ? 'blueprint' : 'panorama';
       const cx = Math.max(0, Math.min(1, textureX));
       const cy = Math.max(0, Math.min(1, textureY));
@@ -1121,15 +1087,9 @@ function App() {
 
     pushHistory(annotations);
     setAnnotations(prevAnnotations => prevAnnotations.map(a => {
-      if (a.id === markerId) {
-        if (a.type === 'poi' && a.variant === 'callout') {
-          return mode === 'blueprint'
-            ? { ...a, position: { textureX, textureY }, blueprint_anchor: [textureX, textureY] }
-            : { ...a, position: { textureX, textureY }, panorama_anchor: [textureX, textureY] };
-        }
-        return { ...a, position: { textureX, textureY } };
-      }
-      return a;
+      if (a.id !== markerId) return a;
+      if (isCallout(a)) return withAnchor(a, mode, [textureX, textureY]);
+      return { ...a, position: { textureX, textureY } };
     }));
   };
 
@@ -1137,11 +1097,9 @@ function App() {
     const newPanoCoords = projectPolygon(selectedMarker?.blueprint_coordinates, homography);
     if (!newPanoCoords) return;
     pushHistory(annotations);
-    setAnnotations(prev => prev.map(a =>
-      a.id === selectedId
-        ? { ...a, panorama_coordinates: newPanoCoords, polygonPixels: mode === 'panorama' ? newPanoCoords : a.polygonPixels }
-        : a
-    ));
+    setAnnotations(prev => prev.map(a => (
+      a.id === selectedId ? withShapeCoords(a, 'panorama', newPanoCoords) : a
+    )));
   };
 
   const importPolygonsFromBlueprint = async ({ overwrite }) => {
@@ -1166,7 +1124,7 @@ function App() {
       if (!ok) return;
     }
 
-    const projected = projectLotAnnotations(annotations, homography, { overwrite, mode });
+    const projected = projectLotAnnotations(annotations, homography, { overwrite });
     if (projected.count === 0) {
       notify('No se pudo proyectar ningún lote con la calibración actual.', { variant: 'error' });
       return;
@@ -1185,7 +1143,7 @@ function App() {
     );
     if (!ok) return;
     pushHistory(annotations);
-    setAnnotations(prev => unimportLotAnnotations(prev, [selectedId], mode));
+    setAnnotations(prev => unimportLotAnnotations(prev, [selectedId]));
   };
 
   const handleUnimportAll = async () => {
@@ -1203,7 +1161,7 @@ function App() {
     if (!ok) return;
     const importedIds = new Set(imported.map(annotation => annotation.id));
     pushHistory(annotations);
-    setAnnotations(prev => unimportLotAnnotations(prev, importedIds, mode));
+    setAnnotations(prev => unimportLotAnnotations(prev, importedIds));
   };
 
   const updateSelected = (key, value) => {
@@ -1218,16 +1176,30 @@ function App() {
     ));
   };
 
-  const removeSelected = async () => {
-    if (!selectedMarker) return;
+  // Click sobre un marker en el plano o el panorama. Clickear el primer punto
+  // del trazo cierra el polígono; un fantasma selecciona su lote real; los
+  // puntos de calibración se seleccionan sin abrir el inspector.
+  const handleMarkerSelect = (markerId) => {
+    if (activeTool === 'polygon' && markerId === FIRST_TEMP_POINT_ID) {
+      finishPolygon();
+      return;
+    }
+    setSelectedId(selectableAnnotationId(markerId));
+    if (!isCalibrationMarker(markerId)) setInspectorOpen(true);
+  };
 
-    if (selectedMarker.type === 'calibration-point') {
-      const ptId = selectedId.replace('calib-pt-', '');
-      const idx = calibrationPoints.findIndex(p => p._id === ptId);
+  const removeSelected = async () => {
+    // Los puntos de calibración no son anotaciones (selectedMarker nunca los
+    // incluye): se resuelven por id antes de mirar selectedMarker.
+    const calibPairId = parseCalibPointId(selectedId);
+    if (calibPairId) {
+      const idx = calibrationPoints.findIndex(p => p._id === calibPairId);
       if (idx !== -1) handleDeleteCalibrationPoint(idx);
       setSelectedId(null);
       return;
     }
+
+    if (!selectedMarker) return;
 
     if (selectedMarker.type === 'polygon') {
       const isPersisted = Boolean(selectedMarker.uuid);
@@ -1421,7 +1393,7 @@ function App() {
             annotations={displayAnnotations}
             selectedId={selectedId}
             onClick={handleViewerClick}
-            onMarkerSelect={(id) => setSelectedId(id.startsWith('ghost-') ? id.slice('ghost-'.length) : id)}
+            onMarkerSelect={(id) => setSelectedId(selectableAnnotationId(id))}
             onPolygonUpdate={handlePolygonUpdate}
             onMarkerDragEnd={handleMarkerDragEnd}
             onMarkerDrag={handleCalibrationDragLive}
@@ -1551,13 +1523,7 @@ function App() {
                 selectedId={selectedId}
                 rectStart={rectStart}
                 onClick={handleViewerClick}
-                onMarkerSelect={(id) => {
-                  if (activeTool === 'polygon' && id === 'temp-pt-0') finishPolygon();
-                  else {
-                    setSelectedId(id);
-                    if (!id.startsWith('calib-')) setInspectorOpen(true);
-                  }
-                }}
+                onMarkerSelect={handleMarkerSelect}
                 onPolygonUpdate={handlePolygonUpdate}
                 onMarkerDragEnd={handleMarkerDragEnd}
               />
@@ -1568,13 +1534,7 @@ function App() {
                 activeTool={activeTool}
                 annotations={displayAnnotations}
                 onClick={handleViewerClick}
-                onMarkerSelect={(id) => {
-                  if (activeTool === 'polygon' && id === 'temp-pt-0') finishPolygon();
-                  else {
-                    setSelectedId(id.startsWith('ghost-') ? id.slice('ghost-'.length) : id);
-                    if (!id.startsWith('calib-')) setInspectorOpen(true);
-                  }
-                }}
+                onMarkerSelect={handleMarkerSelect}
                 onPolygonUpdate={handlePolygonUpdate}
                 onMarkerDragEnd={handleMarkerDragEnd}
                 onMarkerDrag={handleCalibrationDragLive}

@@ -2,6 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Viewer, EquirectangularAdapter } from '@photo-sphere-viewer/core';
 import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin';
 import { annotationsToMarkers } from '../utils/annotations';
+import {
+  FIRST_TEMP_POINT_ID, MARKER_ID, PREFIX, domSelectorForPrefix, editCornerId, isCalibrationMarker,
+  isGhostMarker, isStreetAxisHandle, isSurfaceCalleMarker, markerIdFromDomId, parseEditCornerId,
+  parseEditMidpointId, parseStreetAxisId, parseStreetAxisMidId, streetAxisId, streetAxisMidId,
+  surfaceCalleId, surfaceCalleUnionId, surfaceDrawingPointId, surfaceManzanaId,
+} from '../utils/markerIds';
 import { buildStreetRibbon, findAxisEndpointSnap, findStreetShapeAtPoint, unionStreetPolygons } from '../utils/streetPath';
 import '@photo-sphere-viewer/core/index.css';
 import '@photo-sphere-viewer/markers-plugin/index.css';
@@ -182,12 +188,9 @@ export default function EditorViewer({
         return;
       }
       if (modeRef.current === 'render' && renderStreetEditModeRef.current) {
-        // Los axis handles (streetaxis-*/streetaxismid-*) tienen su propio
-        // manejo en pointerdown/pointerup — no tocar la selección de shape acá.
-        const markerId = e.data.marker?.id;
-        if (typeof markerId === 'string' && (markerId.startsWith('streetaxis-') || markerId.startsWith('streetaxismid-'))) {
-          return;
-        }
+        // Los handles del eje tienen su propio manejo en pointerdown/pointerup
+        // — no tocar la selección de shape acá.
+        if (isStreetAxisHandle(e.data.marker?.id)) return;
         // La unión visual (unionStreetPolygons) funde varias Rutas en un solo
         // marker/id, así que el id del marker clickeado ya no identifica la
         // shape — se busca por posición contra el ribbon de cada shape.
@@ -208,7 +211,7 @@ export default function EditorViewer({
       // En modo edición de Rutas la selección la maneja el listener de "click"
       // del viewer (arriba), por posición y no por id — acá solo hay que evitar
       // que caiga en onMarkerSelectRef de más abajo.
-      if (renderStreetEditModeRef.current && typeof marker.id === 'string' && marker.id.startsWith('surfacetest-calle-')) {
+      if (renderStreetEditModeRef.current && isSurfaceCalleMarker(marker.id)) {
         return;
       }
       // Mientras se está dibujando una manzana/calle, un click sobre un marker
@@ -269,41 +272,39 @@ export default function EditorViewer({
       if (isSnappedToFirstPoint && isPolyDrawTool(activeToolRef.current)) {
         e.stopPropagation();
         isSnappedToFirstPoint = false;
-        onMarkerSelectRef.current && onMarkerSelectRef.current('temp-pt-0');
+        onMarkerSelectRef.current && onMarkerSelectRef.current(FIRST_TEMP_POINT_ID);
         return;
       }
 
-      const cornerEl = e.target.closest('[id^="psv-marker-edit-corner-"]');
-      if (cornerEl) {
-        e.stopPropagation(); 
-        
-        const parts = cornerEl.id.replace('psv-marker-edit-corner-', '').split('-');
-        const index = parseInt(parts.pop(), 10);
-        const markerId = parts.join('-');
-        
-        draggingCorner = { markerId, index, lastTexture: null };
-        return;
-      }
+      // Id del marker bajo el puntero si es de los que tienen el prefijo dado.
+      const markerIdUnder = prefix => {
+        const el = e.target.closest(domSelectorForPrefix(prefix));
+        return el ? markerIdFromDomId(el.id) : null;
+      };
 
-      const streetAxisEl = e.target.closest('[id^="psv-marker-streetaxis-"]');
-      if (streetAxisEl) {
+      const corner = parseEditCornerId(markerIdUnder(PREFIX.editCorner));
+      if (corner) {
         e.stopPropagation();
-        const parts = streetAxisEl.id.replace('psv-marker-streetaxis-', '').split('-');
-        const index = parseInt(parts.pop(), 10);
-        const shapeId = parts.join('-');
+        draggingCorner = { markerId: corner.ownerId, index: corner.index, lastTexture: null };
+        return;
+      }
+
+      const axisPoint = parseStreetAxisId(markerIdUnder(PREFIX.streetAxis));
+      if (axisPoint) {
+        e.stopPropagation();
+        const shapeId = axisPoint.ownerId;
         const shape = getSurfaceShape('calle', shapeId);
         if (shape?.axis) {
-          draggingStreetAxisPoint = { shapeId, index, axis: [...shape.axis] };
+          draggingStreetAxisPoint = { shapeId, index: axisPoint.index, axis: [...shape.axis] };
         }
         return;
       }
 
-      const streetAxisMidEl = e.target.closest('[id^="psv-marker-streetaxismid-"]');
-      if (streetAxisMidEl) {
+      const axisMid = parseStreetAxisMidId(markerIdUnder(PREFIX.streetAxisMid));
+      if (axisMid) {
         e.stopPropagation();
-        const parts = streetAxisMidEl.id.replace('psv-marker-streetaxismid-', '').split('-');
-        const segIndex = parseInt(parts.pop(), 10);
-        const shapeId = parts.join('-');
+        const shapeId = axisMid.ownerId;
+        const segIndex = axisMid.index;
         const shape = getSurfaceShape('calle', shapeId);
         if (shape?.axis) {
           const texture = getTextureCoordsFromEvent(e);
@@ -315,13 +316,10 @@ export default function EditorViewer({
         return;
       }
 
-      const midpointEl = e.target.closest('[id^="psv-marker-edit-midpoint-"]');
-      if (midpointEl) {
-        e.stopPropagation(); 
-        const parts = midpointEl.id.replace('psv-marker-edit-midpoint-', '').split('-');
-        const index = parseInt(parts.pop(), 10);
-        const markerId = parts.join('-');
-        
+      const midpoint = parseEditMidpointId(markerIdUnder(PREFIX.editMidpoint));
+      if (midpoint) {
+        e.stopPropagation();
+        const { ownerId: markerId, index } = midpoint;
         const marker = markersPluginRef.current?.getMarker(markerId);
         if (marker && marker.config.polygonPixels) {
           const pts = [...marker.config.polygonPixels];
@@ -344,12 +342,12 @@ export default function EditorViewer({
 
       const markerEl = e.target.closest('.psv-marker');
       if (markerEl) {
-        const markerId = markerEl.id.replace('psv-marker-', '');
+        const markerId = markerIdFromDomId(markerEl.id);
 
         // Calibration points are only draggable with the Select tool or while
         // calibrating; in other tools let the click flow through (e.g. placing
         // new calibration points)
-        if (markerId.startsWith('calib-') && activeToolRef.current !== 'select' && activeToolRef.current !== 'calibrate') {
+        if (isCalibrationMarker(markerId) && activeToolRef.current !== 'select' && activeToolRef.current !== 'calibrate') {
           return;
         }
 
@@ -368,7 +366,7 @@ export default function EditorViewer({
         onMarkerSelectRef.current && onMarkerSelectRef.current(markerId);
 
         const marker = markersPluginRef.current?.getMarker(markerId);
-        if (marker && marker.isPoly() && activeToolRef.current === 'select' && !markerId.startsWith('ghost-')) {
+        if (marker && marker.isPoly() && activeToolRef.current === 'select' && !isGhostMarker(markerId)) {
           const rect = containerRef.current.getBoundingClientRect();
           const x = e.clientX - rect.left;
           const y = e.clientY - rect.top;
@@ -409,7 +407,7 @@ export default function EditorViewer({
         const texture = viewer.dataHelper.sphericalCoordsToTextureCoords(spherical);
         
         if (isPolyDrawTool(activeToolRef.current)) {
-          const tempMarker = markersPlugin.getMarker('temp-drawing');
+          const tempMarker = markersPlugin.getMarker(MARKER_ID.tempDrawing);
           if (tempMarker && tempMarker.config.polylinePixels) {
             const pts = [...tempMarker.config.polylinePixels];
             
@@ -417,7 +415,7 @@ export default function EditorViewer({
             let snapTy = texture.textureY;
 
             if (pts.length - 1 >= 3) {
-              const firstPtMarker = markersPlugin.getMarker('temp-pt-0');
+              const firstPtMarker = markersPlugin.getMarker(FIRST_TEMP_POINT_ID);
               if (firstPtMarker && firstPtMarker.state.position2D) {
                 const p2d = firstPtMarker.state.position2D;
                 const dx = x - p2d.x;
@@ -443,27 +441,27 @@ export default function EditorViewer({
 
             pts[pts.length - 1] = [snapTx, snapTy];
             markersPlugin.updateMarker({
-              id: 'temp-drawing',
+              id: MARKER_ID.tempDrawing,
               polylinePixels: pts
             });
           }
         }
 
         if (isRenderSurfaceDrawing) {
-          const tempSurfaceMarker = markersPlugin.getMarker('surfacetest-drawing');
+          const tempSurfaceMarker = markersPlugin.getMarker(MARKER_ID.surfaceDrawing);
           if (tempSurfaceMarker && tempSurfaceMarker.config.polylinePixels) {
             const pts = [...tempSurfaceMarker.config.polylinePixels];
             pts[pts.length - 1] = [texture.textureX, texture.textureY];
             markersPlugin.updateMarker({
-              id: 'surfacetest-drawing',
+              id: MARKER_ID.surfaceDrawing,
               polylinePixels: pts
             });
 
             if (renderTestModeRef.current === 'calle') {
-              const previewMarker = markersPlugin.getMarker('surfacetest-street-preview');
+              const previewMarker = markersPlugin.getMarker(MARKER_ID.surfaceStreetPreview);
               if (previewMarker) {
                 markersPlugin.updateMarker({
-                  id: 'surfacetest-street-preview',
+                  id: MARKER_ID.surfaceStreetPreview,
                   polygonPixels: buildStreetRibbon(pts, renderStreetWidthRef.current),
                 });
               }
@@ -479,19 +477,19 @@ export default function EditorViewer({
           const shape = getSurfaceShape('calle', shapeId);
           const width = shape?.width ?? renderStreetWidthRef.current;
           markersPlugin.updateMarker({
-            id: `surfacetest-calle-${shapeId}`,
+            id: surfaceCalleId(shapeId),
             polygonPixels: buildStreetRibbon(newAxis, width),
           });
           if (!draggingStreetAxisPoint.isNew) {
             markersPlugin.updateMarker({
-              id: `streetaxis-${shapeId}-${index}`,
+              id: streetAxisId(shapeId, index),
               position: { textureX: texture.textureX, textureY: texture.textureY },
             });
           }
         }
 
         if (draggingCorner) {
-          const cornerMarkerId = `edit-corner-${draggingCorner.markerId}-${draggingCorner.index}`;
+          const cornerMarkerId = editCornerId(draggingCorner.markerId, draggingCorner.index);
           markersPlugin.updateMarker({
             id: cornerMarkerId,
             position: { textureX: texture.textureX, textureY: texture.textureY }
@@ -526,7 +524,7 @@ export default function EditorViewer({
           });
           draggingMarker.lastTexture = texture;
           // Calibration points update state live so ghost polygons reproject in real time
-          if (draggingMarker.markerId.startsWith('calib-')) {
+          if (isCalibrationMarker(draggingMarker.markerId)) {
             onMarkerDragRef.current?.(draggingMarker.markerId, texture.textureX, texture.textureY);
           }
         }
@@ -601,11 +599,9 @@ export default function EditorViewer({
     const viewer = viewerRef.current;
     if (viewer) {
       markers.forEach(m => {
-        if (typeof m.id === 'string' && m.id.startsWith('edit-midpoint-')) {
-           const parts = m.id.replace('edit-midpoint-', '').split('-');
-           const index = parseInt(parts.pop(), 10);
-           const polyId = parts.join('-');
-
+        const midpoint = parseEditMidpointId(m.id);
+        if (midpoint) {
+           const { ownerId: polyId, index } = midpoint;
            const poly = annotations.find(a => a.id === polyId);
            if (poly && poly.polygonPixels) {
               const pt1 = poly.polygonPixels[index];
@@ -688,7 +684,7 @@ export default function EditorViewer({
     const addStreetAxisHandles = (shape) => {
       if (!renderStreetEditMode || renderStreetEditTarget !== shape.id || !shape.axis) return;
       shape.axis.forEach((pt, i) => {
-        const id = `streetaxis-${shape.id}-${i}`;
+        const id = streetAxisId(shape.id, i);
         plugin.addMarker({
           id,
           position: { textureX: pt[0], textureY: pt[1] },
@@ -702,7 +698,7 @@ export default function EditorViewer({
       for (let i = 0; i < shape.axis.length - 1; i++) {
         const [x0, y0] = shape.axis[i];
         const [x1, y1] = shape.axis[i + 1];
-        const id = `streetaxismid-${shape.id}-${i}`;
+        const id = streetAxisMidId(shape.id, i);
         plugin.addMarker({
           id,
           position: { textureX: (x0 + x1) / 2, textureY: (y0 + y1) / 2 },
@@ -724,7 +720,7 @@ export default function EditorViewer({
       const freehandShapes = renderCalleShapes.filter(s => !s.axis);
 
       freehandShapes.forEach(shape => {
-        const id = `surfacetest-calle-${shape.id}`;
+        const id = surfaceCalleId(shape.id);
         plugin.addMarker({
           id,
           polygonPixels: shape.points,
@@ -738,7 +734,7 @@ export default function EditorViewer({
       if (axisShapes.length) {
         const unionRings = unionStreetPolygons(axisShapes.map(shape => shape.points));
         unionRings.forEach((ring, i) => {
-          const id = `surfacetest-calle-union-${i}`;
+          const id = surfaceCalleUnionId(i);
           plugin.addMarker({
             id,
             polygonPixels: ring,
@@ -756,7 +752,7 @@ export default function EditorViewer({
     }
     if (renderLayersVisible?.manzanas) {
       renderManzanaShapes.forEach(shape => {
-        const id = `surfacetest-manzana-${shape.id}`;
+        const id = surfaceManzanaId(shape.id);
         plugin.addMarker({
           id,
           polygonPixels: shape.points,
@@ -768,7 +764,7 @@ export default function EditorViewer({
       });
     }
     if (renderDrawingPts.length >= 1) {
-      const id = 'surfacetest-drawing';
+      const id = MARKER_ID.surfaceDrawing;
       const isStreetPath = renderTestMode === 'calle';
       // Si el primer click cae cerca del eje de otra Ruta, se previsualiza ya
       // snappeado al punto exacto (para que la costura de unión se vea bien
@@ -785,7 +781,7 @@ export default function EditorViewer({
       newIds.push(id);
 
       if (isStreetPath) {
-        const previewId = 'surfacetest-street-preview';
+        const previewId = MARKER_ID.surfaceStreetPreview;
         plugin.addMarker({
           id: previewId,
           polygonPixels: buildStreetRibbon(ptsWithCursor, renderStreetWidth),
@@ -796,7 +792,7 @@ export default function EditorViewer({
       }
 
       drawingPts.forEach((pt, i) => {
-        const ptId = `surfacetest-drawing-pt-${i}`;
+        const ptId = surfaceDrawingPointId(i);
         plugin.addMarker({
           id: ptId,
           position: { textureX: pt[0], textureY: pt[1] },

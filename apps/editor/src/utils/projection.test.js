@@ -53,11 +53,10 @@ describe('projectLotAnnotations', () => {
     expect(projectLotAnnotations(lots, projector, { overwrite: true }).count).toBe(2);
   });
 
-  test('polygonPixels solo se actualiza si se está viendo el panorama', () => {
-    const inPano = projectLotAnnotations(lots, projector, { mode: 'panorama' }).annotations[0];
-    const inBlueprint = projectLotAnnotations(lots, projector, { mode: 'blueprint' }).annotations[0];
-    expect(inPano.polygonPixels).toEqual(inPano.panorama_coordinates);
-    expect(inBlueprint.polygonPixels).toBeUndefined();
+  test('no guarda geometría derivada (polygonPixels) en la anotación', () => {
+    const legacy = lots.map(lot => ({ ...lot, polygonPixels: [[0, 0]] }));
+    const [projected] = projectLotAnnotations(legacy, projector).annotations;
+    expect(projected).not.toHaveProperty('polygonPixels');
   });
 });
 
@@ -71,5 +70,6 @@ describe('unimportLotAnnotations', () => {
     expect(result[0].panorama_coordinates).toEqual([]);
     expect(result[0].blueprint_coordinates).toBe(SQUARE);
     expect(result[1]).toBe(lots[1]);
+    expect(result[0]).not.toHaveProperty('polygonPixels');
   });
 });

@@ -1,7 +1,24 @@
 import { describe, expect, test } from 'vitest';
 import {
-  buildLotItem, buildPoiCreateItem, buildPoiUpdateItem, poiChanged, polygonChanged,
+  buildLotItem, buildPoiCreateItem, buildPoiUpdateItem, isPendingPoiValid, poiChanged, polygonChanged,
 } from './saveAllPayload.js';
+
+describe('isPendingPoiValid', () => {
+  test('callout: título + ancla en alguna vista', () => {
+    expect(isPendingPoiValid({ variant: 'callout', tooltip: 'Club', panorama_anchor: [1, 2] })).toBe(true);
+    expect(isPendingPoiValid({ variant: 'callout', tooltip: 'Club', blueprint_anchor: [0.1, 0.2] })).toBe(true);
+    expect(isPendingPoiValid({ variant: 'callout', tooltip: 'Club' })).toBe(false);
+  });
+
+  test('sin título (o solo espacios) no es válido', () => {
+    expect(isPendingPoiValid({ variant: 'callout', tooltip: '   ', panorama_anchor: [1, 2] })).toBe(false);
+  });
+
+  test('área: necesita un polígono de al menos 3 puntos', () => {
+    expect(isPendingPoiValid({ variant: 'area', title: 'Plaza', panorama_coordinates: [[1, 1], [2, 2], [3, 1]] })).toBe(true);
+    expect(isPendingPoiValid({ variant: 'area', title: 'Plaza', panorama_coordinates: [[1, 1], [2, 2]] })).toBe(false);
+  });
+});
 
 const LOT = {
   id: 'lot-1', uuid: 'lot-1', type: 'polygon', tooltip: 'Lote 1', status: 'available',

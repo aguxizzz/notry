@@ -2,6 +2,15 @@
 // POST /loteos/{id}/bulk-save. Funciones puras (sin React) para poder
 // testearlas — useSaveAll es quien las orquesta.
 import { coordsEqual, parseNumberOrZero } from './saveAllUtils';
+import { isCallout } from './annotationModel';
+
+/** Un lugar nuevo necesita título y ubicación (ancla o polígono) en alguna vista. */
+export const isPendingPoiValid = poi => {
+  const hasPosition = isCallout(poi)
+    ? Boolean(poi.panorama_anchor || poi.blueprint_anchor)
+    : poi.panorama_coordinates?.length >= 3 || poi.blueprint_coordinates?.length >= 3;
+  return Boolean((poi.title ?? poi.tooltip ?? '').trim()) && hasPosition;
+};
 
 export const polygonChanged = (cur, saved) => {
   if (!saved) return true;
@@ -73,18 +82,16 @@ export const buildLotItem = (marker, savedMap) => {
   return item;
 };
 
-export const buildPoiUpdateItem = poi => {
-  const poiId = poi.uuid || poi.id;
-  const isCallout = poi.variant === 'callout' || poi.marker_variant === 'callout';
-  const item = {
-    uuid: poiId,
-    title: poi.title ?? poi.tooltip,
+// Campos de metadata de un POI, iguales para crear y para actualizar.
+const poiMetadataFields = poi => {
+  const callout = isCallout(poi);
+  return {
     icon_type: poi.icon_type || null,
     description: poi.description || null,
     link_url: poi.link_url || null,
     color: poi.color || '#14b8a6',
-    marker_variant: isCallout ? 'callout' : 'area',
-    callout_stem_height: isCallout ? (poi.callout_stem_height ?? 96) : null,
+    marker_variant: callout ? 'callout' : 'area',
+    callout_stem_height: callout ? (poi.callout_stem_height ?? 96) : null,
     target_loteo_id: poi.target_loteo_id || null,
     image_url: poi.image_url || null,
     poi_kind: poi.poi_kind || 'place',
@@ -92,30 +99,27 @@ export const buildPoiUpdateItem = poi => {
     distance_unit: poi.distance_unit || null,
     category: poi.category?.trim() || null,
   };
-  if (isCallout && poi.panorama_anchor) item.panorama_anchor = poi.panorama_anchor;
+};
+
+export const buildPoiUpdateItem = poi => {
+  const callout = isCallout(poi);
+  const item = {
+    uuid: poi.uuid || poi.id,
+    title: poi.title ?? poi.tooltip,
+    ...poiMetadataFields(poi),
+  };
+  if (callout && poi.panorama_anchor) item.panorama_anchor = poi.panorama_anchor;
   else if (poi.panorama_coordinates?.length > 0) item.coordinates_360 = poi.panorama_coordinates;
-  if (isCallout && poi.blueprint_anchor) item.blueprint_anchor = poi.blueprint_anchor;
+  if (callout && poi.blueprint_anchor) item.blueprint_anchor = poi.blueprint_anchor;
   else if (poi.blueprint_coordinates?.length > 0) item.blueprint_coordinates = poi.blueprint_coordinates;
   return item;
 };
 
 export const buildPoiCreateItem = poi => {
-  const isCallout = poi.variant === 'callout' || poi.marker_variant === 'callout';
   return {
     client_id: String(poi.id),
     title: (poi.title ?? poi.tooltip).trim(),
-    icon_type: poi.icon_type || null,
-    description: poi.description || null,
-    link_url: poi.link_url || null,
-    color: poi.color || '#14b8a6',
-    marker_variant: isCallout ? 'callout' : 'area',
-    callout_stem_height: isCallout ? (poi.callout_stem_height ?? 96) : null,
-    target_loteo_id: poi.target_loteo_id || null,
-    image_url: poi.image_url || null,
-    poi_kind: poi.poi_kind || 'place',
-    distance_value: poi.distance_value === '' || poi.distance_value == null ? null : Number(poi.distance_value),
-    distance_unit: poi.distance_unit || null,
-    category: poi.category?.trim() || null,
+    ...poiMetadataFields(poi),
     ...(poi.panorama_anchor ? { panorama_anchor: poi.panorama_anchor } : {}),
     ...(poi.blueprint_anchor ? { blueprint_anchor: poi.blueprint_anchor } : {}),
     ...(poi.panorama_coordinates?.length >= 3 ? { coordinates_360: poi.panorama_coordinates } : {}),
