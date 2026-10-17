@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { API_BASE } from '../api/config';
+import { login } from '../api/auth';
 
 export default function LoginScreen({ onLogin }) {
   const [email, setEmail] = useState('');
@@ -12,16 +12,7 @@ export default function LoginScreen({ onLogin }) {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || `Error ${res.status}`);
-      }
-      const data = await res.json();
+      const data = await login({ email, password });
       onLogin(data.access_token);
     } catch {
       setError('Credenciales inválidas o error de conexión.');

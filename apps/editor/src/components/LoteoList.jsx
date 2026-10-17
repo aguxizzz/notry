@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { LayoutGrid, Loader2, Map as MapIcon, ChevronRight, Layers, Building2 } from 'lucide-react';
-import { API_BASE } from '../api/config';
+import { listOrganizations } from '../api/auth';
+import { listLoteos } from '../api/loteos';
 
 // Agrupa loteos por proyecto (etapas del stage switcher, por orden); standalones sueltos.
 function buildLoteoGroups(loteos) {
@@ -61,31 +62,25 @@ export default function LoteoList({ token, onSelect, onAuthError, user, activeOr
   useEffect(() => {
     if (!isSuperAdmin) return;
     let cancelled = false;
-    fetch(`${API_BASE}/organizations`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(res => (res.ok ? res.json() : Promise.reject(res.status)))
+    listOrganizations(token)
       .then(data => { if (!cancelled) setOrgs(Array.isArray(data) ? data : []); })
       .catch(() => { if (!cancelled) setOrgsError('No se pudieron cargar las organizaciones.'); });
     return () => { cancelled = true; };
   }, [isSuperAdmin, token]);
 
   const fetchLoteos = useCallback(async () => {
-    // Construye el header a partir del prop directamente (no del helper
-    // ambiental de config.js): al cambiar de org en el switcher de acá abajo,
-    // este efecto puede disparar en el mismo commit en que cambia activeOrgId,
-    // antes de que useAuth alcance a sincronizar el valor ambiental — usar el
-    // prop evita mandar el header de la org anterior por una carrera de efectos.
-    const headers = { Authorization: `Bearer ${token}` };
-    if (activeOrgId) headers['X-Active-Org-Id'] = activeOrgId;
-
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/loteos`, { headers });
-      if (res.status === 401) { onAuthError?.(); return; }
-      if (!res.ok) throw new Error(`Error ${res.status}`);
-      const data = await res.json();
-      setLoteos(data.items || []);
+      // orgId desde el prop directamente (no el valor ambiental de
+      // config.js): al cambiar de org en el switcher de acá abajo, este
+      // efecto puede disparar en el mismo commit en que cambia activeOrgId,
+      // antes de que useAuth alcance a sincronizar el valor ambiental — usar
+      // el prop evita mandar la org anterior por una carrera de efectos.
+      const data = await listLoteos(token, { orgId: activeOrgId ?? null });
+      setLoteos(data?.items || []);
       setError(null);
     } catch (err) {
+      if (err.isUnauthorized) { onAuthError?.(); return; }
       console.error('Error fetching loteos:', err);
       setError('No se pudieron cargar los loteos.');
     } finally {

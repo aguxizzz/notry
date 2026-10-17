@@ -736,17 +736,7 @@ export default function EditorViewer({
       });
 
       if (axisShapes.length) {
-        const perShapePolygons = axisShapes.map(shape => shape.points);
-        // DEBUG temporal — bbox de cada ribbon individual ANTES de unir, para
-        // ver si alguno ya viene roto (gigante o degenerado) por sí solo.
-        perShapePolygons.forEach((pts, i) => {
-          const xs = pts.map(p => p[0]);
-          const ys = pts.map(p => p[1]);
-          const bbox = { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
-          console.log('[streetPath] shape previo a union', { shapeId: axisShapes[i].id, nPts: pts.length, bbox });
-        });
-        const unionRings = unionStreetPolygons(perShapePolygons);
-        console.log('[streetPath] union resultado', { nShapesIn: perShapePolygons.length, nRingsOut: unionRings.length });
+        const unionRings = unionStreetPolygons(axisShapes.map(shape => shape.points));
         unionRings.forEach((ring, i) => {
           const id = `surfacetest-calle-union-${i}`;
           plugin.addMarker({

@@ -221,47 +221,17 @@ function pathLength(points) {
 export function buildProjectedStreetRibbon(texturePoints, widthPx, projector) {
   if (!projector || !texturePoints || texturePoints.length < 2 || !widthPx) return null;
 
-  // DEBUG temporal — detectar si el eje cruza la costura horizontal del
-  // panorama equirectangular (texturaX pega un salto grande entre dos puntos
-  // consecutivos), lo que rompe pathLength() en texture space.
-  const seamJumps = [];
-  for (let i = 1; i < texturePoints.length; i++) {
-    const dx = Math.abs(texturePoints[i][0] - texturePoints[i - 1][0]);
-    if (dx > projector.width * 0.5) seamJumps.push({ i, dx, from: texturePoints[i - 1], to: texturePoints[i] });
-  }
-  if (seamJumps.length) console.warn('[streetPath] posible cruce de costura en el eje', seamJumps);
-
+  // Un punto sobre el horizonte del piso no tiene vuelta al plano (NaN).
   const blueprintAxis = texturePoints.map(p => unprojectPoint(projector, p));
-  if (blueprintAxis.some(p => !p || !Number.isFinite(p[0]) || !Number.isFinite(p[1]))) {
-    console.warn('[streetPath] unprojectPoint dio NaN/Infinity', { texturePoints, blueprintAxis });
-    return null;
-  }
+  if (blueprintAxis.some(p => !p || !Number.isFinite(p[0]) || !Number.isFinite(p[1]))) return null;
 
   const textureLength = pathLength(texturePoints);
   const blueprintLength = pathLength(blueprintAxis);
-  if (textureLength < 1e-6 || blueprintLength < 1e-9) {
-    console.warn('[streetPath] longitud degenerada', { textureLength, blueprintLength });
-    return null;
-  }
+  if (textureLength < 1e-6 || blueprintLength < 1e-9) return null;
   const scale = projector.widthScale ?? (blueprintLength / textureLength);
-  const widthBlueprint = widthPx * scale;
-  console.log('[streetPath] buildProjectedStreetRibbon', {
-    nPoints: texturePoints.length, widthPx, scale, widthBlueprint,
-  });
 
-  const ribbonBlueprint = buildStreetRibbon(blueprintAxis, widthBlueprint);
+  const ribbonBlueprint = buildStreetRibbon(blueprintAxis, widthPx * scale);
   if (!ribbonBlueprint.length) return null;
 
-  const result = projectPolygonDense(ribbonBlueprint, projector);
-  if (result) {
-    const xs = result.map(p => p[0]);
-    const ys = result.map(p => p[1]);
-    const bbox = { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
-    const bboxW = bbox.maxX - bbox.minX;
-    const bboxH = bbox.maxY - bbox.minY;
-    if (bboxW > projector.width * 0.8 || bboxH > projector.height * 0.8) {
-      console.warn('[streetPath] ribbon resultante sospechosamente grande (bbox vs. panorama)', { bbox, panoW: projector.width, panoH: projector.height });
-    }
-  }
-  return result;
+  return projectPolygonDense(ribbonBlueprint, projector);
 }

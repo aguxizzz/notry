@@ -1,4 +1,4 @@
-import { deletePoi } from '../services/poiService';
+import { deletePoi } from '../api/pois';
 import { useUIFeedback } from './useUIFeedback';
 
 export function usePoiOperations({
@@ -17,7 +17,7 @@ export function usePoiOperations({
       setSelectedId(null);
       return true;
     } catch (error) {
-      if (error.status === 401) onAuthError?.();
+      if (error.isUnauthorized) onAuthError?.();
       else notify('No se pudo eliminar el POI. Intentá nuevamente.', { variant: 'error' });
       return false;
     }

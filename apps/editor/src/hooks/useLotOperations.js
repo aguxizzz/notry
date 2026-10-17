@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { API_BASE, authHeaders } from '../api/config';
+import { errorMessage } from '../api/client';
+import { assignLotCoordinates, createLot, deleteLot } from '../api/lots';
 import { parseNumberOrZero } from '../utils/saveAllUtils';
 import { useUIFeedback } from './useUIFeedback';
 
@@ -20,6 +21,12 @@ export function useLotOperations({
   const [assignTargetId, setAssignTargetId] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
 
+  // 401 → logout; cualquier otro error → aviso con el motivo si lo hay.
+  const reportError = (action, error) => {
+    if (error?.isUnauthorized) { onAuthError(); return; }
+    notify(`No se pudo ${action}: ${errorMessage(error, 'error del servidor.')}`, { variant: 'error' });
+  };
+
   const handleAssignToExistingLot = async (selectedMarker) => {
     if (!assignTargetId || !selectedMarker) return;
     const targetLot = annotations.find(a => a.id === assignTargetId);
@@ -27,14 +34,11 @@ export function useLotOperations({
 
     setIsAssigning(true);
     try {
-      const endpoint = mode === 'blueprint' ? 'update-blueprint-coordinates' : 'update-coordinates';
-      const response = await fetch(`${API_BASE}/lots/${endpoint}`, {
-        method: 'POST',
-        headers: authHeaders(token, { 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ uuid: targetLot.uuid, polygonPoints: selectedMarker.polygonPixels || [] }),
+      await assignLotCoordinates(token, {
+        uuid: targetLot.uuid,
+        polygonPoints: selectedMarker.polygonPixels || [],
+        space: mode === 'blueprint' ? 'blueprint' : 'panorama',
       });
-      if (response.status === 401) { onAuthError(); return; }
-      if (!response.ok) { alert('Error al asignar coordenadas'); return; }
 
       setAnnotations(prev => prev
         .filter(a => a.id !== selectedId)
@@ -48,39 +52,31 @@ export function useLotOperations({
         })
       );
       setSelectedId(assignTargetId);
-    } catch {
-      alert('Error de conexión al asignar coordenadas.');
+    } catch (error) {
+      reportError('asignar las coordenadas', error);
     } finally {
       setIsAssigning(false);
     }
   };
 
   const handleCreateLote = async (selectedMarker) => {
-    if (!selectedMarker?.tooltip?.trim()) { alert('El nombre es requerido.'); return; }
-    if (!loteoId) { alert('No se encontró el loteo_id.'); return; }
-    if (!selectedMarker?.polygonPixels) { alert('Por favor, selecciona un polígono antes de crear un lote.'); return; }
+    if (!selectedMarker?.tooltip?.trim()) { notify('El nombre es requerido.', { variant: 'error' }); return; }
+    if (!loteoId) { notify('No se encontró el loteo_id.', { variant: 'error' }); return; }
+    if (!selectedMarker?.polygonPixels) { notify('Seleccioná un polígono antes de crear un lote.', { variant: 'error' }); return; }
 
     setIsCreatingLote(true);
     try {
-      const res = await fetch(`${API_BASE}/lots`, {
-        method: 'POST',
-        headers: authHeaders(token, { 'Content-Type': 'application/json' }),
-        body: JSON.stringify({
-          name: selectedMarker.tooltip.trim(),
-          status: selectedMarker.status || 'available',
-          price: parseNumberOrZero(selectedMarker.price),
-          area_m2: parseNumberOrZero(selectedMarker.area_m2),
-          ...(selectedMarker.comments?.trim() && { comments: selectedMarker.comments.trim() }),
-          loteo_id: loteoId,
-          ...(mode === 'blueprint'
-            ? { blueprint_coordinates: selectedMarker.polygonPixels }
-            : { coordinates_360: selectedMarker.polygonPixels }),
-        }),
+      const lote = await createLot(token, {
+        name: selectedMarker.tooltip.trim(),
+        status: selectedMarker.status || 'available',
+        price: parseNumberOrZero(selectedMarker.price),
+        area_m2: parseNumberOrZero(selectedMarker.area_m2),
+        ...(selectedMarker.comments?.trim() && { comments: selectedMarker.comments.trim() }),
+        loteo_id: loteoId,
+        ...(mode === 'blueprint'
+          ? { blueprint_coordinates: selectedMarker.polygonPixels }
+          : { coordinates_360: selectedMarker.polygonPixels }),
       });
-      if (res.status === 401) { onAuthError(); return; }
-      if (!res.ok) { const msg = await res.text(); alert(`Error al crear lote: ${msg}`); return; }
-
-      const lote = await res.json();
       setAnnotations(prev => prev.map(a =>
         a.id === selectedId ? {
           ...a,
@@ -100,8 +96,8 @@ export function useLotOperations({
       ));
       setSelectedId(lote.id);
       onAfterCreate?.();
-    } catch {
-      alert('Error de conexión al crear el lote.');
+    } catch (error) {
+      reportError('crear el lote', error);
     } finally {
       setIsCreatingLote(false);
     }
@@ -115,15 +111,10 @@ export function useLotOperations({
     );
     if (!confirmed) return false;
     try {
-      const res = await fetch(`${API_BASE}/lots/${marker.uuid}`, {
-        method: 'DELETE',
-        headers: authHeaders(token),
-      });
-      if (res.status === 401) { onAuthError(); return false; }
-      if (!res.ok) { notify(`Error al eliminar el lote: ${res.status}`, { variant: 'error' }); return false; }
+      await deleteLot(token, marker.uuid);
       return true;
-    } catch {
-      notify('Error de conexión al intentar eliminar el lote.', { variant: 'error' });
+    } catch (error) {
+      reportError('eliminar el lote', error);
       return false;
     }
   };

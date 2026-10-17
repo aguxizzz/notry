@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { API_BASE, setActiveOrgId as setAmbientActiveOrgId } from '../api/config';
+import { setActiveOrgId as setAmbientActiveOrgId } from '../api/config';
+import { getMe } from '../api/auth';
 
 const ORG_STORAGE_KEY = 'notry_editor_active_org_id';
 
@@ -49,8 +50,7 @@ export function useAuth() {
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
-    fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(res => (res.ok ? res.json() : Promise.reject(res.status)))
+    getMe(token)
       .then(data => { if (!cancelled) setUser(data); })
       .catch(() => { if (!cancelled) setUser(null); });
     return () => { cancelled = true; };

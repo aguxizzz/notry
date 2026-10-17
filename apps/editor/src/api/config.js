@@ -21,11 +21,12 @@ export function setActiveOrgId(orgId) {
 // Arma los headers de auth para un fetch autenticado, agregando
 // X-Active-Org-Id cuando hay una org activa seleccionada. El backend lo
 // ignora para cualquier rol que no sea super_admin, así que es seguro
-// mandarlo siempre que esté seteado.
-export function authHeaders(token, extra) {
+// mandarlo siempre que esté seteado. `orgId` explícito pisa al ambiental
+// (ver LoteoList: evita una carrera al cambiar de org).
+export function authHeaders(token, extra, orgId = activeOrgId) {
   return {
     ...extra,
     Authorization: `Bearer ${token}`,
-    ...(activeOrgId ? { 'X-Active-Org-Id': activeOrgId } : {}),
+    ...(orgId ? { 'X-Active-Org-Id': orgId } : {}),
   };
 }

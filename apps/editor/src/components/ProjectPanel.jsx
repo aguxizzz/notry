@@ -20,6 +20,7 @@ import {
 import CalibrationInspector from './CalibrationInspector';
 import AutoDetectInspector from './AutoDetectInspector';
 import { useUIFeedback } from '../hooks/useUIFeedback';
+import { errorMessage } from '../api/client';
 
 const FILTERS = [
   { id: 'all', label: 'Todos' },
@@ -166,7 +167,7 @@ export default function ProjectPanel({
       notify(successMessage, { variant: 'success' });
     } catch (error) {
       setActionState({ key: null });
-      notify(error?.message || 'No se pudo completar la acción. Intentá de nuevo.', { variant: 'error' });
+      notify(errorMessage(error, 'No se pudo completar la acción. Intentá de nuevo.'), { variant: 'error' });
     }
   };
 
