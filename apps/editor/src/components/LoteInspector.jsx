@@ -7,7 +7,8 @@ export default function LoteInspector({
   onUpdateSelected,
   homography,
   onImportFromBlueprint,
-  onUnimportSelected,
+  onRemoveFromPanorama,
+  editorMode,
   uploadFn,
 }) {
   const name    = selectedMarker.tooltip || '';
@@ -104,14 +105,16 @@ export default function LoteInspector({
                 ? 'Re-importar a Panorama'
                 : 'Importar a Panorama'}
           </button>
-          {alreadyImported && (
+          {/* En el panorama esto ya es "Quitar de esta vista" (encabezado). */}
+          {alreadyImported && editorMode === 'blueprint' && (
             <button
               type="button"
-              onClick={onUnimportSelected}
-              className="editor-btn editor-btn--danger lot-projection-action"
+              onClick={onRemoveFromPanorama}
+              className="editor-btn editor-btn--secondary lot-projection-action"
               style={{ marginTop: 'var(--space-xs)' }}
+              title="Saca el lote del panorama. El lote y su polígono del plano quedan. Se deshace con Ctrl+Z"
             >
-              Eliminar de la importación
+              Quitar del panorama
             </button>
           )}
         </div>

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
   anchorKey, coordsKey, getAnchor, getShapeCoords, hasLocationIn, isCallout, isShape,
-  normalizeApiAnnotation, spaceForMode, toModeAnnotation, withAnchor, withShapeCoords,
+  normalizeApiAnnotation, reinsertAnnotation, spaceForMode, toModeAnnotation, withAnchor, withShapeCoords,
 } from './annotationModel.js';
 
 const PANO = [[100, 200], [300, 200], [300, 400]];
@@ -107,5 +107,24 @@ describe('normalizeApiAnnotation', () => {
     expect(normalized).not.toHaveProperty('polygonPixels');
     expect(normalized).not.toHaveProperty('position');
     expect(normalized.panorama_coordinates).toBe(PANO);
+  });
+});
+
+describe('reinsertAnnotation (rollback de borrado optimista)', () => {
+  const a = { id: 'a' };
+  const b = { id: 'b' };
+  const c = { id: 'c' };
+
+  test('vuelve a su posición original', () => {
+    expect(reinsertAnnotation([a, c], b, 1)).toEqual([a, b, c]);
+  });
+
+  test('si la lista se achicó mientras tanto, va al final', () => {
+    expect(reinsertAnnotation([a], c, 5)).toEqual([a, c]);
+  });
+
+  test('no la duplica si ya volvió (p. ej. por un undo)', () => {
+    const list = [a, b];
+    expect(reinsertAnnotation(list, b, 0)).toBe(list);
   });
 });

@@ -72,4 +72,11 @@ describe('unimportLotAnnotations', () => {
     expect(result[1]).toBe(lots[1]);
     expect(result[0]).not.toHaveProperty('polygonPixels');
   });
+
+  test('en el plano vacía blueprint_coordinates y conserva el panorama', () => {
+    const lot = { id: 'a', panorama_coordinates: [[1, 1]], blueprint_coordinates: SQUARE };
+    const [result] = unimportLotAnnotations([lot], ['a'], 'blueprint');
+    expect(result.blueprint_coordinates).toEqual([]);
+    expect(result.panorama_coordinates).toBe(lot.panorama_coordinates);
+  });
 });

@@ -111,7 +111,7 @@ function App() {
     isAssigning,
     handleCreateLote,
     handleAssignToExistingLot,
-    handleRemoveLot,
+    handleDeleteLot,
   } = useLotOperations({
     annotations, setAnnotations,
     selectedId, setSelectedId,
@@ -560,16 +560,22 @@ function App() {
     notify(`${projected.count} lote(s) ${overwrite ? 'reproyectados' : 'proyectados'} al panorama.`, { variant: 'success' });
   };
 
-  const handleUnimportSelected = async () => {
-    if (!selectedMarker?.panorama_coordinates?.length) return;
-    const ok = await confirm(
-      `¿Quitar "${selectedMarker.tooltip || 'este lote'}" del panorama? El polígono del plano se conservará.`,
-      { title: 'Quitar del panorama', confirmLabel: 'Quitar' }
-    );
-    if (!ok) return;
+  // "Quitar de esta vista": el lote sigue existiendo (con su geometría en la
+  // otra vista) y vuelve a aparecer en la lista de lotes sin ubicación acá.
+  const removeSelectedFromView = (view = mode) => {
+    if (!selectedId) return;
     pushHistory(annotations);
-    setAnnotations(prev => unimportLotAnnotations(prev, [selectedId]));
+    setAnnotations(prev => unimportLotAnnotations(prev, [selectedId], view));
+    // Desde el plano se puede sacar del panorama sin que deje de verse acá.
+    if (view === mode) setSelectedId(null);
   };
+
+  const deleteSelectedLot = () => handleDeleteLot(selectedMarker, {
+    onDeleted: (lot) => {
+      savedAnnotationsRef.current = savedAnnotationsRef.current.filter(a => a.id !== lot.id && a.uuid !== lot.uuid);
+      removeAnnotationFromHistory(lot.id, lot.uuid);
+    },
+  });
 
   const handleUnimportAll = async () => {
     const imported = annotations.filter(annotation => (
@@ -580,8 +586,8 @@ function App() {
       return;
     }
     const ok = await confirm(
-      `¿Quitar ${imported.length} lote(s) del panorama? Sus polígonos del plano se conservarán.`,
-      { title: 'Quitar todos del panorama', confirmLabel: 'Quitar' }
+      `¿Sacar ${imported.length} polígono(s) del panorama? Los lotes NO se borran: siguen en la base con su polígono del plano, listos para volver a proyectar. Se deshace con Ctrl+Z.`,
+      { title: 'Desubicar del panorama', confirmLabel: 'Desubicar' }
     );
     if (!ok) return;
     const importedIds = new Set(imported.map(annotation => annotation.id));
@@ -625,19 +631,10 @@ function App() {
 
     if (!selectedMarker) return;
 
-    if (selectedMarker.type === 'polygon') {
-      const isPersisted = Boolean(selectedMarker.uuid);
-      const ok = await handleRemoveLot(selectedMarker);
-      if (!ok) return;
-      if (!isPersisted) pushHistory(annotations);
-      setAnnotations(annotations.filter(a => a.id !== selectedId));
-      if (isPersisted) {
-        savedAnnotationsRef.current = savedAnnotationsRef.current.filter(a =>
-          a.id !== selectedMarker.id && a.uuid !== selectedMarker.uuid
-        );
-        removeAnnotationFromHistory(selectedMarker.id, selectedMarker.uuid);
-      }
-      setSelectedId(null);
+    // Lote guardado: Supr (y "Borrar" por default) lo quita solo de esta
+    // vista — se deshace con Ctrl+Z. Borrarlo de la base es "Eliminar lote".
+    if (selectedMarker.type === 'polygon' && selectedMarker.uuid) {
+      removeSelectedFromView();
       return;
     }
 
@@ -962,8 +959,9 @@ function App() {
           mode={mode}
           homography={homography}
           onImportFromBlueprint={handleImportFromBlueprint}
-          onUnimportSelected={handleUnimportSelected}
           onDelete={removeSelected}
+          onDeleteLot={deleteSelectedLot}
+          onRemoveFromPanorama={() => removeSelectedFromView('panorama')}
           updateSelected={updateSelected}
           updateNestedSelected={updateNestedSelected}
           pendingMode={pendingMode}
