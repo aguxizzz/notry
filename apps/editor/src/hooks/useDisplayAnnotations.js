@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { projectPolygonDense } from '../utils/projection';
 import { isShape, toModeAnnotation } from '../utils/annotationModel';
+import { sphericalMidpoint } from '../utils/spherical';
 import {
   MARKER_ID, calibPendingId, calibPointId, editCornerId, editMidpointId, ghostId, tempPointId,
 } from '../utils/markerIds';
@@ -12,25 +13,38 @@ export function toModeAnnotations(annotations, mode) {
     .map(ann => toModeAnnotation(ann, mode));
 }
 
+export const planarMidpoint = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+
+/**
+ * Cómo se calcula el punto medio de una arista en cada vista: en el plano es
+ * el promedio; en el panorama, el punto medio del arco sobre la esfera (lo
+ * que PSV pinta como recta, y cruza la costura por el lado corto). Sin las
+ * dimensiones del panorama, promedio.
+ */
+export const midpointFnFor = (mode, panoramaDimensions) => (
+  mode === 'blueprint' || !panoramaDimensions
+    ? planarMidpoint
+    : (a, b) => sphericalMidpoint(a, b, panoramaDimensions)
+);
+
+/** Posición del punto medio de cada arista (la última cierra contra el primer vértice). */
+export const edgeMidpoints = (points, midpointOf = planarMidpoint) => (
+  points.map((pt, i) => midpointOf(pt, points[(i + 1) % points.length]))
+);
+
 /**
  * Esquinas (arrastrables) y puntos medios (arrastrar = insertar vértice) de
- * la forma seleccionada. El punto medio de una arista que cruza la costura
- * del panorama (salto > 0.5 en X normalizado) se toma por el lado corto.
+ * la forma seleccionada.
  */
-export function buildVertexHandles(marker) {
+export function buildVertexHandles(marker, midpointOf = planarMidpoint) {
   const points = marker.polygonPixels;
   if (!points?.length) return [];
   const stroke = marker.type === 'poi' ? (marker.color ?? '#14b8a6') : '#00f';
   const midpointStroke = marker.type === 'poi' ? stroke : '#0f0';
+  const midpoints = edgeMidpoints(points, midpointOf);
 
   return points.flatMap((pt, i) => {
-    const next = points[(i + 1) % points.length];
-    let midX = (pt[0] + next[0]) / 2;
-    const midY = (pt[1] + next[1]) / 2;
-    if (Math.abs(pt[0] - next[0]) > 0.5) {
-      midX = (pt[0] + next[0] + 1) / 2;
-      if (midX > 1) midX -= 1;
-    }
+    const [midX, midY] = midpoints[i];
     return [
       {
         id: editCornerId(marker.id, i),
@@ -142,7 +156,9 @@ export function buildCalibrationMarkers(calibrationPoints = [], pendingBlueprint
   return result;
 }
 
-export function useDisplayAnnotations({ annotations, selectedId, mode, drawingPolygon, calibrationPoints, pendingBlueprintPoints, homography }) {
+export function useDisplayAnnotations({
+  annotations, selectedId, mode, drawingPolygon, calibrationPoints, pendingBlueprintPoints, homography, panoramaDimensions,
+}) {
   const modeAnnotations = useMemo(() => toModeAnnotations(annotations, mode), [annotations, mode]);
 
   const selectedMarker = useMemo(
@@ -153,10 +169,10 @@ export function useDisplayAnnotations({ annotations, selectedId, mode, drawingPo
   const displayAnnotations = useMemo(() => [
     ...modeAnnotations,
     ...buildDrawingMarkers(drawingPolygon),
-    ...(isShape(selectedMarker) ? buildVertexHandles(selectedMarker) : []),
+    ...(isShape(selectedMarker) ? buildVertexHandles(selectedMarker, midpointFnFor(mode, panoramaDimensions)) : []),
     ...(mode === 'panorama' ? buildGhostMarkers(annotations, homography) : []),
     ...buildCalibrationMarkers(calibrationPoints, pendingBlueprintPoints, mode),
-  ], [modeAnnotations, selectedMarker, drawingPolygon, calibrationPoints, pendingBlueprintPoints, mode, homography, annotations]);
+  ], [modeAnnotations, selectedMarker, drawingPolygon, calibrationPoints, pendingBlueprintPoints, mode, homography, annotations, panoramaDimensions]);
 
   return { displayAnnotations, selectedMarker };
 }

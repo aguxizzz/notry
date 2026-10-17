@@ -72,3 +72,23 @@ export function rayToSpherical([x, y, z]) {
     pitch: Math.asin(y / r),
   };
 }
+
+// ─── Punto medio de una arista del panorama ─────────────────────────────────
+
+/**
+ * Punto medio de la arista a→b sobre la esfera (el arco más corto), en
+ * pixeles de textura. Es lo que PSV pinta como "línea recta" en la vista, y
+ * cruza la costura del panorama por el lado corto. Si a y b son antípodas no
+ * hay arco único y se cae al promedio en pixeles.
+ */
+export function sphericalMidpoint([ax, ay], [bx, by], { width, height }) {
+  const sa = textureToSpherical(ax, ay, width, height);
+  const sb = textureToSpherical(bx, by, width, height);
+  const ra = sphericalToRay(sa.yaw, sa.pitch);
+  const rb = sphericalToRay(sb.yaw, sb.pitch);
+  const mid = [ra[0] + rb[0], ra[1] + rb[1], ra[2] + rb[2]];
+  if (Math.hypot(...mid) < 1e-9) return [(ax + bx) / 2, (ay + by) / 2];
+  const { yaw, pitch } = rayToSpherical(mid);
+  const { textureX, textureY } = sphericalToTexture(yaw, pitch, width, height);
+  return [textureX, textureY];
+}

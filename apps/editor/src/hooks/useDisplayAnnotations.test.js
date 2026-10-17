@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'vitest';
 import {
-  buildCalibrationMarkers, buildDrawingMarkers, buildGhostMarkers, buildVertexHandles, toModeAnnotations,
+  buildCalibrationMarkers, buildDrawingMarkers, buildGhostMarkers, buildVertexHandles, edgeMidpoints,
+  midpointFnFor, planarMidpoint, toModeAnnotations,
 } from './useDisplayAnnotations.js';
+import { sphericalMidpoint } from '../utils/spherical.js';
 import { parseEditCornerId, parseEditMidpointId } from '../utils/markerIds.js';
 import { computeProjector } from '../utils/panoramaProjection.js';
 import { PANO as PANORAMA, syntheticCorrespondences } from '../test/syntheticCamera.js';
@@ -53,6 +55,35 @@ describe('buildVertexHandles', () => {
   test('sin geometría no hay handles', () => {
     expect(buildVertexHandles({ id: 'P', type: 'poi', variant: 'callout' })).toEqual([]);
   });
+
+  test('en el panorama el punto medio es el del arco, el mismo que da sphericalMidpoint', () => {
+    const dims = { width: 4000, height: 2000 };
+    const pts = [[1000, 500], [2000, 500], [1500, 900]];
+    const handles = buildVertexHandles({ id: 'L', type: 'polygon', polygonPixels: pts }, midpointFnFor('panorama', dims));
+    const [x, y] = sphericalMidpoint(pts[0], pts[1], dims);
+    expect(handles[1].position).toEqual({ textureX: x, textureY: y });
+    // Arista fuera del ecuador: no coincide con el promedio en pixeles.
+    expect(y).not.toBeCloseTo(500);
+  });
+});
+
+describe('midpointFnFor', () => {
+  const dims = { width: 4000, height: 2000 };
+
+  test('plano o sin dimensiones: promedio', () => {
+    expect(midpointFnFor('blueprint', dims)).toBe(planarMidpoint);
+    expect(midpointFnFor('panorama', null)).toBe(planarMidpoint);
+  });
+
+  test('panorama y render: arco sobre la esfera', () => {
+    for (const mode of ['panorama', 'render']) {
+      expect(midpointFnFor(mode, dims)([100, 1000], [3900, 1000])[0] % 4000).toBeCloseTo(0);
+    }
+  });
+});
+
+test('edgeMidpoints cierra la última arista contra el primer vértice', () => {
+  expect(edgeMidpoints([[0, 0], [2, 0], [2, 2]])).toEqual([[1, 0], [2, 1], [1, 1]]);
 });
 
 describe('buildDrawingMarkers', () => {

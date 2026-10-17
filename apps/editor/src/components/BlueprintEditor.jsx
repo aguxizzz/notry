@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { getLotSvgStyle } from '../utils/lotStyles';
 import { FIRST_TEMP_POINT_ID } from '../utils/markerIds';
 import { fetchImage } from '../utils/fetchImage';
+import { useLatest } from '../hooks/useLatest';
 
 export default function BlueprintEditor({
   blueprintUrl,
@@ -34,42 +35,23 @@ export default function BlueprintEditor({
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0 });
 
-  // Refs for callbacks and state used in event handlers
-  const onClickRef = useRef(onClick);
-  const onMarkerSelectRef = useRef(onMarkerSelect);
-  const onPolygonUpdateRef = useRef(onPolygonUpdate);
-  const onMarkerDragEndRef = useRef(onMarkerDragEnd);
-  const activeToolRef = useRef(activeTool);
-  const annotationsRef = useRef(annotations);
+  // Últimos valores de props/estado para los handlers de window (que se
+  // registran una vez y no ven los re-renders).
+  const onClickRef = useLatest(onClick);
+  const onMarkerSelectRef = useLatest(onMarkerSelect);
+  const onPolygonUpdateRef = useLatest(onPolygonUpdate);
+  const onMarkerDragEndRef = useLatest(onMarkerDragEnd);
+  const activeToolRef = useLatest(activeTool);
+  const annotationsRef = useLatest(annotations);
+  const zoomRef = useLatest(zoom);
+  const panXRef = useLatest(panX);
+  const panYRef = useLatest(panY);
+  const displayDimsRef = useLatest(displayDims);
 
   const draggingCornerRef = useRef(null);
   const draggingMarkerRef = useRef(null);
   const draggingPolygonRef = useRef(null);
   const isSnappedRef = useRef(false);
-
-  // Keep refs for values used in event handlers
-  const zoomRef = useRef(zoom);
-  const panXRef = useRef(panX);
-  const panYRef = useRef(panY);
-  const displayDimsRef = useRef(displayDims);
-
-  // Sync all callback/prop refs in one effect
-  useEffect(() => {
-    onClickRef.current = onClick;
-    onMarkerSelectRef.current = onMarkerSelect;
-    onPolygonUpdateRef.current = onPolygonUpdate;
-    onMarkerDragEndRef.current = onMarkerDragEnd;
-    activeToolRef.current = activeTool;
-    annotationsRef.current = annotations;
-  }, [onClick, onMarkerSelect, onPolygonUpdate, onMarkerDragEnd, activeTool, annotations]);
-
-  // Sync transform state refs in one effect
-  useEffect(() => {
-    zoomRef.current = zoom;
-    panXRef.current = panX;
-    panYRef.current = panY;
-    displayDimsRef.current = displayDims;
-  }, [zoom, panX, panY, displayDims]);
 
   // Load image — vía fetchImage + blob URL (igual que el panorama en App.jsx):
   // con un <img crossOrigin> directo, si el navegador tiene el plano cacheado
@@ -187,7 +169,7 @@ export default function BlueprintEditor({
     setZoom(newZoom);
     setPanX(cursorX - svgX * newZoom);
     setPanY(cursorY - svgY * newZoom);
-  }, []);
+  }, [zoomRef, panXRef, panYRef]);
 
   const handlePanStart = (e) => {
     if (e.button !== 1) return;
