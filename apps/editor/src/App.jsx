@@ -495,6 +495,7 @@ function App() {
   const { displayAnnotations, selectedMarker } = useDisplayAnnotations({
     annotations, selectedId, mode, drawingPolygon,
     calibrationPoints: calibration.points, pendingBlueprintPoints: calibration.pending, homography,
+    panoramaDimensions: loteo.panoramaDimensions,
   });
 
   const handlePolygonUpdate = (markerId, newPolygonPixels) => {
