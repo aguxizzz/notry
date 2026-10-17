@@ -9,6 +9,7 @@ import {
   surfaceCalleId, surfaceCalleUnionId, surfaceDrawingPointId, surfaceManzanaId,
 } from '../utils/markerIds';
 import { findAxisEndpointSnap, findStreetShapeAtPoint, unionStreetPolygons } from '../utils/streetPath';
+import { findShape } from '../utils/renderSurfaces';
 import '@photo-sphere-viewer/core/index.css';
 import '@photo-sphere-viewer/markers-plugin/index.css';
 
@@ -70,6 +71,7 @@ export default function EditorViewer({
     tool: renderTool, drawingPts: renderDrawingPts, manzanas: renderManzanaShapes, calles: renderCalleShapes,
     layersVisible: renderLayersVisible, colorMode: renderColorMode, manzanaOpacity: renderManzanaOpacity,
     streetWidth: renderStreetWidth, streetEditMode: renderStreetEditMode, streetEditTarget: renderStreetEditTarget,
+    selectedSurface: renderSelectedSurface,
   } = render;
 
   useEffect(() => {
@@ -167,6 +169,10 @@ export default function EditorViewer({
       // excepción: son fondo, el click pasa como si no hubiera nada (así se
       // puede dibujar un lote encima de una manzana).
       if (e.data.marker && !isSurfaceMarker(e.data.marker.id)) return;
+      // Sin herramienta: un click sobre una manzana/calle la selecciona (para
+      // borrarla con Supr). Igual sigue de largo como click en área vacía, así
+      // se deselecciona el lote que hubiera y Supr no borra las dos cosas.
+      if (modeRef.current === 'render') r.selectSurfaceAt([e.data.textureX, e.data.textureY]);
       onClickRef.current && onClickRef.current(e.data.textureX, e.data.textureY);
     });
 
@@ -179,6 +185,7 @@ export default function EditorViewer({
       // no debe seleccionarlo — el "click" del viewer (arriba) ya agrega el
       // punto en esa misma posición.
       if (modeRef.current === 'render' && renderRef.current.tool) return;
+      if (modeRef.current === 'render') renderRef.current.clearSelection();
       onMarkerSelectRef.current && onMarkerSelectRef.current(marker.id);
     });
 
@@ -736,6 +743,18 @@ export default function EditorViewer({
         newIds.push(id);
       });
     }
+    const selectedShape = findShape({ manzanas: renderManzanaShapes, calles: renderCalleShapes }, renderSelectedSurface);
+    if (selectedShape) {
+      const id = MARKER_ID.surfaceSelection;
+      plugin.addMarker({
+        id,
+        polygonPixels: selectedShape.points,
+        svgStyle: { fill: 'none', stroke: '#0ea5e9', strokeWidth: '3', strokeDasharray: '8,5' },
+        tooltip: null,
+        zIndex: 3,
+      });
+      newIds.push(id);
+    }
     if (renderDrawingPts.length >= 1) {
       const id = MARKER_ID.surfaceDrawing;
       const isStreetPath = renderTool === 'calle';
@@ -780,7 +799,7 @@ export default function EditorViewer({
       });
     }
     surfaceMarkerIdsRef.current = newIds;
-  }, [annotations, isReady, renderManzanaShapes, renderCalleShapes, renderColorMode, renderManzanaOpacity, renderDrawingPts, renderLayersVisible?.manzanas, renderLayersVisible?.calles, renderTool, renderStreetWidth, renderStreetEditMode, renderStreetEditTarget]);
+  }, [annotations, isReady, renderManzanaShapes, renderCalleShapes, renderColorMode, renderManzanaOpacity, renderDrawingPts, renderLayersVisible?.manzanas, renderLayersVisible?.calles, renderTool, renderStreetWidth, renderStreetEditMode, renderStreetEditTarget, renderSelectedSurface]);
 
   // Escape cancela el dibujo en curso, Enter lo cierra (>=3 puntos, o >=2 para calle/Ruta)
   useEffect(() => {

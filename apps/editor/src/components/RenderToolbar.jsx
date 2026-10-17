@@ -176,9 +176,37 @@ export function RenderStatus({ render }) {
             ? 'Arrastrá un punto del eje para moverlo, o el punto celeste intermedio para agregar uno nuevo'
             : 'Clickeá una calle trazada para editar su eje'}
         </span>
+        {render.streetEditTarget && <DeleteShapeButton render={render} label="Borrar calle" />}
+      </div>
+    );
+  }
+
+  if (render.selectedSurface) {
+    const label = render.selectedSurface.kind === 'manzana' ? 'Manzana' : 'Calle';
+    return (
+      <div className="drawing-actions" role="status">
+        <span>{label} seleccionada</span>
+        <DeleteShapeButton render={render} label={`Borrar ${label.toLowerCase()}`} />
+        <button type="button" className="editor-btn editor-btn--secondary" onClick={render.clearSelection}>
+          Cancelar
+        </button>
       </div>
     );
   }
 
   return null;
+}
+
+function DeleteShapeButton({ render, label }) {
+  return (
+    <button
+      type="button"
+      className="editor-btn editor-btn--secondary"
+      onClick={render.deleteSelected}
+      title={`${label} (Supr). Se deshace con Ctrl+Z`}
+    >
+      {label}
+      <kbd>Supr</kbd>
+    </button>
+  );
 }

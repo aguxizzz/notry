@@ -31,6 +31,8 @@ export const MARKER_ID = {
   surfaceStreetPreview: 'surfacetest-street-preview',
   // Contorno provisorio mientras se arrastra un punto del eje de una Ruta.
   surfaceAxisDragPreview: 'surfacetest-axis-drag-preview',
+  // Contorno de la manzana/calle seleccionada para borrar.
+  surfaceSelection: 'surfacetest-selection',
   geoCalibPending: 'geo-calib-pending',
 };
 
@@ -117,7 +119,8 @@ export const isSurfaceCalleMarker = markerId => (
 // (agregar un punto de lote, deseleccionar), no seleccionar la superficie.
 export const isSurfaceMarker = markerId => (
   typeof markerId === 'string'
-  && (markerId.startsWith(PREFIX.surfaceCalle) || markerId.startsWith(PREFIX.surfaceManzana))
+  && (markerId.startsWith(PREFIX.surfaceCalle) || markerId.startsWith(PREFIX.surfaceManzana)
+    || markerId === MARKER_ID.surfaceSelection)
 );
 
 // ─── DOM de Photo Sphere Viewer ───────────────────────────────────────────────

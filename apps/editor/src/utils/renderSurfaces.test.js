@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import {
-  DEFAULT_RENDER_SURFACES, addDrawnShape, hasAnyShape, hasStreetPaths, minPointsFor,
-  normalizeRenderSurfaces, streetRibbon, surfacesForDirtyCheck, withStreetAxis, withStreetWidth,
+  DEFAULT_RENDER_SURFACES, addDrawnShape, findShape, findSurfaceAtPoint, hasAnyShape, hasStreetPaths,
+  minPointsFor, normalizeRenderSurfaces, removeShape, streetRibbon, surfacesForDirtyCheck, withStreetAxis,
+  withStreetWidth,
 } from './renderSurfaces.js';
 import { buildStreetRibbon } from './streetPath.js';
 
@@ -102,4 +103,47 @@ test('hasAnyShape / hasStreetPaths', () => {
   expect(hasAnyShape({ manzanas: [{}], calles: [] })).toBe(true);
   expect(hasStreetPaths([{ id: 'vieja', points: [] }])).toBe(false);
   expect(hasStreetPaths([street('c1', [[0, 0], [1, 0]])])).toBe(true);
+});
+
+describe('selección y borrado de una shape puntual', () => {
+  const square = (x0, y0, size) => [[x0, y0], [x0 + size, y0], [x0 + size, y0 + size], [x0, y0 + size]];
+  // La calle cruza por encima de la manzana en y=50.
+  const surfaces = {
+    manzanas: [{ id: 'm1', points: square(0, 0, 100) }, { id: 'm2', points: square(200, 0, 100) }],
+    calles: [street('c1', [[-50, 50], [150, 50]], 20), { id: 'vieja', points: square(400, 0, 50) }],
+  };
+
+  test('la calle gana sobre la manzana de abajo', () => {
+    expect(findSurfaceAtPoint(surfaces, [50, 50])).toEqual({ kind: 'calle', id: 'c1' });
+    expect(findSurfaceAtPoint(surfaces, [50, 10])).toEqual({ kind: 'manzana', id: 'm1' });
+  });
+
+  test('también encuentra calles viejas dibujadas a mano', () => {
+    expect(findSurfaceAtPoint(surfaces, [420, 20])).toEqual({ kind: 'calle', id: 'vieja' });
+  });
+
+  test('fuera de todo, null', () => {
+    expect(findSurfaceAtPoint(surfaces, [150, 200])).toBeNull();
+  });
+
+  test('una capa oculta no se puede elegir', () => {
+    const hidden = { lotes: true, manzanas: true, calles: false };
+    expect(findSurfaceAtPoint(surfaces, [50, 50], hidden)).toEqual({ kind: 'manzana', id: 'm1' });
+  });
+
+  test('removeShape saca solo esa shape y no toca la otra lista', () => {
+    const next = removeShape(surfaces, { kind: 'manzana', id: 'm1' });
+    expect(next.manzanas.map(s => s.id)).toEqual(['m2']);
+    expect(next.calles).toBe(surfaces.calles);
+  });
+
+  test('removeShape de algo que no existe: null', () => {
+    expect(removeShape(surfaces, { kind: 'calle', id: 'nope' })).toBeNull();
+    expect(removeShape(surfaces, null)).toBeNull();
+  });
+
+  test('findShape', () => {
+    expect(findShape(surfaces, { kind: 'calle', id: 'c1' })).toBe(surfaces.calles[0]);
+    expect(findShape(surfaces, null)).toBeNull();
+  });
 });

@@ -787,10 +787,13 @@ function App() {
         } else {
           keyboardStateRef.current?.cancelPolygon();
         }
+        if (keyboardStateRef.current?.mode === 'render') keyboardStateRef.current.render.clearSelection();
         return;
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
+        // En Render, primero la manzana/calle seleccionada; si no hay, el lote.
+        if (keyboardStateRef.current?.mode === 'render' && keyboardStateRef.current.render.deleteSelected()) return;
         keyboardStateRef.current?.removeSelected();
         return;
       }

@@ -9,7 +9,9 @@
 //   calle:   { id, points, axis, width }          — "Ruta": eje + ancho; points
 //                                                   es el contorno generado
 //   calle vieja (sin axis): { id, points }        — dibujada a mano, se respeta
-import { buildProjectedStreetRibbon, buildStreetRibbon, findAxisEndpointSnap, mergeStreetAxis } from './streetPath.js';
+import {
+  buildProjectedStreetRibbon, buildStreetRibbon, findAxisEndpointSnap, mergeStreetAxis, pointInPolygon,
+} from './streetPath.js';
 
 export const RENDER_KINDS = ['manzana', 'calle'];
 export const DEFAULT_LAYERS_VISIBLE = { lotes: true, manzanas: true, calles: true };
@@ -102,6 +104,33 @@ function updateStreet(calles, shapeId, patch, homography) {
 
 export const withStreetAxis = (calles, shapeId, axis, homography) => updateStreet(calles, shapeId, { axis }, homography);
 export const withStreetWidth = (calles, shapeId, width, homography) => updateStreet(calles, shapeId, { width }, homography);
+
+const SHAPE_LIST = { manzana: 'manzanas', calle: 'calles' };
+
+/**
+ * Shape bajo un punto de textura: `{ kind, id }` o null. Las calles se pintan
+ * encima de las manzanas, así que se testean primero. Las capas ocultas no
+ * cuentan (no se puede elegir lo que no se ve).
+ */
+export function findSurfaceAtPoint(surfaces, point, layersVisible = DEFAULT_LAYERS_VISIBLE) {
+  for (const kind of ['calle', 'manzana']) {
+    if (layersVisible[SHAPE_LIST[kind]] === false) continue;
+    const hit = surfaces[SHAPE_LIST[kind]].find(s => s.points?.length >= 3 && pointInPolygon(point, s.points));
+    if (hit) return { kind, id: hit.id };
+  }
+  return null;
+}
+
+export const findShape = (surfaces, ref) => (
+  ref ? surfaces[SHAPE_LIST[ref.kind]]?.find(s => s.id === ref.id) ?? null : null
+);
+
+/** Saca una shape puntual. Devuelve null si no existe (nada que borrar). */
+export function removeShape(surfaces, ref) {
+  if (!findShape(surfaces, ref)) return null;
+  const list = SHAPE_LIST[ref.kind];
+  return { ...surfaces, [list]: surfaces[list].filter(s => s.id !== ref.id) };
+}
 
 export const hasAnyShape = surfaces => surfaces.manzanas.length > 0 || surfaces.calles.length > 0;
 export const hasStreetPaths = calles => calles.some(s => s.axis);
