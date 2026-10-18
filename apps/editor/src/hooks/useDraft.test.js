@@ -32,6 +32,27 @@ describe('rescaleDraft', () => {
     expect(scaled.panoramaDimensions).toEqual({ width: 4000, height: 2000 });
   });
 
+  test('las shapes de Render se escalan (contorno, eje y ancho); la geo-calibración no', () => {
+    const withRender = {
+      ...draft,
+      geoCalibrationPoints: [{ _id: 'g', blueprint: [0.1, 0.2], geo: [-34, -58] }],
+      renderSurfaces: {
+        colorMode: 'dark',
+        manzanas: [{ id: 'm', points: [[100, 50]] }],
+        calles: [{ id: 'c', points: [[10, 10]], axis: [[20, 30]], width: 56 }],
+      },
+    };
+    const scaled = rescaleDraft(withRender, { width: 4000, height: 2000 });
+    expect(scaled.renderSurfaces.manzanas[0].points).toEqual([[200, 100]]);
+    expect(scaled.renderSurfaces.calles[0]).toEqual({ id: 'c', points: [[20, 20]], axis: [[40, 60]], width: 112 });
+    expect(scaled.renderSurfaces.colorMode).toBe('dark');
+    expect(scaled.geoCalibrationPoints).toEqual(withRender.geoCalibrationPoints);
+  });
+
+  test('borrador viejo sin renderSurfaces: queda sin renderSurfaces', () => {
+    expect(rescaleDraft(draft, { width: 4000, height: 2000 }).renderSurfaces).toBeUndefined();
+  });
+
   test('el ancla de un POI callout en el panorama también se escala; la del plano no', () => {
     const withCallout = {
       ...draft,

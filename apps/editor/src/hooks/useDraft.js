@@ -46,22 +46,54 @@ export function rescaleDraft(draft, currentDimensions) {
     ...(point.panorama ? { panorama: scalePoints([point.panorama], scaleX, scaleY)[0] } : {}),
   }));
 
-  return { ...draft, annotations, calibrationPoints, panoramaDimensions: currentDimensions };
+  // Las shapes de Render están en pixeles del panorama (contorno, eje y el
+  // ancho de la Ruta). La geo-calibración es plano ↔ lat/lng: no se toca.
+  const scaleShape = shape => ({
+    ...shape,
+    points: scalePoints(shape.points, scaleX, scaleY),
+    ...(shape.axis ? { axis: scalePoints(shape.axis, scaleX, scaleY) } : {}),
+    ...(typeof shape.width === 'number' ? { width: shape.width * scaleX } : {}),
+  });
+  const renderSurfaces = draft.renderSurfaces
+    ? {
+      ...draft.renderSurfaces,
+      manzanas: (draft.renderSurfaces.manzanas ?? []).map(scaleShape),
+      calles: (draft.renderSurfaces.calles ?? []).map(scaleShape),
+    }
+    : draft.renderSurfaces;
+
+  return { ...draft, annotations, calibrationPoints, renderSurfaces, panoramaDimensions: currentDimensions };
 }
 
-export function useDraft({ annotations, loteoId, savedAnnotationsRef, calibrationPoints, savedCalibrationRef, panoramaDimensions }) {
+const draftHasContent = draft => (
+  draft.annotations?.length > 0
+  || draft.calibrationPoints?.length > 0
+  || draft.geoCalibrationPoints?.length > 0
+  || draft.renderSurfaces?.manzanas?.length > 0
+  || draft.renderSurfaces?.calles?.length > 0
+);
+
+/**
+ * Borrador local (localStorage) de todo lo editable, para no perder trabajo
+ * si se cierra la pestaña. `state` es { annotations, calibrationPoints,
+ * geoCalibrationPoints, renderSurfaces }; se guarda 2s después del último
+ * cambio, solo si `isDirty` (detectChanges, igual que el indicador).
+ */
+export function useDraft({ loteoId, state, isDirty, panoramaDimensions }) {
   const [pendingDraft, setPendingDraft] = useState(null);
 
   const draftKey = loteoId ? `notry_draft_${loteoId}` : null;
 
-  const saveDraft = (currentAnnotations, currentCalibration) => {
+  const saveDraft = () => {
     if (!draftKey) return;
     localStorage.setItem(draftKey, JSON.stringify({
-      version: 2,
+      version: 3,
       loteoId,
       savedAt: new Date().toISOString(),
-      annotations: currentAnnotations,
-      calibrationPoints: currentCalibration ?? [],
+      annotations: state.annotations,
+      calibrationPoints: state.calibrationPoints ?? [],
+      geoCalibrationPoints: state.geoCalibrationPoints ?? [],
+      renderSurfaces: state.renderSurfaces,
       panoramaDimensions,
     }));
   };
@@ -79,7 +111,7 @@ export function useDraft({ annotations, loteoId, savedAnnotationsRef, calibratio
     if (!raw) return;
     try {
       const draft = JSON.parse(raw);
-      if (draft.annotations?.length > 0 || draft.calibrationPoints?.length > 0) {
+      if (draftHasContent(draft)) {
         setPendingDraft(rescaleDraft(draft, currentDimensions));
       }
     } catch {
@@ -87,18 +119,11 @@ export function useDraft({ annotations, loteoId, savedAnnotationsRef, calibratio
     }
   };
 
-  // Auto-save debounced (2s) — only when annotations or calibration differ from server state
   useEffect(() => {
-    if (!loteoId) return;
-    if (annotations.length === 0 && (calibrationPoints ?? []).length === 0) return;
-    const savedAnns = savedAnnotationsRef?.current ?? [];
-    const savedCal = savedCalibrationRef?.current ?? [];
-    const annsChanged = JSON.stringify(annotations) !== JSON.stringify(savedAnns);
-    const calChanged = JSON.stringify(calibrationPoints ?? []) !== JSON.stringify(savedCal);
-    if (!annsChanged && !calChanged) return;
-    const timer = setTimeout(() => saveDraft(annotations, calibrationPoints), 2000);
+    if (!loteoId || !isDirty) return;
+    const timer = setTimeout(saveDraft, 2000);
     return () => clearTimeout(timer);
-  }, [annotations, calibrationPoints, loteoId, panoramaDimensions]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [state.annotations, state.calibrationPoints, state.geoCalibrationPoints, state.renderSurfaces, isDirty, loteoId, panoramaDimensions]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { pendingDraft, loadDraft, clearDraft };
 }

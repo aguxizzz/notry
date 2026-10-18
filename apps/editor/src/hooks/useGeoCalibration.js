@@ -7,8 +7,9 @@ import { geoOverlayAnnotations, projectGeoPolygons } from '../utils/geoCalibrati
  * Más simple que la del panorama: un punto por vez — click en el plano,
  * después en el mapa, y se agrega el par.
  *
- * Los pares todavía NO entran al undo/redo (pendiente de M8). Lo que sí
- * entra es "Actualizar polígonos satelitales", porque cambia anotaciones.
+ * Los pares entran al undo/redo (useHistory hace snapshot de `points`):
+ * `onBeforeChange` se llama antes de agregar, borrar o limpiar pares, y antes
+ * de "Actualizar polígonos satelitales" (que cambia anotaciones).
  */
 export function useGeoCalibration({
   activeTool, setActiveTool, annotations, setAnnotations, onBeforeChange, confirm, notify,
@@ -39,11 +40,15 @@ export function useGeoCalibration({
 
   const pickMapPoint = ({ latitude, longitude }) => {
     if (!pending) return;
+    onBeforeChange();
     setPoints(prev => [...prev, { _id: crypto.randomUUID(), blueprint: pending, geo: [latitude, longitude] }]);
     setPending(null);
   };
 
-  const deletePoint = index => setPoints(prev => prev.filter((_, i) => i !== index));
+  const deletePoint = (index) => {
+    onBeforeChange();
+    setPoints(prev => prev.filter((_, i) => i !== index));
+  };
 
   const clear = async () => {
     if (points.length === 0) return;
@@ -51,6 +56,7 @@ export function useGeoCalibration({
       title: 'Borrar calibración geográfica', danger: true, confirmLabel: 'Borrar',
     });
     if (!ok) return;
+    onBeforeChange();
     setPoints([]);
     setActiveTool('select');
   };
@@ -91,7 +97,7 @@ export function useGeoCalibration({
   );
 
   return {
-    points, savedRef, load,
+    points, setPoints, savedRef, load,
     pending,
     pickBlueprintPoint, pickMapPoint,
     deletePoint, clear, cancel, escape,

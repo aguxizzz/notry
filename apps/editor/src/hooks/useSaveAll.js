@@ -5,7 +5,9 @@ import {
 } from '../utils/saveAllPayload';
 import { useUIFeedback } from './useUIFeedback';
 
-export function useSaveAll({ annotations, setAnnotations, token, loteoId, savedAnnotationsRef, onAfterSave, calibrationPoints, savedCalibrationRef, geoCalibrationPoints, savedGeoCalibrationRef, renderSurfaces, savedRenderSurfacesRef }) {
+// `changes` sale de detectChanges (utils/editorChanges): la misma detección
+// que el indicador de "cambios sin guardar" y el borrador.
+export function useSaveAll({ annotations, setAnnotations, token, loteoId, savedAnnotationsRef, onAfterSave, changes, calibrationPoints, savedCalibrationRef, geoCalibrationPoints, savedGeoCalibrationRef, renderSurfaces, savedRenderSurfacesRef }) {
   const { notify } = useUIFeedback();
   const [isSavingAll, setIsSavingAll] = useState(false);
   const [sessionExpiredDuringSave, setSessionExpiredDuringSave] = useState(false);
@@ -19,8 +21,7 @@ export function useSaveAll({ annotations, setAnnotations, token, loteoId, savedA
       );
 
       const textAnnotations = annotations.filter(a => a.type === 'text');
-      const savedTextAnnotations = (savedAnnotationsRef?.current ?? []).filter(a => a.type === 'text');
-      const textChanged = JSON.stringify(textAnnotations) !== JSON.stringify(savedTextAnnotations);
+      const textChanged = changes.text;
 
       const allPolygons = annotations.filter(a => a.type === 'polygon' && !a.pending && (a.uuid || a.id));
       const polygonsWithUuid = allPolygons.filter(m => polygonChanged(m, savedMap.get(m.uuid ?? m.id)));
@@ -41,9 +42,9 @@ export function useSaveAll({ annotations, setAnnotations, token, loteoId, savedA
 
       const pendingLots = annotations.filter(a => a.type === 'polygon' && a.pending);
 
-      const calibrationChanged = JSON.stringify(calibrationPoints ?? []) !== JSON.stringify(savedCalibrationRef?.current ?? []);
-      const geoCalibrationChanged = JSON.stringify(geoCalibrationPoints ?? []) !== JSON.stringify(savedGeoCalibrationRef?.current ?? []);
-      const renderSurfacesChanged = JSON.stringify(renderSurfaces ?? null) !== JSON.stringify(savedRenderSurfacesRef?.current ?? null);
+      const calibrationChanged = changes.calibration;
+      const geoCalibrationChanged = changes.geoCalibration;
+      const renderSurfacesChanged = changes.renderSurfaces || changes.renderPreferences;
 
       if ((calibrationChanged || geoCalibrationChanged) && !loteoId) {
         notify('No se encontró el loteo_id para guardar la calibración.', { variant: 'error' });

@@ -19,7 +19,8 @@ import {
   FIRST_TEMP_POINT_ID, isCalibrationMarker, parseCalibPointId, selectableAnnotationId,
 } from './utils/markerIds';
 import { detectLotPolygon } from './utils/lotDetection';
-import { DEFAULT_RENDER_SURFACES, surfacesForDirtyCheck } from './utils/renderSurfaces';
+import { DEFAULT_RENDER_SURFACES } from './utils/renderSurfaces';
+import { detectChanges, hasUnsavedChanges } from './utils/editorChanges';
 import { useRenderSurfaces } from './hooks/useRenderSurfaces';
 import { useUIFeedback } from './hooks/useUIFeedback';
 import { Check, Image as ImageIcon, X } from 'lucide-react';
@@ -71,18 +72,38 @@ function App() {
 
   // Modo Render: manzanas/calles sobre el panorama (ver useRenderSurfaces).
   const render = useRenderSurfaces({ homography, onBeforeChange: snapshotHistory });
-  const { pushHistory, undo, redo, canUndo, canRedo, removeAnnotationFromHistory } = useHistory({
-    annotations, setAnnotations,
-    calibrationPoints: calibration.points, setCalibrationPoints: calibration.setPoints,
-    renderManzanaShapes: render.manzanas, setRenderManzanaShapes: render.setManzanas,
-    renderCalleShapes: render.calles, setRenderCalleShapes: render.setCalles,
-  });
   const { endWidthDrag: endStreetWidthDrag } = render;
 
   // Pares plano↔lat/lng para el modo satelital (ver useGeoCalibration).
   const geo = useGeoCalibration({
     activeTool, setActiveTool, annotations, setAnnotations, onBeforeChange: snapshotHistory, confirm, notify,
   });
+
+  const { pushHistory, undo, redo, canUndo, canRedo, removeAnnotationFromHistory } = useHistory({
+    slices: {
+      annotations: [annotations, setAnnotations],
+      calibrationPoints: [calibration.points, calibration.setPoints],
+      geoCalibrationPoints: [geo.points, geo.setPoints],
+      renderManzanaShapes: [render.manzanas, render.setManzanas],
+      renderCalleShapes: [render.calles, render.setCalles],
+    },
+  });
+
+  // Lo editable de ahora contra lo último guardado/cargado: una sola
+  // detección para el indicador, el borrador y el "Guardar todo".
+  const editorState = {
+    annotations,
+    calibrationPoints: calibration.points,
+    geoCalibrationPoints: geo.points,
+    renderSurfaces: render.surfaces,
+  };
+  const changes = detectChanges(editorState, {
+    annotations: savedAnnotationsRef.current,
+    calibrationPoints: calibration.savedRef.current,
+    geoCalibrationPoints: geo.savedRef.current,
+    renderSurfaces: savedRenderSurfacesRef.current,
+  });
+  const isDirty = hasUnsavedChanges(changes);
 
   const isDraggingPolygonRef = useRef(false);
   const preDragAnnotationsRef = useRef(null);
@@ -100,8 +121,7 @@ function App() {
   const [viewerReady, setViewerReady] = useState(false);
   const uploadFn = useMemo(() => createUploadFn(accessToken, handleLogout), [accessToken, handleLogout]);
   const { pendingDraft, loadDraft, clearDraft } = useDraft({
-    annotations, loteoId, savedAnnotationsRef,
-    calibrationPoints: calibration.points, savedCalibrationRef: calibration.savedRef,
+    loteoId, state: editorState, isDirty,
     panoramaDimensions: loteo.panoramaDimensions,
   });
   const {
@@ -135,6 +155,7 @@ function App() {
     handleSaveAll,
   } = useSaveAll({
     annotations, setAnnotations, token: accessToken, loteoId, savedAnnotationsRef, onAfterSave: clearDraft,
+    changes,
     calibrationPoints: calibration.points, savedCalibrationRef: calibration.savedRef,
     geoCalibrationPoints: geo.points, savedGeoCalibrationRef: geo.savedRef,
     renderSurfaces: render.surfaces, savedRenderSurfacesRef,
@@ -741,20 +762,21 @@ function App() {
     );
   }
 
-  const renderSurfacesForDirtyCheck = surfacesForDirtyCheck(render.surfaces);
-  const savedRenderSurfacesForDirtyCheck = surfacesForDirtyCheck(savedRenderSurfacesRef.current);
-  const hasUnsavedChanges = (
-    JSON.stringify(annotations) !== JSON.stringify(savedAnnotationsRef.current)
-    || JSON.stringify(calibration.points) !== JSON.stringify(calibration.savedRef.current)
-    || JSON.stringify(geo.points) !== JSON.stringify(geo.savedRef.current)
-    || JSON.stringify(renderSurfacesForDirtyCheck) !== JSON.stringify(savedRenderSurfacesForDirtyCheck)
-  );
+  // Borradores viejos (v2) no traen geo-calibración ni Render: eso queda
+  // como vino del servidor.
+  const restoreDraft = (draft) => {
+    setAnnotations(draft.annotations ?? []);
+    calibration.setPoints(draft.calibrationPoints ?? []);
+    if (Array.isArray(draft.geoCalibrationPoints)) geo.setPoints(draft.geoCalibrationPoints);
+    if (draft.renderSurfaces) render.load(draft.renderSurfaces);
+    clearDraft();
+  };
 
   return (
     <div className="editor-container">
       <DraftBanner
         draft={pendingDraft}
-        onRestore={(draft) => { setAnnotations(draft.annotations); calibration.setPoints(draft.calibrationPoints ?? []); clearDraft(); }}
+        onRestore={restoreDraft}
         onDiscard={clearDraft}
       />
 
@@ -765,7 +787,7 @@ function App() {
 
       <DocumentBar
         projectName={selectedLoteo?.name}
-        hasUnsavedChanges={hasUnsavedChanges}
+        hasUnsavedChanges={isDirty}
         isSaving={isSavingAll}
         onSave={handleSaveAll}
         onBack={fromList
