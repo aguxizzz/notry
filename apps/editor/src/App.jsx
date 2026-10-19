@@ -149,6 +149,10 @@ function App() {
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [projectPanelOpen, setProjectPanelOpen] = useState(true);
   const [projectPanelTab, setProjectPanelTab] = useState('project');
+  // Capas ocultas desde el panel de Contenido ({ polygon, poi, text }) y el
+  // elemento con el mouse encima en ese panel, que se resalta en la vista.
+  const [hiddenLayers, setHiddenLayers] = useState({});
+  const [hoveredId, setHoveredId] = useState(null);
   const {
     isSavingAll,
     sessionExpiredDuringSave, clearSessionExpired,
@@ -504,6 +508,7 @@ function App() {
     annotations, selectedId, mode, drawingPolygon,
     calibrationPoints: calibration.points, pendingBlueprintPoints: calibration.pending, homography,
     panoramaDimensions: loteo.panoramaDimensions,
+    hiddenTypes: hiddenLayers,
   });
 
   const handlePolygonUpdate = (markerId, newPolygonPixels) => {
@@ -604,14 +609,16 @@ function App() {
     setAnnotations(prev => unimportLotAnnotations(prev, importedIds));
   };
 
+  // Updaters funcionales: un inspector puede cambiar varios campos en el
+  // mismo evento (ej. un estilo predefinido de texto).
   const updateSelected = (key, value) => {
-    setAnnotations(annotations.map(a =>
+    setAnnotations(prev => prev.map(a =>
       a.id === selectedId ? { ...a, [key]: value } : a
     ));
   };
 
   const updateNestedSelected = (parent, key, value) => {
-    setAnnotations(annotations.map(a =>
+    setAnnotations(prev => prev.map(a =>
       a.id === selectedId ? { ...a, [parent]: { ...a[parent], [key]: value } } : a
     ));
   };
@@ -846,6 +853,9 @@ function App() {
             setSelectedId(id);
             setInspectorOpen(true);
           }}
+          hiddenLayers={hiddenLayers}
+          onToggleLayer={type => setHiddenLayers(prev => ({ ...prev, [type]: !prev[type] }))}
+          onHoverAnnotation={setHoveredId}
           calibrationPoints={calibration.points}
           pendingBlueprintPoints={calibration.pending}
           homography={homography}
@@ -906,6 +916,7 @@ function App() {
                 activeTool={activeTool}
                 annotations={displayAnnotations}
                 selectedId={selectedId}
+                highlightedId={hoveredId}
                 rectStart={rectStart}
                 onClick={handleViewerClick}
                 onMarkerSelect={handleMarkerSelect}
@@ -918,6 +929,7 @@ function App() {
                 panoramaUrl={panoramaUrl}
                 activeTool={activeTool}
                 annotations={displayAnnotations}
+                highlightedId={hoveredId}
                 onClick={handleViewerClick}
                 onMarkerSelect={handleMarkerSelect}
                 onPolygonUpdate={handlePolygonUpdate}
@@ -986,7 +998,9 @@ function App() {
           accessToken={accessToken}
           uploadFn={uploadFn}
           onPoiFieldChange={(field, value) => {
-            setAnnotations(annotations.map(annotation =>
+            // Updater funcional: el inspector puede cambiar varios campos
+            // en el mismo evento (ej. limpiar etapa y link juntos).
+            setAnnotations(prev => prev.map(annotation =>
               annotation.id === selectedId
                 ? { ...annotation, [field]: value, ...(field === 'title' ? { tooltip: value } : {}) }
                 : annotation

@@ -1,4 +1,4 @@
-import { getLotSvgStyle } from './lotStyles.js';
+import { HIGHLIGHT_SVG_STYLE, getLotSvgStyle } from './lotStyles.js';
 import { isCallout } from './annotationModel.js';
 
 const POI_PHOTO_CHIP_ICON = `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2.4" stroke="#8e7343" stroke-width="1.7"/><circle cx="12" cy="13" r="3.4" stroke="#8e7343" stroke-width="1.7"/><path d="M8 6l1.2-2h5.6L16 6" stroke="#8e7343" stroke-width="1.7" stroke-linejoin="round"/></svg>`;
@@ -215,4 +215,28 @@ export function annotationsToMarkers(annotations) {
     if (m.position === undefined && !m.polygonPixels?.length && !m.polylinePixels?.length) return false;
     return true;
   });
+}
+
+const HIGHLIGHT_CLASS = 'is-highlighted';
+
+/**
+ * Par de updates de PSV para resaltar un marcador y volverlo a su estado: los
+ * polígonos cambian su svgStyle; los de HTML (textos, lugares con tallo) se
+ * resaltan por clase. PSV rearma la clase en cada update, así que restaurar
+ * con la clase original alcanza para sacarla.
+ */
+export function markerHighlightUpdates(marker) {
+  const isSvg = !!(marker.polygonPixels || marker.polylinePixels);
+  return {
+    on: {
+      id: marker.id,
+      className: [marker.className, HIGHLIGHT_CLASS].filter(Boolean).join(' '),
+      ...(isSvg && { svgStyle: { ...marker.svgStyle, ...HIGHLIGHT_SVG_STYLE } }),
+    },
+    off: {
+      id: marker.id,
+      className: marker.className ?? '',
+      ...(isSvg && { svgStyle: marker.svgStyle }),
+    },
+  };
 }
