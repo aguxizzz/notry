@@ -156,8 +156,18 @@ export function buildCalibrationMarkers(calibrationPoints = [], pendingBlueprint
   return result;
 }
 
+/**
+ * Saca las capas ocultas desde el panel de Contenido (`hiddenTypes`:
+ * { polygon, poi, text }). El seleccionado se sigue viendo aunque su capa
+ * esté oculta, para poder terminar de editarlo.
+ */
+export const withoutHiddenLayers = (annotations, hiddenTypes, selectedId) => (
+  annotations.filter(ann => !hiddenTypes?.[ann.type] || ann.id === selectedId)
+);
+
 export function useDisplayAnnotations({
   annotations, selectedId, mode, drawingPolygon, calibrationPoints, pendingBlueprintPoints, homography, panoramaDimensions,
+  hiddenTypes,
 }) {
   const modeAnnotations = useMemo(() => toModeAnnotations(annotations, mode), [annotations, mode]);
 
@@ -167,12 +177,12 @@ export function useDisplayAnnotations({
   );
 
   const displayAnnotations = useMemo(() => [
-    ...modeAnnotations,
+    ...withoutHiddenLayers(modeAnnotations, hiddenTypes, selectedId),
     ...buildDrawingMarkers(drawingPolygon),
     ...(isShape(selectedMarker) ? buildVertexHandles(selectedMarker, midpointFnFor(mode, panoramaDimensions)) : []),
-    ...(mode === 'panorama' ? buildGhostMarkers(annotations, homography) : []),
+    ...(mode === 'panorama' ? buildGhostMarkers(withoutHiddenLayers(annotations, hiddenTypes, selectedId), homography) : []),
     ...buildCalibrationMarkers(calibrationPoints, pendingBlueprintPoints, mode),
-  ], [modeAnnotations, selectedMarker, drawingPolygon, calibrationPoints, pendingBlueprintPoints, mode, homography, annotations, panoramaDimensions]);
+  ], [modeAnnotations, selectedMarker, selectedId, hiddenTypes, drawingPolygon, calibrationPoints, pendingBlueprintPoints, mode, homography, annotations, panoramaDimensions]);
 
   return { displayAnnotations, selectedMarker };
 }

@@ -1,11 +1,14 @@
-import { useRef, useEffect } from 'react';
+import { MousePointerClick, Trash2 } from 'lucide-react';
 import POIInspector from './POIInspector';
 import PendingPolygonInspector from './PendingPolygonInspector';
 import LoteInspector from './LoteInspector';
+import TextInspector from './TextInspector';
+import { Field, InspectorShell, Section } from './inspector/InspectorUI';
 import { hasLocationIn } from '../utils/annotationModel';
 
 export default function InspectorPanel({
   inspectorOpen,
+  onClose,
   annotations,
   selectedMarker,
   mode,
@@ -25,157 +28,119 @@ export default function InspectorPanel({
   siblingStages, onPoiFieldChange,
   uploadFn,
 }) {
-  const textInputRef = useRef(null);
-  useEffect(() => {
-    if (selectedMarker?.type === 'text') {
-      const timeoutId = setTimeout(() => {
-        textInputRef.current?.focus();
-        textInputRef.current?.select();
-      }, 50);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [selectedMarker?.id, selectedMarker?.type]);
-
   // Lotes existentes sin geometría en esta vista: candidatos para "Asignar existente".
   const lotsWithEmptyCoords = annotations.filter(a =>
     a.type === 'polygon' && !a.pending && a.uuid && !hasLocationIn(a, mode)
   );
 
+  let content;
+  if (!selectedMarker) {
+    content = (
+      <div className="ins-empty">
+        <span className="ins-empty__icon"><MousePointerClick size={20} /></span>
+        <strong>Nada seleccionado</strong>
+        <p>Hacé clic en un lote, lugar o texto para editarlo, o elegí una herramienta para dibujar uno nuevo.</p>
+      </div>
+    );
+  } else if (selectedMarker.type === 'polygon' && selectedMarker.pending) {
+    content = (
+      <PendingPolygonInspector
+        pendingMode={pendingMode}
+        onPendingModeChange={onPendingModeChange}
+        selectedMarker={selectedMarker}
+        onUpdateSelected={updateSelected}
+        isCreatingLote={isCreatingLote}
+        onCreateLote={onCreateLote}
+        lotsWithEmptyCoords={lotsWithEmptyCoords}
+        assignTargetId={assignTargetId}
+        onAssignTargetChange={onAssignTargetChange}
+        isAssigning={isAssigning}
+        onAssign={onAssign}
+        onDiscard={onDelete}
+        onClose={onClose}
+        annotations={annotations}
+        editorMode={mode}
+      />
+    );
+  } else if (selectedMarker.type === 'polygon') {
+    content = (
+      <LoteInspector
+        selectedMarker={selectedMarker}
+        onUpdateSelected={updateSelected}
+        homography={homography}
+        onImportFromBlueprint={onImportFromBlueprint}
+        onRemoveFromPanorama={onRemoveFromPanorama}
+        onRemoveFromView={onDelete}
+        onDeleteLot={onDeleteLot}
+        onClose={onClose}
+        editorMode={mode}
+        uploadFn={uploadFn}
+      />
+    );
+  } else if (selectedMarker.type === 'poi') {
+    content = (
+      <POIInspector
+        key={selectedMarker.id}
+        poi={selectedMarker}
+        onDelete={onDelete}
+        onClose={onClose}
+        siblingStages={siblingStages}
+        onFieldChange={onPoiFieldChange}
+        uploadFn={uploadFn}
+      />
+    );
+  } else if (selectedMarker.type === 'text') {
+    content = (
+      <TextInspector
+        marker={selectedMarker}
+        onUpdate={updateSelected}
+        onDelete={onDelete}
+        onClose={onClose}
+      />
+    );
+  } else {
+    // Otros marcadores (sin inspector propio): datos y estilo SVG crudos.
+    content = (
+      <InspectorShell
+        title={selectedMarker.type}
+        subtitle={selectedMarker.id}
+        onClose={onClose}
+        footer={(
+          <button type="button" className="editor-btn editor-btn--danger-ghost ins-foot__block" onClick={onDelete}>
+            <Trash2 size={15} /> Borrar <kbd>Supr</kbd>
+          </button>
+        )}
+      >
+        <Section label="Datos">
+          <Field label="ID" htmlFor="marker-id"><input id="marker-id" value={selectedMarker.id} onChange={e => updateSelected('id', e.target.value)} /></Field>
+          <Field label="Tooltip" htmlFor="marker-tooltip"><input id="marker-tooltip" value={selectedMarker.tooltip || ''} onChange={e => updateSelected('tooltip', e.target.value)} /></Field>
+          <Field label="Precio" htmlFor="marker-precio"><input id="marker-precio" value={selectedMarker.precio || ''} onChange={e => updateSelected('precio', e.target.value)} /></Field>
+          <Field label="Área" htmlFor="marker-area"><input id="marker-area" value={selectedMarker.area || ''} onChange={e => updateSelected('area', e.target.value)} /></Field>
+        </Section>
+        <Section label="Estilo SVG">
+          <Field label="Relleno (fill)" htmlFor="marker-fill">
+            <input
+              id="marker-fill"
+              value={selectedMarker.svgStyle?.fill || selectedMarker.style?.backgroundColor || ''}
+              onChange={e => { updateNestedSelected('svgStyle', 'fill', e.target.value); updateNestedSelected('style', 'backgroundColor', e.target.value); }}
+              placeholder="rgba(0,0,0,0.5)"
+            />
+          </Field>
+          <Field label="Borde (stroke)" htmlFor="marker-stroke">
+            <input
+              id="marker-stroke"
+              value={selectedMarker.svgStyle?.stroke || selectedMarker.style?.borderColor || ''}
+              onChange={e => { updateNestedSelected('svgStyle', 'stroke', e.target.value); updateNestedSelected('style', 'borderColor', e.target.value); }}
+            />
+          </Field>
+        </Section>
+      </InspectorShell>
+    );
+  }
+
   return (
     <div className={`inspector-pane${inspectorOpen ? ' open' : ''}`}>
-      <div className="inspector-body">
-        {!selectedMarker ? (
-          <div style={{ color: '#888', fontSize: 'var(--text-lg)' }}>
-            <p>Ningún marcador seleccionado.</p>
-            <p>Selecciona una herramienta y haz clic en la imagen, o selecciona uno existente.</p>
-          </div>
-        ) : (
-          <>
-            {selectedMarker.type !== 'poi' && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0, fontSize: 'var(--text-lg)', fontWeight: 'var(--weight-bold)', color: '#c5a059', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  {selectedMarker.type}
-                </h3>
-                {selectedMarker.type === 'polygon' && selectedMarker.uuid ? (
-                  // Lote guardado: quitarlo de la vista (default, Supr, se
-                  // deshace) es distinto de borrarlo de la base.
-                  <div style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    <button
-                      type="button"
-                      className="editor-btn editor-btn--secondary"
-                      onClick={onDelete}
-                      title={`Lo saca de la vista ${mode === 'blueprint' ? 'Plano' : 'Panorama'}. El lote y su ubicación en la otra vista quedan. Se deshace con Ctrl+Z (Supr)`}
-                    >
-                      Quitar de esta vista
-                    </button>
-                    <button
-                      type="button"
-                      className="editor-btn editor-btn--danger"
-                      onClick={onDeleteLot}
-                      title="Borra el lote de la base de datos. No se puede deshacer"
-                    >
-                      Eliminar lote
-                    </button>
-                  </div>
-                ) : (
-                  <button type="button" className="editor-btn editor-btn--danger" onClick={onDelete} title="Borrar (Supr)">
-                    Borrar
-                  </button>
-                )}
-              </div>
-            )}
-
-            {selectedMarker.type !== 'polygon' && selectedMarker.type !== 'poi' && selectedMarker.type !== 'text' && (
-              <div className="inspector-section">
-                <span className="inspector-section-title">General</span>
-                <span className="inspector-label">ID</span>
-                <input className="inspector-input" value={selectedMarker.id} onChange={e => updateSelected('id', e.target.value)} />
-              </div>
-            )}
-
-            {selectedMarker.type !== 'text' && selectedMarker.type !== 'polygon' && selectedMarker.type !== 'poi' && (
-              <div className="inspector-section">
-                <span className="inspector-section-title">Datos</span>
-                <span className="inspector-label">Tooltip</span>
-                <input className="inspector-input" value={selectedMarker.tooltip || ''} onChange={e => updateSelected('tooltip', e.target.value)} />
-                <span className="inspector-label">Precio</span>
-                <input className="inspector-input" value={selectedMarker.precio || ''} onChange={e => updateSelected('precio', e.target.value)} />
-                <span className="inspector-label">Área</span>
-                <input className="inspector-input" value={selectedMarker.area || ''} onChange={e => updateSelected('area', e.target.value)} />
-              </div>
-            )}
-
-            {selectedMarker.type === 'text' && (
-              <>
-                <div className="inspector-section">
-                  <span className="inspector-section-title">Contenido</span>
-                  <span className="inspector-label">Texto</span>
-                  <input ref={textInputRef} className="inspector-input" value={selectedMarker.tooltip || ''} onChange={e => updateSelected('tooltip', e.target.value)} />
-                  <span className="inspector-label">Color del texto</span>
-                  <input type="color" value={selectedMarker.textColor || '#ffffff'} onChange={e => updateSelected('textColor', e.target.value)} style={{ width: '40px', height: '30px', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }} />
-                  <span className="inspector-label">Fondo</span>
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <input type="color" value={selectedMarker.bgColor || '#ffffff'} onChange={e => updateSelected('bgColor', e.target.value)} style={{ width: '40px', height: '30px', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }} />
-                    <input type="range" min="0" max="1" step="0.05" value={selectedMarker.bgOpacity !== undefined ? selectedMarker.bgOpacity : 0} onChange={e => updateSelected('bgOpacity', parseFloat(e.target.value))} style={{ flex: 1 }} />
-                  </div>
-                  <span className="inspector-label">Tamaño de fuente (px)</span>
-                  <input className="inspector-input" type="number" min="8" max="200" value={selectedMarker.fontSize ?? 14} onChange={e => updateSelected('fontSize', parseInt(e.target.value))} />
-                </div>
-
-              </>
-            )}
-
-            {selectedMarker.type !== 'polygon' && selectedMarker.type !== 'poi' && selectedMarker.type !== 'text' && (
-              <div className="inspector-section">
-                <span className="inspector-section-title">Estilos SVG</span>
-                <span className="inspector-label">Relleno (fill)</span>
-                <input className="inspector-input" value={selectedMarker.svgStyle?.fill || selectedMarker.style?.backgroundColor || ''} onChange={e => { updateNestedSelected('svgStyle', 'fill', e.target.value); updateNestedSelected('style', 'backgroundColor', e.target.value); }} placeholder="rgba(0,0,0,0.5)" />
-                <span className="inspector-label">Borde (stroke)</span>
-                <input className="inspector-input" value={selectedMarker.svgStyle?.stroke || selectedMarker.style?.borderColor || ''} onChange={e => { updateNestedSelected('svgStyle', 'stroke', e.target.value); updateNestedSelected('style', 'borderColor', e.target.value); }} />
-              </div>
-            )}
-
-            {selectedMarker.type === 'polygon' && (
-              selectedMarker.pending ? (
-                <PendingPolygonInspector
-                  pendingMode={pendingMode}
-                  onPendingModeChange={onPendingModeChange}
-                  selectedMarker={selectedMarker}
-                  onUpdateSelected={updateSelected}
-                  isCreatingLote={isCreatingLote}
-                  onCreateLote={onCreateLote}
-                  lotsWithEmptyCoords={lotsWithEmptyCoords}
-                  assignTargetId={assignTargetId}
-                  onAssignTargetChange={onAssignTargetChange}
-                  isAssigning={isAssigning}
-                  onAssign={onAssign}
-                  editorMode={mode}
-                />
-              ) : (
-                <LoteInspector
-                  selectedMarker={selectedMarker}
-                  onUpdateSelected={updateSelected}
-                  homography={homography}
-                  onImportFromBlueprint={onImportFromBlueprint}
-                  onRemoveFromPanorama={onRemoveFromPanorama}
-                  editorMode={mode}
-                  uploadFn={uploadFn}
-                />
-              )
-            )}
-
-            {selectedMarker.type === 'poi' && (
-              <POIInspector
-                poi={selectedMarker}
-                onDelete={onDelete}
-                siblingStages={siblingStages}
-                onFieldChange={onPoiFieldChange}
-                uploadFn={uploadFn}
-              />
-            )}
-          </>
-        )}
-      </div>
+      {content}
     </div>
   );
 }

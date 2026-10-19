@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { getLotSvgStyle } from '../utils/lotStyles';
+import { HIGHLIGHT_SVG_STYLE, getLotSvgStyle } from '../utils/lotStyles';
 import { FIRST_TEMP_POINT_ID } from '../utils/markerIds';
 import { fetchImage } from '../utils/fetchImage';
 import { useLatest } from '../hooks/useLatest';
@@ -9,6 +9,7 @@ export default function BlueprintEditor({
   annotations,
   activeTool,
   selectedId,
+  highlightedId,
   rectStart,
   onClick,
   onMarkerSelect,
@@ -495,7 +496,7 @@ export default function BlueprintEditor({
               const polyStr = pts.map((p) => `${p.x},${p.y}`).join(' ');
               const isSelected = ann.id === selectedId;
 
-              const style = getLotSvgStyle(ann);
+              const style = ann.id === highlightedId ? HIGHLIGHT_SVG_STYLE : getLotSvgStyle(ann);
 
               return (
                 <g key={ann.id}>
@@ -553,7 +554,7 @@ export default function BlueprintEditor({
               const polyStr = pts.map((p) => `${p.x},${p.y}`).join(' ');
               const isSelected = ann.id === selectedId;
               const poiColor = ann.color ?? '#14b8a6';
-              const style = {
+              const style = ann.id === highlightedId ? HIGHLIGHT_SVG_STYLE : {
                 fill: `${poiColor}33`,
                 stroke: poiColor,
                 strokeWidth: '2',

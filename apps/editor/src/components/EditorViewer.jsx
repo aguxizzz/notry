@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Viewer, EquirectangularAdapter } from '@photo-sphere-viewer/core';
 import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin';
-import { annotationsToMarkers } from '../utils/annotations';
+import { annotationsToMarkers, markerHighlightUpdates } from '../utils/annotations';
 import { isStreetAxisHandle, isSurfaceMarker } from '../utils/markerIds';
 import { findStreetShapeAtPoint } from '../utils/streetPath';
 import { useLatest } from '../hooks/useLatest';
@@ -23,6 +23,7 @@ export default function EditorViewer({
   mode,
   panoramaUrl,
   annotations,
+  highlightedId,
   activeTool,
   onClick,
   onMarkerSelect,
@@ -182,6 +183,24 @@ export default function EditorViewer({
     markers.forEach(m => plugin.addMarker(m));
     annotationMarkerIdsRef.current = markers.map(m => m.id);
   }, [annotations, showLots, isReady]);
+
+  // Resaltado del elemento con el mouse encima en el panel de Contenido. Va
+  // aparte del rearmado de arriba para no recrear todos los marcadores en
+  // cada hover; corre después de ese efecto, así que siempre pisa el marcador
+  // recién creado.
+  useEffect(() => {
+    const plugin = markersPluginRef.current;
+    if (!plugin || !isReady || !highlightedId) return;
+    if (!annotationMarkerIdsRef.current.includes(highlightedId)) return;
+    const annotation = annotations.find(a => a.id === highlightedId);
+    const [marker] = annotation ? annotationsToMarkers([annotation]) : [];
+    if (!marker) return;
+    const { on, off } = markerHighlightUpdates(marker);
+    plugin.updateMarker(on);
+    return () => {
+      try { plugin.updateMarker(off); } catch { /* lo sacó el rearmado */ }
+    };
+  }, [highlightedId, annotations, showLots, isReady]);
 
   useSurfaceMarkers({ markersPluginRef, isReady, annotations, render, latest });
 
