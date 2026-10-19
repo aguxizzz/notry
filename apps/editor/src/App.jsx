@@ -66,7 +66,7 @@ function App() {
     panoramaDimensions: loteo.panoramaDimensions,
     onBeforeChange: snapshotHistory,
     confirm,
-    goToView: view => handleModeChange(view, { silent: true }),
+    goToView: view => switchView(view),
   });
   const { homography } = calibration;
 
@@ -327,90 +327,77 @@ function App() {
     setInspectorOpen(true);
   };
 
-  const handleModeChange = async (nextMode, { silent = false } = {}) => {
+  // Cambio de vista pedido por el usuario: avisa si hay marcadores que no
+  // existen en la vista destino.
+  const handleModeChange = async (nextMode) => {
     if (nextMode === mode) return;
-    if (!silent) {
-      const spatialAnnotations = annotations.filter(a => (
-        !a.pending
-        && (a.type === 'polygon' || (nextMode === 'panorama' && a.type === 'poi'))
-      ));
-      const missing = spatialAnnotations.filter(a => !hasLocationIn(a, nextMode));
-      if (missing.length > 0) {
-        const ok = await confirm(
-          `${missing.length} marcador(es) no tienen ubicación en la vista ${nextMode === 'blueprint' ? 'Plano' : 'Panorama'}.\n` +
-          `Aparecerán vacíos. ¿Continuar de todas formas?`,
-          { title: 'Marcadores sin ubicación', confirmLabel: 'Continuar' }
-        );
-        if (!ok) return;
-      }
+    const spatialAnnotations = annotations.filter(a => (
+      !a.pending
+      && (a.type === 'polygon' || (nextMode === 'panorama' && a.type === 'poi'))
+    ));
+    const missing = spatialAnnotations.filter(a => !hasLocationIn(a, nextMode));
+    if (missing.length > 0) {
+      const ok = await confirm(
+        `${missing.length} marcador(es) no tienen ubicación en la vista ${nextMode === 'blueprint' ? 'Plano' : 'Panorama'}.\n` +
+        `Aparecerán vacíos. ¿Continuar de todas formas?`,
+        { title: 'Marcadores sin ubicación', confirmLabel: 'Continuar' }
+      );
+      if (!ok) return;
     }
+    switchView(nextMode);
+  };
+
+  // Único cambio de vista (toolbar, calibración, autodetección). Lo que se
+  // está dibujando no pasa de un espacio de coordenadas al otro, así que se
+  // descarta junto con la herramienta — salvo calibrar, que trabaja en las
+  // dos vistas. Quien entra a una herramienta con vista propia llama esto
+  // ANTES de setActiveTool, para que la herramienta nueva gane.
+  const switchView = (nextMode) => {
+    if (nextMode === mode) return;
     setSelectedId(null);
     // Salir de Render descarta la herramienta de dibujo y el trazo en curso.
     if (mode === 'render') render.resetDrawing();
     setMode(nextMode);
+    if (activeTool !== 'calibrate') {
+      setDrawingPolygon([]);
+      setRectStart(null);
+      setActiveTool('select');
+    }
   };
 
-  // Keep tool activation in one place so contextual panels always follow the
-  // selected tool, regardless of whether it was chosen from the toolbar or
-  // from the project panel.
+  // Entrada a una herramienta (toolbar, panel, atajos): los paneles y la
+  // vista siguen a la herramienta venga de donde venga. Los flujos que
+  // terminan y vuelven a Seleccionar limpian lo suyo y usan el setter directo.
+  // (El lote o punto pendiente de calibración lo resetean useCalibration /
+  // useGeoCalibration.)
   const handleToolChange = (tool) => {
+    // Recién entrando: re-clickear Calibrar a mitad de un lote no lo saca del panorama.
+    if (tool === 'calibrate' && activeTool !== 'calibrate' && blueprintUrl) switchView('blueprint');
+    if (tool === 'autodetect') switchView('blueprint');
     setActiveTool(tool);
-    if (tool === 'calibrate') calibration.setNotice('');
     if (tool !== 'polygon') setDrawingPolygon([]);
     if (tool !== 'rect') setRectStart(null);
-    if (tool === 'calibrate') {
+    if (tool === 'calibrate' || tool === 'calibrate-geo' || tool === 'autodetect') {
+      setSelectedId(null);
       setProjectPanelOpen(true);
       setProjectPanelTab('project');
     }
-    if (tool === 'calibrate-geo') {
-      setProjectPanelOpen(true);
-      setProjectPanelTab('project');
-    }
+    if (tool === 'calibrate') calibration.setNotice('');
     if (tool === 'autodetect') {
-      setMode('blueprint');
-      setProjectPanelOpen(true);
-      setProjectPanelTab('project');
       setAutoDetectError(null);
       setAutoDetectLotsGenerated(0);
     }
   };
 
-  // Clear in-progress drawing when switching modes — coordinates are not transferable between spaces
-  // Exception: calibrate and autodetect drive mode changes intentionally, so don't reset them
+  // Si el plano desaparece (se borró desde el panel) estando en esa vista,
+  // se vuelve al panorama. Es lo único que cambia la vista desde afuera.
   useEffect(() => {
-    if (activeTool === 'calibrate' || activeTool === 'autodetect') return;
-    // Mode changes invalidate an in-progress polygon because the coordinate spaces differ.
-    setDrawingPolygon([]);
-    setRectStart(null);
-    setActiveTool('select');
-  }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // When calibrate tool is activated, start in blueprint so the user picks the
-  // reference there first. (El lote pendiente lo resetea useCalibration.)
-  useEffect(() => {
-    if (activeTool === 'calibrate' && blueprintUrl) {
-      setSelectedId(null);
-      setMode('blueprint');
-      setProjectPanelOpen(true);
-      setProjectPanelTab('project');
-    }
-  }, [activeTool]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Entrando a geo calibración (el punto sin par lo resetea useGeoCalibration).
-  useEffect(() => {
-    if (activeTool === 'calibrate-geo') {
-      setSelectedId(null);
-      setProjectPanelOpen(true);
-      setProjectPanelTab('project');
-    }
-  }, [activeTool]);
-
-  // If blueprintUrl disappears while in blueprint mode, fall back to panorama
-  useEffect(() => {
-    // Keep the selected view usable if its source image is removed externally.
     if (!blueprintUrl && mode === 'blueprint') {
       setSelectedId(null);
       setMode('panorama');
+      setDrawingPolygon([]);
+      setRectStart(null);
+      setActiveTool('select');
     }
   }, [blueprintUrl, mode]);
 
@@ -694,7 +681,7 @@ function App() {
       removeSelected,
       undo,
       redo,
-      setActiveTool,
+      setActiveTool: handleToolChange,
       cancelPolygon,
       cancelRect,
       handleEscapeCalibration: calibration.escape,
