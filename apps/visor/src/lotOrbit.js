@@ -24,10 +24,13 @@ const ORBIT_SPEED = THREE.MathUtils.degToRad(5.5); // por segundo
 const ORBIT_ELEVATION = THREE.MathUtils.degToRad(40);
 // Radio del lote como fracción de media altura de pantalla.
 const LOT_FILL = 0.35;
-// Nivelación del suelo con la cámara despegada (grados). Es un valor de gusto
-// visual elegido sobre un loteo, no una calibración: desde el dron vale 0.
+// Nivelación del suelo con la cámara despegada (grados); desde el dron vale 0.
+// Por loteo se calcula con fitGroundTilt; este valor fijo (elegido a ojo sobre
+// demoloteo) queda de respaldo cuando no hay lotes suficientes para medir.
 const LEVEL_TILT_X = -8;
 const LEVEL_TILT_Z = -8;
+const FIT_MIN_LOTS = 4;
+const FIT_MAX_TILT = 15;
 const LEVEL_BLEND_SECONDS = 2.2;
 // Vuelo de entrada: un solo movimiento desde el dron hasta la órbita.
 const FLY_IN_MS = 1600;
@@ -86,15 +89,105 @@ export function markersToOrbitSurfaces(markers) {
     }));
 }
 
-function levelMatrix(mix) {
+/**
+ * Markers HTML puntuales de PSV (números de lote, POIs con foto o callout,
+ * íconos de POI) para dibujarlos encima de la órbita con el mismo aspecto.
+ */
+export function markersToOrbitPins(markers) {
+  return (markers ?? [])
+    .filter((marker) => marker.visible !== false && marker.position?.textureX != null && (marker.html || marker.element))
+    .map((marker) => {
+      const [baseId, kind] = String(marker.id).split('__');
+      return {
+        id: marker.id,
+        badgeOf: kind === 'badge' ? baseId : null,
+        html: marker.html ?? null,
+        element: marker.element ?? null,
+        pixel: [marker.position.textureX, marker.position.textureY],
+        size: marker.size ?? null,
+        anchor: marker.anchor ?? 'center',
+        className: marker.className ?? '',
+        opacity: Number(marker.style?.opacity ?? 1),
+      };
+    });
+}
+
+function levelMatrix(mix, tilt) {
   const k = mix * mix * (3 - 2 * mix);
   const euler = new THREE.Euler(
-    THREE.MathUtils.degToRad(LEVEL_TILT_X) * k,
+    THREE.MathUtils.degToRad(tilt.x) * k,
     0,
-    THREE.MathUtils.degToRad(LEVEL_TILT_Z) * k,
+    THREE.MathUtils.degToRad(tilt.z) * k,
     'XYZ',
   );
   return new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().makeRotationFromEuler(euler));
+}
+
+const pixelDir = ([x, y], pano) => dirFromAngles((x / pano.fullWidth - 0.5) * Math.PI * 2, (0.5 - y / pano.fullHeight) * Math.PI);
+
+/**
+ * Inclinación del suelo para un loteo, medida en sus propios lotes: los lotes
+ * son rectángulos, así que con el suelo bien nivelado sus esquinas proyectadas
+ * quedan en 90°. Busca la nivelación que minimiza el desvío de esas esquinas.
+ * Solo usa lotes de 4 vértices; con menos de FIT_MIN_LOTS devuelve null.
+ */
+export function fitGroundTilt(lotDefs, pano) {
+  const quads = [];
+  for (const def of lotDefs ?? []) {
+    let points = def.points ?? [];
+    const first = points[0];
+    const last = points[points.length - 1];
+    if (points.length > 3 && first[0] === last[0] && first[1] === last[1]) points = points.slice(0, -1);
+    if (points.length === 4) quads.push(points.map((p) => pixelDir(p, pano)));
+  }
+  if (quads.length < FIT_MIN_LOTS) return null;
+
+  const probe = new THREE.Vector3();
+  const ground = [0, 1, 2, 3].map(() => new THREE.Vector2());
+  const a = new THREE.Vector2();
+  const b = new THREE.Vector2();
+  const cost = (x, z) => {
+    const matrix = levelMatrix(1, { x, z });
+    let total = 0;
+    for (const dirs of quads) {
+      for (let i = 0; i < 4; i += 1) {
+        if (!groundPoint(dirs[i], matrix, probe)) return Infinity;
+        ground[i].set(probe.x, probe.z);
+      }
+      for (let i = 0; i < 4; i += 1) {
+        a.subVectors(ground[(i + 3) % 4], ground[i]).normalize();
+        b.subVectors(ground[(i + 1) % 4], ground[i]).normalize();
+        // cos del ángulo de la esquina: 0 en 90°.
+        total += a.dot(b) ** 2;
+      }
+    }
+    return total;
+  };
+
+  // Grilla gruesa y después fina alrededor del mejor.
+  let best = { x: 0, z: 0, cost: cost(0, 0) };
+  const search = (cx, cz, span, step) => {
+    for (let x = cx - span; x <= cx + span + 1e-9; x += step) {
+      for (let z = cz - span; z <= cz + span + 1e-9; z += step) {
+        if (Math.abs(x) > FIT_MAX_TILT || Math.abs(z) > FIT_MAX_TILT) continue;
+        const c = cost(x, z);
+        if (c < best.cost) best = { x, z, cost: c };
+      }
+    }
+  };
+  search(0, 0, FIT_MAX_TILT, 1);
+  search(best.x, best.z, 1, 0.25);
+  return { x: best.x, z: best.z, lots: quads.length };
+}
+
+// Temporal, para comparar a ojo: ?nivel=fijo (valor viejo) | ?nivel=0 |
+// ?nivel=X,Z (grados). Sin el parámetro, se calcula por loteo.
+function tiltOverride() {
+  const raw = new URLSearchParams(window.location.search).get('nivel');
+  if (!raw) return null;
+  if (raw === 'fijo') return { x: LEVEL_TILT_X, z: LEVEL_TILT_Z };
+  const [x, z = x] = raw.split(',').map(Number);
+  return Number.isFinite(x) && Number.isFinite(z) ? { x, z } : null;
 }
 
 const scratch = new THREE.Vector3();
@@ -167,8 +260,10 @@ function createPanoMaterial() {
  * @param {(id: string) => void} [options.onPick] - click en otro lote estando en órbita
  * @param {() => ({ right?: number, bottom?: number } | null)} [options.getInsets] -
  *   px que tapa la ficha del lote; el lote se encuadra en lo que queda libre
+ * @param {(yaw: number) => void} [options.onHeading] - rumbo de la cámara
+ *   (mismo marco que el yaw de PSV) mientras manda la órbita, para la brújula
  */
-export function createLotOrbit(viewer, { onPick, getInsets } = {}) {
+export function createLotOrbit(viewer, { onPick, getInsets, onHeading } = {}) {
   let gl = null;
   let scene = null;
   let panoMaterial = null;
@@ -177,6 +272,9 @@ export function createLotOrbit(viewer, { onPick, getInsets } = {}) {
 
   let lotDefs = [];
   let surfaceDefs = [];
+  let pinDefs = [];
+  let pinsDirty = true;
+  let pins = [];
   let lotsDirty = true;
   let lots = [];
   let surfaces = [];
@@ -191,7 +289,8 @@ export function createLotOrbit(viewer, { onPick, getInsets } = {}) {
   let levelMix = 0;
   let levelGoal = 0;
   let levelSeconds = LEVEL_BLEND_SECONDS;
-  let level = levelMatrix(0);
+  let tilt = { x: LEVEL_TILT_X, z: LEVEL_TILT_Z };
+  let level = levelMatrix(0, tilt);
   let prewarmTimer = null;
   const cam = { pos: DRONE.clone(), target: new THREE.Vector3(), fov: 60, off: new THREE.Vector2() };
   const drone = { yaw: 0, pitch: 0, fov: 60 };
@@ -204,9 +303,13 @@ export function createLotOrbit(viewer, { onPick, getInsets } = {}) {
   const overlay = document.createElement('div');
   overlay.className = 'lot-orbit-overlay';
   overlay.hidden = true;
+  // Números de lote y POIs: los markers de PSV se ocultan en órbita, así que
+  // se redibujan acá (mismo HTML) y se ubican cada cuadro con la cámara 3D.
+  const pinLayer = document.createElement('div');
+  pinLayer.className = 'lot-orbit-pins';
   const hoverLabel = document.createElement('div');
   hoverLabel.className = 'lot-orbit-hover';
-  overlay.appendChild(hoverLabel);
+  overlay.append(pinLayer, hoverLabel);
   viewer.container.appendChild(overlay);
 
   // ------------------------------------------------------------ escena
@@ -345,9 +448,13 @@ export function createLotOrbit(viewer, { onPick, getInsets } = {}) {
     const pano = viewer.state.textureData?.panoData;
     if (!pano) return;
 
+    const fitted = fitGroundTilt(lotDefs, pano);
+    tilt = tiltOverride() ?? fitted ?? { x: LEVEL_TILT_X, z: LEVEL_TILT_Z };
+    if (import.meta.env.DEV) console.info('[orbit] nivelación', tilt, fitted ? `(medida en ${fitted.lots} lotes)` : '(sin lotes suficientes: valor fijo)');
+
     // Un polígono que toca el horizonte (con o sin nivelación) no tiene suelo
     // donde apoyarse.
-    const levels = [levelMatrix(0), levelMatrix(1)];
+    const levels = [levelMatrix(0, tilt), levelMatrix(1, tilt)];
 
     for (const def of surfaceDefs) {
       const polygon = groundPolygon(def.points, pano, levels);
@@ -459,6 +566,77 @@ export function createLotOrbit(viewer, { onPick, getInsets } = {}) {
     }
   }
 
+  // ------------------------------------------------------------ pines
+
+  function buildPins() {
+    pinsDirty = false;
+    pinLayer.replaceChildren();
+    pins = [];
+    const pano = viewer.state.textureData?.panoData;
+    if (!pano) return;
+    for (const def of pinDefs) {
+      const el = document.createElement('div');
+      el.className = `lot-orbit-pin ${def.className}`;
+      if (def.size) {
+        el.style.width = `${def.size.width}px`;
+        el.style.height = `${def.size.height}px`;
+      }
+      if (def.element) {
+        // Copia del marker de PSV; el original lo sigue manejando PSV. Sin su
+        // updateMarker, se fija la escala que tiene con el zoom por defecto.
+        const copy = def.element.cloneNode(true);
+        copy.style.setProperty('--poi-callout-font-size', '16.5px');
+        copy.style.setProperty('--poi-callout-marker-scale', '1');
+        el.appendChild(copy);
+      } else {
+        el.innerHTML = def.html;
+      }
+      pinLayer.appendChild(el);
+      const [x, y] = def.pixel;
+      pins.push({
+        def,
+        el,
+        dir: dirFromAngles((x / pano.fullWidth - 0.5) * Math.PI * 2, (0.5 - y / pano.fullHeight) * Math.PI),
+        shift: def.anchor.startsWith('bottom') ? '-100%' : '-50%',
+        shown: null,
+      });
+    }
+  }
+
+  const pinWorld = new THREE.Vector3();
+  const pinNdc = new THREE.Vector3();
+  function placePins() {
+    if (pinsDirty) buildPins();
+    const { width, height } = viewer.state.size;
+    for (const pin of pins) {
+      // En el suelo con la nivelación actual; lo que cae sobre el horizonte
+      // (POIs lejanos) se deja en el borde del cielo, en la misma dirección.
+      if (!groundPoint(pin.dir, level, pinWorld)) {
+        pinWorld.copy(pin.dir).applyMatrix3(level).multiplyScalar(GROUND_RADIUS).add(DRONE);
+      }
+      pinNdc.copy(pinWorld).project(camera);
+      const inView = pinNdc.z < 1 && Math.abs(pinNdc.x) < 1.3 && Math.abs(pinNdc.y) < 1.3;
+      let opacity = inView ? pin.def.opacity : 0;
+      if (inView && pin.def.badgeOf) {
+        // Números de lotes lejanos se amontonan cerca del horizonte: se apagan
+        // con la distancia, y con un lote elegido los demás quedan atrás.
+        const far = pinWorld.distanceTo(camera.position) / Math.max(1, orbit.dist);
+        opacity *= 1 - THREE.MathUtils.smoothstep(far, 2.5, 5);
+        if (selected && pin.def.badgeOf !== selected.id) opacity *= 0.55;
+      }
+      const shown = opacity > 0.01;
+      if (shown !== pin.shown) {
+        pin.el.style.display = shown ? '' : 'none';
+        pin.shown = shown;
+      }
+      if (!shown) continue;
+      const x = ((pinNdc.x + 1) / 2) * width;
+      const y = ((1 - pinNdc.y) / 2) * height;
+      pin.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, ${pin.shift})`;
+      pin.el.style.opacity = opacity.toFixed(2);
+    }
+  }
+
   // ------------------------------------------------------------ cámara
 
   function readDronePose() {
@@ -567,7 +745,7 @@ export function createLotOrbit(viewer, { onPick, getInsets } = {}) {
     if (levelMix !== levelGoal) {
       const step = dt / levelSeconds;
       levelMix = levelGoal > levelMix ? Math.min(levelGoal, levelMix + step) : Math.max(levelGoal, levelMix - step);
-      level = levelMatrix(levelMix);
+      level = levelMatrix(levelMix, tilt);
       panoMaterial.uniforms.uLevelInv.value.copy(level).transpose();
       panoMaterial.uniforms.uLod.value = levelMix * levelMix * (3 - 2 * levelMix);
       placeLots();
@@ -625,6 +803,23 @@ export function createLotOrbit(viewer, { onPick, getInsets } = {}) {
     camera.position.copy(cam.pos);
     camera.lookAt(cam.target);
     camera.updateMatrixWorld();
+    placePins();
+    emitHeading();
+  }
+
+  // PSV no emite position-updated mientras manda la órbita (su cámara queda
+  // congelada), así que el rumbo sale de la cámara propia: inversa de
+  // dirFromAngles. Mirando casi a plomo el rumbo no está definido y se deja.
+  const headingDir = new THREE.Vector3();
+  let lastHeading = null;
+  function emitHeading() {
+    if (!onHeading) return;
+    headingDir.subVectors(cam.target, cam.pos);
+    if (Math.hypot(headingDir.x, headingDir.z) < 1e-3 * headingDir.length()) return;
+    const yaw = Math.atan2(headingDir.x, -headingDir.z);
+    if (lastHeading !== null && Math.abs(yaw - lastHeading) < 1e-3) return;
+    lastHeading = yaw;
+    onHeading(yaw);
   }
 
   function onBeforeRender(event) {
@@ -658,7 +853,7 @@ export function createLotOrbit(viewer, { onPick, getInsets } = {}) {
     Object.assign(cam, dronePose());
     levelMix = 0;
     levelGoal = 0;
-    level = levelMatrix(0);
+    level = levelMatrix(0, tilt);
     panoMaterial.uniforms.uLevelInv.value.identity();
     panoMaterial.uniforms.uLod.value = 0;
     panoMaterial.uniforms.uDim.value = 0;
@@ -678,9 +873,12 @@ export function createLotOrbit(viewer, { onPick, getInsets } = {}) {
     hoverLabel.classList.remove('on');
     tween = null;
     drag = null;
+    touches.clear();
     hovered = null;
     selected = null;
     mode = 'idle';
+    lastHeading = null;
+    onHeading?.(viewer.getPosition().yaw);
   }
 
   /**
@@ -760,6 +958,12 @@ export function createLotOrbit(viewer, { onPick, getInsets } = {}) {
     else prewarmTimer ??= setTimeout(prewarm, 0);
   }
 
+  // Aparte de setLots: cambian con los filtros y no hace falta rehacer lotes.
+  function setPins(defs) {
+    pinDefs = defs ?? [];
+    pinsDirty = true;
+  }
+
   function destroy() {
     clearTimeout(prewarmTimer);
     viewer.removeEventListener('panorama-loaded', onPanoramaLoaded);
@@ -785,12 +989,44 @@ export function createLotOrbit(viewer, { onPick, getInsets } = {}) {
     return raycaster.intersectObjects(lots.map((lot) => lot.fill), false)[0]?.object.userData.lot ?? null;
   }
 
+  const clampDist = (dist) => THREE.MathUtils.clamp(dist, selected.radius * 1.5, selected.radius * 40);
+
+  // Pellizco: con dos dedos se acerca/aleja igual que la rueda y no se gira.
+  const touches = new Map();
+  let pinchDist = 0;
+  const touchSpread = () => {
+    const [a, b] = touches.values();
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  };
+
   overlay.addEventListener('pointerdown', (event) => {
-    drag = { x: event.clientX, y: event.clientY, moved: 0 };
     overlay.setPointerCapture(event.pointerId);
+    if (event.pointerType === 'touch') {
+      touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (touches.size === 2) {
+        pinchDist = touchSpread();
+        // Al soltar un dedo no tiene que leerse como toque sobre otro lote.
+        if (drag) drag.moved = Infinity;
+        return;
+      }
+      if (touches.size > 2) return;
+    }
+    drag = { x: event.clientX, y: event.clientY, moved: 0 };
   });
 
   overlay.addEventListener('pointermove', (event) => {
+    if (touches.has(event.pointerId)) {
+      touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (touches.size >= 2) {
+        const spread = touchSpread();
+        if (mode === 'orbit' && selected && pinchDist > 0 && spread > 0) {
+          orbit.dist = clampDist(orbit.dist * (pinchDist / spread));
+          orbit.pausedUntil = performance.now() + DRAG_RESUME_MS;
+        }
+        pinchDist = spread;
+        return;
+      }
+    }
     if (drag) {
       const dx = event.clientX - drag.x;
       const dy = event.clientY - drag.y;
@@ -820,6 +1056,12 @@ export function createLotOrbit(viewer, { onPick, getInsets } = {}) {
   });
 
   const endDrag = (event) => {
+    if (touches.delete(event.pointerId) && touches.size > 0) {
+      // Queda un dedo: sigue girando desde donde está, sin saltar.
+      const [rest] = touches.values();
+      drag = { x: rest.x, y: rest.y, moved: Infinity };
+      return;
+    }
     const wasClick = drag && drag.moved <= 5 && event.type === 'pointerup';
     drag = null;
     overlay.classList.remove('dragging');
@@ -841,13 +1083,24 @@ export function createLotOrbit(viewer, { onPick, getInsets } = {}) {
     event.stopPropagation();
     if (mode !== 'orbit' || !selected) return;
     const factor = Math.exp(event.deltaY * 0.0012);
-    orbit.dist = THREE.MathUtils.clamp(orbit.dist * factor, selected.radius * 1.5, selected.radius * 40);
+    orbit.dist = clampDist(orbit.dist * factor);
   }, { passive: false });
+
+  /** Resalta un lote como si tuviera el mouse encima (hover en la lista). */
+  function highlight(id) {
+    if (mode === 'idle') return;
+    const lot = (id && lots.find((item) => item.id === id)) || null;
+    if (lot === hovered) return;
+    hovered = lot;
+    styleLots();
+  }
 
   return {
     select,
     exit,
+    highlight,
     setLots,
+    setPins,
     destroy,
     get active() { return mode !== 'idle'; },
   };

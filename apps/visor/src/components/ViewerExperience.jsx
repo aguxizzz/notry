@@ -1,16 +1,16 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { InfoPanel } from './InfoPanel.jsx';
-import { LotPanel, LotFloat, MapControls, FLOAT_SHEET_RATIO } from './LotPanel.jsx';
+import { Compass } from './Compass.jsx';
+import { LotPanel, LotFloat, MapControls, CompassTape, FLOAT_SHEET_RATIO } from './LotPanel.jsx';
 import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin';
 import { LoadingScreen } from './LoadingScreen.jsx';
 import { OnboardingOverlay } from './OnboardingOverlay.jsx';
 import { useViewer, focusMarker, CENTERED_PANEL_QUERY } from '../hooks/useViewer.js';
-import { annotationsToOrbitLots, markersToOrbitSurfaces } from '../lotOrbit.js';
+import { annotationsToOrbitLots, markersToOrbitPins, markersToOrbitSurfaces } from '../lotOrbit.js';
 import { annotationsToMarkers } from '../annotations.js';
 import { renderSurfacesToMarkers } from '../renderSurfaces.js';
 import { getLoteLabels } from '../loteLabels.js';
 import BlueprintViewer from './BlueprintViewer.jsx';
-import { Compass } from './Compass.jsx';
 import { useCompass } from '../hooks/useCompass.js';
 import { API_BASE } from '../api/config.js';
 import { trackEvent, detectOrigin } from '../analytics.js';
@@ -431,6 +431,8 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
   useEffect(() => {
     if (onboardingCheckedRef.current || committedStageId === null) return;
     onboardingCheckedRef.current = true;
+    // Si se entra por link a un lote, la ficha ya explica todo: no hace falta.
+    if (new URLSearchParams(window.location.search).get('lote')) return;
     const key = `notry_visor_onboarding_seen_${group?.projectId ?? 'default'}`;
     try {
       if (!sessionStorage.getItem(key)) setShowOnboarding(true);
@@ -525,6 +527,7 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
     [annotations, recommendedIds, focusMode, badgeStyle]
   );
   const orbitSurfaces = useMemo(() => markersToOrbitSurfaces(surfaceMarkers), [surfaceMarkers]);
+  const orbitPins = useMemo(() => markersToOrbitPins(markers), [markers]);
   const viewerData = useMemo(
     () => viewMode === 'blueprint' || viewMode === 'satellite' || !rawData
       ? null
@@ -537,10 +540,11 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
           markers,
           orbitLots,
           orbitSurfaces,
+          orbitPins,
           annotations,
           requestNonce: retryNonce,
         },
-    [viewMode, currentStage?.id, rawData, markers, orbitLots, orbitSurfaces, annotations, retryNonce]
+    [viewMode, currentStage?.id, rawData, markers, orbitLots, orbitSurfaces, orbitPins, annotations, retryNonce]
   );
 
   const handleMarkerSelect = useCallback((marker, markersPlugin, viewer, orbit) => {
@@ -680,6 +684,26 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
 
   const closeLot = useCallback(() => setPanel(PANEL_CLOSED), []);
 
+  // Hover en una fila de la lista (escritorio): resalta el lote en la foto sin
+  // mover la cámara. Va directo al DOM de PSV (y a la órbita) en vez de pasar
+  // por los markers: cambiarlos re-aplica la etapa entera.
+  const hoveredLotRef = useRef(null);
+  const hoverLot = useCallback((id) => {
+    if (hoveredLotRef.current === id) return;
+    hoveredLotRef.current = id;
+    orbitRef.current?.highlight(id);
+    const viewer = psvRef.current;
+    if (!viewer) return;
+    viewer.container.querySelectorAll('.is-row-hover').forEach((el) => el.classList.remove('is-row-hover'));
+    if (!id) return;
+    try {
+      for (const marker of viewer.getPlugin(MarkersPlugin).getMarkers()) {
+        const mid = String(marker.id);
+        if (mid === id || mid.startsWith(`${id}__border__`)) marker.domElement?.classList.add('is-row-hover');
+      }
+    } catch (_) { /* sin markers todavía */ }
+  }, [orbitRef, psvRef]);
+
   // "Cerca": lleva la cámara al lugar, sin abrir nada encima.
   const flyToPoi = useCallback((id) => {
     const viewer = psvRef.current;
@@ -707,6 +731,11 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
     if (!viewer) return;
     viewer.animate({ ...(homePosition ?? { yaw: 0, pitch: 0 }), zoom: 50, speed: 900 });
   }, [psvRef, homePosition]);
+  const faceNorth = useCallback(() => {
+    const viewer = psvRef.current;
+    if (!viewer || northOffset === null) return;
+    viewer.animate({ yaw: northOffset, pitch: viewer.getPosition().pitch, speed: 900 });
+  }, [psvRef, northOffset]);
 
   // El resto del visor (brújula, avisos de etapa) se acomoda al panel.
   useEffect(() => {
@@ -796,9 +825,11 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
       <OnboardingOverlay
         visible={showOnboarding}
         onDismiss={dismissOnboarding}
-        projectName={group?.project?.name}
-        hasViewToggle={availableViewModes.length > 1}
-        hasStages={stages.length > 1}
+        containerRef={viewerRef}
+        psvRef={psvRef}
+        sway={viewMode === 'panorama'}
+        silenceWhen={panel.isOpen}
+        pulseSelector={usePanel ? (panelCollapsed ? '.lp-reopen' : '.lp-tabs button') : '.lf-bar'}
       />
 
       {onBackToPresentation && (
@@ -898,7 +929,8 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
             labels={loteLabels}
             services={currentStage?.visor?.services ?? null}
             selectedId={panel.isOpen && panel.detail?.type !== 'poi' ? panel.markerId : null}
-            onSelectLot={selectLotById}
+            onSelectLot={(id) => { hoverLot(null); selectLotById(id); }}
+            onHoverLot={hoverLot}
             onCloseLot={closeLot}
             onPoiSelect={flyToPoi}
             onFilterChange={setLotFilter}
@@ -945,6 +977,9 @@ export default function ViewerExperience({ preloadedGroup = null, onBackToPresen
           origin={VISIT_ORIGIN}
           loteoId={currentStage?.id}
           showcase={isShowcaseMode}
+          compass={viewMode === 'panorama' && (
+            <CompassTape yaw={compassYaw} northOffset={northOffset} onNorth={faceNorth} />
+          )}
         />
       )}
 
