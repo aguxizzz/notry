@@ -331,6 +331,29 @@ html.lp-on:not(.lp-collapsed) .recommended-filter-toggle { left: calc(50% + 198p
 .lf-modes button[aria-pressed='true'] { color: var(--lp-ink); }
 .lf-modes button[aria-pressed='true']::after { opacity: 1; }
 
+/* Brújula horizontal: última franja de la tarjeta, a todo el ancho. Los
+   bordes se esfuman para que la cinta no corte de golpe. */
+.lf-tape {
+  position: relative; display: block; height: 30px; margin: 0 -7px -7px; padding: 0;
+  border: 0; border-top: 1px solid var(--lp-line); border-radius: 0 0 15px 15px; background: transparent;
+  overflow: hidden; color: var(--lp-muted);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+}
+.lf-tape::before {
+  content: ''; position: absolute; left: 50%; top: 0; z-index: 1; margin-left: -5px;
+  border: 5px solid transparent; border-top: 6px solid var(--accent); border-bottom: 0;
+}
+.lf-tape-track { position: absolute; left: 50%; top: 0; bottom: 0; will-change: transform; }
+.lf-tape-mark {
+  position: absolute; bottom: 7px; width: 1px; height: 6px; background: currentColor; opacity: 0.45;
+}
+.lf-tape-mark.is-label {
+  width: 30px; height: auto; margin-left: -15px; background: none; opacity: 1;
+  font-size: 11.5px; font-weight: 600; line-height: 1; text-align: center; letter-spacing: 0.02em; color: var(--lp-ink-2);
+}
+.lf-tape-mark.is-north { color: var(--accent); font-size: 12.5px; }
+
 .lf-scrim { position: absolute; inset: 0; border: 0; padding: 0; background: rgba(10, 10, 10, 0.28); cursor: default; animation: lf-fade 0.25s ease-out; }
 @keyframes lf-fade { from { opacity: 0; } }
 
@@ -391,11 +414,9 @@ html.lp-on:not(.lp-collapsed) .recommended-filter-toggle { left: calc(50% + 198p
 .lf[data-selected='1'] .lf-fab { opacity: 0; transform: translateY(16px); pointer-events: none; }
 .lf[data-selected='1']:has(.lf-sheet[data-form='1']) .lf-top { opacity: 0; transform: translateY(-16px); pointer-events: none; }
 
-/* Convivencia: la brújula baja debajo de la barra de arriba; los avisos de
-   etapa y el filtro de recomendados suben por encima del buscador. */
-html.lf-on .compass-logo { display: none; }
-html.lf-on .compass-wrap { top: calc(72px + env(safe-area-inset-top)); left: calc(12px + env(safe-area-inset-left)); }
-html.lf-on:has(.lf-modes) .compass-wrap { top: calc(110px + env(safe-area-inset-top)); }
+/* Convivencia: la rosa flotante no va (la reemplaza la cinta de la tarjeta);
+   los avisos de etapa y el filtro de recomendados suben por encima del buscador. */
+html.lf-on .compass-wrap, html.lf-on .compass-logo { display: none; }
 html.lf-on .recommended-filter-toggle { bottom: calc(76px + env(safe-area-inset-bottom)); }
 html.lf-on .stage-transition-status,
 html.lf-on .stage-transition-error { bottom: calc(76px + 46px + env(safe-area-inset-bottom)); }

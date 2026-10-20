@@ -815,6 +815,23 @@ html, body {
   touch-action: none;
   cursor: grab;
 }
+.lot-orbit-pins {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.lot-orbit-pin {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+}
+.lot-orbit-pin > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
 .lot-orbit-overlay.dragging { cursor: grabbing; }
 .lot-orbit-overlay.over-lot { cursor: pointer; }
 .lot-orbit-hover {
@@ -1434,6 +1451,17 @@ html, body {
   filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.5));
 }
 
+/* Hover en una fila de la lista del panel (.is-row-hover lo pone JS): el
+   mismo resaltado que el hover del mouse en la foto, un poco más marcado
+   porque la vista no está ahí. */
+.psv-marker--lot.is-row-hover:not(.psv-marker--lot-border) {
+  fill: rgba(255, 255, 255, 0.3);
+}
+.psv-marker--lot.is-row-hover {
+  stroke: #fff;
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.7));
+}
+
 /* Recomendado por el simulador de compra: dorado, siempre por encima del
    color de estado (los candidatos que llegan acá ya están filtrados a
    disponibles, así que nunca convive con reservado/vendido). */
@@ -1446,10 +1474,12 @@ html, body {
 .psv-marker--lot-recommended:not(.psv-marker--lot-border) {
   fill: rgba(197, 160, 89, 0.42) !important;
 }
-.psv-marker--lot-recommended:hover:not(.psv-marker--lot-border) {
+.psv-marker--lot-recommended:hover:not(.psv-marker--lot-border),
+.psv-marker--lot-recommended.is-row-hover:not(.psv-marker--lot-border) {
   fill: rgba(197, 160, 89, 0.58) !important;
 }
-.psv-marker--lot-recommended:hover {
+.psv-marker--lot-recommended:hover,
+.psv-marker--lot-recommended.is-row-hover {
   animation-play-state: paused;
   filter: drop-shadow(0 0 6px rgba(197, 160, 89, 0.85));
 }
@@ -2173,127 +2203,66 @@ html, body {
 }
 
 /* =============================================
-   ONBOARDING (gestos del visor, primera visita)
+   BIENVENIDA (pista de gesto, primera visita)
    ============================================= */
-.onboarding-overlay {
+.gesture-hint {
   position: fixed;
-  inset: 0;
-  z-index: 2100;
+  left: 50%;
+  top: 50%;
+  z-index: 90;
+  transform: translate(-50%, -50%);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 24px;
-  box-sizing: border-box;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  animation: onboarding-fade-in 0.25s ease;
-}
-
-.onboarding-card {
-  width: min(360px, 100%);
-  box-sizing: border-box;
-  padding: 28px 24px 24px;
-  border-radius: var(--panel-radius);
-  background: var(--panel-bg);
-  color: var(--text-primary);
-  border: 1px solid var(--panel-border);
-  font-family: 'Space Grotesk', sans-serif;
-  box-shadow: var(--shadow);
-  animation: onboarding-scale-in 0.25s ease;
-}
-
-.onboarding-card__heading {
-  margin: 0 0 22px;
-  font-size: clamp(1rem, 3.6vw, 1.15rem);
-  font-weight: 700;
-  line-height: 1.4;
+  gap: 4px;
+  padding: 18px 26px 16px;
+  border-radius: 18px;
+  background: rgba(16, 16, 18, 0.55);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: #fff;
   text-align: center;
-  color: var(--text-primary);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.gesture-hint.is-on { opacity: 1; }
+/* Centrada en la zona libre de la foto: a la derecha del panel (372px + 12px
+   de margen) en escritorio, encima de la barra inferior en celular. */
+html.lp-on:not(.lp-collapsed) .gesture-hint { left: calc(50% + 192px); }
+html.lf-on .gesture-hint { top: 46%; }
+.gesture-hint b { font-size: 16px; font-weight: 600; }
+.gesture-hint small { font-size: 13px; color: rgba(255, 255, 255, 0.72); }
+.gesture-hint__track { position: relative; width: 120px; height: 44px; margin-bottom: 4px; }
+.gesture-hint__track::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 22px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+}
+.gesture-hint__hand {
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  margin-left: -18px;
+  animation: gesture-hint-swipe 2.2s ease-in-out infinite;
+}
+.gesture-hint__hand svg { display: block; width: 36px; height: 36px; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5)); }
+@keyframes gesture-hint-swipe {
+  0%, 100% { transform: translateX(-34px) rotate(-8deg); }
+  50%      { transform: translateX(34px) rotate(8deg); }
 }
 
-.onboarding-card__steps {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
+/* Al irse la pista, titila dónde está la lista de lotes. */
+.hint-pulse { animation: hint-pulse 0.8s ease 3; }
+@keyframes hint-pulse { 50% { box-shadow: 0 0 0 6px rgba(197, 160, 89, 0.45); } }
 
-.onboarding-card__step {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-}
-
-.onboarding-card__icon {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--accent);
-  background: rgba(197, 160, 89, 0.12);
-}
-
-.onboarding-card__step-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding-top: 2px;
-  font-family: 'Outfit', sans-serif;
-  font-size: 0.85rem;
-  line-height: 1.45;
-  color: var(--text-secondary);
-}
-
-.onboarding-card__step-text strong {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.onboarding-card__cta {
-  width: 100%;
-  margin-top: 24px;
-  padding: 0.75rem 1rem;
-  border: none;
-  border-radius: var(--btn-radius);
-  background: var(--accent);
-  color: #ffffff;
-  font-family: inherit;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
-}
-.onboarding-card__cta:hover {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(197, 160, 89, 0.28);
-}
-.onboarding-card__cta:active {
-  transform: translateY(0);
-  box-shadow: none;
-}
-
-@keyframes onboarding-fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-@keyframes onboarding-scale-in {
-  from { opacity: 0; transform: scale(0.94); }
-  to   { opacity: 1; transform: scale(1); }
-}
 @media (prefers-reduced-motion: reduce) {
-  .onboarding-overlay,
-  .onboarding-card {
-    animation: none;
-  }
+  .gesture-hint__hand, .hint-pulse { animation: none; }
 }
 
 /* =============================================

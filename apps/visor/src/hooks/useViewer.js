@@ -165,6 +165,7 @@ export function useViewer(
   const markers = viewerData?.markers ?? [];
   const orbitLots = viewerData?.orbitLots ?? null;
   const orbitSurfaces = viewerData?.orbitSurfaces ?? null;
+  const orbitPins = viewerData?.orbitPins ?? null;
   const requestNonce = viewerData?.requestNonce ?? 0;
   const active = Boolean(panoramaUrl);
 
@@ -188,6 +189,7 @@ export function useViewer(
     const orbit = createLotOrbit(viewer, {
       onPick: (id) => callbacksRef.current.onLotPick?.(id, orbit),
       getInsets: () => callbacksRef.current.getOrbitInsets?.() ?? null,
+      onHeading: (yaw) => callbacksRef.current.onPositionChange?.(yaw),
     });
     orbitRef.current = orbit;
 
@@ -277,6 +279,7 @@ export function useViewer(
 
       const markersOk = safelySetMarkers(mp, markers);
       orbitRef.current?.setLots(orbitLots, orbitSurfaces);
+      orbitRef.current?.setPins(orbitPins);
       visiblePanoramaRef.current = panoramaUrl;
       visibleStageRef.current = stageId;
       callbacksRef.current.onStageProgress?.({ stageId, progress: 100 });
@@ -300,7 +303,7 @@ export function useViewer(
       viewer.removeEventListener('load-progress', handleProgress);
       if (requestRef.current === requestId) requestRef.current += 1;
     };
-  }, [stageId, panoramaUrl, markers, orbitLots, orbitSurfaces, homePosition, requestNonce]);
+  }, [stageId, panoramaUrl, markers, orbitLots, orbitSurfaces, orbitPins, homePosition, requestNonce]);
 
   // Precarga conservadora: una sola candidata pequena, durante idle y nunca
   // en conexiones lentas. El browser/CDN sigue siendo el cache principal.

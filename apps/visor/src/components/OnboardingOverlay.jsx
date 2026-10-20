@@ -1,105 +1,102 @@
-const IconSwipe = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M8 8L2 12L8 16" />
-    <path d="M16 8L22 12L16 16" />
-    <path d="M2 12H22" strokeOpacity="0.45" />
-  </svg>
-);
+import { useEffect, useRef, useState } from 'react';
 
-const IconSwitch = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m17 2 4 4-4 4" />
-    <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
-    <path d="m7 22-4-4 4-4" />
-    <path d="M21 13v1a4 4 0 0 1-4 4H3" />
-  </svg>
-);
-
-const IconLayers = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 2.5 3 7l9 4.5 9-4.5-9-4.5Z" />
-    <path d="m3 12 9 4.5 9-4.5" />
-    <path d="m3 16.5 9 4.5 9-4.5" />
-  </svg>
-);
-
-const IconTap = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+const IconHand = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d="M9 12V6.5a1.5 1.5 0 0 1 3 0V11" />
     <path d="M12 10.5V5a1.5 1.5 0 0 1 3 0v6" />
     <path d="M15 10.5V6.5a1.5 1.5 0 0 1 3 0V14c0 3.3-2.2 6-6 6-2.4 0-3.6-.8-4.6-2.2L4.8 14a1.4 1.4 0 0 1 2-2l2.2 2" />
   </svg>
 );
 
-const IconMessage = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16H9l-5 4v-4.2A2.5 2.5 0 0 1 4 13.5v-8Z" />
-    <circle cx="8.5" cy="9.5" r="0.9" fill="currentColor" stroke="none" />
-    <circle cx="12" cy="9.5" r="0.9" fill="currentColor" stroke="none" />
-    <circle cx="15.5" cy="9.5" r="0.9" fill="currentColor" stroke="none" />
-  </svg>
-);
+const HINT_MS = 6500;
+const FADE_MS = 350;
+const SWAY_YAW = 0.22;
+const SWAY_SPEED = 1800;
 
 /**
- * Onboarding que se muestra una sola vez (por proyecto, guardado en
- * localStorage) apenas el panorama termina de cargar, para explicar los
- * controles básicos del visor 360°. Los pasos de vista plano/panorama y
- * cambio de etapa solo aparecen si el proyecto realmente los tiene.
+ * Bienvenida liviana (reemplaza al modal de 5 pasos): una pista de gesto que
+ * no tapa nada ni pide "Continuar", mientras la cámara se mece un poco para
+ * mostrar que la foto se mueve. Se va sola, al primer toque/rueda sobre la
+ * foto, o en silencio si se abre un lote. Al irse (no en silencio) hace
+ * titilar `pulseSelector` para señalar dónde está la lista de lotes.
  */
-export function OnboardingOverlay({ visible, onDismiss, projectName, hasViewToggle = false, hasStages = false }) {
-  if (!visible) return null;
+export function OnboardingOverlay({ visible, onDismiss, containerRef, psvRef, sway = false, silenceWhen = false, pulseSelector }) {
+  const [phase, setPhase] = useState('hidden'); // hidden | in | out
+  const activeRef = useRef(false);
+  const finishRef = useRef(() => {});
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
+  const pulseRef = useRef(pulseSelector);
+  pulseRef.current = pulseSelector;
 
-  const steps = [
-    {
-      icon: <IconSwipe />,
-      title: 'Visualizar',
-      text: 'Deslizá la pantalla de un lado a otro para explorar el desarrollo desde el aire.',
-    },
-    hasViewToggle && {
-      icon: <IconSwitch />,
-      title: 'Vista plano / panorama',
-      text: 'Usá el botón de la esquina para alternar entre la foto 360° y el plano del desarrollo.',
-    },
-    {
-      icon: <IconTap />,
-      title: 'Interactuar',
-      text: 'Tocá los iconos de lotes y de información para acceder a contenido y detalles.',
-    },
-    hasStages && {
-      icon: <IconLayers />,
-      title: 'Cambiar de etapa',
-      text: 'Elegí otra etapa o sector del desarrollo desde el selector inferior.',
-    },
-    {
-      icon: <IconMessage />,
-      title: 'Contacto',
-      text: 'Contactate con el propietario o el desarrollador desde la ficha de cada lote.',
-    },
-  ].filter(Boolean);
+  useEffect(() => {
+    if (!visible) return undefined;
+    activeRef.current = true;
+    const raf = requestAnimationFrame(() => setPhase('in'));
+    let fadeTimer;
+
+    const finish = (silent) => {
+      if (!activeRef.current) return;
+      activeRef.current = false;
+      clearTimeout(timer);
+      setPhase('out');
+      fadeTimer = setTimeout(() => {
+        setPhase('hidden');
+        onDismissRef.current?.();
+      }, FADE_MS);
+      if (!silent) pulse(pulseRef.current);
+    };
+    finishRef.current = finish;
+    const timer = setTimeout(() => finish(false), HINT_MS);
+
+    const el = containerRef?.current;
+    const onTouch = () => finish(false);
+    el?.addEventListener('pointerdown', onTouch, { capture: true });
+    el?.addEventListener('wheel', onTouch, { capture: true, passive: true });
+
+    const viewer = psvRef?.current;
+    if (sway && viewer) {
+      try {
+        const { yaw, pitch } = viewer.getPosition();
+        viewer.animate({ yaw: yaw + SWAY_YAW, pitch, speed: SWAY_SPEED })
+          .then((done) => {
+            if (done !== false && activeRef.current) viewer.animate({ yaw, pitch: viewer.getPosition().pitch, speed: SWAY_SPEED });
+          });
+      } catch (_) { /* el visor se desmontó */ }
+    }
+
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(timer);
+      clearTimeout(fadeTimer);
+      el?.removeEventListener('pointerdown', onTouch, { capture: true });
+      el?.removeEventListener('wheel', onTouch, { capture: true });
+      activeRef.current = false;
+    };
+    // Solo al aparecer: sway/refs se leen en ese momento.
+  }, [visible]);
+
+  // Abrir un lote (desde el panel o la foto) la cierra sin titilar nada.
+  useEffect(() => {
+    if (silenceWhen) finishRef.current(true);
+  }, [silenceWhen]);
+
+  if (!visible && phase === 'hidden') return null;
 
   return (
-    <div className="onboarding-overlay" role="dialog" aria-modal="true" aria-label="Cómo usar el visor 360">
-      <div className="onboarding-card">
-        <p className="onboarding-card__heading">
-          Podés usar estos controles para explorar{projectName ? ` ${projectName}` : ' el desarrollo'} en 360°
-        </p>
-
-        <ul className="onboarding-card__steps">
-          {steps.map((step) => (
-            <li className="onboarding-card__step" key={step.title}>
-              <span className="onboarding-card__icon">{step.icon}</span>
-              <span className="onboarding-card__step-text">
-                <strong>{step.title}</strong>
-                <span>{step.text}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-
-        <button type="button" className="onboarding-card__cta" onClick={onDismiss}>
-          Continuar
-        </button>
-      </div>
+    <div className={`gesture-hint${phase === 'in' ? ' is-on' : ''}`} role="status">
+      <div className="gesture-hint__track"><span className="gesture-hint__hand"><IconHand /></span></div>
+      <b>Arrastrá para mirar alrededor</b>
+      <small>Tocá un lote para ver su ficha</small>
     </div>
   );
+}
+
+function pulse(selector) {
+  const el = selector && document.querySelector(selector);
+  if (!el) return;
+  el.classList.remove('hint-pulse');
+  void el.offsetWidth;
+  el.classList.add('hint-pulse');
+  setTimeout(() => el.classList.remove('hint-pulse'), 2400);
 }

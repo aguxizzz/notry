@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import {
   IconWhatsApp,
   SERVICE_DEFS,
-  SHOW_PRICE,
   formatPrice,
   getSubmittedLotsSet,
   markLotAsSubmitted,
@@ -99,14 +98,29 @@ function LotNum({ label, status, large = false }) {
   return <span className={`lp-num${large ? ' lp-num--lg' : ''} s-${status}`}>{label}</span>;
 }
 
-function LotRow({ ann, label, selected, onSelect }) {
+function LotRow({ ann, label, selected, onSelect, onHover }) {
   const status = statusOf(ann);
   const area = areaOf(ann);
   const manzana = manzanaOf(ann);
   const medidas = medidasOf(ann);
   const sub = [manzana && `Manzana ${manzana}`, medidas].filter(Boolean).join(' · ');
+  // Si la fila desaparece con el mouse encima (filtro, ficha nueva) no llega
+  // el mouseleave: se apaga el resaltado al desmontar.
+  const hoverRef = useRef(false);
+  const setHover = (on) => {
+    if (!onHover || hoverRef.current === on) return;
+    hoverRef.current = on;
+    onHover(on ? lotId(ann) : null);
+  };
+  useEffect(() => () => { if (hoverRef.current) onHover?.(null); }, [onHover]);
   return (
-    <button type="button" className={`lp-lot-row${selected ? ' is-sel' : ''}`} onClick={() => onSelect(lotId(ann))}>
+    <button
+      type="button"
+      className={`lp-lot-row${selected ? ' is-sel' : ''}`}
+      onClick={() => onSelect(lotId(ann))}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
       <LotNum label={label} status={status} />
       <span className="lp-lot-main">
         <b>{ann.tooltip || label}</b>
@@ -167,7 +181,7 @@ function Gallery({ images, title }) {
   );
 }
 
-function Ficha({ ann, label, labels, visibleLots, allLots, services, whatsappPhone, hideContactForm, origin, loteoId, showcase, onSelect, onBack, backLabel, onClose, setSubmitStatus, submitStatus, showForm, setShowForm }) {
+function Ficha({ ann, label, labels, visibleLots, allLots, services, whatsappPhone, hideContactForm, origin, loteoId, showcase, showPrice, onSelect, onHover, onBack, backLabel, onClose, setSubmitStatus, submitStatus, showForm, setShowForm }) {
   const [copied, setCopied] = useState(false);
   const [submittedLots, setSubmittedLots] = useState(getSubmittedLotsSet);
   const id = lotId(ann);
@@ -210,7 +224,7 @@ function Ficha({ ann, label, labels, visibleLots, allLots, services, whatsappPho
     area != null && ['Superficie', fmtArea(area)],
     medidas && ['Medidas', medidas],
     ann.orientation && ['Orientación', ann.orientation],
-    ['Precio', SHOW_PRICE && ann.price ? formatPrice(ann.price) : null],
+    ['Precio', showPrice && ann.price ? formatPrice(ann.price) : null],
   ].filter(Boolean);
 
   return (
@@ -291,7 +305,7 @@ function Ficha({ ann, label, labels, visibleLots, allLots, services, whatsappPho
           {similar.length > 0 && (
             <div className="lp-lot-list lp-lot-list--compact">
               {similar.map((l) => (
-                <LotRow key={lotId(l)} ann={l} label={labels.get(lotId(l)) ?? l.tooltip} selected={false} onSelect={onSelect} />
+                <LotRow key={lotId(l)} ann={l} label={labels.get(lotId(l)) ?? l.tooltip} selected={false} onSelect={onSelect} onHover={onHover} />
               ))}
             </div>
           )}
@@ -442,7 +456,7 @@ function SearchField({ browser, onSelectLot, onFocus, className = '' }) {
   );
 }
 
-function LotesPane({ browser, selectedId, onSelectLot }) {
+function LotesPane({ browser, selectedId, onSelectLot, onHoverLot }) {
   const { lots, counts, buckets, labelOf, onlyAvailable, setOnlyAvailable, size, setSize, filtersActive, visibleLots, clearFilters } = browser;
   return (
     <>
@@ -461,7 +475,7 @@ function LotesPane({ browser, selectedId, onSelectLot }) {
       {visibleLots.length ? (
         <div className="lp-lot-list">
           {visibleLots.map((l) => (
-            <LotRow key={lotId(l)} ann={l} label={labelOf(l)} selected={lotId(l) === selectedId} onSelect={onSelectLot} />
+            <LotRow key={lotId(l)} ann={l} label={labelOf(l)} selected={lotId(l) === selectedId} onSelect={onSelectLot} onHover={onHoverLot} />
           ))}
         </div>
       ) : (
@@ -509,6 +523,7 @@ export function LotPanel({
   services,
   selectedId,
   onSelectLot,
+  onHoverLot,
   onCloseLot,
   onPoiSelect,
   onFilterChange,
@@ -572,7 +587,7 @@ export function LotPanel({
         <div className="lp-body">
           {tab === 'lotes' && (
             <section className="lp-pane">
-              <LotesPane browser={browser} selectedId={selectedId} onSelectLot={onSelectLot} />
+              <LotesPane browser={browser} selectedId={selectedId} onSelectLot={onSelectLot} onHoverLot={onHoverLot} />
             </section>
           )}
 
@@ -615,7 +630,9 @@ export function LotPanel({
                 origin={origin}
                 loteoId={loteoId}
                 showcase={showcase}
+                showPrice={Boolean(project?.show_price)}
                 onSelect={onSelectLot}
+                onHover={onHoverLot}
                 onBack={onCloseLot}
                 backLabel={tab === 'cerca' ? 'Lugares cercanos' : 'Todos los lotes'}
                 submitStatus={submitStatus}
@@ -684,6 +701,7 @@ export function LotFloat({
   origin,
   loteoId,
   showcase = false,
+  compass = null,
 }) {
   const [tab, setTab] = useState('lotes');
   const [listOpen, setListOpen] = useState(false);
@@ -740,6 +758,7 @@ export function LotFloat({
             ))}
           </div>
         )}
+        {compass}
       </header>
 
       {listOpen && <button type="button" className="lf-scrim" aria-label="Cerrar lista" tabIndex={-1} onClick={() => setListOpen(false)} />}
@@ -803,6 +822,7 @@ export function LotFloat({
             origin={origin}
             loteoId={loteoId}
             showcase={showcase}
+            showPrice={Boolean(project?.show_price)}
             onSelect={onSelectLot}
             onBack={backToList}
             backLabel="Ver lotes"
@@ -820,6 +840,37 @@ export function LotFloat({
         />
       </section>
     </div>
+  );
+}
+
+// Brújula horizontal del flotante (celular): una cinta de rumbos que corre
+// debajo de los modos de vista; la marca dorada del centro es hacia dónde se
+// mira. Tocarla gira la cámara hacia el norte. Los rumbos se repiten de -180°
+// a 540° para que la cinta siempre llene el ancho.
+const TAPE_PX_PER_DEG = 2.4;
+const TAPE_LABELS = { 0: 'N', 45: 'NE', 90: 'E', 135: 'SE', 180: 'S', 225: 'SO', 270: 'O', 315: 'NO' };
+const TAPE_MARKS = Array.from({ length: 49 }, (_, i) => i * 15 - 180);
+
+export function CompassTape({ yaw, northOffset, onNorth }) {
+  if (northOffset === null || northOffset === undefined) return null;
+  const heading = (((yaw - northOffset) * 180) / Math.PI % 360 + 360) % 360;
+  return (
+    <button type="button" className="lf-tape" onClick={onNorth} aria-label={`Rumbo ${Math.round(heading)}°. Mirar hacia el norte`}>
+      <span className="lf-tape-track" aria-hidden="true" style={{ transform: `translateX(${-(heading + 180) * TAPE_PX_PER_DEG}px)` }}>
+        {TAPE_MARKS.map((deg) => {
+          const label = TAPE_LABELS[(deg + 360) % 360];
+          return (
+            <span
+              key={deg}
+              className={`lf-tape-mark${label ? ' is-label' : ''}${label === 'N' ? ' is-north' : ''}`}
+              style={{ left: `${(deg + 180) * TAPE_PX_PER_DEG}px` }}
+            >
+              {label ?? ''}
+            </span>
+          );
+        })}
+      </span>
+    </button>
   );
 }
 

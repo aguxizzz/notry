@@ -106,8 +106,6 @@ const ESTADO_CONFIG = {
   reserved:  { accent: 'var(--estado-reserved-accent)',  accentHover: 'var(--estado-reserved-accent-h)',  label: 'Reservado'  },
 };
 
-// Set to true to re-enable price display
-export const SHOW_PRICE = false;
 const PHONE_ALLOWED = /^\+?[0-9][0-9\s().-]*$/;
 const PERSON_NAME_ALLOWED = /^[\p{L}][\p{L}\p{M}\s.'-]*$/u;
 
@@ -328,7 +326,7 @@ export function PrecalificacionOverlay({ submitStatus, setSubmitStatus, onClose 
 // Duration must match --t in index.css (0.28s)
 const CLOSE_DURATION_MS = 280;
 
-export function InfoPanel({ isOpen, title, content, markerId, detail = {}, docked = false, services = null, origin, whatsappPhone, hideContactForm = false, loteoId, onClose, onGoToStage, showcase = false }) {
+export function InfoPanel({ isOpen, title, content, markerId, detail = {}, docked = false, services = null, origin, whatsappPhone, hideContactForm = false, loteoId, onClose, onGoToStage, showcase = false, showPrice = false }) {
   const [isClosing, setIsClosing] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [submitStatus, setSubmitStatus] = useState('idle'); // 'idle' | 'loading' | 'success' | 'error'
@@ -561,10 +559,10 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, docke
             </div>
           ) : (
             <div id="info-panel-view">
-              {((SHOW_PRICE && display.detail?.price) || display.detail.area_m2) && (
+              {((showPrice && display.detail?.price) || display.detail.area_m2) && (
                 <div className="lote-specs">
                   {display.detail.area_m2 && (
-                    <div className="lote-spec-item" style={!SHOW_PRICE ? { gridColumn: '1 / -1' } : undefined}>
+                    <div className="lote-spec-item" style={!showPrice ? { gridColumn: '1 / -1' } : undefined}>
                       <span className="lote-spec-icon"><IconRuler /></span>
                       <div className="lote-spec-text">
                         <span className="lote-spec-label">Superficie</span>
@@ -572,7 +570,7 @@ export function InfoPanel({ isOpen, title, content, markerId, detail = {}, docke
                       </div>
                     </div>
                   )}
-                  {SHOW_PRICE && display.detail.price && (
+                  {showPrice && display.detail.price && (
                     <div className="lote-spec-item">
                       <span className="lote-spec-icon"><IconDollar /></span>
                       <div className="lote-spec-text">
