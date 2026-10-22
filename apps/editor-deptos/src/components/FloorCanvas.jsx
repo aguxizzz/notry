@@ -3,6 +3,7 @@ import { alignmentOf, alignmentTransform, centroid, pointsAttr, round } from '..
 import { isTypingOrModal } from '../keyboard.js';
 import { STATUSES } from '../model.js';
 import { useLatest } from '../useLatest.js';
+import Icon from './icons.jsx';
 
 const HANDLE_PX = 6;
 const CLOSE_PX = 12;
@@ -350,14 +351,45 @@ export default function FloorCanvas({
         </g>
       </svg>
       <div className="canvas-tools">
-        <button onClick={() => setView(fitView(W, H))}>Encuadrar</button>
+        <button className="icon-btn" title="Encuadrar el piso" aria-label="Encuadrar el piso" onClick={() => setView(fitView(W, H))}>
+          <Icon name="fit" />
+        </button>
       </div>
-      <div className="canvas-help">
-        {tool === 'draw' && 'Click: agregar punto · Click en el primero o Enter: cerrar · Backspace: deshacer · Esc: cancelar'}
-        {tool === 'select' && 'Arrastrá el polígono o sus puntos · Doble click en un borde: agregar punto · Alt+click en un punto: borrarlo · Ctrl+C / Ctrl+V: copiar y pegar unidad (también en otro piso)'}
-        {tool === 'align' && 'Arrastrá para mover la imagen del piso sobre el plano original · Flechas: 1px (Shift: 10px)'}
-        {' · Rueda: zoom · Espacio/botón medio + arrastrar: mover vista'}
-      </div>
+      <ul className="canvas-help">
+        {[...HELP[tool], ...HELP.view].map(([keys, what]) => (
+          <li key={what}>
+            {keys.map((k) => (
+              <kbd key={k}>{k}</kbd>
+            ))}
+            {what}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
+
+// Atajos visibles al pie del lienzo, según la herramienta.
+const HELP = {
+  select: [
+    [['Arrastrar'], 'mover polígono o punto'],
+    [['Doble clic'], 'agregar punto en un borde'],
+    [['Alt', 'clic'], 'borrar punto'],
+    [['Ctrl C', 'Ctrl V'], 'copiar/pegar unidad'],
+    [['Supr'], 'borrar unidad'],
+  ],
+  draw: [
+    [['Clic'], 'agregar punto'],
+    [['Enter'], 'cerrar (o clic en el primero)'],
+    [['⌫'], 'deshacer punto'],
+    [['Esc'], 'cancelar'],
+  ],
+  align: [
+    [['Arrastrar'], 'mover imagen sobre el plano'],
+    [['Flechas'], '1px (Shift: 10px)'],
+  ],
+  view: [
+    [['Rueda'], 'zoom'],
+    [['Espacio'], 'arrastrar vista'],
+  ],
+};

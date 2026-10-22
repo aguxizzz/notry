@@ -1,25 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
-import { isTemp } from '../buildingStore.js';
 import { centroid, round } from '../geometry.js';
 import { FLOOR_KINDS, nextFloor, nextUnitCode, UNIT_DATA_FIELDS } from '../model.js';
 import { useBuildingStore } from '../useBuildingStore.js';
 import { useLatest } from '../useLatest.js';
-import { isTypingOrModal } from '../keyboard.js';
+import { isTypingOrModal, shortcutOf } from '../keyboard.js';
 import { useConfirm } from './useConfirm.jsx';
 import { NumberField, TextField } from './fields.jsx';
 import FloorCanvas from './FloorCanvas.jsx';
 import Loader from './Loader.jsx';
 import Inspector from './Inspector.jsx';
+import Icon from './icons.jsx';
 
 const pick = (obj, keys) => Object.fromEntries(keys.map((k) => [k, obj[k]]));
 
 // Pantalla de edición: selección, herramientas y portapapeles. El estado del edificio y su
 // guardado optimista viven en `buildingStore.js`.
 export default function BuildingEditor({ buildingId, onBack }) {
-  const [{ building, status, error }, store] = useBuildingStore(buildingId);
+  const [{ building, status, error, canUndo, canRedo }, store] = useBuildingStore(buildingId);
   const [floorId, setFloorId] = useState(null);
   const [unitId, setUnitId] = useState(null);
   const [tool, setTool] = useState('select');
+  const [showBuildingForm, setShowBuildingForm] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
   const { canon } = store;
 
@@ -54,22 +55,16 @@ export default function BuildingEditor({ buildingId, onBack }) {
 
   // Copia imagen, plano, alineación y unidades (con sus polígonos) a un piso nuevo arriba
   // de todo. Los códigos de unidad que empiezan con el código del piso se renumeran (1A → 2A).
+  // Un solo paso en el historial: deshacer saca el piso con sus unidades.
   const duplicateFloor = (src) => {
     const { code, name, level } = nextFloor(latestFloors());
-    const newFloor = store.insertFloor({
-      code,
-      name,
-      level,
-      ...pick(src, ['kind', 'summary', 'facade_height', 'plan_image_url', 'plan_width', 'plan_height', 'source_plan_url', 'alignment', 'zones']),
-    });
-    for (const u of src.units) {
-      store.insertUnit(newFloor, {
-        code: u.code.startsWith(src.code) ? code + u.code.slice(src.code.length) : u.code,
-        status: 'available',
-        ...pick(u, UNIT_DATA_FIELDS),
-      });
-    }
-    selectFloor(newFloor);
+    const units = src.units.map((u) => ({
+      code: u.code.startsWith(src.code) ? code + u.code.slice(src.code.length) : u.code,
+      status: 'available',
+      ...pick(u, UNIT_DATA_FIELDS),
+    }));
+    const data = pick(src, ['kind', 'summary', 'facade_height', 'plan_image_url', 'plan_width', 'plan_height', 'source_plan_url', 'alignment', 'zones']);
+    selectFloor(store.insertFloor({ code, name, level, ...data }, units));
   };
 
   const removeFloor = async (f) => {
@@ -96,6 +91,8 @@ export default function BuildingEditor({ buildingId, onBack }) {
     const local = URL.createObjectURL(file);
     const field = purpose === 'plans' ? 'plan_image_url' : 'source_plan_url';
     const sizePatch = purpose === 'plans' ? { plan_width: width, plan_height: height } : {};
+    // Deshacer vuelve a la imagen de antes, no a la vista previa local.
+    const before = pick(floor, [field, ...Object.keys(sizePatch)]);
     store.previewFloor(target, { [field]: local, ...sizePatch });
     const up = await store.uploadImage(file, purpose);
     if (!up) {
@@ -107,7 +104,7 @@ export default function BuildingEditor({ buildingId, onBack }) {
     const remote = new Image();
     remote.onload = remote.onerror = () => URL.revokeObjectURL(local);
     remote.src = up.url;
-    store.saveFloor(target, { [field]: up.url, ...sizePatch });
+    store.saveFloor(target, { [field]: up.url, ...sizePatch }, { before });
   };
 
   // ── Unidades ────────────────────────────────────────────────
@@ -124,7 +121,7 @@ export default function BuildingEditor({ buildingId, onBack }) {
   const pasteUnit = () => {
     const src = clipboard.current;
     const f = latestFloor();
-    if (!src || !f) return;
+    if (!src || !f) return false;
     const shift = canon(src.floor_id) === f.id && src.polygon ? Math.round((f.plan_width || 1000) * 0.02) : 0;
     const move = (pts) => pts && pts.map(([x, y]) => [x + shift, y + shift]);
     setUnitId(
@@ -137,35 +134,52 @@ export default function BuildingEditor({ buildingId, onBack }) {
       })
     );
     setTool('select');
+    return true;
   };
 
-  const pasteRef = useLatest(pasteUnit);
-  const unitRef = useLatest(unit);
-
-  useEffect(() => {
-    const onKey = (e) => {
-      if (!(e.ctrlKey || e.metaKey) || e.repeat) return;
-      if (isTypingOrModal()) return;
-      const key = e.key.toLowerCase();
-      if (key === 'c' && unitRef.current) {
-        clipboard.current = { ...unitRef.current };
-        store.setStatus(`Unidad ${unitRef.current.code} copiada`);
-      } else if (key === 'v' && clipboard.current) {
-        e.preventDefault();
-        pasteRef.current();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [store, pasteRef, unitRef]);
+  const copyUnit = () => {
+    if (!unit) return false;
+    clipboard.current = { ...unit };
+    store.setStatus(`Unidad ${unit.code} copiada`);
+    return true;
+  };
 
   const saveUnitPolygon = (id, points) => store.saveUnit(id, { polygon: points, pin: centroid(points).map(round) });
 
-  const removeUnit = async (u) => {
-    if (!(await confirm({ title: `¿Borrar la unidad ${u.code}?`, confirmLabel: 'Borrar unidad' }))) return;
+  // Sin confirmación: se puede deshacer con Ctrl+Z.
+  const removeUnit = (u) => {
     store.removeUnit(u.id);
     if (unit?.id === u.id) setUnitId(null);
   };
+
+  const removeSelectedUnit = () => {
+    if (!unit || tool === 'draw') return false;
+    removeUnit(unit);
+    return true;
+  };
+
+  // ── Atajos ──────────────────────────────────────────────────
+  // Cada acción devuelve true si hizo algo (entonces se evita la acción del navegador).
+  const shortcuts = {
+    'mod+z': store.undo,
+    'mod+shift+z': store.redo,
+    'mod+y': store.redo,
+    'mod+c': copyUnit,
+    'mod+v': pasteUnit,
+    delete: removeSelectedUnit,
+  };
+
+  const onKeyDown = useLatest((e) => {
+    const action = shortcuts[shortcutOf(e)];
+    if (!action || e.repeat || isTypingOrModal()) return;
+    if (action()) e.preventDefault();
+  });
+
+  useEffect(() => {
+    const down = (e) => onKeyDown.current(e);
+    window.addEventListener('keydown', down);
+    return () => window.removeEventListener('keydown', down);
+  }, [onKeyDown]);
 
   if (error && !building) {
     return (
@@ -183,18 +197,56 @@ export default function BuildingEditor({ buildingId, onBack }) {
   return (
     <div className="editor">
       <aside className="side left">
-        <button onClick={onBack}>← Edificios</button>
-        <h3>{building.name}</h3>
+        {/* Los datos del edificio reemplazan al panel entero (no una caja adentro). */}
+        {showBuildingForm ? (
+          <BuildingForm building={building} onSave={store.saveBuilding} onDelete={removeBuilding} onClose={() => setShowBuildingForm(false)} />
+        ) : (
+        <div className="side-view side-view--back">
+        <div className="side-head">
+          <button className="ghost back-link" onClick={onBack}>
+            <Icon name="back" size={15} /> Edificios
+          </button>
+          <div className="building-title">
+            <div>
+              <p className="eyebrow">Edificio</p>
+              <h2>{building.name}</h2>
+              <p className={building.address ? 'muted' : 'muted is-empty'}>{building.address || 'Sin dirección'}</p>
+            </div>
+            <button className="icon-btn" title="Datos del edificio" aria-label="Datos del edificio" onClick={() => setShowBuildingForm(true)}>
+              <Icon name="settings" />
+            </button>
+          </div>
+        </div>
 
-        <h4>Pisos</h4>
-        <ul className="list compact">
-          {floors.map((f) => (
+        <div className="section-head">
+          <h4>Pisos</h4>
+          <span className="count">{floors.length}</span>
+        </div>
+        {/* De arriba hacia abajo, como en la fachada: el piso nuevo aparece arriba de todo,
+            justo debajo de los botones que lo crean. */}
+        <div className="floor-actions">
+          <button className="add-btn" onClick={addFloor}>
+            <Icon name="plus" size={16} /> Agregar piso {upcoming.code}
+          </button>
+          {floor && (
+            <button className="secondary" onClick={() => duplicateFloor(floor)} title="Copia imagen, plano, alineación y unidades">
+              <Icon name="copy" size={16} /> Duplicar {floor.code} → {upcoming.code}
+            </button>
+          )}
+        </div>
+        <ul className="floor-list">
+          {[...floors].reverse().map((f) => (
             <li key={f.localKey ?? f.id} className="row-with-action">
-              <button className={`row ${f.id === floor?.id ? 'active' : ''}`} onClick={() => selectFloor(f.id)}>
-                <strong>{f.code}</strong>
-                <span className="muted">
-                  {FLOOR_KINDS[f.kind]} · {f.units.length} un.{f.plan_image_url ? '' : ' · sin imagen'}
-                  {(isTemp(f.id) || f.units.some((u) => isTemp(u.id))) && ' · guardando…'}
+              <button className={`floor-row ${f.id === floor?.id ? 'is-active' : ''}`} onClick={() => selectFloor(f.id)}>
+                <span className="floor-code">{f.code}</span>
+                <span className="floor-info">
+                  <span className="floor-name">{f.name || FLOOR_KINDS[f.kind]}</span>
+                  <span className="floor-meta">
+                    {f.kind === 'units'
+                      ? `${f.units.length} ${f.units.length === 1 ? 'unidad' : 'unidades'}`
+                      : f.name && f.name !== FLOOR_KINDS[f.kind] && FLOOR_KINDS[f.kind]}
+                    {!f.plan_image_url && <span className="tag">sin imagen</span>}
+                  </span>
                 </span>
               </button>
               <button className="row-action" title={`Borrar piso ${f.code}`} aria-label={`Borrar piso ${f.code}`} onClick={() => removeFloor(f)}>
@@ -203,41 +255,52 @@ export default function BuildingEditor({ buildingId, onBack }) {
             </li>
           ))}
         </ul>
-        <div className="stack">
-          <button onClick={addFloor}>+ Agregar piso {upcoming.code}</button>
-          {floor && (
-            <button onClick={() => duplicateFloor(floor)} title="Copia imagen, plano, alineación y unidades">
-              Duplicar piso {floor.code} → {upcoming.code}
-            </button>
-          )}
         </div>
-
-        <details>
-          <summary>Datos del edificio</summary>
-          <BuildingForm building={building} onSave={store.saveBuilding} onDelete={removeBuilding} />
-        </details>
+        )}
       </aside>
 
       <section className="stage">
         <div className="toolbar">
-          {[
-            ['select', 'Seleccionar'],
-            ['draw', 'Dibujar polígono'],
-            ['align', 'Alinear imagen'],
-          ].map(([id, label]) => (
-            <button
-              key={id}
-              className={tool === id ? 'active' : ''}
-              disabled={!floor || (id === 'draw' && !unit)}
-              title={id === 'draw' && !unit ? 'Elegí o creá una unidad primero' : undefined}
-              onClick={() => setTool(id)}
-            >
-              {label}
+          <div className="segmented" role="group" aria-label="Herramienta">
+            {[
+              ['select', 'select', 'Seleccionar'],
+              ['draw', 'draw', 'Dibujar'],
+              ['align', 'align', 'Alinear'],
+            ].map(([id, icon, label]) => (
+              <button
+                key={id}
+                className={tool === id ? 'is-on' : ''}
+                aria-pressed={tool === id}
+                disabled={!floor || (id === 'draw' && !unit)}
+                title={id === 'draw' && !unit ? 'Elegí o creá una unidad primero' : undefined}
+                onClick={() => setTool(id)}
+              >
+                <Icon name={icon} size={16} /> {label}
+              </button>
+            ))}
+          </div>
+          <div className="toolbar-history">
+            <button className="icon-btn" title="Deshacer (Ctrl+Z)" aria-label="Deshacer" disabled={!canUndo} onClick={store.undo}>
+              <Icon name="undo" />
             </button>
-          ))}
+            <button className="icon-btn" title="Rehacer (Ctrl+Y)" aria-label="Rehacer" disabled={!canRedo} onClick={store.redo}>
+              <Icon name="redo" />
+            </button>
+          </div>
+          {floor && (
+            <span className="toolbar-context">
+              {floor.name || `Piso ${floor.code}`}
+              {unit && <> · <strong>{unit.code}</strong></>}
+            </span>
+          )}
           <span className="spacer" />
-          {error && <span className="error">{error}</span>}
-          <span className="muted">{status}</span>
+          {error ? (
+            <span className="save-pill is-error" title={error}>
+              {error}
+            </span>
+          ) : (
+            status && <span className={`save-pill ${status.endsWith('…') ? 'is-busy' : ''}`}>{status}</span>
+          )}
         </div>
         {floor ? (
           <FloorCanvas
@@ -258,6 +321,7 @@ export default function BuildingEditor({ buildingId, onBack }) {
         <Inspector
           floor={floor}
           unit={unit}
+          tool={tool}
           onSelectUnit={(id) => {
             setUnitId(id);
             setTool('select');
@@ -291,30 +355,50 @@ function readImageSize(file) {
   });
 }
 
-function BuildingForm({ building, onSave, onDelete }) {
+function BuildingForm({ building, onSave, onDelete, onClose }) {
   const facade = building.facade || {};
   // Vacío borra la clave (no `null`): el visor completa lo que falta con sus valores por defecto.
   const saveFacade = (key, v) => onSave({ facade: { ...facade, [key]: v ?? undefined } });
   return (
-    <div className="stack">
-      <TextField label="Nombre" value={building.name} onCommit={(name) => onSave({ name })} />
-      <TextField label="Dirección" value={building.address} nullable onCommit={(address) => onSave({ address })} />
-      <TextField label="Slug (URL pública)" value={building.slug} nullable onCommit={(slug) => onSave({ slug })} />
-      <p className="muted">Fachada (viewBox del visor)</p>
-      <div className="grid2">
-        {[
-          ['width', 'Ancho'],
-          ['height', 'Alto'],
-          ['ground', 'Suelo (y)'],
-          ['x', 'Torre x'],
-          ['w', 'Torre ancho'],
-        ].map(([key, label]) => (
-          <NumberField key={key} label={label} value={facade[key] ?? null} nullable onCommit={(v) => saveFacade(key, v)} />
-        ))}
+    <div className="side-view building-form">
+      <div className="side-head">
+        <button className="ghost back-link" onClick={onClose}>
+          <Icon name="back" size={15} /> Pisos
+        </button>
+        <div>
+          <p className="eyebrow">{building.name}</p>
+          <h2>Datos del edificio</h2>
+        </div>
       </div>
-      <button className="danger" onClick={onDelete}>
-        Borrar edificio
-      </button>
+
+      <section className="form-section">
+        <h4>General</h4>
+        <TextField label="Nombre" value={building.name} onCommit={(name) => onSave({ name })} />
+        <TextField label="Dirección" value={building.address} nullable onCommit={(address) => onSave({ address })} />
+        <TextField label="Slug (URL pública)" value={building.slug} nullable onCommit={(slug) => onSave({ slug })} />
+      </section>
+
+      <section className="form-section">
+        <h4>Fachada</h4>
+        <p className="note">Encuadre del dibujo de la fachada en el visor (viewBox). Vacío usa el valor por defecto.</p>
+        <div className="grid2">
+          {[
+            ['width', 'Ancho'],
+            ['height', 'Alto'],
+            ['ground', 'Suelo (y)'],
+            ['x', 'Torre x'],
+            ['w', 'Torre ancho'],
+          ].map(([key, label]) => (
+            <NumberField key={key} label={label} value={facade[key] ?? null} nullable onCommit={(v) => saveFacade(key, v)} />
+          ))}
+        </div>
+      </section>
+
+      <section className="form-section">
+        <button className="ghost danger" onClick={onDelete}>
+          <Icon name="trash" size={16} /> Borrar edificio
+        </button>
+      </section>
     </div>
   );
 }
