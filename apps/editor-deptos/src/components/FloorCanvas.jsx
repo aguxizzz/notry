@@ -1,8 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { alignmentOf, alignmentTransform, centroid, pointsAttr, round, STATUSES } from '../geometry.js';
+import { useEffect, useRef, useState } from 'react';
+import { alignmentOf, alignmentTransform, centroid, pointsAttr, round } from '../geometry.js';
+import { isTypingOrModal } from '../keyboard.js';
+import { STATUSES } from '../model.js';
+import { useLatest } from '../useLatest.js';
 
 const HANDLE_PX = 6;
 const CLOSE_PX = 12;
+
+// Posición del puntero en el sistema de coordenadas de `el` (el <svg> = mundo, el <g>
+// alineado = píxeles de la imagen del piso).
+function pointerIn(el, e) {
+  return new DOMPoint(e.clientX, e.clientY).matrixTransform(el.getScreenCTM().inverse());
+}
+
+// Encuadre que muestra todo el piso con un margen alrededor.
+function fitView(W, H) {
+  const margin = Math.max(W, H) * 0.08;
+  return { x: -margin, y: -margin, w: W + margin * 2, h: H + margin * 2 };
+}
 
 // Lienzo del piso. Mundo = marco del plano original; el grupo con la imagen del piso y
 // sus polígonos se mueve con `alignment`. Los polígonos se guardan en píxeles de la
@@ -20,30 +35,30 @@ export default function FloorCanvas({
   const groupRef = useRef(null);
   const dragRef = useRef(null);
   const spaceRef = useRef(false);
-  const [size, setSize] = useState({ w: 1, h: 1 });
-  const [view, setView] = useState({ x: 0, y: 0, w: 1000, h: 1000 });
-  const [draft, setDraft] = useState(null); // { unitId, points } mientras se arrastra
-  const [drawing, setDrawing] = useState([]); // puntos del polígono en construcción
-  const [cursor, setCursor] = useState(null);
-
   const W = floor.plan_width || 1000;
   const H = floor.plan_height || 700;
   const align = alignmentOf(floor);
   const units = floor.units || [];
   const hasImage = Boolean(floor.plan_image_url);
 
+  const [size, setSize] = useState({ w: 1, h: 1 });
+  const [view, setView] = useState(() => fitView(W, H));
+  const [draft, setDraft] = useState(null); // { unitId, points } mientras se arrastra
+  const [drawing, setDrawing] = useState([]); // puntos del polígono en construcción
+  const [cursor, setCursor] = useState(null);
+
+  // Al cambiar de piso se re-encuadra y se descarta el dibujo a medias. localKey: el id
+  // provisorio de un piso recién creado, para no re-encuadrar cuando llega el real.
+  const floorKey = floor.localKey ?? floor.id;
+  const [shownFloor, setShownFloor] = useState(floorKey);
+  if (floorKey !== shownFloor) {
+    setShownFloor(floorKey);
+    setView(fitView(W, H));
+    setDrawing([]);
+  }
+
   const px = Math.max(view.w / size.w, view.h / size.h); // unidades de mundo por píxel de pantalla
   const lpx = px / (align.scale || 1); // ídem en coordenadas locales del grupo
-
-  const fit = useCallback(() => {
-    const margin = Math.max(W, H) * 0.08;
-    setView({ x: -margin, y: -margin, w: W + margin * 2, h: H + margin * 2 });
-  }, [W, H]);
-
-  useEffect(() => {
-    fit();
-    setDrawing([]);
-  }, [floor.id, fit]);
 
   useEffect(() => {
     const el = svgRef.current;
@@ -52,20 +67,10 @@ export default function FloorCanvas({
     return () => ro.disconnect();
   }, []);
 
-  const toWorld = (e) => {
-    const svg = svgRef.current;
-    const pt = svg.createSVGPoint();
-    pt.x = e.clientX;
-    pt.y = e.clientY;
-    return pt.matrixTransform(svg.getScreenCTM().inverse());
-  };
+  const toWorld = (e) => pointerIn(svgRef.current, e);
 
   const toLocal = (e) => {
-    const g = groupRef.current;
-    const pt = svgRef.current.createSVGPoint();
-    pt.x = e.clientX;
-    pt.y = e.clientY;
-    const p = pt.matrixTransform(g.getScreenCTM().inverse());
+    const p = pointerIn(groupRef.current, e);
     return [round(p.x), round(p.y)];
   };
 
@@ -74,10 +79,7 @@ export default function FloorCanvas({
     const svg = svgRef.current;
     const onWheel = (e) => {
       e.preventDefault();
-      const pt = svg.createSVGPoint();
-      pt.x = e.clientX;
-      pt.y = e.clientY;
-      const w = pt.matrixTransform(svg.getScreenCTM().inverse());
+      const w = pointerIn(svg, e);
       const f = e.deltaY > 0 ? 1.12 : 1 / 1.12;
       setView((v) => ({ x: w.x - (w.x - v.x) * f, y: w.y - (w.y - v.y) * f, w: v.w * f, h: v.h * f }));
     };
@@ -85,27 +87,33 @@ export default function FloorCanvas({
     return () => svg.removeEventListener('wheel', onWheel);
   }, []);
 
-  const closeDrawing = useCallback(
-    (points) => {
-      if (points.length >= 3 && selectedUnitId) {
-        onUnitPolygon(selectedUnitId, points);
-        onToolChange('select');
-      }
-      setDrawing([]);
-    },
-    [selectedUnitId, onUnitPolygon, onToolChange]
-  );
+  const closeDrawing = (points) => {
+    if (points.length >= 3 && selectedUnitId) {
+      onUnitPolygon(selectedUnitId, points);
+      onToolChange('select');
+    }
+    setDrawing([]);
+  };
+
+  const onKeyDown = useLatest((e) => {
+    if (isTypingOrModal()) return;
+    if (e.code === 'Space') spaceRef.current = true;
+    // Ajuste fino del encuadre: flechas = 1px de mundo, Shift = 10px.
+    const nudge = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    if (tool === 'align' && nudge) {
+      e.preventDefault();
+      const k = e.shiftKey ? 10 : 1;
+      onAlignment({ ...align, x: round(align.x + nudge[0] * k), y: round(align.y + nudge[1] * k) });
+      return;
+    }
+    if (tool !== 'draw') return;
+    if (e.key === 'Escape') setDrawing([]);
+    else if (e.key === 'Backspace') setDrawing((d) => d.slice(0, -1));
+    else if (e.key === 'Enter') closeDrawing(drawing);
+  });
 
   useEffect(() => {
-    const typing = () => ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement?.tagName);
-    const down = (e) => {
-      if (typing()) return;
-      if (e.code === 'Space') spaceRef.current = true;
-      if (tool !== 'draw') return;
-      if (e.key === 'Escape') setDrawing([]);
-      else if (e.key === 'Backspace') setDrawing((d) => d.slice(0, -1));
-      else if (e.key === 'Enter') closeDrawing(drawing);
-    };
+    const down = (e) => onKeyDown.current(e);
     const up = (e) => {
       if (e.code === 'Space') spaceRef.current = false;
     };
@@ -115,7 +123,7 @@ export default function FloorCanvas({
       window.removeEventListener('keydown', down);
       window.removeEventListener('keyup', up);
     };
-  }, [tool, drawing, closeDrawing]);
+  }, [onKeyDown]);
 
   const startPan = (e) => {
     dragRef.current = { type: 'pan', startClient: { x: e.clientX, y: e.clientY }, view };
@@ -153,23 +161,24 @@ export default function FloorCanvas({
     } else if (drag.type === 'align') {
       const w = toWorld(e);
       onAlignment({ ...drag.align, x: round(drag.align.x + w.x - drag.start.x), y: round(drag.align.y + w.y - drag.start.y) });
-    } else if (drag.type === 'vertex') {
-      const p = toLocal(e);
-      setDraft({ unitId: drag.unitId, points: drag.points.map((q, i) => (i === drag.index ? p : q)) });
-    } else if (drag.type === 'move') {
+    } else if (drag.type === 'vertex' || drag.type === 'move') {
       const p = toLocal(e);
       const dx = p[0] - drag.start[0];
       const dy = p[1] - drag.start[1];
-      setDraft({ unitId: drag.unitId, points: drag.points.map(([x, y]) => [round(x + dx), round(y + dy)]) });
+      const points =
+        drag.type === 'vertex'
+          ? drag.points.map((q, i) => (i === drag.index ? p : q))
+          : drag.points.map(([x, y]) => [round(x + dx), round(y + dy)]);
+      // También en el ref: el pointerup puede llegar antes de que se renderice este draft.
+      drag.draft = { unitId: drag.unitId, points };
+      setDraft(drag.draft);
     }
   };
 
   const endDrag = () => {
     const drag = dragRef.current;
     dragRef.current = null;
-    if (drag && (drag.type === 'vertex' || drag.type === 'move') && draft) {
-      onUnitPolygon(draft.unitId, draft.points);
-    }
+    if (drag?.draft) onUnitPolygon(drag.draft.unitId, drag.draft.points);
     setDraft(null);
   };
 
@@ -197,7 +206,7 @@ export default function FloorCanvas({
       onUnitPolygon(selected.id, selectedPoints.filter((_, i) => i !== index));
       return;
     }
-    dragRef.current = { type: 'vertex', unitId: selected.id, index, points: selectedPoints };
+    dragRef.current = { type: 'vertex', unitId: selected.id, index, start: toLocal(e), points: selectedPoints };
     svgRef.current.setPointerCapture(e.pointerId);
   };
 
@@ -217,14 +226,9 @@ export default function FloorCanvas({
     onUnitPolygon(selected.id, next);
   };
 
-  const labels = useMemo(
-    () =>
-      units
-        .filter((u) => u.polygon?.length >= 3)
-        .map((u) => ({ id: u.id, code: u.code, at: centroid(pointsOf(u)) })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [units, draft]
-  );
+  const labels = units
+    .filter((u) => u.polygon?.length >= 3)
+    .map((u) => ({ id: u.id, code: u.code, at: centroid(pointsOf(u)) }));
 
   const cursorStyle = tool === 'draw' ? 'crosshair' : tool === 'align' ? 'move' : 'default';
 
@@ -244,7 +248,10 @@ export default function FloorCanvas({
         onContextMenu={(e) => e.preventDefault()}
       >
         <rect x="0" y="0" width={W} height={H} className="canvas-frame" />
-        <g ref={groupRef} transform={alignmentTransform(align)}>
+        {/* Capas: imagen del piso → plano original → polígonos. Imagen y polígonos comparten
+            la transformación de alineación; el plano queda en medio para que con opacidad
+            alta se pueda dibujar sobre él sin tapar lo que se dibuja. */}
+        <g transform={alignmentTransform(align, W, H)}>
           {hasImage ? (
             <image href={floor.plan_image_url} x="0" y="0" width={W} height={H} preserveAspectRatio="none" />
           ) : (
@@ -252,6 +259,23 @@ export default function FloorCanvas({
               Subí la imagen de este piso
             </text>
           )}
+        </g>
+
+        {floor.source_plan_url && (
+          <image
+            href={floor.source_plan_url}
+            x="0"
+            y="0"
+            width={W}
+            height={H}
+            preserveAspectRatio="xMidYMid meet"
+            opacity={align.opacity}
+            pointerEvents="none"
+            className="source-overlay"
+          />
+        )}
+
+        <g ref={groupRef} transform={alignmentTransform(align, W, H)}>
           {units.map((u) => {
             const pts = pointsOf(u);
             if (!pts || pts.length < 3) return null;
@@ -324,28 +348,14 @@ export default function FloorCanvas({
             </g>
           )}
         </g>
-
-        {floor.source_plan_url && (
-          <image
-            href={floor.source_plan_url}
-            x="0"
-            y="0"
-            width={W}
-            height={H}
-            preserveAspectRatio="xMidYMid meet"
-            opacity={align.opacity}
-            pointerEvents="none"
-            className="source-overlay"
-          />
-        )}
       </svg>
       <div className="canvas-tools">
-        <button onClick={fit}>Encuadrar</button>
+        <button onClick={() => setView(fitView(W, H))}>Encuadrar</button>
       </div>
       <div className="canvas-help">
         {tool === 'draw' && 'Click: agregar punto · Click en el primero o Enter: cerrar · Backspace: deshacer · Esc: cancelar'}
-        {tool === 'select' && 'Arrastrá el polígono o sus puntos · Doble click en un borde: agregar punto · Alt+click en un punto: borrarlo'}
-        {tool === 'align' && 'Arrastrá para mover la imagen del piso sobre el plano original'}
+        {tool === 'select' && 'Arrastrá el polígono o sus puntos · Doble click en un borde: agregar punto · Alt+click en un punto: borrarlo · Ctrl+C / Ctrl+V: copiar y pegar unidad (también en otro piso)'}
+        {tool === 'align' && 'Arrastrá para mover la imagen del piso sobre el plano original · Flechas: 1px (Shift: 10px)'}
         {' · Rueda: zoom · Espacio/botón medio + arrastrar: mover vista'}
       </div>
     </div>

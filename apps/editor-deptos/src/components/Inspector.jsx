@@ -1,40 +1,50 @@
-import { alignmentOf, DEFAULT_ALIGNMENT, STATUSES } from '../geometry.js';
+import { useState } from 'react';
+import { alignmentOf, DEFAULT_ALIGNMENT } from '../geometry.js';
+import { FLOOR_KINDS, STATUSES } from '../model.js';
+import { NumberField, TextField } from './fields.jsx';
 
-const FLOOR_KINDS = { units: 'Unidades', pb: 'Planta baja', amenities: 'Amenities', roof: 'Terraza' };
+// Valor de alineación que se aplica en vivo: slider opcional (rango cómodo para el ajuste
+// grueso) + input numérico (sin límites, para el valor exacto). El guardado ya va con debounce.
+// Con `stepper`, botones −/+ en vez de slider: de a `step`, con Shift de a 10 pasos.
+function AlignField({ label, value, onChange, min, max, step, slider = true, stepper = false, suffix }) {
+  const nudge = (e, dir) => onChange(value + dir * step * (e.shiftKey ? 10 : 1));
+  const [text, setText] = useState(String(value));
+  const [shown, setShown] = useState(value);
+  // Si el valor cambia desde afuera (slider, arrastre, flechas), refleja; si no, respeta lo tipeado ("1.", "-").
+  if (value !== shown) {
+    setShown(value);
+    if (Number(text) !== value) setText(String(value));
+  }
 
-function NumberField({ label, value, onCommit, step = 1, nullable = false }) {
   return (
-    <label>
-      {label}
-      <input
-        key={value ?? ''}
-        type="number"
-        step={step}
-        defaultValue={value ?? ''}
-        onBlur={(e) => {
-          const raw = e.target.value;
-          const next = raw === '' ? (nullable ? null : value) : Number(raw);
-          if (next !== value && next !== undefined) onCommit(next);
-        }}
-      />
-    </label>
-  );
-}
-
-function TextField({ label, value, onCommit, nullable = false }) {
-  return (
-    <label>
-      {label}
-      <input
-        key={value ?? ''}
-        defaultValue={value ?? ''}
-        onBlur={(e) => {
-          const raw = e.target.value.trim();
-          if (!raw && !nullable) return;
-          const next = raw || null;
-          if (next !== (value ?? null)) onCommit(next);
-        }}
-      />
+    <label className="align-field">
+      <span>{label}</span>
+      <div className="align-field-row">
+        {slider && !stepper && (
+          <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
+        )}
+        {stepper && (
+          <button type="button" className="step-btn" title="Restar (Shift: ×10)" onClick={(e) => nudge(e, -1)}>
+            −
+          </button>
+        )}
+        <input
+          type="number"
+          step={step}
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value);
+            const n = Number(e.target.value);
+            if (e.target.value !== '' && Number.isFinite(n)) onChange(n);
+          }}
+        />
+        {stepper && (
+          <button type="button" className="step-btn" title="Sumar (Shift: ×10)" onClick={(e) => nudge(e, 1)}>
+            +
+          </button>
+        )}
+        {suffix && <span className="muted">{suffix}</span>}
+      </div>
     </label>
   );
 }
@@ -62,7 +72,6 @@ export default function Inspector({
   unit,
   onSelectUnit,
   onSaveFloor,
-  onDeleteFloor,
   onUploadImage,
   onAddUnit,
   onSaveUnit,
@@ -116,18 +125,10 @@ export default function Inspector({
           Opacidad del plano original ({Math.round(align.opacity * 100)}%)
           <input type="range" min="0" max="1" step="0.05" value={align.opacity} onChange={(e) => setAlign({ opacity: Number(e.target.value) })} />
         </label>
-        <label>
-          Escala ({align.scale.toFixed(3)})
-          <input type="range" min="0.2" max="3" step="0.005" value={align.scale} onChange={(e) => setAlign({ scale: Number(e.target.value) })} />
-        </label>
-        <label>
-          Rotación ({align.rotation.toFixed(1)}°)
-          <input type="range" min="-180" max="180" step="0.1" value={align.rotation} onChange={(e) => setAlign({ rotation: Number(e.target.value) })} />
-        </label>
-        <div className="grid2">
-          <NumberField label="Offset X" value={align.x} step={1} onCommit={(x) => setAlign({ x })} />
-          <NumberField label="Offset Y" value={align.y} step={1} onCommit={(y) => setAlign({ y })} />
-        </div>
+        <AlignField label="Escala" value={align.scale} min={0.5} max={2} step={0.001} suffix="×" onChange={(scale) => setAlign({ scale })} />
+        <AlignField label="Rotación" value={align.rotation} min={-20} max={20} step={0.05} suffix="°" onChange={(rotation) => setAlign({ rotation })} />
+        <AlignField label="Offset X" value={align.x} step={1} stepper suffix="px" onChange={(x) => setAlign({ x })} />
+        <AlignField label="Offset Y" value={align.y} step={1} stepper suffix="px" onChange={(y) => setAlign({ y })} />
         <button onClick={() => onSaveFloor({ alignment: { ...DEFAULT_ALIGNMENT, opacity: align.opacity } }, { debounce: true })}>
           Resetear alineación
         </button>
@@ -179,11 +180,6 @@ export default function Inspector({
           </button>
         </div>
       )}
-
-      <hr />
-      <button className="danger" onClick={onDeleteFloor}>
-        Borrar piso
-      </button>
     </aside>
   );
 }

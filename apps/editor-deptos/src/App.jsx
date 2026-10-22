@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as api from './api.js';
 import Login from './components/Login.jsx';
+import Loader from './components/Loader.jsx';
 import BuildingList from './components/BuildingList.jsx';
 import BuildingEditor from './components/BuildingEditor.jsx';
 
@@ -56,7 +57,7 @@ export default function App() {
   };
 
   if (!token || user === null) return <Login onLogin={handleLogin} />;
-  if (user === undefined) return <div className="splash">Cargando…</div>;
+  if (user === undefined) return <Loader label="Preparando el editor…" />;
 
   const isSuperAdmin = user.role === 'super_admin';
   const needsOrg = isSuperAdmin && !orgId;
@@ -64,9 +65,14 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <strong>Editor de edificios</strong>
+        <button className="topbar-brand" onClick={() => setBuildingId(null)} title="Ir a la lista de edificios">
+          <span className="brand-mark" aria-hidden="true" />
+          notry
+        </button>
+        <span className="topbar-divider" aria-hidden="true" />
+        <span className="topbar-app">Editor de edificios</span>
         {isSuperAdmin && (
-          <select value={orgId || ''} onChange={(e) => pickOrg(e.target.value)}>
+          <select className="topbar-org" value={orgId || ''} onChange={(e) => pickOrg(e.target.value)}>
             <option value="">Elegí una organización…</option>
             {orgs.map((o) => (
               <option key={o.id} value={o.id}>
@@ -76,11 +82,22 @@ export default function App() {
           </select>
         )}
         <span className="spacer" />
-        <span className="muted">{user.email}</span>
-        <button onClick={logout}>Salir</button>
+        <span className="topbar-user">
+          <span className="avatar" aria-hidden="true">
+            {user.email[0]}
+          </span>
+          <span className="topbar-email">{user.email}</span>
+        </span>
+        <button className="ghost" onClick={logout}>
+          Salir
+        </button>
       </header>
       {needsOrg ? (
-        <div className="splash">Elegí una organización para ver sus edificios.</div>
+        <div className="splash">
+          <p className="eyebrow">Super admin</p>
+          <p className="splash-title">Elegí una organización</p>
+          <p>Usá el selector de arriba para ver sus edificios.</p>
+        </div>
       ) : buildingId ? (
         <BuildingEditor key={buildingId} buildingId={buildingId} onBack={() => setBuildingId(null)} />
       ) : (

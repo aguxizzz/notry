@@ -4,8 +4,12 @@ export function alignmentOf(floor) {
   return { ...DEFAULT_ALIGNMENT, ...(floor?.alignment || {}) };
 }
 
-export function alignmentTransform(a) {
-  return `translate(${a.x} ${a.y}) rotate(${a.rotation}) scale(${a.scale})`;
+// Rotación y escala alrededor del centro de la imagen del piso (w × h); x/y desplazan en
+// coordenadas de mundo. El visor tiene que aplicar exactamente esta misma transformación.
+export function alignmentTransform(a, w, h) {
+  const cx = w / 2;
+  const cy = h / 2;
+  return `translate(${a.x + cx} ${a.y + cy}) rotate(${a.rotation}) scale(${a.scale}) translate(${-cx} ${-cy})`;
 }
 
 export function centroid(points) {
@@ -30,20 +34,3 @@ export function centroid(points) {
 export const pointsAttr = (points) => points.map((p) => p.join(',')).join(' ');
 
 export const round = (n) => Math.round(n * 10) / 10;
-
-// Letra siguiente libre para el código de unidad (A, B, C…) dentro de un piso.
-export function nextUnitCode(floor) {
-  const used = new Set((floor.units || []).map((u) => u.code));
-  for (let i = 0; i < 26; i++) {
-    const candidate = `${floor.code}${String.fromCharCode(65 + i)}`;
-    if (!used.has(candidate)) return candidate;
-  }
-  return `${floor.code}${used.size + 1}`;
-}
-
-export const STATUSES = {
-  available: { label: 'Disponible', color: '#22c55e' },
-  reserved: { label: 'Reservado', color: '#3b82f6' },
-  sold: { label: 'Vendido', color: '#ef4444' },
-  unavailable: { label: 'No disponible', color: '#9ca3af' },
-};
