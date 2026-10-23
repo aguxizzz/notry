@@ -26,6 +26,7 @@ function fitView(W, H) {
 export default function FloorCanvas({
   floor,
   selectedUnitId,
+  selectedUnitCode,
   tool,
   onSelectUnit,
   onUnitPolygon,
@@ -107,9 +108,14 @@ export default function FloorCanvas({
       onAlignment({ ...align, x: round(align.x + nudge[0] * k), y: round(align.y + nudge[1] * k) });
       return;
     }
+    // Esc sale del modo (alinear o dibujar) y vuelve a la selección.
+    if (e.key === 'Escape' && tool !== 'select') {
+      setDrawing([]);
+      onToolChange('select');
+      return;
+    }
     if (tool !== 'draw') return;
-    if (e.key === 'Escape') setDrawing([]);
-    else if (e.key === 'Backspace') setDrawing((d) => d.slice(0, -1));
+    if (e.key === 'Backspace') setDrawing((d) => d.slice(0, -1));
     else if (e.key === 'Enter') closeDrawing(drawing);
   });
 
@@ -350,6 +356,27 @@ export default function FloorCanvas({
           )}
         </g>
       </svg>
+      {tool !== 'select' && (
+        <div className="canvas-mode" role="status">
+          <Icon name={tool} size={16} />
+          {tool === 'draw' ? (
+            <span>
+              Dibujando el polígono de <strong>{selectedUnitCode}</strong>
+            </span>
+          ) : (
+            <span>Moviendo la imagen sobre el plano</span>
+          )}
+          <button
+            className="ghost"
+            onClick={() => {
+              setDrawing([]);
+              onToolChange('select');
+            }}
+          >
+            {tool === 'draw' ? 'Cancelar' : 'Listo'} <kbd>Esc</kbd>
+          </button>
+        </div>
+      )}
       <div className="canvas-tools">
         <button className="icon-btn" title="Encuadrar el piso" aria-label="Encuadrar el piso" onClick={() => setView(fitView(W, H))}>
           <Icon name="fit" />
@@ -382,7 +409,6 @@ const HELP = {
     [['Clic'], 'agregar punto'],
     [['Enter'], 'cerrar (o clic en el primero)'],
     [['⌫'], 'deshacer punto'],
-    [['Esc'], 'cancelar'],
   ],
   align: [
     [['Arrastrar'], 'mover imagen sobre el plano'],

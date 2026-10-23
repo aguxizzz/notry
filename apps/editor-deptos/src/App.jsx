@@ -12,6 +12,7 @@ export default function App() {
   const [orgs, setOrgs] = useState([]);
   const [orgId, setOrgIdState] = useState(() => api.loadSession().orgId);
   const [buildingId, setBuildingId] = useState(null);
+  const [topbarSlot, setTopbarSlot] = useState(null);
 
   const logout = useCallback(() => {
     api.setToken(null);
@@ -70,7 +71,8 @@ export default function App() {
           notry
         </button>
         <span className="topbar-divider" aria-hidden="true" />
-        <span className="topbar-app">Editor de edificios</span>
+        {/* Con un edificio abierto, la ruta (Edificios › Torre › Piso) ocupa este lugar. */}
+        {!buildingId && <span className="topbar-app">Editor de edificios</span>}
         {isSuperAdmin && (
           <select className="topbar-org" value={orgId || ''} onChange={(e) => pickOrg(e.target.value)}>
             <option value="">Elegí una organización…</option>
@@ -81,7 +83,8 @@ export default function App() {
             ))}
           </select>
         )}
-        <span className="spacer" />
+        {/* Lo llena el editor de edificio con un portal; vacío hace de separador. */}
+        <div className="topbar-slot" ref={setTopbarSlot} />
         <span className="topbar-user">
           <span className="avatar" aria-hidden="true">
             {user.email[0]}
@@ -99,7 +102,7 @@ export default function App() {
           <p>Usá el selector de arriba para ver sus edificios.</p>
         </div>
       ) : buildingId ? (
-        <BuildingEditor key={buildingId} buildingId={buildingId} onBack={() => setBuildingId(null)} />
+        <BuildingEditor key={buildingId} buildingId={buildingId} onBack={() => setBuildingId(null)} topbarSlot={topbarSlot} />
       ) : (
         <BuildingList onOpen={setBuildingId} />
       )}

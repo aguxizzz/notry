@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { alignmentOf, DEFAULT_ALIGNMENT } from '../geometry.js';
+import { enterToNextField } from '../keyboard.js';
 import { FLOOR_KINDS, STATUSES } from '../model.js';
 import { NumberField, TextField } from './fields.jsx';
 import Icon from './icons.jsx';
@@ -101,7 +102,7 @@ export default function Inspector({
   onAddUnit,
   onSaveUnit,
   onDeleteUnit,
-  onDrawUnit,
+  onToolChange,
 }) {
   const align = alignmentOf(floor);
   const setAlign = (patch) => onSaveFloor({ alignment: { ...align, ...patch } }, { debounce: true });
@@ -115,44 +116,33 @@ export default function Inspector({
     if (tool === 'align') setTab('floor');
     else if ((unit && unit.id !== followed.unitId) || tool === 'draw') setTab('units');
   }
+  // El ajuste a mano vive en la sección de alineación: salir de Piso lo apaga.
+  const selectTab = (id) => {
+    setTab(id);
+    if (id !== 'floor' && tool === 'align') onToolChange('select');
+  };
+  const aligning = tool === 'align';
+  const canAlign = Boolean(floor.plan_image_url && floor.source_plan_url);
 
   return (
     <aside className="side right">
-      <div className="tabs" role="tablist">
-        {[
-          ['floor', 'layers', `Piso ${floor.code}`],
-          ['units', 'select', `Unidades · ${floor.units.length}`],
-        ].map(([id, icon, label]) => (
-          <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'is-on' : ''} onClick={() => setTab(id)}>
-            <Icon name={icon} size={16} /> {label}
-          </button>
-        ))}
+      <div className="tabs">
+        <div className="tabs-track" role="tablist" style={{ '--tab-index': tab === 'floor' ? 0 : 1 }}>
+          {[
+            ['floor', 'layers', `Piso ${floor.code}`],
+            ['units', 'select', `Unidades · ${floor.units.length}`],
+          ].map(([id, icon, label]) => (
+            <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'is-on' : ''} onClick={() => selectTab(id)}>
+              <Icon name={icon} size={16} /> {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {tab === 'floor' ? (
-        <div className="inspector-body">
-          <section className="panel-section">
-            <h4>Datos del piso</h4>
-            <div className="stack">
-              <TextField label="Nombre" value={floor.name} onCommit={(name) => onSaveFloor({ name })} />
-              <div className="grid2">
-                <label>
-                  Tipo
-                  <select value={floor.kind} onChange={(e) => onSaveFloor({ kind: e.target.value })}>
-                    {Object.entries(FLOOR_KINDS).map(([k, label]) => (
-                      <option key={k} value={k}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <NumberField label="Nivel (orden)" value={floor.level} onCommit={(level) => onSaveFloor({ level })} />
-              </div>
-              <NumberField label="Alto en fachada" value={floor.facade_height} nullable onCommit={(v) => onSaveFloor({ facade_height: v })} />
-              <TextField label="Resumen (pisos sin unidades)" value={floor.summary} nullable onCommit={(summary) => onSaveFloor({ summary })} />
-            </div>
-          </section>
-
+        // En el orden en que se arma un piso: imágenes, alineación y, al final, los datos
+        // (se cargan una vez y casi no se tocan).
+        <div key="floor" className="inspector-body side-view--back">
           <section className="panel-section">
             <h4>Imágenes</h4>
             <div className="stack">
@@ -170,14 +160,28 @@ export default function Inspector({
                 hint="Overlay para alinear y dibujar"
                 url={floor.source_plan_url}
                 onFile={(f) => onUploadImage(f, 'source-plans')}
-                onRemove={() => onSaveFloor({ source_plan_url: null })}
+                onRemove={() => {
+                  if (aligning) onToolChange('select');
+                  onSaveFloor({ source_plan_url: null });
+                }}
               />
             </div>
           </section>
 
-          <section className="panel-section">
+          <section className="panel-section" onKeyDown={enterToNextField}>
             <h4>Alineación de la imagen</h4>
+            {/* Alinear es mover la imagen del piso sobre el plano original: sin las dos no hay nada que ajustar. */}
+            {!canAlign ? (
+              <p className="note">
+                {floor.plan_image_url
+                  ? 'Subí el plano original para alinear la imagen del piso encima.'
+                  : 'Subí la imagen del piso y el plano original para alinearlos.'}
+              </p>
+            ) : (
             <div className="stack">
+              <button className={aligning ? 'primary' : 'secondary'} aria-pressed={aligning} onClick={() => onToolChange(aligning ? 'select' : 'align')}>
+                <Icon name="align" size={16} /> {aligning ? 'Listo' : 'Mover a mano sobre el plano'}
+              </button>
               <label>
                 Opacidad del plano original ({Math.round(align.opacity * 100)}%)
                 <input type="range" min="0" max="1" step="0.05" value={align.opacity} onChange={(e) => setAlign({ opacity: Number(e.target.value) })} />
@@ -190,10 +194,36 @@ export default function Inspector({
                 Resetear alineación
               </button>
             </div>
+            )}
+          </section>
+
+          <section className="panel-section" onKeyDown={enterToNextField}>
+            <h4>Datos del piso</h4>
+            <div className="stack">
+              <TextField label="Nombre" value={floor.name} onCommit={(name) => onSaveFloor({ name })} />
+              <div className="grid2">
+                <label>
+                  Tipo
+                  <select value={floor.kind} onChange={(e) => onSaveFloor({ kind: e.target.value })}>
+                    {Object.entries(FLOOR_KINDS).map(([k, label]) => (
+                      <option key={k} value={k}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <NumberField label="Posición en la torre" value={floor.level} onCommit={(level) => onSaveFloor({ level })} />
+              </div>
+              <NumberField label="Alto en fachada" value={floor.facade_height} nullable onCommit={(v) => onSaveFloor({ facade_height: v })} />
+              {/* El resumen reemplaza a la lista de unidades en el visor: solo tiene sentido en PB, amenities y terraza. */}
+              {floor.kind !== 'units' && (
+                <TextField label="Resumen" value={floor.summary} nullable onCommit={(summary) => onSaveFloor({ summary })} />
+              )}
+            </div>
           </section>
         </div>
       ) : (
-        <div className="inspector-body">
+        <div key="units" className="inspector-body">
           <section className="panel-section">
             <ul className="unit-list">
               {floor.units.map((u) => (
@@ -213,7 +243,7 @@ export default function Inspector({
           </section>
 
           {unit ? (
-            <section className="panel-section unit-form" key={unit.id}>
+            <section className="panel-section unit-form" key={unit.id} onKeyDown={enterToNextField}>
               <div className="unit-form-head">
                 <div>
                   <p className="eyebrow">Unidad</p>
@@ -224,7 +254,7 @@ export default function Inspector({
                 </span>
               </div>
               <div className="stack">
-                <button className="primary" onClick={onDrawUnit}>
+                <button className="primary" onClick={() => onToolChange('draw')}>
                   <Icon name="draw" size={16} /> {unit.polygon ? 'Redibujar polígono' : 'Dibujar polígono'}
                 </button>
                 <div className="grid2">

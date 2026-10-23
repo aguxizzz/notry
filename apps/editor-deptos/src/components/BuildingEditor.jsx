@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { centroid, round } from '../geometry.js';
 import { FLOOR_KINDS, nextFloor, nextUnitCode, UNIT_DATA_FIELDS } from '../model.js';
 import { useBuildingStore } from '../useBuildingStore.js';
 import { useLatest } from '../useLatest.js';
-import { isTypingOrModal, shortcutOf } from '../keyboard.js';
+import { enterToNextField, isTypingOrModal, shortcutOf } from '../keyboard.js';
 import { useConfirm } from './useConfirm.jsx';
 import { NumberField, TextField } from './fields.jsx';
 import FloorCanvas from './FloorCanvas.jsx';
@@ -15,7 +16,7 @@ const pick = (obj, keys) => Object.fromEntries(keys.map((k) => [k, obj[k]]));
 
 // Pantalla de edición: selección, herramientas y portapapeles. El estado del edificio y su
 // guardado optimista viven en `buildingStore.js`.
-export default function BuildingEditor({ buildingId, onBack }) {
+export default function BuildingEditor({ buildingId, onBack, topbarSlot }) {
   const [{ building, status, error, canUndo, canRedo }, store] = useBuildingStore(buildingId);
   const [floorId, setFloorId] = useState(null);
   const [unitId, setUnitId] = useState(null);
@@ -203,21 +204,13 @@ export default function BuildingEditor({ buildingId, onBack }) {
         ) : (
         <div className="side-view side-view--back">
         <div className="side-head">
-          <button className="ghost back-link" onClick={onBack}>
-            <Icon name="back" size={15} /> Edificios
+          <h2>{building.name}</h2>
+          <button className="icon-btn" title="Datos del edificio" aria-label="Datos del edificio" onClick={() => setShowBuildingForm(true)}>
+            <Icon name="settings" />
           </button>
-          <div className="building-title">
-            <div>
-              <p className="eyebrow">Edificio</p>
-              <h2>{building.name}</h2>
-              <p className={building.address ? 'muted' : 'muted is-empty'}>{building.address || 'Sin dirección'}</p>
-            </div>
-            <button className="icon-btn" title="Datos del edificio" aria-label="Datos del edificio" onClick={() => setShowBuildingForm(true)}>
-              <Icon name="settings" />
-            </button>
-          </div>
         </div>
 
+        <div className="side-body">
         <div className="section-head">
           <h4>Pisos</h4>
           <span className="count">{floors.length}</span>
@@ -256,56 +249,61 @@ export default function BuildingEditor({ buildingId, onBack }) {
           ))}
         </ul>
         </div>
+        </div>
         )}
       </aside>
 
-      <section className="stage">
-        <div className="toolbar">
-          <div className="segmented" role="group" aria-label="Herramienta">
-            {[
-              ['select', 'select', 'Seleccionar'],
-              ['draw', 'draw', 'Dibujar'],
-              ['align', 'align', 'Alinear'],
-            ].map(([id, icon, label]) => (
-              <button
-                key={id}
-                className={tool === id ? 'is-on' : ''}
-                aria-pressed={tool === id}
-                disabled={!floor || (id === 'draw' && !unit)}
-                title={id === 'draw' && !unit ? 'Elegí o creá una unidad primero' : undefined}
-                onClick={() => setTool(id)}
-              >
-                <Icon name={icon} size={16} /> {label}
+      {/* La ruta, deshacer/rehacer y el estado de guardado van en la barra de la app (una sola
+          barra arriba): el lienzo queda de borde a borde. */}
+      {topbarSlot &&
+        createPortal(
+          <>
+            <nav className="crumbs" aria-label="Ubicación">
+              <button className="crumb-link" onClick={onBack}>
+                Edificios
               </button>
-            ))}
-          </div>
-          <div className="toolbar-history">
-            <button className="icon-btn" title="Deshacer (Ctrl+Z)" aria-label="Deshacer" disabled={!canUndo} onClick={store.undo}>
-              <Icon name="undo" />
-            </button>
-            <button className="icon-btn" title="Rehacer (Ctrl+Y)" aria-label="Rehacer" disabled={!canRedo} onClick={store.redo}>
-              <Icon name="redo" />
-            </button>
-          </div>
-          {floor && (
-            <span className="toolbar-context">
-              {floor.name || `Piso ${floor.code}`}
-              {unit && <> · <strong>{unit.code}</strong></>}
-            </span>
-          )}
-          <span className="spacer" />
-          {error ? (
-            <span className="save-pill is-error" title={error}>
-              {error}
-            </span>
-          ) : (
-            status && <span className={`save-pill ${status.endsWith('…') ? 'is-busy' : ''}`}>{status}</span>
-          )}
-        </div>
+              <Icon name="chevron" size={14} />
+              <span className="crumb">{building.name}</span>
+              {floor && (
+                <>
+                  <Icon name="chevron" size={14} />
+                  <span className={`crumb ${unit ? '' : 'is-current'}`}>{floor.name || `Piso ${floor.code}`}</span>
+                </>
+              )}
+              {floor && unit && (
+                <>
+                  <Icon name="chevron" size={14} />
+                  <span className="crumb is-current">Unidad {unit.code}</span>
+                </>
+              )}
+            </nav>
+            <span className="spacer" />
+            <div className="topbar-history">
+              <button className="icon-btn" title="Deshacer (Ctrl+Z)" aria-label="Deshacer" disabled={!canUndo} onClick={store.undo}>
+                <Icon name="undo" />
+              </button>
+              <button className="icon-btn" title="Rehacer (Ctrl+Y)" aria-label="Rehacer" disabled={!canRedo} onClick={store.redo}>
+                <Icon name="redo" />
+              </button>
+            </div>
+            {error ? (
+              <span className="save-pill is-error" title={error}>
+                {error}
+              </span>
+            ) : (
+              status && <span className={`save-pill ${status.endsWith('…') ? 'is-busy' : ''}`}>{status}</span>
+            )}
+            <span className="topbar-divider" aria-hidden="true" />
+          </>,
+          topbarSlot
+        )}
+
+      <section className="stage">
         {floor ? (
           <FloorCanvas
             floor={floor}
             selectedUnitId={unit?.id ?? null}
+            selectedUnitCode={unit?.code}
             tool={tool}
             onSelectUnit={setUnitId}
             onUnitPolygon={saveUnitPolygon}
@@ -331,7 +329,7 @@ export default function BuildingEditor({ buildingId, onBack }) {
           onAddUnit={addUnit}
           onSaveUnit={(patch) => store.saveUnit(unit.id, patch)}
           onDeleteUnit={() => removeUnit(unit)}
-          onDrawUnit={() => setTool('draw')}
+          onToolChange={setTool}
         />
       )}
       {confirmDialog}
@@ -362,23 +360,22 @@ function BuildingForm({ building, onSave, onDelete, onClose }) {
   return (
     <div className="side-view building-form">
       <div className="side-head">
-        <button className="ghost back-link" onClick={onClose}>
-          <Icon name="back" size={15} /> Pisos
+        <button className="icon-btn side-back" title="Volver a los pisos" aria-label="Volver a los pisos" onClick={onClose}>
+          <Icon name="back" />
         </button>
-        <div>
-          <p className="eyebrow">{building.name}</p>
-          <h2>Datos del edificio</h2>
-        </div>
+        <h2>Datos del edificio</h2>
       </div>
 
-      <section className="form-section">
+      <div className="side-body">
+
+      <section className="form-section" onKeyDown={enterToNextField}>
         <h4>General</h4>
         <TextField label="Nombre" value={building.name} onCommit={(name) => onSave({ name })} />
         <TextField label="Dirección" value={building.address} nullable onCommit={(address) => onSave({ address })} />
         <TextField label="Slug (URL pública)" value={building.slug} nullable onCommit={(slug) => onSave({ slug })} />
       </section>
 
-      <section className="form-section">
+      <section className="form-section" onKeyDown={enterToNextField}>
         <h4>Fachada</h4>
         <p className="note">Encuadre del dibujo de la fachada en el visor (viewBox). Vacío usa el valor por defecto.</p>
         <div className="grid2">
@@ -399,6 +396,7 @@ function BuildingForm({ building, onSave, onDelete, onClose }) {
           <Icon name="trash" size={16} /> Borrar edificio
         </button>
       </section>
+      </div>
     </div>
   );
 }

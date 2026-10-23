@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { login } from '../api.js';
+import { enterToNextField } from '../keyboard.js';
 
 const MailIcon = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -48,7 +49,7 @@ export default function Login({ onLogin }) {
           <p>Usá la misma cuenta de la plataforma.</p>
         </header>
 
-        <form className="login-form" onSubmit={submit}>
+        <form className="login-form" onSubmit={submit} onKeyDown={enterToNextField}>
           <div className="login-field">
             <label htmlFor="login-email">Correo electrónico</label>
             <div className="login-input-wrap">

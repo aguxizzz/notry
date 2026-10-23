@@ -5,6 +5,7 @@ const PATHS = {
   align: 'M12 3v18 M3 12h18 M12 3l-2.5 2.5M12 3l2.5 2.5 M12 21l-2.5-2.5M12 21l2.5-2.5 M3 12l2.5-2.5M3 12l2.5 2.5 M21 12l-2.5-2.5M21 12l-2.5 2.5',
   fit: 'M4 9V4h5 M20 9V4h-5 M4 15v5h5 M20 15v5h-5',
   back: 'M15 5l-7 7 7 7',
+  chevron: 'M10 6l6 6-6 6',
   plus: 'M12 5v14 M5 12h14',
   copy: 'M9 9h10v10H9z M5 15V5h10',
   settings: 'M4 7h10 M18 7h2 M4 17h2 M10 17h10 M16 4v6 M8 14v6',
