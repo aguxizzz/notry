@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <title>Recorrido 360°</title>
     <meta name="description" content="Recorré el loteo en 360° y elegí tu lote." />
+    <!-- Respaldo para crawlers que middleware.js no reconoce como bot (ese caso recibe la SPA tal cual) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Recorrido 360°" />
+    <meta property="og:description" content="Recorré el loteo en 360° y elegí tu lote." />
+    <meta property="og:image" content="https://notry-visor.vercel.app/api/og" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
