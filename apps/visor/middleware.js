@@ -74,6 +74,12 @@ function ogCardUrl(origin, params) {
   return `${origin}/api/og?${query}`;
 }
 
+// @vercel/og solo genera PNG: con la foto de fondo pesa ~1 MB y WhatsApp la descarta (~600 KB máx).
+// El back la re-sirve en JPEG.
+function asJpeg(cardUrl) {
+  return `${PUBLIC_API}/preview/card?src=${encodeURIComponent(cardUrl)}`;
+}
+
 async function previewFromSlugs(origin, { project, loteo }, lote) {
   const query = new URLSearchParams();
   if (loteo) query.set('loteo', loteo);
@@ -86,12 +92,12 @@ async function previewFromSlugs(origin, { project, loteo }, lote) {
   const loteoQuery = loteo ? `?loteo=${encodeURIComponent(loteo)}` : '';
   const image = data.image_url
     ? `${imageBase}/share`
-    : ogCardUrl(origin, {
+    : asJpeg(ogCardUrl(origin, {
         title: data.title.replace(/ — Recorrido 360°$/, ''),
         bg: data.background_url ? `${imageBase}/background${loteoQuery}` : null,
         logo: data.logo_url ? `${imageBase}/logo` : null,
         accent: data.accent_color,
-      });
+      }));
   return { title: data.title, description: data.description, siteName: data.site_name, image };
 }
 
