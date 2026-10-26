@@ -1,4 +1,5 @@
-import { useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
+import { headingDegrees, shortestDelta } from '../headingStore.js';
 import './Compass.css';
 
 // Degree ticks around the bezel, like a real compass card. Cardinals (0/90/180/270)
@@ -18,32 +19,51 @@ function tickLine(deg) {
   };
 }
 
+// Letras de los puntos cardinales: giran al revés que la rosa para quedar
+// derechas. [letra, x, y, clase extra]
+const LABELS = [
+  ['N', 50, 20, ' compass-label--north'],
+  ['S', 50, 80, ''],
+  ['O', 20, 53, ''],
+  ['E', 80, 53, ''],
+];
+
 /**
  * Circular compass widget — top-left corner.
  * The rose rotates so that N always points toward true north;
  * the top of the compass always represents the current heading.
  *
- * @param {{ yaw: number, northOffset?: number|null, visible: boolean, logoUrl?: string|null }} props
+ * El rumbo llega por `heading` (ver headingStore.js) y la rotación se escribe
+ * directo en el DOM: girar la vista no re-renderiza nada.
+ *
+ * @param {{ heading: ReturnType<import('../headingStore.js').createHeadingStore>, northOffset?: number|null, visible: boolean, logoUrl?: string|null }} props
  */
-export function Compass({ yaw, northOffset = null, visible, logoUrl }) {
-  const prevHeadingRef = useRef(null);
-  const accRotRef = useRef(0);
+export function Compass({ heading, northOffset = null, visible, logoUrl }) {
+  const roseRef = useRef(null);
+  const labelRefs = useRef([]);
+  const shown = visible && northOffset !== null;
 
-  if (!visible || northOffset === null) return null;
+  // Layout effect: la rosa queda girada antes del primer pintado (si no,
+  // arrancaría en 0 y la transición la haría girar al entrar).
+  useLayoutEffect(() => {
+    if (!shown) return undefined;
+    // La rotación se acumula (no se normaliza) para que la transición CSS
+    // gire por el lado corto al cruzar el norte.
+    let prev = null;
+    let rotation = 0;
+    return heading.subscribe((yaw) => {
+      const deg = headingDegrees(yaw, northOffset);
+      rotation = prev === null ? -deg : rotation - shortestDelta(prev, deg);
+      prev = deg;
+      if (roseRef.current) roseRef.current.style.transform = `rotate(${rotation}deg)`;
+      labelRefs.current.forEach((g, i) => {
+        const [, x, y] = LABELS[i];
+        g?.setAttribute('transform', `rotate(${-rotation} ${x} ${y})`);
+      });
+    });
+  }, [heading, northOffset, shown]);
 
-  const headingDeg = (((yaw - northOffset) * 180) / Math.PI + 360000) % 360;
-
-  if (prevHeadingRef.current === null) {
-    accRotRef.current = -headingDeg;
-  } else {
-    // Shortest arc delta in [-180, 180], handles 359→0 and 0→359 correctly
-    let delta = headingDeg - prevHeadingRef.current;
-    delta = ((delta % 360) + 540) % 360 - 180;
-    accRotRef.current -= delta;
-  }
-  prevHeadingRef.current = headingDeg;
-
-  const rotation = accRotRef.current;
+  if (!shown) return null;
 
   return (
     <>
@@ -58,10 +78,7 @@ export function Compass({ yaw, northOffset = null, visible, logoUrl }) {
               d="M 39.72 6.19 L 50 -2.8 L 60.28 6.19 A 45 45 0 1 1 39.72 6.19 Z"
               className="compass-frame"
             />
-            <g
-              className="compass-rose-rotating"
-              style={{ transform: `rotate(${rotation}deg)` }}
-            >
+            <g ref={roseRef} className="compass-rose-rotating">
               {TICKS.map((deg) => {
                 const { x1, y1, x2, y2 } = tickLine(deg);
                 return (
@@ -77,18 +94,11 @@ export function Compass({ yaw, northOffset = null, visible, logoUrl }) {
               })}
               <polygon points="50,25 53,50 47,50" className="compass-needle--north" />
               <polygon points="50,75 53,50 47,50" className="compass-needle--south" />
-              <g transform={`rotate(${-rotation} 50 20)`}>
-                <text x="50" y="20" className="compass-label compass-label--north">N</text>
-              </g>
-              <g transform={`rotate(${-rotation} 50 80)`}>
-                <text x="50" y="80" className="compass-label">S</text>
-              </g>
-              <g transform={`rotate(${-rotation} 20 53)`}>
-                <text x="20" y="53" className="compass-label">O</text>
-              </g>
-              <g transform={`rotate(${-rotation} 80 53)`}>
-                <text x="80" y="53" className="compass-label">E</text>
-              </g>
+              {LABELS.map(([letter, x, y, extra], i) => (
+                <g key={letter} ref={(el) => { labelRefs.current[i] = el; }}>
+                  <text x={x} y={y} className={`compass-label${extra}`}>{letter}</text>
+                </g>
+              ))}
             </g>
           </svg>
         </div>

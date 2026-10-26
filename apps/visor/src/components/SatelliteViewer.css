@@ -1,0 +1,20 @@
+.satellite-viewer {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+.satellite-viewer__canvas {
+  width: 100%;
+  height: 100%;
+}
+.satellite-viewer__error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  text-align: center;
+  padding: 24px;
+}

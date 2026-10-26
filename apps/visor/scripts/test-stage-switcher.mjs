@@ -33,9 +33,15 @@ async function fulfillGroup(page, url, stages) {
   }));
 }
 
+// Selector de etapas del panel lateral (LotPanel): botones con aria-pressed,
+// deshabilitados mientras carga una etapa.
+const stageButton = (page, name) => page.getByRole('group', { name: 'Etapa' }).getByRole('button', { name });
+
+// La etapa elegida terminó de cargar: está marcada y no queda aviso de carga.
 async function waitForCommitted(page, name) {
   await page.waitForFunction(
-    (expected) => document.querySelector('[role="tab"][aria-selected="true"]')?.textContent.includes(expected),
+    (expected) => document.querySelector('[aria-label="Etapa"] [aria-pressed="true"]')?.textContent.includes(expected)
+      && !document.querySelector('.stage-transition-status'),
     name,
     { timeout: 15_000 },
   );
@@ -60,16 +66,13 @@ async function testLatestSelectionWins(browser, images) {
   await page.goto(`${BASE_URL}/?data=${encodeURIComponent(dataUrl)}`);
   await waitForCommitted(page, 'Etapa A');
 
-  await page.getByRole('tab', { name: 'Etapa A' }).focus();
-  await page.keyboard.press('ArrowRight');
-  assert.equal(await page.evaluate(() => document.activeElement?.textContent.includes('Etapa B')), true);
-  await page.keyboard.press('Enter');
-  await page.getByRole('tab', { name: 'Etapa C' }).click();
-  await page.getByRole('tab', { name: 'Etapa A' }).click();
-  await page.getByRole('tab', { name: 'Etapa B' }).click();
-
-  await waitForCommitted(page, 'Etapa B');
-  assert.equal(await page.locator('[role="tab"][aria-busy="true"]').count(), 0);
+  // Mientras una etapa carga los botones se deshabilitan: cada click espera a
+  // que vuelvan a estar habilitados, así que la secuencia es la del usuario.
+  for (const name of ['Etapa B', 'Etapa C', 'Etapa A', 'Etapa B']) {
+    await stageButton(page, name).click();
+    await waitForCommitted(page, name);
+  }
+  assert.equal(await page.locator('[aria-label="Etapa"] button:disabled').count(), 0);
   assert.equal(await page.locator('.stage-transition-error').count(), 0);
   assert.deepEqual(runtimeErrors, []);
   await page.close();
@@ -99,10 +102,11 @@ async function testFailureKeepsPreviousAndRetryWorks(browser, images) {
 
   await page.goto(`${BASE_URL}/?data=${encodeURIComponent(dataUrl)}`);
   await waitForCommitted(page, 'Inicial');
-  await page.getByRole('tab', { name: 'Reintento' }).click();
+  await stageButton(page, 'Reintento').click();
   const retry = page.getByRole('button', { name: 'Reintentar' });
   await retry.waitFor({ state: 'visible', timeout: 15_000 });
-  assert.match(await page.locator('[role="tab"][aria-selected="true"]').innerText(), /Inicial/);
+  // El panorama que se ve sigue siendo el de la etapa anterior.
+  assert.equal(await page.locator('.stage-transition-error').count(), 1);
   await retry.click();
   await waitForCommitted(page, 'Reintento');
   assert.equal(await page.locator('.stage-transition-error').count(), 0);

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import './LoadingScreen.css';
 
 const SLIDE_MS = 4500;        // tiempo por foto
 const CAPTION_SWAP_MS = 450;  // la leyenda sale, cambia y vuelve a entrar

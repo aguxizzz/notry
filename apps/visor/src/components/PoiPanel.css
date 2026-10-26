@@ -1,0 +1,436 @@
+/* =============================================
+   BACKDROP
+   Mobile-first: por defecto el modal es un bottom sheet (ancho completo,
+   anclado abajo). Desde 641px de ancho —o en celulares apaisados, donde
+   sobra ancho pero falta alto— pasa a ser un modal centrado. Ver el bloque
+   "MODAL CENTRADO" más abajo.
+   ============================================= */
+#info-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  /* Franja superior siempre libre: es donde se toca para cerrar. */
+  padding: max(20px, env(safe-area-inset-top)) 0 0;
+  background: var(--backdrop-bg);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--t), visibility var(--t);
+}
+#info-backdrop.visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* =============================================
+   PANEL MODAL
+   Ficha de un POI (PoiPanel.jsx). #info-panel-wrap es LA tarjeta (fondo,
+   radio, sombra). Su altura nunca supera la del backdrop; lo que no entra
+   se scrollea dentro de #info-panel-content.
+   ============================================= */
+#info-panel-wrap {
+  --panel-radius: 20px;
+  position: relative;
+  z-index: 101;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  max-height: 100%;
+  min-height: 0;
+  background: var(--panel-bg);
+  border-radius: var(--panel-radius) var(--panel-radius) 0 0;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transform: translateY(100%);
+  transition: transform var(--t);
+}
+#info-backdrop.visible #info-panel-wrap {
+  transform: translateY(0);
+}
+/* Grab handle del sheet. Vive en el wrap para quedar siempre arriba de todo,
+   sobre la galería si la hay. */
+#info-panel-wrap::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  z-index: 5;
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.22);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+#info-panel {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  color: var(--text-primary);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+/* =============================================
+   HEADER
+   ============================================= */
+#info-panel-header {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 1.4rem 0.5rem 0.85rem;
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--panel-border);
+}
+
+#info-panel-header-left,
+#info-panel-header-right {
+  flex: 0 0 44px;
+}
+#info-panel-header-right {
+  display: flex;
+  justify-content: flex-end;
+}
+/* Título — el elemento dominante del header */
+#info-panel-header-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  text-align: center;
+  padding-top: 0.3rem;
+}
+#info-panel-lot-title {
+  font-size: clamp(1.15rem, 3.5vw, 1.4rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1.15;
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+/* Botón cerrar — 44px: mínimo táctil */
+#info-panel-close {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: color var(--t-fast), background var(--t-fast);
+}
+@media (hover: hover) {
+  #info-panel-close:hover {
+    color: var(--text-primary);
+    background: var(--input-bg);
+  }
+}
+#info-panel-close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+#info-panel-close svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.2;
+}
+
+/* =============================================
+   CONTENIDO — único scroller del modal
+   ============================================= */
+#info-panel-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 1.1rem clamp(1rem, 5vw, 1.5rem) calc(1.25rem + env(safe-area-inset-bottom));
+  font-family: 'Outfit', sans-serif;
+  scrollbar-width: thin;
+  scrollbar-color: var(--input-border) transparent;
+}
+
+/* =============================================
+   MODAL CENTRADO
+   ≥641px de ancho, o celular apaisado (alto ≤500px con ancho suficiente para
+   poner galería y panel lado a lado). El wrap se achica por flex antes de
+   desbordar; si el alto no alcanza, scrollea el contenido.
+   ============================================= */
+@media (min-width: 641px), (min-width: 480px) and (max-height: 500px) {
+  #info-backdrop {
+    align-items: center;
+    padding:
+      max(16px, env(safe-area-inset-top))
+      max(16px, env(safe-area-inset-right))
+      max(16px, env(safe-area-inset-bottom))
+      max(16px, env(safe-area-inset-left));
+  }
+  #info-panel-wrap {
+    --panel-radius: 14px;
+    flex-direction: row;
+    width: auto;
+    max-width: 100%;
+    border-radius: var(--panel-radius);
+    opacity: 0;
+    transform: translateY(20px);
+    transition: transform var(--t), opacity var(--t);
+  }
+  #info-backdrop.visible #info-panel-wrap {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  #info-panel-wrap::before {
+    display: none;
+  }
+  /* El width explícito importa: el wrap es shrink-to-fit y sin él tomaría el
+     max-content del texto (una línea larguísima) en vez del flex-basis. */
+  #info-panel {
+    flex: 0 1 400px;
+    width: 400px;
+    min-width: 240px;
+  }
+  /* Foto de POI: escenario más ancho, mismo chrome */
+  #info-panel.info-panel-photo {
+    flex-basis: 1100px;
+    width: 1100px;
+  }
+  #info-panel-header {
+    padding: 1.1rem 0.5rem 0.85rem;
+  }
+  #info-panel-content {
+    padding: 1.25rem 1.5rem 1.5rem;
+  }
+}
+
+/* Apaisado corto: cada píxel vertical cuenta */
+@media (max-height: 500px) {
+  #info-panel-header {
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+  }
+  #info-panel-header-center {
+    padding-top: 0;
+    gap: 0.3rem;
+  }
+  #info-panel-content {
+    padding-top: 0.9rem;
+  }
+}
+
+/* Vista detalle */
+#info-panel-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+#info-content {
+  color: var(--text-secondary);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+#info-content img,
+#info-content video,
+#info-content iframe {
+  max-width: 100%;
+  height: auto;
+}
+#info-content p { margin: 0 0 0.4rem; }
+#info-content p:last-child { margin-bottom: 0; }
+#info-content strong { color: var(--text-primary); font-weight: 600; }
+
+#info-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+#info-actions button,
+#info-actions a {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.65rem 1rem;
+  min-height: 44px;
+  border-radius: var(--btn-radius);
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: background var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
+}
+#info-actions button {
+  background: var(--accent);
+  color: #ffffff;
+  border: none;
+}
+@media (hover: hover) {
+  #info-actions button:hover {
+    background: var(--accent-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(197, 160, 89, 0.3);
+  }
+}
+#info-actions button:active { transform: translateY(0); box-shadow: none; }
+
+/* =============================================
+   POI PANEL
+   ============================================= */
+.poi-header {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.poi-icon-wrap {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  opacity: 0.92;
+}
+
+.poi-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.poi-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.poi-type-tag {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  padding: 2px 9px;
+  text-transform: capitalize;
+  width: fit-content;
+}
+
+.poi-distance {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.poi-distance svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.poi-photo-view {
+  margin: 0;
+  min-height: min(180px, 40dvh);
+  display: grid;
+  place-items: center;
+  background: #f7f5f1;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.poi-photo-view img {
+  display: block;
+  width: 100%;
+  max-height: min(68dvh, 620px);
+  object-fit: contain;
+}
+/* La foto se limita para que header + padding + foto entren en la pantalla
+   sin scroll; si el alto es extremo, el contenido scrollea igual. */
+.info-panel-photo .poi-photo-view img {
+  max-height: max(160px, calc(100dvh - 190px));
+}
+
+.poi-empty-state {
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+}
+
+.poi-link-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.7rem 1rem;
+  min-height: 44px;
+  background: transparent;
+  color: var(--accent);
+  border: 1.5px solid var(--accent);
+  border-radius: var(--btn-radius);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  letter-spacing: 0.01em;
+  transition: background var(--t-fast), color var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
+}
+
+@media (hover: hover) {
+  .poi-link-btn:hover {
+    background: var(--accent);
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(197, 160, 89, 0.28);
+  }
+}
+
+.poi-link-btn:active { transform: translateY(0); box-shadow: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  #info-backdrop,
+  #info-panel-wrap,
+  #info-panel,
+  #info-panel-close,
+  #info-actions button {
+    transition: none;
+  }
+}

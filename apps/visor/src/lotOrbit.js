@@ -12,6 +12,9 @@
 // Prototipo original: design-lab/orbita-lote.js.
 
 import * as THREE from 'three';
+import { annId, annStatus, annPoints, STATUS_COLORS } from './lotData.js';
+import './lotOrbit.css';
+import { perfMark, perfTime } from './perfTrace.js';
 
 // La altura del dron solo fija la unidad de la escena: con suelo plano todo
 // escala junto, así que no cambia lo que se ve.
@@ -38,8 +41,6 @@ const FLY_IN_MS = 1600;
 const FLY_OUT_MS = 1300;
 const DRAG_RESUME_MS = 2500;
 
-const STATUS_COLORS = { available: 0x22c55e, sold: 0xef4444, reserved: 0x3b82f6, unavailable: 0x6b7280 };
-
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2);
 const dirFromAngles = (yaw, pitch) => new THREE.Vector3(
   Math.cos(pitch) * Math.sin(yaw),
@@ -50,28 +51,37 @@ const dirFromAngles = (yaw, pitch) => new THREE.Vector3(
 /**
  * Lotes (anotaciones tipo polygon) en el formato que consume la órbita. El
  * relleno base replica cómo se ven en el panorama: transparente salvo estilo
- * status_fill, recomendados en dorado y el resto apagado en modo foco.
+ * status_fill. Recomendados y modo foco van aparte (focusFill / setFocus).
  */
-export function annotationsToOrbitLots(annotations, { recommendedIds = null, focusMode = false, badgeStyle = 'default' } = {}) {
+export function annotationsToOrbitLots(annotations, { badgeStyle = 'default' } = {}) {
   if (!Array.isArray(annotations)) return [];
-  const hasRecommended = (recommendedIds?.size ?? 0) > 0;
   return annotations
     .filter((ann) => ann.type === 'polygon' && ann.visible !== false)
     .map((ann) => {
-      const id = ann.uuid ?? ann.id;
-      const status = ann.status ?? ann.estado;
-      const statusColor = STATUS_COLORS[status] ?? 0xffffff;
-      let fill = { color: statusColor, opacity: badgeStyle === 'status_fill' ? 0.16 : 0 };
-      if (recommendedIds?.has(id)) fill = { color: 0xc5a059, opacity: 0.42 };
-      else if (focusMode && hasRecommended) fill = { color: 0xa0a0a0, opacity: 0.2 };
+      const statusColor = STATUS_COLORS[annStatus(ann)] ?? '#ffffff';
       return {
-        id,
+        id: annId(ann),
         label: ann.tooltip ?? null,
-        points: ann.panorama_coordinates ?? ann.polygonPixels ?? ann.polygon ?? [],
+        points: annPoints(ann),
         statusColor,
-        fill,
+        fill: { color: statusColor, opacity: badgeStyle === 'status_fill' ? 0.16 : 0 },
       };
     });
+}
+
+/** Si el lote queda afuera del filtro de la lista (visibleIds null = sin filtro). */
+export const isFilteredOut = (def, { visibleIds = null } = {}) => Boolean(visibleIds) && !visibleIds.has(def.id);
+
+/**
+ * Relleno de un lote de la órbita según filtro y recomendados: oscuro si no
+ * pasa el filtro (como en el panorama), dorado si es recomendado, gris en
+ * modo foco si no lo es, y si no, su relleno base.
+ */
+export function focusFill(def, { recommendedIds = null, focusMode = false, visibleIds = null } = {}) {
+  if (isFilteredOut(def, { visibleIds })) return { color: 0x0a0a0a, opacity: 0.42 };
+  if (recommendedIds?.has(def.id)) return { color: 0xc5a059, opacity: 0.42 };
+  if (focusMode && recommendedIds?.size > 0) return { color: 0xa0a0a0, opacity: 0.2 };
+  return def.fill;
 }
 
 /**
@@ -180,16 +190,6 @@ export function fitGroundTilt(lotDefs, pano) {
   return { x: best.x, z: best.z, lots: quads.length };
 }
 
-// Temporal, para comparar a ojo: ?nivel=fijo (valor viejo) | ?nivel=0 |
-// ?nivel=X,Z (grados). Sin el parámetro, se calcula por loteo.
-function tiltOverride() {
-  const raw = new URLSearchParams(window.location.search).get('nivel');
-  if (!raw) return null;
-  if (raw === 'fijo') return { x: LEVEL_TILT_X, z: LEVEL_TILT_Z };
-  const [x, z = x] = raw.split(',').map(Number);
-  return Number.isFinite(x) && Number.isFinite(z) ? { x, z } : null;
-}
-
 const scratch = new THREE.Vector3();
 // Punto del suelo que el dron ve en la dirección `dir`; null si no cae en el
 // suelo (sobre el horizonte).
@@ -263,7 +263,7 @@ function createPanoMaterial() {
  * @param {(yaw: number) => void} [options.onHeading] - rumbo de la cámara
  *   (mismo marco que el yaw de PSV) mientras manda la órbita, para la brújula
  */
-export function createLotOrbit(viewer, { onPick, getInsets, onHeading } = {}) {
+export function createLotOrbit(viewer, { onPick, getInsets, onHeading, mipmaps = true } = {}) {
   let gl = null;
   let scene = null;
   let panoMaterial = null;
@@ -271,6 +271,7 @@ export function createLotOrbit(viewer, { onPick, getInsets, onHeading } = {}) {
   const lotGroup = new THREE.Group();
 
   let lotDefs = [];
+  let focus = {};
   let surfaceDefs = [];
   let pinDefs = [];
   let pinsDirty = true;
@@ -334,13 +335,16 @@ export function createLotOrbit(viewer, { onPick, getInsets, onHeading } = {}) {
   // panorama, antes de que PSV la suba: los mipmaps se generan en esa misma
   // subida (tapada por la pantalla de carga). El filtrado queda lineal, o sea
   // que PSV la sigue dibujando igual; en órbita se cambia con setSharedFiltering.
+  // Con `mipmaps: false` (gama baja) no se generan: con panoramas grandes son
+  // +33% de memoria de GPU y el filtrado trilineal + anisotrópico la satura.
   function onPanoramaLoaded({ data }) {
     const texture = data?.texture;
     if (!texture?.isTexture) return;
     const uploaded = viewer.renderer.renderer?.properties.get(texture).__webglTexture;
     if (uploaded) return;
-    texture.generateMipmaps = true;
+    texture.generateMipmaps = mipmaps;
     texture.wrapS = THREE.RepeatWrapping;
+    perfMark(`órbita: panorama ${texture.image?.width}×${texture.image?.height}, mipmaps ${mipmaps ? 'sí' : 'no'}`);
   }
   viewer.addEventListener('panorama-loaded', onPanoramaLoaded);
 
@@ -351,19 +355,19 @@ export function createLotOrbit(viewer, { onPick, getInsets, onHeading } = {}) {
     if (mode !== 'idle' || !isSupported()) return;
     try {
       ensureScene();
-      if (lotsDirty) buildLots();
-      viewer.renderer.renderer.compile(scene, camera);
+      if (lotsDirty) perfTime('órbita: prewarm buildLots', buildLots);
+      perfTime('órbita: prewarm compile', () => viewer.renderer.renderer.compile(scene, camera));
     } catch (_) { /* es solo una optimización: el primer click lo resuelve */ }
   }
 
   // Respaldo por si la textura ya estaba subida sin mipmaps: se recrea la
   // textura GL. Devuelve true si hubo que recrearla.
   function prepareTexture(texture) {
-    if (texture.generateMipmaps && texture.wrapS === THREE.RepeatWrapping) return false;
+    if (texture.generateMipmaps === mipmaps && texture.wrapS === THREE.RepeatWrapping) return false;
     texture.dispose();
-    texture.generateMipmaps = true;
-    texture.minFilter = THREE.LinearMipmapLinearFilter;
-    texture.anisotropy = gl.capabilities.getMaxAnisotropy();
+    texture.generateMipmaps = mipmaps;
+    texture.minFilter = mipmaps ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
+    texture.anisotropy = mipmaps ? gl.capabilities.getMaxAnisotropy() : 1;
     texture.wrapS = THREE.RepeatWrapping;
     texture.needsUpdate = true;
     return true;
@@ -374,6 +378,7 @@ export function createLotOrbit(viewer, { onPick, getInsets, onHeading } = {}) {
   // three solo aplica los parámetros al subir la textura, y resubirla es caro:
   // se cambian directo en GL.
   function setSharedFiltering(mipmapped) {
+    if (!mipmaps) return;
     const texture = panoMaterial?.uniforms.uMap.value;
     const handle = texture && gl?.properties.get(texture).__webglTexture;
     if (!handle) return;
@@ -448,9 +453,7 @@ export function createLotOrbit(viewer, { onPick, getInsets, onHeading } = {}) {
     const pano = viewer.state.textureData?.panoData;
     if (!pano) return;
 
-    const fitted = fitGroundTilt(lotDefs, pano);
-    tilt = tiltOverride() ?? fitted ?? { x: LEVEL_TILT_X, z: LEVEL_TILT_Z };
-    if (import.meta.env.DEV) console.info('[orbit] nivelación', tilt, fitted ? `(medida en ${fitted.lots} lotes)` : '(sin lotes suficientes: valor fijo)');
+    tilt = fitGroundTilt(lotDefs, pano) ?? { x: LEVEL_TILT_X, z: LEVEL_TILT_Z };
 
     // Un polígono que toca el horizonte (con o sin nivelación) no tiene suelo
     // donde apoyarse.
@@ -555,11 +558,11 @@ export function createLotOrbit(viewer, { onPick, getInsets, onHeading } = {}) {
     for (const lot of lots) {
       const isSelected = lot === selected;
       const isHovered = lot === hovered;
-      const base = lot.def.fill;
+      const base = focusFill(lot.def, focus);
       lot.fill.material.color.set(isSelected ? accent : isHovered ? lot.def.statusColor : base.color);
       lot.fill.material.opacity = isSelected ? 0.3 : isHovered ? 0.36 : base.opacity * (selected ? 0.45 : 1);
       lot.outline.material.color.set(isSelected ? accent : 0xffffff);
-      lot.outline.material.opacity = isSelected ? 1 : selected ? 0.4 : 0.85;
+      lot.outline.material.opacity = isSelected ? 1 : isFilteredOut(lot.def, focus) ? 0.3 : selected ? 0.4 : 0.85;
       lot.wall.material.color.set(accent);
       lot.wall.visible = isSelected;
       if (!isSelected) lot.wallT = 0;
@@ -606,7 +609,7 @@ export function createLotOrbit(viewer, { onPick, getInsets, onHeading } = {}) {
   const pinWorld = new THREE.Vector3();
   const pinNdc = new THREE.Vector3();
   function placePins() {
-    if (pinsDirty) buildPins();
+    if (pinsDirty) perfTime(`órbita: buildPins (${pinDefs.length})`, buildPins);
     const { width, height } = viewer.state.size;
     for (const pin of pins) {
       // En el suelo con la nivelación actual; lo que cae sobre el horizonte
@@ -747,7 +750,7 @@ export function createLotOrbit(viewer, { onPick, getInsets, onHeading } = {}) {
       levelMix = levelGoal > levelMix ? Math.min(levelGoal, levelMix + step) : Math.max(levelGoal, levelMix - step);
       level = levelMatrix(levelMix, tilt);
       panoMaterial.uniforms.uLevelInv.value.copy(level).transpose();
-      panoMaterial.uniforms.uLod.value = levelMix * levelMix * (3 - 2 * levelMix);
+      panoMaterial.uniforms.uLod.value = mipmaps ? levelMix * levelMix * (3 - 2 * levelMix) : 0;
       placeLots();
     }
 
@@ -822,8 +825,20 @@ export function createLotOrbit(viewer, { onPick, getInsets, onHeading } = {}) {
     onHeading(yaw);
   }
 
+  let traceFrames = 0;
   function onBeforeRender(event) {
     if (mode === 'idle') return;
+    if (traceFrames > 0) {
+      traceFrames -= 1;
+      const start = performance.now();
+      onBeforeRenderInner(event);
+      perfMark(`órbita: cuadro (update+render CPU)`, performance.now() - start);
+      return;
+    }
+    onBeforeRenderInner(event);
+  }
+
+  function onBeforeRenderInner(event) {
     // Tras recrear la textura el primer frame tarda: se deja pasar antes de
     // arrancar la animación para que no pegue un salto.
     if (holdFrames > 0) {
@@ -840,14 +855,17 @@ export function createLotOrbit(viewer, { onPick, getInsets, onHeading } = {}) {
 
   function begin() {
     ensureScene();
-    viewer.renderer.setCustomRenderer((renderer) => {
+    perfTime('órbita: setCustomRenderer', () => viewer.renderer.setCustomRenderer((renderer) => {
       gl = renderer;
       return { render: () => renderer.render(scene, camera) };
-    });
+    }));
     const { texture } = viewer.state.textureData;
     panoMaterial.uniforms.uMap.value = texture;
-    if (prepareTexture(texture)) holdFrames = 2;
-    else setSharedFiltering(true);
+    if (perfTime('órbita: prepareTexture', () => prepareTexture(texture))) {
+      holdFrames = 2;
+      perfMark('órbita: ¡TEXTURA RESUBIDA!');
+    } else perfTime('órbita: filtrado mipmaps', () => setSharedFiltering(true));
+    traceFrames = 4;
 
     readDronePose();
     Object.assign(cam, dronePose());
@@ -859,15 +877,22 @@ export function createLotOrbit(viewer, { onPick, getInsets, onHeading } = {}) {
     panoMaterial.uniforms.uDim.value = 0;
 
     overlay.hidden = false;
-    viewer.container.classList.add('psv--lot-orbit');
+    perfTime('órbita: ocultar markers PSV (clase + reflow)', () => {
+      viewer.container.classList.add('psv--lot-orbit');
+      void viewer.container.offsetHeight;
+    });
     viewer.addEventListener('before-render', onBeforeRender);
   }
 
   function finish() {
+    perfMark('órbita: finish');
     viewer.removeEventListener('before-render', onBeforeRender);
-    setSharedFiltering(false);
-    viewer.renderer.setCustomRenderer(null);
-    viewer.container.classList.remove('psv--lot-orbit');
+    perfTime('órbita: filtrado sin mipmaps', () => setSharedFiltering(false));
+    perfTime('órbita: setCustomRenderer(null)', () => viewer.renderer.setCustomRenderer(null));
+    perfTime('órbita: mostrar markers PSV (clase + reflow)', () => {
+      viewer.container.classList.remove('psv--lot-orbit');
+      void viewer.container.offsetHeight;
+    });
     overlay.hidden = true;
     overlay.classList.remove('dragging', 'over-lot');
     hoverLabel.classList.remove('on');
@@ -887,8 +912,9 @@ export function createLotOrbit(viewer, { onPick, getInsets, onHeading } = {}) {
    * qué hacer en su lugar.
    */
   function select(id) {
+    perfMark(`órbita: select (mode ${mode}, lotsDirty ${lotsDirty})`);
     if (mode === 'idle' && !isSupported()) return false;
-    if (lotsDirty) buildLots();
+    if (lotsDirty) perfTime('órbita: buildLots', buildLots);
     const lot = lots.find((item) => item.id === id);
     if (!lot) return false;
     if (lot === selected && mode !== 'return') return true;
@@ -928,6 +954,7 @@ export function createLotOrbit(viewer, { onPick, getInsets, onHeading } = {}) {
   /** Vuelve a la pose del dron y le devuelve el control a PSV. */
   function exit({ immediate = false } = {}) {
     if (mode === 'idle') return;
+    perfMark(`órbita: exit (mode ${mode})`);
     if (immediate) { finish(); return; }
     if (mode === 'return') return;
     // Desde la órbita se vuelve por el mismo camino de la entrada; a mitad de
@@ -956,6 +983,13 @@ export function createLotOrbit(viewer, { onPick, getInsets, onHeading } = {}) {
     lotsDirty = true;
     if (mode !== 'idle') buildLots();
     else prewarmTimer ??= setTimeout(prewarm, 0);
+  }
+
+  // Aparte de setLots: cambian con los recomendados y no hace falta rehacer
+  // lotes (ni recalcular la nivelación), solo volver a pintarlos.
+  function setFocus(next) {
+    focus = next ?? {};
+    if (lots.length) styleLots();
   }
 
   // Aparte de setLots: cambian con los filtros y no hace falta rehacer lotes.
@@ -1100,6 +1134,7 @@ export function createLotOrbit(viewer, { onPick, getInsets, onHeading } = {}) {
     exit,
     highlight,
     setLots,
+    setFocus,
     setPins,
     destroy,
     get active() { return mode !== 'idle'; },

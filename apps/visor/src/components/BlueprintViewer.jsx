@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, useCallback, Fragment } from 'react';
-import { getLoteBadgeSvg, STATUS_FILL_COLORS, STATUS_FILL_FALLBACK } from '../annotations.js';
+import { getLoteBadgeSvg } from '../annotations.js';
+import { annId, annStatus, STATUS_FILL_COLORS, STATUS_FILL_FALLBACK } from '../lotData.js';
+import './BlueprintViewer.css';
 
 // Por defecto el lote no lleva relleno de color (pedido del cliente, ver
 // annotations.js): el polígono queda transparente y solo se ve su borde. Con el
@@ -215,7 +217,6 @@ export default function BlueprintViewer({
   }, []);
 
   useEffect(() => {
-    const handleMove = handlePanMove;
     const handleUp = handlePanEnd;
 
     const container = containerRef.current;
@@ -258,7 +259,7 @@ export default function BlueprintViewer({
   };
 
   const handlePolygonHover = (e, ann) => {
-    const id = ann ? ann.uuid || ann.id : null;
+    const id = ann ? annId(ann) : null;
     setHoveredId(id);
     onMarkerHover && onMarkerHover(ann);
   };
@@ -366,7 +367,7 @@ export default function BlueprintViewer({
               const anchor = ann.blueprint_anchor ?? ann.blueprint_coordinates?.[0];
               if (!anchor) return null;
               const point = normToSvg(anchor[0], anchor[1]);
-              const id = ann.uuid || ann.id;
+              const id = annId(ann);
               const isFocused = hoveredId === id || selectedId === id;
               const stem = Math.max(40, Math.min(260, Number(ann.callout_stem_height) || 96));
               const isPhotoPin = Boolean(ann.image_url);
@@ -407,10 +408,10 @@ export default function BlueprintViewer({
               return null;
             }
 
-            const annId = ann.uuid || ann.id;
-            const isRecommended = !isPoi && Boolean(recommendedIds?.has(annId));
+            const id = annId(ann);
+            const isRecommended = !isPoi && Boolean(recommendedIds?.has(id));
             const isMuted = !isPoi && !isRecommended && Boolean(focusMode) && (recommendedIds?.size ?? 0) > 0;
-            const rawStatusKey = ann.status || ann.estado;
+            const rawStatusKey = annStatus(ann);
             const polyVar = isPoi
               ? getPoiVar(ann.color)
               : getPolyVar(isRecommended ? 'recommended' : isMuted ? 'muted' : rawStatusKey);
@@ -419,8 +420,8 @@ export default function BlueprintViewer({
             // fill blanco del hover en index.css; el brillo del hover sigue).
             const isStatusFill = !isPoi && badgeStyle === 'status_fill' && !isRecommended && !isMuted;
             const statusFillColor = isStatusFill ? (STATUS_FILL_COLORS[rawStatusKey] ?? STATUS_FILL_FALLBACK) : null;
-            const isHovered = hoveredId === annId;
-            const isSelected = selectedId === annId;
+            const isHovered = hoveredId === id;
+            const isSelected = selectedId === id;
             const isFocused  = isHovered || isSelected;
 
             const pts = ann.blueprint_coordinates.map(([nx, ny]) => normToSvg(nx, ny));
@@ -431,7 +432,7 @@ export default function BlueprintViewer({
             // en modo panorama (annotations.js). Sin badgeColors: vendido/
             // reservado/no disponible no muestran badge (pedido del cliente).
             // Con badgeColors: se muestra siempre, coloreado según estado.
-            const label = !isPoi ? (loteLabels?.get?.(annId) ?? loteLabels?.[annId]) : null;
+            const label = !isPoi ? (loteLabels?.get?.(id) ?? loteLabels?.[id]) : null;
             const isUnavailableStatus = rawStatusKey === 'sold' || rawStatusKey === 'reserved' || rawStatusKey === 'unavailable';
             const showBadge = Boolean(label) && badgeStyle !== 'status_fill' && (badgeColors || !isUnavailableStatus);
             let badgeNode = null;
@@ -464,11 +465,11 @@ export default function BlueprintViewer({
             }
 
             return (
-              <Fragment key={annId}>
+              <Fragment key={id}>
                 <g
                   role="button"
                   tabIndex={0}
-                  aria-label={ann.tooltip ?? annId}
+                  aria-label={ann.tooltip ?? id}
                   className={`bp-poly bp-poly--${isPoi ? 'poi' : statusKey}${isFocused ? ' bp-poly--focused' : ''}`}
                   onClick={(e) => handlePolygonClick(e, ann)}
                   onKeyDown={(e) => handlePolygonKeyDown(e, ann)}

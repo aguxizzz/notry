@@ -238,6 +238,7 @@
 .lp-gallery-dots { position: absolute; left: 0; right: 0; bottom: 8px; display: flex; justify-content: center; gap: 6px; }
 .lp-gallery-dots button { width: 8px; height: 8px; padding: 0; border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.6); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15); }
 .lp-gallery-dots button[aria-current='true'] { background: #fff; width: 18px; border-radius: 4px; }
+.lp-off-filter { margin: 0; padding: 8px 12px; border-radius: 11px; background: rgba(197, 160, 89, 0.14); font-size: 13.5px; color: var(--lp-ink-2); }
 .lp-comments { padding: 10px 12px; border-radius: 11px; background: var(--lp-soft); }
 .lp-comments span { font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--lp-muted); }
 .lp-comments p { margin: 4px 0 0; font-size: 14px; line-height: 1.45; color: var(--lp-ink-2); white-space: pre-line; }
@@ -425,4 +426,15 @@ html.lf-on .stage-transition-error { bottom: calc(76px + 46px + env(safe-area-in
   .lp, .lp-reopen, .lp-ficha-wrap, .lp-map-ctrl,
   .lf-top, .lf-dock, .lf-results, .lf-fab, .lf-sheet { transition-duration: 0.01ms !important; }
   .lf-scrim { animation: none; }
+}
+
+/* -------------------------------------------------------- gama baja (devicePerf.js)
+   El blur se recalcula en cada cuadro mientras se mueve el panorama de abajo:
+   sin él, el vidrio pasa a casi opaco para que el texto se siga leyendo. */
+html.perf-lite .lp, html.perf-lite .lp-reopen, html.perf-lite .lp-map-ctrl, html.perf-lite .lf {
+  --lp-glass: rgba(255, 255, 255, 0.95);
+}
+html.perf-lite .lp, html.perf-lite .lp-reopen, html.perf-lite .lp-map-ctrl, html.perf-lite .lf-glass {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }

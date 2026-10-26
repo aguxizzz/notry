@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
 import LoginScreen from './components/LoginScreen.jsx';
 import LoteoSelector from './components/LoteoSelector.jsx';
-import ViewerExperience, { getViewerDataUrl } from './components/ViewerExperience.jsx';
+import ViewerExperience from './components/ViewerExperience.jsx';
+import { getViewerDataUrl } from './viewerData.js';
 import { useAuth } from './hooks/useAuth.js';
 import { API_BASE } from './api/config.js';
 

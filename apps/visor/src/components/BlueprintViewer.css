@@ -1,0 +1,144 @@
+/* =============================================
+   BLUEPRINT VIEWER
+   Polígonos del plano: mismo hover que los markers del panorama
+   (lot-recommended-pulse vive en markers.css).
+   ============================================= */
+.bp-poly {
+  cursor: pointer;
+  outline: none;
+}
+
+/* Hover + keyboard focus — same brightness effect as panorama markers */
+.bp-poly:hover,
+.bp-poly--focused,
+.bp-poly:focus-visible {
+  filter: brightness(1.5) saturate(1.1);
+  transition: filter var(--t-fast);
+}
+
+/* Estado del lote: sin color distintivo (pedido del cliente) — un mismo
+   glow grisáceo/blanco al hacer hover, sin importar disponible/no
+   disponible/vendido/reservado. */
+.bp-poly--default:hover polygon,
+.bp-poly--default.bp-poly--focused polygon,
+.bp-poly--default:focus-visible polygon,
+.bp-poly--sold:hover polygon,
+.bp-poly--sold.bp-poly--focused polygon,
+.bp-poly--sold:focus-visible polygon,
+.bp-poly--reserved:hover polygon,
+.bp-poly--reserved.bp-poly--focused polygon,
+.bp-poly--reserved:focus-visible polygon,
+.bp-poly--available:hover polygon,
+.bp-poly--available.bp-poly--focused polygon,
+.bp-poly--available:focus-visible polygon,
+.bp-poly--unavailable:hover polygon,
+.bp-poly--unavailable.bp-poly--focused polygon,
+.bp-poly--unavailable:focus-visible polygon {
+  fill: rgba(255, 255, 255, 0.22);
+  stroke: rgba(255, 255, 255, 0.95);
+}
+.bp-poly--recommended:hover polygon,
+.bp-poly--recommended.bp-poly--focused polygon,
+.bp-poly--recommended:focus-visible polygon {
+  fill: rgba(197, 160, 89, 0.42);
+  stroke: rgba(224, 194, 138, 1);
+  animation-play-state: paused;
+}
+.bp-poly--recommended polygon {
+  animation: lot-recommended-pulse 2.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bp-poly--recommended polygon { animation: none; }
+}
+
+/* ── BlueprintViewer — shared layout ─────────── */
+.viewer-transform {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+.viewer-bp-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+
+.viewer-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  pointer-events: auto;
+}
+
+.viewer-state {
+  width: 100%;
+  height: 100%;
+  background: var(--viewer-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(0.8rem, 1.5vw, 0.9rem);
+}
+.viewer-state--error {
+  flex-direction: column;
+  gap: 0.5rem;
+  color: var(--viewer-error);
+}
+.viewer-state__sub {
+  color: var(--viewer-error-sub);
+  font-size: 0.8rem;
+}
+
+.viewer-canvas {
+  width: 100%;
+  height: 100%;
+  background: var(--viewer-bg);
+  position: relative;
+  overflow: hidden;
+}
+.viewer-canvas--interactive {
+  cursor: default;
+}
+.viewer-canvas__img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* Shared badge used in empty state and zoom indicator */
+.viewer-badge {
+  position: absolute;
+  background: var(--viewer-overlay-bg);
+  color: var(--text-on-dark);
+  font-size: clamp(0.7rem, 1.2vw, 0.8rem);
+  font-family: 'Space Grotesk', sans-serif;
+  padding: 0.35rem 0.85rem;
+  border-radius: 20px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.viewer-badge--center {
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.viewer-badge--zoom {
+  bottom: 12px;
+  right: 12px;
+  font-size: 0.75rem;
+}

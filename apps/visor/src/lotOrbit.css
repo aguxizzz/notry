@@ -1,0 +1,56 @@
+/* =============================================
+   ÓRBITA DEL LOTE (ver lotOrbit.js)
+   ============================================= */
+
+/* Órbita del lote: los markers de PSV siguen a la cámara de PSV (que queda
+   quieta), así que se ocultan y los lotes se dibujan en la escena 3D. */
+/* La transición va solo al ocultar: al volver, markers y escena 3D coinciden
+   y el cambio tiene que ser instantáneo para que no se note. */
+.psv--lot-orbit .psv-markers {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.lot-orbit-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  touch-action: none;
+  cursor: grab;
+}
+.lot-orbit-pins {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.lot-orbit-pin {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+}
+.lot-orbit-pin > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.lot-orbit-overlay.dragging { cursor: grabbing; }
+.lot-orbit-overlay.over-lot { cursor: pointer; }
+.lot-orbit-hover {
+  position: fixed;
+  z-index: 1;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(20, 20, 20, 0.82);
+  color: #fff;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -160%);
+  transition: opacity 0.12s;
+}
+.lot-orbit-hover.on { opacity: 1; }

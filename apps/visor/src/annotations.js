@@ -1,5 +1,7 @@
 import { buildNormalizedBorders } from './normalizeLotBorders.js';
 import { POI_ICON_MARKERS } from './icons/poiIcons.js';
+import { annId, annStatus, annPoints, STATUS_COLORS, STATUS_FILL_COLORS, STATUS_FILL_FALLBACK } from './lotData.js';
+import './markers.css';
 
 /**
  * Builds an HTML string for a POI icon overlay marker.
@@ -37,25 +39,25 @@ export function formatPoiDistance(value, unit) {
   return unit === 'min' ? `${rounded} min` : `${rounded} km`;
 }
 
-// Colores de anillo para la variante "status_ring": el mismo verde/rojo/azul/gris
-// que ya usa el fill del polígono del lote (ver statusStyles en annotationsToMarkers).
-const BADGE_STATUS_RING_COLORS = {
-  available: '#22c55e',
-  unavailable: '#6b7280',
-  sold: '#ef4444',
-  reserved: '#3b82f6',
-};
-
-// Relleno suave por estado del estilo "status_fill" (el modo histórico de
-// mostrar los lotes: verde/gris/rojo/azul translúcido, sin badge). Se usa igual
-// en panorama y en plano.
-export const STATUS_FILL_COLORS = {
-  available:   'rgba(34,197,94,0.16)',
-  unavailable: 'rgba(107,114,128,0.28)',
-  sold:        'rgba(239,68,68,0.18)',
-  reserved:    'rgba(59,130,246,0.24)',
-};
-export const STATUS_FILL_FALLBACK = 'rgba(0,100,255,0.08)';
+/**
+ * Datos de la ficha de un POI (PoiPanel). `stageNameById` resuelve el nombre
+ * de la etapa a la que lleva el botón "Ir a…".
+ */
+export function poiFromAnnotation(ann, id, stageNameById = {}) {
+  return {
+    title: ann.tooltip ?? id,
+    content: ann.description ?? '',
+    icon_type: ann.icon_type ?? null,
+    link_url: ann.link_url ?? null,
+    color: ann.color ?? '#14b8a6',
+    image_url: ann.image_url ?? null,
+    poi_kind: ann.poi_kind ?? 'place',
+    distance_value: ann.distance_value ?? null,
+    distance_unit: ann.distance_unit ?? null,
+    target_loteo_id: ann.target_loteo_id ?? null,
+    target_stage_name: ann.target_loteo_id ? (stageNameById[ann.target_loteo_id] ?? null) : null,
+  };
+}
 
 // Colores de fondo para la variante "default" con badgeColors activado
 // (branding.lote_badge_colors): disponible sigue en blanco, vendido/reservado
@@ -100,7 +102,7 @@ export function getLoteBadgeSvg(label, style = 'default', statusKey = null, useS
   }
 
   if (style === 'status_ring') {
-    const ringColor = BADGE_STATUS_RING_COLORS[statusKey] ?? '#9ca3af';
+    const ringColor = STATUS_COLORS[statusKey] ?? '#9ca3af';
     const shape = isPill
       ? `<rect x="0" y="0" width="${width}" height="${height}" rx="${height / 2}" fill="${ringColor}"/>
          <rect x="5" y="5" width="${width - 10}" height="${height - 10}" rx="${(height - 10) / 2}" fill="white"/>`
@@ -192,26 +194,28 @@ function getPoiMarkerElement(title, stemHeight, variant, photoUrl, distanceText)
  * Convierte anotaciones del contrato del backend al formato MarkerConfig del MarkersPlugin.
  * Soporta coordenadas en píxeles (textureX, textureY, polygonPixels, polylinePixels).
  * Para polígonos de lotes, normaliza bordes compartidos para evitar duplicación visual.
+ * Solo geometría y estilo base: lo que cambia con recomendados y filtros lo
+ * aplica styleLotMarkers encima, para no rehacer esto en cada click.
  *
  * @param {BackendAnnotation[]} annotations - Lista de anotaciones del API
  * @param {number} [snapThreshold=5] - Threshold en píxeles para snapping de vértices
  * @returns {import('@photo-sphere-viewer/markers-plugin').MarkerConfig[]}
  */
-export function annotationsToMarkers(annotations, snapThreshold = 5, recommendedIds = null, focusMode = false, loteLabels = null, badgeStyle = 'default', badgeColors = false) {
+export function annotationsToMarkers(annotations, snapThreshold = 5, loteLabels = null, badgeStyle = 'default', badgeColors = false) {
   if (!Array.isArray(annotations)) return [];
 
   // Pre-compute border normalization for all polygon annotations
   const polygonAnns = annotations.filter(
     (a) =>
       a.type === 'polygon' &&
-      (a.panorama_coordinates ?? a.polygonPixels ?? a.polygon)?.length >= 3
+      annPoints(a).length >= 3
   );
   const borderData = buildNormalizedBorders(polygonAnns, snapThreshold);
 
   return annotations.flatMap((ann) => {
     // No pasamos content al plugin para que no abra su propio panel; el contenido se muestra en nuestro panel lateral.
     const base = {
-      id: ann.uuid ?? ann.id,
+      id: annId(ann),
       tooltip: ann.tooltip ?? null,
       visible: ann.visible !== false,
       ...(ann.svgStyle && { svgStyle: ann.svgStyle }),
@@ -277,7 +281,7 @@ export function annotationsToMarkers(annotations, snapThreshold = 5, recommended
             className: 'psv-marker--poi-callout',
           };
         }
-        const points = ann.panorama_coordinates ?? ann.polygonPixels ?? ann.polygon ?? [];
+        const points = annPoints(ann);
         if (points.length < 3) return [];
 
         const poiColor = ann.color ?? '#14b8a6';
@@ -301,12 +305,11 @@ export function annotationsToMarkers(annotations, snapThreshold = 5, recommended
           const cx = points.reduce((s, [x]) => s + x, 0) / points.length;
           const cy = points.reduce((s, [, y]) => s + y, 0) / points.length;
           const iconSize = 72;
-          const r = iconSize / 2;
           const iconSvg = getPoiIconSvg(ann.icon_type, '#ffffff', poiColor);
           return [
             polygonMarker,
             {
-              id: `${ann.uuid ?? ann.id}__icon`,
+              id: `${annId(ann)}__icon`,
               visible: ann.visible !== false,
               html: iconSvg,
               position: { textureX: cx, textureY: cy },
@@ -322,10 +325,10 @@ export function annotationsToMarkers(annotations, snapThreshold = 5, recommended
       }
 
       case 'polygon': {
-        const points = ann.panorama_coordinates ?? ann.polygonPixels ?? ann.polygon ?? [];
+        const points = annPoints(ann);
         if (points.length < 3) return []; // Skip invalid polygons
 
-        const statusKey = ann.status ?? ann.estado;
+        const statusKey = annStatus(ann);
         // Por defecto el lote no lleva relleno de color (pedido del cliente):
         // el polígono queda transparente y solo se ve su borde. El color de
         // estado aparece en el badge status_ring o, con el estilo status_fill,
@@ -333,25 +336,16 @@ export function annotationsToMarkers(annotations, snapThreshold = 5, recommended
         const isStatusFill = badgeStyle === 'status_fill';
         const fillStyle = { fill: isStatusFill ? (STATUS_FILL_COLORS[statusKey] ?? STATUS_FILL_FALLBACK) : 'transparent', stroke: 'rgba(255,255,255,0.9)', strokeWidth: '1.5', strokeLinecap: 'butt' };
 
-        const annId = ann.uuid ?? ann.id;
-        const polyData = borderData.get(annId);
-        const isRecommended = Boolean(recommendedIds?.has(annId));
-        // "Modo foco": con recomendados presentes, todo lo demás se apaga a
-        // gris (sigue siendo clickeable, solo pierde el color de estado).
-        const isMuted = Boolean(focusMode) && !isRecommended && (recommendedIds?.size ?? 0) > 0;
-        const extraClass = isRecommended ? ' psv-marker--lot-recommended' : isMuted ? ' psv-marker--lot-muted' : '';
-
-        const resolvedFill = isRecommended ? 'rgba(197,160,89,0.42)' : isMuted ? 'rgba(160,160,160,0.20)' : fillStyle.fill;
-        const resolvedStroke = isMuted ? 'rgba(255,255,255,0.6)' : fillStyle.stroke;
-        const resolvedStrokeWidth = isMuted ? '1.5' : (fillStyle.strokeWidth ?? '1.5');
+        const id = annId(ann);
+        const polyData = borderData.get(id);
 
         // Fill marker uses snapped coordinates so it aligns with the border
         const fillMarker = {
           ...base,
-          className: `psv-marker--lot psv-marker--lot-${statusKey || 'default'}${extraClass}`,
+          className: `psv-marker--lot psv-marker--lot-${statusKey || 'default'}`,
           polygonPixels: polyData?.snappedPoints ?? points,
           svgStyle: {
-            fill: resolvedFill,
+            fill: fillStyle.fill,
             stroke: 'none',
             pointerEvents: 'fill',
           },
@@ -360,11 +354,11 @@ export function annotationsToMarkers(annotations, snapThreshold = 5, recommended
 
         // Border markers: one multi-point polyline per chain of consecutive edges
         const borderMarkers = (polyData?.chains ?? []).map((chain, i) => ({
-          id: `${annId}__border__${i}`,
+          id: `${id}__border__${i}`,
           visible: ann.visible !== false,
-          className: `psv-marker--lot psv-marker--lot-${statusKey || 'default'} psv-marker--lot-border${extraClass}`,
+          className: `psv-marker--lot psv-marker--lot-${statusKey || 'default'} psv-marker--lot-border`,
           polylinePixels: chain,
-          svgStyle: { stroke: resolvedStroke, strokeWidth: resolvedStrokeWidth, strokeLinecap: fillStyle.strokeLinecap, strokeLinejoin: 'miter', fill: 'none', pointerEvents: 'none' },
+          svgStyle: { stroke: fillStyle.stroke, strokeWidth: fillStyle.strokeWidth, strokeLinecap: fillStyle.strokeLinecap, strokeLinejoin: 'miter', fill: 'none', pointerEvents: 'none' },
           tooltip: null,
         }));
 
@@ -373,14 +367,14 @@ export function annotationsToMarkers(annotations, snapThreshold = 5, recommended
         // Sin badgeColors: vendido/reservado/no disponible no muestran badge
         // (pedido del cliente). Con badgeColors: se muestra siempre, coloreado
         // según estado (ver BADGE_STATUS_FILL_COLORS).
-        const label = loteLabels?.get?.(annId) ?? loteLabels?.[annId];
+        const label = loteLabels?.get?.(id) ?? loteLabels?.[id];
         const isUnavailableStatus = statusKey === 'sold' || statusKey === 'reserved' || statusKey === 'unavailable';
         const showBadge = label && !isStatusFill && (badgeColors || !isUnavailableStatus);
         const badgeMarkers = showBadge ? (() => {
           const badge = getLoteBadgeSvg(label, badgeStyle, statusKey, badgeColors);
           const badgeHeightPx = 30;
           return [{
-            id: `${annId}__badge`,
+            id: `${id}__badge`,
             visible: ann.visible !== false,
             html: badge.html,
             position: { textureX: points.reduce((s, [x]) => s + x, 0) / points.length, textureY: points.reduce((s, [, y]) => s + y, 0) / points.length },
@@ -389,7 +383,9 @@ export function annotationsToMarkers(annotations, snapThreshold = 5, recommended
             tooltip: null,
             scale: [0.5, 1.5],
             className: 'psv-marker--lot-badge',
-            style: { pointerEvents: 'none' },
+            // opacity explícita: PSV mezcla el style nuevo sobre el viejo al
+            // actualizar, y sin esto el badge quedaría apagado al quitar el filtro.
+            style: { pointerEvents: 'none', opacity: 1 },
           }];
         })() : [];
 
@@ -479,3 +475,43 @@ export function annotationsToMarkers(annotations, snapThreshold = 5, recommended
  * @property {boolean} [visible]
  * @property {string} [content]
  */
+
+// Lotes que no pasan los filtros del panel: se apagan en la foto (relleno
+// oscuro, borde tenue, badge translúcido) en vez de desaparecer.
+const DIM_FILL = 'rgba(10,10,10,0.42)';
+
+/**
+ * Estilo que cambia con la interacción, encima de annotationsToMarkers:
+ * recomendados en dorado, el resto en gris con el modo foco (sigue siendo
+ * clickeable) y los que no pasan el filtro, apagados. Los markers que no
+ * cambian se devuelven tal cual (misma referencia), así el viewer actualiza
+ * solo esos.
+ *
+ * @param {object[]} markers - salida de annotationsToMarkers
+ * @param {{ lotIds: Set<string>, recommendedIds?: Set<string>|null, focusMode?: boolean, visibleIds?: Set<string>|null }} opts
+ *   lotIds: todos los lotes (lo demás no se toca); visibleIds: lotes que pasan el filtro (null = sin filtro)
+ */
+export function styleLotMarkers(markers, { lotIds, recommendedIds = null, focusMode = false, visibleIds = null }) {
+  const hasRecommended = (recommendedIds?.size ?? 0) > 0;
+  if (!hasRecommended && !visibleIds) return markers;
+  return markers.map((m) => {
+    const [id, kind] = String(m.id).split('__');
+    if (!lotIds.has(id)) return m;
+    const isRecommended = Boolean(recommendedIds?.has(id));
+    const isMuted = focusMode && hasRecommended && !isRecommended;
+    const isDimmed = Boolean(visibleIds) && !visibleIds.has(id);
+
+    if (kind === 'badge') return isDimmed ? { ...m, style: { ...m.style, opacity: 0.28 } } : m;
+    if (!isRecommended && !isMuted && !isDimmed) return m;
+    const className = `${m.className}${isRecommended ? ' psv-marker--lot-recommended' : isMuted ? ' psv-marker--lot-muted' : ''}`;
+    if (!kind) {
+      const fill = isDimmed ? DIM_FILL : isRecommended ? 'rgba(197,160,89,0.42)' : 'rgba(160,160,160,0.20)';
+      return { ...m, className, svgStyle: { ...m.svgStyle, fill } };
+    }
+    if (kind === 'border') {
+      const stroke = isDimmed ? 'rgba(255,255,255,0.3)' : isMuted ? 'rgba(255,255,255,0.6)' : m.svgStyle.stroke;
+      return { ...m, className, svgStyle: { ...m.svgStyle, stroke } };
+    }
+    return m;
+  });
+}

@@ -1,0 +1,58 @@
+/* =============================================
+   STAGE TRANSITION STATUS
+   ============================================= */
+.stage-transition-status,
+.stage-transition-error {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100vw - 32px);
+  padding: 9px 14px;
+  border-radius: 999px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.78rem;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.16);
+}
+
+.stage-transition-status {
+  bottom: calc(82px + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, 0.92);
+  color: #555;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.stage-transition-status--above-filter {
+  bottom: calc(82px + 46px + 10px + env(safe-area-inset-bottom));
+}
+
+.stage-transition-error {
+  bottom: calc(82px + env(safe-area-inset-bottom));
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+}
+.stage-transition-error--above-filter {
+  bottom: calc(82px + 46px + 10px + env(safe-area-inset-bottom));
+}
+
+.stage-transition-error button {
+  border: 0;
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: #c2410c;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Gama baja (devicePerf.js): sin blur sobre el panorama en movimiento. */
+html.perf-lite .stage-transition-status {
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}

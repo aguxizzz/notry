@@ -7,6 +7,8 @@ import Graphic from '@arcgis/core/Graphic.js';
 import Polygon from '@arcgis/core/geometry/Polygon.js';
 import SimpleFillSymbol from '@arcgis/core/symbols/SimpleFillSymbol.js';
 import '@arcgis/core/assets/esri/themes/dark/main.css';
+import { annId } from '../lotData.js';
+import './SatelliteViewer.css';
 
 // A diferencia de blueprint/panorama (donde el borde SVG alcanza para el
 // hit-test del mouse), en la SceneView 3D el hitTest necesita superficie:
@@ -62,7 +64,7 @@ export default function SatelliteViewer({ latitude, longitude, annotations, onMa
         });
         const graphic = new Graphic({
           geometry,
-          attributes: { annId: ann.uuid ?? ann.id },
+          attributes: { annId: annId(ann) },
           symbol: new SimpleFillSymbol({
             color: polyVar.fill,
             outline: { color: polyVar.outline, width: 2 },
@@ -110,7 +112,7 @@ export default function SatelliteViewer({ latitude, longitude, annotations, onMa
       view.hitTest(event, { include: graphicsLayer }).then((response) => {
         const hit = response.results.find((r) => r.graphic?.attributes?.annId != null);
         if (!hit) return;
-        const ann = (annotations || []).find((a) => (a.uuid ?? a.id) === hit.graphic.attributes.annId);
+        const ann = (annotations || []).find((a) => annId(a) === hit.graphic.attributes.annId);
         if (ann) onMarkerSelectRef.current?.(ann);
       });
     });

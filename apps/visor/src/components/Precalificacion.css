@@ -1,0 +1,261 @@
+/* =============================================
+   FORMULARIO DE PRE CALIFICACIÓN
+   ============================================= */
+.info-panel-form {
+  display: flex;
+  flex-direction: column;
+}
+.precal-form-inner form {
+  display: flex;
+  flex-direction: column;
+}
+.info-panel-form label {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: var(--text-muted);
+  font-size: clamp(0.72rem, 1.2vw, 0.8rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.info-panel-form input {
+  width: 100%;
+  margin-bottom: 1.2rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--input-border);
+  border-radius: 10px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  /* 16px: por debajo, iOS Safari hace zoom al enfocar el campo */
+  font-size: 16px;
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast), background var(--t-fast);
+}
+.info-panel-form input::placeholder { color: var(--text-muted); opacity: 0.7; }
+.info-panel-form select {
+  width: 100%;
+  margin-bottom: 1rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--input-border);
+  border-radius: var(--btn-radius);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 16px;
+  font-family: inherit;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.info-panel-form select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.15);
+}
+.info-panel-form input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.15);
+  background: #fafaf8;
+}
+.precal-form-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: -0.35rem 0 1rem;
+  padding: 0.65rem 0.85rem;
+  background: rgba(168, 40, 40, 0.08);
+  border-radius: 8px;
+  color: var(--estado-sold-accent);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  animation: precal-error-in 0.2s ease;
+}
+.precal-form-error svg {
+  flex: none;
+}
+
+@keyframes precal-error-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.btn-enviar {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 0.5rem;
+  padding: 0.8rem 1.25rem;
+  background: var(--accent);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  letter-spacing: 0.01em;
+  transition: background var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
+}
+@media (hover: hover) {
+  .btn-enviar:hover:not(:disabled) {
+    background: var(--accent-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(197, 160, 89, 0.28);
+  }
+}
+.btn-enviar:active { transform: translateY(0); box-shadow: none; }
+
+/* =============================================
+   PRECALIFICACIÓN: FEEDBACK DE ENVÍO
+   ============================================= */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes fade-scale-in {
+  from { opacity: 0; transform: scale(0.88); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes precal-draw {
+  to { stroke-dashoffset: 0; }
+}
+.precal-form-inner {
+  transition: opacity 0.2s;
+}
+/* Cubre todo el panel (no solo la sección del form) mientras se envía la
+   solicitud, para no dejar specs/comentarios/WhatsApp visibles a medias
+   detrás de la tarjeta de feedback. */
+.precal-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  overflow-y: auto;
+  background: var(--panel-bg);
+}
+.precal-feedback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.875rem;
+  width: 100%;
+  /* margin:auto centra cuando sobra alto y deja scrollear (sin cortar el
+     inicio) cuando falta, cosa que justify-content:center no hace. */
+  margin: auto;
+  padding: 1.75rem 1.25rem;
+  animation: fade-scale-in 0.28s ease;
+  pointer-events: auto;
+  text-align: center;
+}
+
+/* Ícono de estado — mismo lenguaje visual que los badges de estado del lote */
+.precal-badge {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.precal-badge--loading { background: var(--input-bg); }
+.precal-badge--loading svg { animation: spin 1.1s linear infinite; transform-origin: center; }
+.precal-badge-track { stroke: var(--input-border); fill: none; }
+.precal-badge-arc { stroke: var(--accent); fill: none; }
+.precal-badge--success { background: rgba(30, 110, 62, 0.09); }
+.precal-badge--success svg { color: var(--estado-available-accent); }
+.precal-check {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: precal-draw 0.45s 0.25s ease forwards;
+}
+.precal-badge--error { background: rgba(168, 40, 40, 0.09); }
+.precal-badge--error svg { color: var(--estado-sold-accent); }
+
+.precal-feedback-title {
+  font-size: clamp(1.05rem, 3.4vw, 1.25rem);
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+.precal-loading .precal-feedback-title { color: var(--text-secondary); font-weight: 700; }
+.precal-feedback-detail {
+  font-family: 'Outfit', sans-serif;
+  font-size: clamp(0.8rem, 1.5vw, 0.9rem);
+  font-weight: 500;
+  color: var(--text-muted);
+  line-height: 1.55;
+  max-width: min(260px, 100%);
+}
+
+.btn-retry {
+  margin-top: 0.25rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.7rem 1.25rem;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--input-border);
+  border-radius: var(--btn-radius);
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+}
+@media (hover: hover) {
+  .btn-retry:hover {
+    background: var(--input-bg);
+    border-color: var(--accent);
+    color: var(--accent-hover);
+  }
+}
+.btn-cerrar {
+  margin-top: 0.25rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.7rem 1.25rem;
+  background: var(--accent);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--btn-radius);
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
+}
+@media (hover: hover) {
+  .btn-cerrar:hover {
+    background: var(--accent-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(197, 160, 89, 0.28);
+  }
+}
+.btn-cerrar:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+.btn-enviar:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-enviar,
+  .precal-form-inner,
+  .info-panel-form input,
+  .info-panel-form select {
+    transition: none;
+  }
+  .precal-feedback,
+  .precal-form-error,
+  .precal-overlay {
+    animation: none;
+  }
+  .precal-badge--loading svg { animation: none; }
+  .precal-check { animation: none; stroke-dashoffset: 0; }
+}

@@ -1,0 +1,70 @@
+/* =============================================
+   BIENVENIDA (pista de gesto, primera visita)
+   ============================================= */
+.gesture-hint {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 90;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 18px 26px 16px;
+  border-radius: 18px;
+  background: rgba(16, 16, 18, 0.55);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.gesture-hint.is-on { opacity: 1; }
+/* Centrada en la zona libre de la foto: a la derecha del panel (372px + 12px
+   de margen) en escritorio, encima de la barra inferior en celular. */
+html.lp-on:not(.lp-collapsed) .gesture-hint { left: calc(50% + 192px); }
+html.lf-on .gesture-hint { top: 46%; }
+.gesture-hint b { font-size: 16px; font-weight: 600; }
+.gesture-hint small { font-size: 13px; color: rgba(255, 255, 255, 0.72); }
+.gesture-hint__track { position: relative; width: 120px; height: 44px; margin-bottom: 4px; }
+.gesture-hint__track::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 22px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+}
+.gesture-hint__hand {
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  margin-left: -18px;
+  animation: gesture-hint-swipe 2.2s ease-in-out infinite;
+}
+.gesture-hint__hand svg { display: block; width: 36px; height: 36px; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5)); }
+@keyframes gesture-hint-swipe {
+  0%, 100% { transform: translateX(-34px) rotate(-8deg); }
+  50%      { transform: translateX(34px) rotate(8deg); }
+}
+
+/* Al irse la pista, titila dónde está la lista de lotes. */
+.hint-pulse { animation: hint-pulse 0.8s ease 3; }
+@keyframes hint-pulse { 50% { box-shadow: 0 0 0 6px rgba(197, 160, 89, 0.45); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .gesture-hint__hand, .hint-pulse { animation: none; }
+}
+
+/* Gama baja (devicePerf.js): la pista aparece justo cuando se arrastra el
+   panorama; sin blur, fondo más oscuro para que el texto se lea igual. */
+html.perf-lite .gesture-hint {
+  background: rgba(16, 16, 18, 0.8);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}

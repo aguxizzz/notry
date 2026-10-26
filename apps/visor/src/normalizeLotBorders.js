@@ -1,3 +1,5 @@
+import { annId, annPoints } from './lotData.js';
+
 /**
  * Lot Border Normalization Algorithm
  *
@@ -197,8 +199,8 @@ export function buildNormalizedBorders(
   if (!polygonAnnotations.length) return new Map();
 
   const polygons = polygonAnnotations.map((ann) => ({
-    id: ann.uuid ?? ann.id,
-    points: ann.panorama_coordinates ?? ann.polygonPixels ?? ann.polygon ?? [],
+    id: annId(ann),
+    points: annPoints(ann),
   }));
 
   // Step 1: Snap nearby vertices to cluster centroids

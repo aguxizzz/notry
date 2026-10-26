@@ -1,3 +1,5 @@
+import { annId } from './lotData.js';
+
 const STORAGE_KEY = 'notry_lote_labels_prototype';
 
 function loadStored() {
@@ -32,7 +34,7 @@ export function getLoteLabels(annotations) {
 
   for (const ann of annotations) {
     if (ann.type !== 'polygon') continue;
-    const id = ann.uuid ?? ann.id;
+    const id = annId(ann);
     if (!id) continue;
 
     if (!stored[id]) {

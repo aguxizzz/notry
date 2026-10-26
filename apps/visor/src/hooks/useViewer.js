@@ -1,13 +1,29 @@
-import { useEffect, useRef } from 'react';
-import { Viewer, EquirectangularAdapter, Cache } from '@photo-sphere-viewer/core';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { Viewer, EquirectangularAdapter, Cache, SYSTEM } from '@photo-sphere-viewer/core';
 import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin';
 import '@photo-sphere-viewer/core/index.css';
 import '@photo-sphere-viewer/markers-plugin/index.css';
 import { createLotOrbit } from '../lotOrbit.js';
 
+const NO_MARKERS = [];
 const TRANSITION = { speed: 600, rotation: true, effect: 'black' };
 const STALL_TIMEOUT_MS = 45_000;
 const MAX_PRELOAD_BYTES = 8 * 1024 * 1024;
+// Gama baja: ancho máximo del panorama en la GPU. Un 12000×6000 ocupa ~290 MB
+// y congela la órbita al entrar/salir; 6144 (~75 MB) sigue viéndose nítido en
+// un celular. PSV achica la imagen al cargarla si pasa este tope, y markers y
+// órbita siguen en píxeles de la imagen original (panoData), así que no cambian.
+const LITE_MAX_TEXTURE_WIDTH = 6144;
+
+const isLite = () => document.documentElement.classList.contains('perf-lite');
+
+// SYSTEM es global de PSV y se carga al crear el primer Viewer: el tope va
+// después, y solo baja (si el equipo ya soporta menos, se respeta).
+function capTextureWidth() {
+  if (!isLite() || SYSTEM.maxTextureWidth <= LITE_MAX_TEXTURE_WIDTH) return;
+  SYSTEM.maxTextureWidth = LITE_MAX_TEXTURE_WIDTH;
+  SYSTEM.__maxCanvasWidth = null;
+}
 
 function isSlowConnection() {
   const connection = navigator.connection;
@@ -37,137 +53,93 @@ function safelySetMarkers(plugin, markers) {
   }
 }
 
-const FOCUS_DURATION_MS = 1100;
-// Cuanto del area libre (la que no tapa la ficha) ocupa el lote al terminar.
-const FOCUS_FILL = 0.55;
-// Mismo breakpoint que el layout de la ficha en index.css: modal centrado
-// (escritorio / celular apaisado) vs hoja inferior (celular).
-export const CENTERED_PANEL_QUERY = '(min-width: 641px), (min-width: 480px) and (max-height: 500px)';
+// Con los mismos ids en el mismo orden (un filtro, los recomendados), PSV
+// actualiza en el lugar solo los markers que cambiaron de referencia; si no,
+// se reemplazan todos. setMarkers destruye y recrea cada elemento del DOM.
+function syncMarkers(plugin, prev, next) {
+  const sameIds = prev?.length === next.length && prev.every((m, i) => m.id === next[i].id);
+  if (!sameIds) return safelySetMarkers(plugin, next);
+  const changed = next.filter((m, i) => m !== prev[i]);
+  try {
+    changed.forEach((m, i) => plugin.updateMarker(m, i === changed.length - 1));
+    return true;
+  } catch (error) {
+    console.warn('Visor: no se pudieron actualizar los markers, se reemplazan', error);
+    return safelySetMarkers(plugin, next);
+  }
+}
 
 /**
- * Vuela la camara hasta un marker poligonal (lote) y hace zoom para encuadrarlo.
- * El destino queda descentrado hacia la zona que la ficha no tapa: a la
- * izquierda del modal en escritorio, arriba de la hoja inferior en celular.
- * `insets` ({ left, right, top, bottom } en px) reemplaza esa suposicion
- * cuando la ficha vive en otro lado (el panel lateral).
- * Nunca aleja el zoom: si el usuario ya estaba mas cerca, solo reencuadra.
+ * Referencias compartidas con PSV: el div donde se monta (`containerRef`), la
+ * instancia del viewer y la órbita del lote. Las crea el componente y se las
+ * pasa a useViewer y a los hooks que mueven la cámara o resaltan lotes.
  */
-export function focusMarker(viewer, marker, insets = null) {
-  const ring = marker?.definition?.[0];
-  const center = marker?.state?.position;
-  if (!viewer || !center || !Array.isArray(ring) || ring.length < 3) return;
-
-  const { dataHelper } = viewer;
-  const toUnit = (yaw, pitch) => dataHelper.sphericalCoordsToVector3({ yaw, pitch }).normalize();
-  const centerDir = toUnit(center.yaw, center.pitch);
-
-  // Diametro angular del lote: sirve igual cerca del nadir, donde medir en
-  // yaw/pitch se deforma.
-  let radius = 0;
-  for (const [yaw, pitch] of ring) radius = Math.max(radius, centerDir.angleTo(toUnit(yaw, pitch)));
-  const lotSize = Math.min(Math.PI / 2, radius * 2);
-
-  // Fraccion del viewport que queda libre y hacia donde se corre el lote.
-  let freeWidth; let freeHeight; let shiftX; let shiftY;
-  if (insets) {
-    const { width, height } = viewer.state.size;
-    const { left = 0, right = 0, top = 0, bottom = 0 } = insets;
-    freeWidth = Math.max(0.1, (width - left - right) / width);
-    freeHeight = Math.max(0.1, (height - top - bottom) / height);
-    shiftX = (right - left) / (2 * width);
-    shiftY = (bottom - top) / (2 * height);
-  } else {
-    const centeredPanel = window.matchMedia(CENTERED_PANEL_QUERY).matches;
-    freeWidth = centeredPanel ? 0.3 : 0.85;
-    freeHeight = centeredPanel ? 0.7 : 0.3;
-    shiftX = centeredPanel ? 0.32 : 0;
-    shiftY = centeredPanel ? 0 : 0.3;
-  }
-
-  const toDeg = 180 / Math.PI;
-  const vFovNeeded = Math.max(
-    (lotSize / (freeHeight * FOCUS_FILL)) * toDeg,
-    dataHelper.hFovToVFov(Math.min(170, (lotSize / (freeWidth * FOCUS_FILL)) * toDeg)),
-  );
-  const zoom = Math.max(
-    viewer.getZoomLevel(),
-    dataHelper.fovToZoomLevel(Math.min(viewer.config.maxFov, Math.max(viewer.config.minFov, vFovNeeded))),
-  );
-
-  // Corrimiento en pantalla (unidades de tangente) que debe tener el lote
-  // respecto del centro: negativo en X = a la izquierda, positivo en Y = arriba.
-  const vFov = dataHelper.zoomLevelToFov(zoom);
-  const offsetX = -shiftX * 2 * Math.tan((dataHelper.vFovToHFov(vFov) / toDeg) / 2);
-  const offsetY = shiftY * 2 * Math.tan((vFov / toDeg) / 2);
-
-  // Se busca la direccion de camara que proyecta el centro del lote en ese
-  // punto. Los ejes de pantalla dependen de la propia camara, asi que se
-  // itera; converge en pocas vueltas.
-  let target = { yaw: center.yaw, pitch: center.pitch };
-  for (let i = 0; i < 8; i += 1) {
-    const right = toUnit(target.yaw + Math.PI / 2, 0);
-    const up = toUnit(target.yaw, target.pitch + Math.PI / 2);
-    const dir = centerDir.clone()
-      .addScaledVector(right, -offsetX)
-      .addScaledVector(up, -offsetY)
-      .normalize();
-    target = dataHelper.vector3ToSphericalCoords(dir);
-  }
-
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    viewer.rotate(target);
-    viewer.zoom(zoom);
-    return;
-  }
-  viewer.animate({ yaw: target.yaw, pitch: target.pitch, zoom, speed: FOCUS_DURATION_MS });
+export function useViewerHandles() {
+  const containerRef = useRef(null);
+  const viewerRef = useRef(null);
+  const orbitRef = useRef(null);
+  return useMemo(() => ({ containerRef, viewerRef, orbitRef }), []);
 }
 
 /**
  * Coordina una unica instancia de Photo Sphere Viewer por sesion panorama.
  * Cada seleccion invalida la anterior (latest-wins); ningun callback de una
  * instancia destruida puede confirmar o rechazar una etapa nueva.
+ *
+ * @param {ReturnType<typeof useViewerHandles>} handles
+ * @param {object|null} viewerData - etapa a mostrar (null = sin panorama)
+ * @param {object} options
+ *   preloadCandidates, homePosition y los callbacks onMarkerSelect,
+ *   onMarkerUnselect, onPositionChange, onStageReady, onStageError,
+ *   onStageProgress, onLotPick (click en otro lote en órbita) y
+ *   getOrbitInsets (lo que tapa la interfaz, para encuadrar en órbita).
  */
-export function useViewer(
-  viewerData,
-  onMarkerSelect,
-  onMarkerUnselect,
-  preloadCandidates = [],
-  homePosition = null,
-  onPositionChange = null,
-  onStageReady = null,
-  onStageError = null,
-  onStageProgress = null,
-  onLotPick = null,
-  getOrbitInsets = null,
-) {
-  const containerRef = useRef(null);
-  const viewerRef = useRef(null);
-  const orbitRef = useRef(null);
+export function useViewer(handles, viewerData, { preloadCandidates = [], homePosition = null, ...callbacks } = {}) {
+  const { containerRef, viewerRef, orbitRef } = handles;
   const sessionRef = useRef(0);
   const requestRef = useRef(0);
   const visibleStageRef = useRef(null);
   const visiblePanoramaRef = useRef(null);
-  const callbacksRef = useRef({});
-
-  callbacksRef.current = {
-    onMarkerSelect,
-    onMarkerUnselect,
-    onPositionChange,
-    onStageReady,
-    onStageError,
-    onStageProgress,
-    onLotPick,
-    getOrbitInsets,
-  };
+  // Los eventos de PSV leen siempre los callbacks del último render.
+  const callbacksRef = useRef(callbacks);
+  useLayoutEffect(() => {
+    callbacksRef.current = callbacks;
+  });
 
   const stageId = viewerData?.stageId ?? viewerData?.panoramaUrl ?? null;
   const panoramaUrl = viewerData?.panoramaUrl ?? null;
-  const markers = viewerData?.markers ?? [];
+  const markers = viewerData?.markers ?? NO_MARKERS;
   const orbitLots = viewerData?.orbitLots ?? null;
+  const orbitFocus = viewerData?.orbitFocus ?? null;
   const orbitSurfaces = viewerData?.orbitSurfaces ?? null;
   const orbitPins = viewerData?.orbitPins ?? null;
   const requestNonce = viewerData?.requestNonce ?? 0;
   const active = Boolean(panoramaUrl);
+
+  // Lo que se dibuja de la etapa. La carga lo aplica al terminar y, con la
+  // etapa ya visible, los cambios se aplican aparte (solo lo que cambió) sin
+  // pasar por setPanorama.
+  const contentRef = useRef(null);
+  useLayoutEffect(() => {
+    contentRef.current = { markers, orbitLots, orbitFocus, orbitSurfaces, orbitPins };
+  });
+  const appliedRef = useRef({});
+  const applyContent = (viewer) => {
+    const next = contentRef.current;
+    const applied = appliedRef.current;
+    const orbit = orbitRef.current;
+    let markersOk = applied.markersOk ?? true;
+    if (next.markers !== applied.markers) {
+      markersOk = syncMarkers(viewer.getPlugin(MarkersPlugin), applied.markers, next.markers);
+    }
+    if (next.orbitLots !== applied.orbitLots || next.orbitSurfaces !== applied.orbitSurfaces) {
+      orbit?.setLots(next.orbitLots, next.orbitSurfaces);
+    }
+    if (next.orbitFocus !== applied.orbitFocus) orbit?.setFocus(next.orbitFocus);
+    if (next.orbitPins !== applied.orbitPins) orbit?.setPins(next.orbitPins);
+    appliedRef.current = { ...next, markersOk };
+    return markersOk;
+  };
 
   // El viewer se crea sin panorama: carga inicial y cambios comparten retry,
   // progreso, cancelacion y manejo de errores.
@@ -185,11 +157,14 @@ export function useViewer(
       mousemove: true,
     });
     viewerRef.current = viewer;
+    capTextureWidth();
 
     const orbit = createLotOrbit(viewer, {
       onPick: (id) => callbacksRef.current.onLotPick?.(id, orbit),
       getInsets: () => callbacksRef.current.getOrbitInsets?.() ?? null,
       onHeading: (yaw) => callbacksRef.current.onPositionChange?.(yaw),
+      // Gama baja (devicePerf.js): sin mipmaps en la órbita.
+      mipmaps: !isLite(),
     });
     orbitRef.current = orbit;
 
@@ -208,11 +183,12 @@ export function useViewer(
       if (viewerRef.current === viewer) viewerRef.current = null;
       visibleStageRef.current = null;
       visiblePanoramaRef.current = null;
+      appliedRef.current = {};
       if (orbitRef.current === orbit) orbitRef.current = null;
       try { orbit.destroy(); } catch (_) { /* cleanup idempotente */ }
       try { viewer.destroy(); } catch (_) { /* cleanup idempotente */ }
     };
-  }, [active]);
+  }, [active, containerRef, viewerRef, orbitRef]);
 
   useEffect(() => {
     const viewer = viewerRef.current;
@@ -220,7 +196,6 @@ export function useViewer(
 
     const sessionId = sessionRef.current;
     const requestId = ++requestRef.current;
-    const mp = viewer.getPlugin(MarkersPlugin);
     let settled = false;
     let stallTimer;
 
@@ -277,9 +252,9 @@ export function useViewer(
       clearTimeout(stallTimer);
       viewer.removeEventListener('load-progress', handleProgress);
 
-      const markersOk = safelySetMarkers(mp, markers);
-      orbitRef.current?.setLots(orbitLots, orbitSurfaces);
-      orbitRef.current?.setPins(orbitPins);
+      // Etapa nueva: no se diffea contra lo de la anterior.
+      if (!sameStage) appliedRef.current = {};
+      const markersOk = applyContent(viewer);
       visiblePanoramaRef.current = panoramaUrl;
       visibleStageRef.current = stageId;
       callbacksRef.current.onStageProgress?.({ stageId, progress: 100 });
@@ -303,7 +278,18 @@ export function useViewer(
       viewer.removeEventListener('load-progress', handleProgress);
       if (requestRef.current === requestId) requestRef.current += 1;
     };
-  }, [stageId, panoramaUrl, markers, orbitLots, orbitSurfaces, orbitPins, homePosition, requestNonce]);
+    // applyContent lee refs: no hace falta recargar cuando cambia.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stageId, panoramaUrl, homePosition, requestNonce, viewerRef, orbitRef]);
+
+  // Cambios de contenido con la etapa ya visible (filtros, recomendados).
+  // Mientras carga no se toca nada: la carga aplica lo último al terminar.
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || !stageId || visibleStageRef.current !== stageId) return;
+    applyContent(viewer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stageId, markers, orbitLots, orbitFocus, orbitSurfaces, orbitPins, viewerRef]);
 
   // Precarga conservadora: una sola candidata pequena, durante idle y nunca
   // en conexiones lentas. El browser/CDN sigue siendo el cache principal.
@@ -334,12 +320,11 @@ export function useViewer(
       if (window.cancelIdleCallback) window.cancelIdleCallback(idleId);
       else clearTimeout(idleId);
     };
-  }, [active, panoramaUrl, preloadCandidates]);
+  }, [active, panoramaUrl, preloadCandidates, viewerRef]);
 
   useEffect(() => {
     Cache.maxItems = 2;
     Cache.ttl = 120;
   }, []);
 
-  return { containerRef, orbitRef, viewerRef };
 }

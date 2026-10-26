@@ -2,8 +2,10 @@
 // whatsapp/formulario → envío de solicitud). Sin autenticación, best-effort:
 // una falla de red nunca debe afectar la experiencia del visitante.
 import { API_BASE } from './api/config.js';
+import { IS_SHOWCASE } from './urlParams.js';
 
 const EVENTS_URL = `${API_BASE}/public/visor-events`;
+const LOT_CLICK_URL = `${API_BASE}/public/lots`;
 const SESSION_KEY = 'notry_visor_session_id';
 
 function generateUuid() {
@@ -56,9 +58,6 @@ export function detectOrigin() {
 // Calculado una vez: el referrer/query no cambian durante la sesión del visor (SPA).
 const CHANNEL = detectOrigin();
 
-// ?showcase=1 (grabación para Cursorful): nunca mandar analítica real.
-const IS_SHOWCASE = new URLSearchParams(window.location.search).get('showcase') === '1';
-
 export function trackEvent(loteoId, eventType, target = {}) {
   if (!loteoId || IS_SHOWCASE) return;
   const body = {
@@ -74,4 +73,14 @@ export function trackEvent(loteoId, eventType, target = {}) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   }).catch((err) => console.warn('POST visor event:', err));
+}
+
+// Click en un lote (en la foto, el plano, la órbita o la lista): suma al
+// contador del lote y al embudo de la etapa.
+export function trackLotClick(loteoId, lotId) {
+  if (!IS_SHOWCASE) {
+    fetch(`${LOT_CLICK_URL}/${lotId}/click`, { method: 'POST' })
+      .catch((err) => console.warn('POST lote click:', err));
+  }
+  trackEvent(loteoId, 'lote_click', { type: 'lote', id: lotId });
 }

@@ -1,11 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
+import { createHeadingStore } from '../headingStore.js';
 
 /**
- * Tracks camera yaw from PSV for use by the Compass component.
- * Returns the current yaw (radians) and a stable callback to pass to useViewer.
+ * Rumbo de la cámara para las brújulas. `heading` es un store (no estado):
+ * moverse no re-renderiza el visor. `onPositionChange` va a useViewer.
  */
 export function useCompass() {
-  const [yaw, setYaw] = useState(0);
-  const onPositionChange = useCallback((newYaw) => setYaw(newYaw), []);
-  return { yaw, onPositionChange };
+  const [heading] = useState(() => createHeadingStore());
+  return { heading, onPositionChange: heading.set };
 }

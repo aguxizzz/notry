@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import './OnboardingOverlay.css';
 
 const IconHand = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
