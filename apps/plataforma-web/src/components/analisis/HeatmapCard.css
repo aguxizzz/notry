@@ -42,7 +42,7 @@
   margin: 0;
   font-family: var(--font-primary);
   font-weight: var(--weight-bold);
-  font-size: 1rem;
+  font-size: var(--text-md);
   line-height: 1.25;
   color: var(--color-text);
   overflow: hidden;
@@ -122,7 +122,7 @@
 
 .cell-id {
   font-family: var(--font-primary);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -135,7 +135,7 @@
 
 .cell-clicks {
   font-family: var(--font-primary);
-  font-size: 28px;
+  font-size: var(--text-xl);
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.02em;

@@ -90,7 +90,7 @@ export function useAuth() {
       setInventoryStatusFilter, setInventoryTab, setInventoryLoteos,
       setAllProspectosList, setProspectosCategoryFilter,
       setToasts, setClicksCache, setVisorDataCache,
-      setReportsCache, setDashboardSummary,
+      setAnalyticsCache, setDashboardSummary,
       setOrg, setProjects, setActiveOrgId,
     } = setters;
 
@@ -113,7 +113,7 @@ export function useAuth() {
     setToasts?.([]);
     setClicksCache?.({});
     setVisorDataCache({});
-    setReportsCache({});
+    setAnalyticsCache?.({});
     setDashboardSummary(null);
     setOrg?.(null);
     setProjects?.([]);

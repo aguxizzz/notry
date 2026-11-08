@@ -1,20 +1,21 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { API_BASE } from '../config';
 import {
   Button,
   FeedbackState,
-  PageHeader,
   PageLayout,
   Panel,
   SectionHeader,
 } from '../ui/components';
 import ShellLayout from './ShellLayout';
-import PeriodSelector from './analisis/PeriodSelector';
-import LoteoSelector from './analisis/LoteoSelector';
+import AnalisisContextBar from './analisis/AnalisisContextBar';
+import AnalisisOverview from './analisis/AnalisisOverview';
 import TopLotsPanel from './analisis/TopLotsPanel';
 import HeatmapCard from './analisis/HeatmapCard';
 import FunnelCard from './analisis/FunnelCard';
 import EngagementCard from './analisis/EngagementCard';
+import { selectFunnel, selectEngagement, describePeriod } from './analisis/analytics';
+import { formatNumber } from '../utils/formatters';
 import './views/AnalisisView.css';
 
 export default function AnalisisView({
@@ -26,17 +27,13 @@ export default function AnalisisView({
   clicksLoadingIds = new Set(),
   cachedVisorData = {},
   visorDataLoadingIds = new Set(),
-  cachedReports = {},
   analisisLastDays,
   onAnalisisLastDaysChange,
   onRequestClicks,
   onRequestVisorData,
-  cachedFunnel = {},
-  funnelLoadingIds = new Set(),
-  onRequestFunnel,
-  cachedEngagement = {},
-  engagementLoadingIds = new Set(),
-  onRequestEngagement,
+  cachedAnalytics = {},
+  analyticsLoadingIds = new Set(),
+  onRequestAnalytics,
   orgPhone = null,
 }) {
   const [loteos, setLoteos] = useState(prefetchedLoteos);
@@ -44,25 +41,8 @@ export default function AnalisisView({
   const [loteosError, setLoteosError] = useState(null);
   const [selectedLoteo, setSelectedLoteo] = useState(null);
   const [selectedChannel, setSelectedChannel] = useState(null);
-  const [fadeState, setFadeState] = useState('visible');
   const [topLotsFocusedIdx, setTopLotsFocusedIdx] = useState(-1);
   const [heatmapFocusedIdx, setHeatmapFocusedIdx] = useState(-1);
-  const prevDaysRef = useRef(analisisLastDays);
-
-  useEffect(() => {
-    if (prevDaysRef.current === analisisLastDays) return;
-    prevDaysRef.current = analisisLastDays;
-    setFadeState('fading-out');
-    let inTimer;
-    const outTimer = setTimeout(() => {
-      setFadeState('fading-in');
-      inTimer = setTimeout(() => setFadeState('visible'), 300);
-    }, 200);
-    return () => {
-      clearTimeout(outTimer);
-      clearTimeout(inTimer);
-    };
-  }, [analisisLastDays]);
 
   useEffect(() => {
     if (!token) return;
@@ -77,24 +57,19 @@ export default function AnalisisView({
     }
   }, [token, hasUsableOrgContext, prefetchedLoteos]);
 
+  // Todo lo de un loteo (clics, plano, analítica diaria): se pide una vez y
+  // queda en caché. Lo usan la selección y la precarga al pasar el mouse.
+  const requestLoteoData = (id) => {
+    if (!cachedClicks[id] && !clicksLoadingIds.has(id)) onRequestClicks?.(id);
+    if (!cachedVisorData[id] && !visorDataLoadingIds.has(id)) onRequestVisorData?.(id);
+    if (!cachedAnalytics[id] && !analyticsLoadingIds.has(id)) onRequestAnalytics?.(id);
+  };
+
   useEffect(() => {
     if (!selectedLoteo) return;
     setSelectedChannel(null);
-    if (!cachedClicks[selectedLoteo.id]) onRequestClicks?.(selectedLoteo.id);
-    if (!cachedVisorData[selectedLoteo.id]) onRequestVisorData?.(selectedLoteo.id);
+    requestLoteoData(selectedLoteo.id);
   }, [selectedLoteo?.id]);
-
-  const funnelKey = selectedLoteo ? `${selectedLoteo.id}:${analisisLastDays}:${selectedChannel ?? 'all'}` : null;
-  useEffect(() => {
-    if (!selectedLoteo) return;
-    if (!cachedFunnel[funnelKey]) onRequestFunnel?.(selectedLoteo.id, analisisLastDays, selectedChannel);
-  }, [funnelKey]);
-
-  const engagementKey = selectedLoteo ? `${selectedLoteo.id}:${analisisLastDays}` : null;
-  useEffect(() => {
-    if (!selectedLoteo) return;
-    if (!cachedEngagement[engagementKey]) onRequestEngagement?.(selectedLoteo.id, analisisLastDays);
-  }, [engagementKey]);
 
   const fetchLoteos = async () => {
     setLoteosLoading(true);
@@ -110,17 +85,35 @@ export default function AnalisisView({
     }
   };
 
-  const reportStats = cachedReports[analisisLastDays] ?? null;
-  const funnelStats = cachedFunnel[funnelKey] ?? null;
-  const isLoadingFunnel = !!(funnelKey && funnelLoadingIds.has(funnelKey));
-  const engagementStats = cachedEngagement[engagementKey] ?? null;
-  const isLoadingEngagement = !!(engagementKey && engagementLoadingIds.has(engagementKey));
+  // Período y canal se calculan en memoria sobre la analítica diaria: cambiarlos
+  // es instantáneo y no dispara pedidos.
+  const analytics = cachedAnalytics[selectedLoteo?.id] ?? null;
+  const isLoadingAnalytics = !!(selectedLoteo && analyticsLoadingIds.has(selectedLoteo.id));
+  // La lectura del período (frase, KPIs, señales) usa siempre el embudo sin
+  // filtro de canal, independiente del canal elegido en el FunnelCard.
+  const overviewFunnelStats = useMemo(() => selectFunnel(analytics, analisisLastDays), [analytics, analisisLastDays]);
+  const funnelStats = useMemo(
+    () => (selectedChannel ? selectFunnel(analytics, analisisLastDays, selectedChannel) : overviewFunnelStats),
+    [analytics, analisisLastDays, selectedChannel, overviewFunnelStats],
+  );
+  const engagementStats = useMemo(() => selectEngagement(analytics, analisisLastDays), [analytics, analisisLastDays]);
   const clicksData = cachedClicks[selectedLoteo?.id] ?? [];
   const visorData = cachedVisorData[selectedLoteo?.id] ?? null;
-  const isLoadingClicks = selectedLoteo?.id && clicksLoadingIds.has(selectedLoteo.id);
   const isLoadingVisorData = selectedLoteo?.id && visorDataLoadingIds.has(selectedLoteo.id);
-  const maxClicks = clicksData.reduce((m, d) => Math.max(m, d.clicks), 0);
-  const totalClicks = clicksData.reduce((s, d) => s + d.clicks, 0);
+
+  // Mapa de calor y ranking: interés por lote DENTRO del período (sesiones que
+  // abrieron cada lote, de la analítica diaria), con los nombres de /clicks.
+  // Si la analítica falló, cae a los clics acumulados de /clicks.
+  const lotInterest = useMemo(() => {
+    const activity = engagementStats?.lot_activity;
+    if (!activity) return clicksData;
+    const sessionsById = Object.fromEntries(activity.map(a => [a.lote_id, a.sessions]));
+    return clicksData.map(c => ({ ...c, clicks: sessionsById[c.lote_uuid] ?? 0 }));
+  }, [clicksData, engagementStats]);
+  const isLoadingLotInterest = !!(selectedLoteo?.id && clicksLoadingIds.has(selectedLoteo.id)) || (isLoadingAnalytics && !analytics);
+  const maxClicks = lotInterest.reduce((m, d) => Math.max(m, d.clicks), 0);
+  const totalClicks = lotInterest.reduce((s, d) => s + d.clicks, 0);
+  const activeLots = lotInterest.filter(d => d.clicks > 0).length;
 
   const polygonAnnotations = visorData?.annotations?.filter(a => a.type === 'polygon') || [];
   const annotationsWithCoords = polygonAnnotations.filter(
@@ -129,15 +122,18 @@ export default function AnalisisView({
   const missingCoordinatesCount = polygonAnnotations.length - annotationsWithCoords.length;
   const shouldShowBlueprint = !!(visorData?.blueprintUrl && visorData?.annotations && annotationsWithCoords.length > 0);
 
-  const topLots = [...clicksData].sort((a, b) => b.clicks - a.clicks).slice(0, 10);
+  const topLots = lotInterest.filter(d => d.clicks > 0).sort((a, b) => b.clicks - a.clicks).slice(0, 10);
 
   return (
     <ShellLayout className="analisis-shell">
       <PageLayout className="analisis-page">
-        <PageHeader
-          eyebrow="Inteligencia comercial"
-          title="Análisis"
-          description="Leé el rendimiento de tu operación y el interés que despierta cada loteo."
+        <AnalisisContextBar
+          loteos={loteos}
+          selectedLoteo={selectedLoteo}
+          onSelectLoteo={setSelectedLoteo}
+          analisisLastDays={analisisLastDays}
+          onAnalisisLastDaysChange={onAnalisisLastDaysChange}
+          onLoteoIntent={(id) => requestLoteoData(id)}
         />
 
         {loteosLoading ? (
@@ -158,11 +154,14 @@ export default function AnalisisView({
           />
         ) : (
           <>
-            <PeriodSelector
+            <AnalisisOverview
+              selectedLoteo={selectedLoteo}
               analisisLastDays={analisisLastDays}
-              onAnalisisLastDaysChange={onAnalisisLastDaysChange}
-              reportStats={reportStats}
-              fadeState={fadeState}
+              funnelStats={overviewFunnelStats}
+              engagementStats={engagementStats}
+              clicksData={clicksData}
+              visorData={visorData}
+              hasWhatsapp={Boolean(orgPhone)}
             />
 
             <Panel as="section" className="loteo-activity-block" flush>
@@ -170,24 +169,18 @@ export default function AnalisisView({
                 className="analisis-activity-header"
                 eyebrow="Actividad por loteo"
                 title="Interés en el visor 360"
-                sub="Clics de visitantes sobre cada lote en el visor público"
-              />
-
-              <LoteoSelector
-                loteos={loteos}
-                selectedLoteo={selectedLoteo}
-                onSelect={setSelectedLoteo}
+                sub={`Visitantes que abrieron cada lote en el visor público — ${describePeriod(analisisLastDays)}`}
               />
 
               <div className="loteo-activity-inner">
                 <div className="analisis-left-col">
                   <div className="analisis-summary" aria-live="polite">
                     <div className="analisis-stat analisis-stat--primary">
-                      <span className="analisis-stat-value">{isLoadingClicks ? '—' : totalClicks}</span>
-                      <span className="analisis-stat-label">Clics totales {isLoadingClicks && '(cargando...)'}</span>
+                      <span className="analisis-stat-value">{isLoadingLotInterest ? '—' : formatNumber(totalClicks)}</span>
+                      <span className="analisis-stat-label">Clics en lotes</span>
                     </div>
                     <div className="analisis-stat">
-                      <span className="analisis-stat-value">{isLoadingClicks ? '—' : clicksData.length}</span>
+                      <span className="analisis-stat-value">{isLoadingLotInterest ? '—' : formatNumber(activeLots)}</span>
                       <span className="analisis-stat-label">Lotes con actividad</span>
                     </div>
                   </div>
@@ -197,20 +190,20 @@ export default function AnalisisView({
                     maxClicks={maxClicks}
                     topLotsFocusedIdx={topLotsFocusedIdx}
                     onFocusChange={setTopLotsFocusedIdx}
-                    isLoading={isLoadingClicks}
+                    isLoading={isLoadingLotInterest}
                   />
                 </div>
 
                 <HeatmapCard
                   selectedLoteo={selectedLoteo}
                   visorData={visorData}
-                  clicksData={clicksData}
+                  clicksData={lotInterest}
                   shouldShowBlueprint={shouldShowBlueprint}
                   annotationsWithCoords={annotationsWithCoords}
                   missingCoordinatesCount={missingCoordinatesCount}
                   heatmapFocusedIdx={heatmapFocusedIdx}
                   onFocusChange={setHeatmapFocusedIdx}
-                  isLoading={isLoadingVisorData || isLoadingClicks}
+                  isLoading={isLoadingVisorData || isLoadingLotInterest}
                 />
               </div>
             </Panel>
@@ -219,7 +212,7 @@ export default function AnalisisView({
               selectedLoteo={selectedLoteo}
               funnelStats={funnelStats}
               analisisLastDays={analisisLastDays}
-              isLoading={isLoadingFunnel}
+              isLoading={isLoadingAnalytics}
               hasWhatsapp={Boolean(orgPhone)}
               selectedChannel={selectedChannel}
               onChannelChange={setSelectedChannel}
@@ -229,7 +222,7 @@ export default function AnalisisView({
               selectedLoteo={selectedLoteo}
               engagementStats={engagementStats}
               analisisLastDays={analisisLastDays}
-              isLoading={isLoadingEngagement}
+              isLoading={isLoadingAnalytics}
             />
           </>
         )}

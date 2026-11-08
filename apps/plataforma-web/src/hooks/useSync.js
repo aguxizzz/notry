@@ -27,7 +27,6 @@ export function useSync(token, apiFetch, setters, addToast, hasUsableOrgContext 
     setDashboardSummary,
     setClicksCache,
     setVisorDataCache,
-    setReportsCache,
     setRawActivities,
     shouldKeepLocal,
   } = setters;
@@ -103,23 +102,6 @@ export function useSync(token, apiFetch, setters, addToast, hasUsableOrgContext 
           const next = { ...prev };
           for (const [loteoId, visorData] of Object.entries(res.visor_data)) {
             next[loteoId] = visorData ?? null;
-          }
-          return next;
-        });
-      }
-
-      // ── Reports (transform field names: snake_case → camelCase) ──────────
-      if (res.reports) {
-        setReportsCache(prev => {
-          const next = { ...prev };
-          for (const [days, report] of Object.entries(res.reports)) {
-            if (report) {
-              next[days] = {
-                prospectos: report.prospectos_en_periodo ?? 0,
-                clicks: report.clicks_en_periodo ?? 0,
-                leadsPorOrigen: report.leads_por_origen ?? {},
-              };
-            }
           }
           return next;
         });

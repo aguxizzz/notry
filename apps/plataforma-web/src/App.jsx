@@ -13,7 +13,6 @@ import ClientesView from './components/views/ClientesView';
 import CobranzasView from './components/views/CobranzasView';
 import KanbanBoard from './components/KanbanBoard';
 import AnalisisView from './components/AnalisisView';
-import CategoryPieChart from './components/CategoryPieChart';
 import ConfirmDialog from './components/ConfirmDialog';
 import DeleteProspectDialog from './components/DeleteProspectDialog';
 import DeleteLoteoDialog from './components/DeleteLoteoDialog';
@@ -132,11 +131,8 @@ function PlatformApp() {
   const [clicksLoadingIds, setClicksLoadingIds] = useState(new Set()); // Track which loteos are loading clicks
   const [visorDataCache, setVisorDataCache] = useState({}); // { loteoId: visorData }
   const [visorDataLoadingIds, setVisorDataLoadingIds] = useState(new Set()); // Track which loteos are loading visor data
-  const [reportsCache, setReportsCache] = useState({}); // { lastDays: { prospectos, clicks, leadsPorOrigen } }
-  const [funnelCache, setFunnelCache] = useState({}); // { `${loteoId}:${lastDays}`: funnelStats }
-  const [funnelLoadingIds, setFunnelLoadingIds] = useState(new Set());
-  const [engagementCache, setEngagementCache] = useState({}); // { `${loteoId}:${lastDays}`: engagementStats }
-  const [engagementLoadingIds, setEngagementLoadingIds] = useState(new Set());
+  const [analyticsCache, setAnalyticsCache] = useState({}); // { loteoId: analítica diaria de /analytics }
+  const [analyticsLoadingIds, setAnalyticsLoadingIds] = useState(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dashboardSummary, setDashboardSummary] = useState(null);
   const [analisisLastDays, setAnalisisLastDays] = useState(30);
@@ -435,7 +431,7 @@ function PlatformApp() {
     setInventoryTab, setInventoryLoteos,
     setAllProspectosList, setProspectosCategoryFilter,
     setClicksCache, setVisorDataCache,
-    setReportsCache, setDashboardSummary,
+    setAnalyticsCache, setDashboardSummary,
     setOrg, setProjects, setActiveOrgId,
   }), []);
 
@@ -562,7 +558,7 @@ function PlatformApp() {
   });
 
   // Callbacks passed to AnalisisView so it can request data through the shared cache
-  const { handleAnalisisRequestClicks, handleAnalisisRequestVisorData, handleAnalisisRequestFunnel, handleAnalisisRequestEngagement } = buildAnalisisCallbacks({ apiFetch, setClicksCache, setVisorDataCache, setClicksLoadingIds, setVisorDataLoadingIds, setFunnelCache, setFunnelLoadingIds, setEngagementCache, setEngagementLoadingIds });
+  const { handleAnalisisRequestClicks, handleAnalisisRequestVisorData, handleAnalisisRequestAnalytics } = buildAnalisisCallbacks({ apiFetch, setClicksCache, setVisorDataCache, setClicksLoadingIds, setVisorDataLoadingIds, setAnalyticsCache, setAnalyticsLoadingIds });
 
   // ── Combined sync hook (must be after apiFetch and addToast) ─────────────────
   const { syncLoading, syncError, refresh: refreshSync, clearSyncError } = useSync(token, apiFetch, {
@@ -572,7 +568,6 @@ function PlatformApp() {
     setDashboardSummary,
     setClicksCache,
     setVisorDataCache,
-    setReportsCache,
     setRawActivities: handleRawActivities,
     shouldKeepLocal,
   }, addToast, hasUsableOrgContext);
@@ -852,17 +847,13 @@ function PlatformApp() {
                     clicksLoadingIds={clicksLoadingIds}
                     cachedVisorData={visorDataCache}
                     visorDataLoadingIds={visorDataLoadingIds}
-                    cachedReports={reportsCache}
                     analisisLastDays={analisisLastDays}
                     onAnalisisLastDaysChange={setAnalisisLastDays}
                     onRequestClicks={handleAnalisisRequestClicks}
                     onRequestVisorData={handleAnalisisRequestVisorData}
-                    cachedFunnel={funnelCache}
-                    funnelLoadingIds={funnelLoadingIds}
-                    onRequestFunnel={handleAnalisisRequestFunnel}
-                    cachedEngagement={engagementCache}
-                    engagementLoadingIds={engagementLoadingIds}
-                    onRequestEngagement={handleAnalisisRequestEngagement}
+                    cachedAnalytics={analyticsCache}
+                    analyticsLoadingIds={analyticsLoadingIds}
+                    onRequestAnalytics={handleAnalisisRequestAnalytics}
                     orgPhone={org?.phone}
                   />
                 </ErrorBoundary>

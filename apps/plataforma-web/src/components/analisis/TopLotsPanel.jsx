@@ -36,7 +36,7 @@ export default function TopLotsPanel({ topLots, maxClicks, topLotsFocusedIdx, on
         {isLoading ? (
           <p className="top-lots-empty">Cargando datos...</p>
         ) : topLots.length === 0 ? (
-          <p className="top-lots-empty">Sin datos disponibles</p>
+          <p className="top-lots-empty">Ningún lote recibió clics en este período</p>
         ) : (
           topLots.map((item, i) => (
             <div

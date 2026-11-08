@@ -1,4 +1,4 @@
-/* ── Funnel Card: diagrama de flujo (Sankey) del embudo del visor ── */
+/* ── Funnel Card: embudo del visor en cuatro pasos (columnas) ── */
 
 .funnel-card {
   margin-top: var(--space-lg);
@@ -7,13 +7,9 @@
   flex-direction: column;
   gap: 18px;
 
-  --funnel-trunk: var(--color-text-muted);
-  --funnel-form: var(--color-cat-negociacion);
+  --funnel-advance: var(--color-accent);
   --funnel-whatsapp: var(--color-whatsapp);
-  --funnel-lost: color-mix(in srgb, var(--color-text-muted) 32%, var(--color-border-warm));
-  --funnel-lost-text: var(--color-text-muted);
-  --funnel-pill-bg: var(--color-surface);
-  --funnel-pill-border: var(--color-border-warm);
+  --funnel-lost: color-mix(in srgb, var(--color-border-warm) 70%, var(--color-bg));
 }
 
 .funnel-card-header {
@@ -21,40 +17,8 @@
   border-bottom: 1px solid var(--color-border-warm);
 }
 
-.funnel-card-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.funnel-view-toggle {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border-radius: var(--radius-control);
-  border: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-family: var(--font-ui);
-  font-size: 12.5px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: var(--motion-focus);
-  white-space: nowrap;
-}
-.funnel-view-toggle:hover,
-.funnel-view-toggle:focus-visible {
-  border-color: var(--color-accent);
-  color: var(--color-accent-dark);
-  background: var(--hover-surface-bg);
-  outline: none;
-}
-
-/* Reuses the shared Select component (same as the "Origen" filter in el modal
-   de prospectos) — solo se retocan colores/tamaño para calzar con el toggle
-   de al lado. */
+/* Reusa el Select compartido (el mismo del filtro "Origen" del modal de
+   prospectos) — solo se retocan colores/tamaño para el header. */
 .funnel-channel-select {
   flex: none;
   width: 200px;
@@ -83,26 +47,16 @@
 
 .funnel-empty {
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
   font-style: italic;
 }
 
-.funnel-low-volume-note {
-  margin: 0;
-  padding: 8px 12px;
-  border-radius: var(--radius-md);
-  background: var(--hover-surface-bg);
-  font-family: var(--font-body);
-  font-size: 12.5px;
-  color: var(--color-text-muted);
-}
 
 .funnel-body {
   position: relative;
 }
-.funnel-body.is-refreshing > .funnel-table-wrap,
-.funnel-body.is-refreshing > .funnel-wrap {
+.funnel-body.is-refreshing > .funnel-steps {
   opacity: 0.45;
   pointer-events: none;
   filter: saturate(0.7);
@@ -117,158 +71,117 @@
   justify-content: center;
 }
 
-.funnel-wrap {
-  position: relative;
+/* ── Pasos en columnas ── */
+.funnel-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.funnel-step {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0 16px;
+  border-left: 1px dashed var(--color-border);
+}
+
+.funnel-step:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.funnel-step-label {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.funnel-step-value {
   margin-top: 6px;
-}
-
-.funnel-sankey {
-  display: block;
-  width: 100%;
-  height: auto;
-  overflow: visible;
-}
-
-.funnel-node-rect {
-  stroke: color-mix(in srgb, var(--color-text) 18%, transparent);
-  stroke-width: 1;
-}
-.funnel-node { cursor: pointer; }
-.funnel-node:hover .funnel-node-rect,
-.funnel-node:focus-visible .funnel-node-rect { filter: brightness(1.08); }
-.funnel-node:focus-visible { outline: none; }
-
-.funnel-ribbon {
-  cursor: pointer;
-  transition: opacity var(--duration-fast) var(--ease-out);
-}
-.funnel-ribbon:hover,
-.funnel-ribbon:focus-visible { opacity: 0.92 !important; outline: none; }
-
-.funnel-pill rect {
-  fill: var(--funnel-pill-bg);
-  stroke: var(--funnel-pill-border);
-  stroke-width: 1;
-}
-.funnel-pill text {
   font-family: var(--font-primary);
-  font-weight: 700;
-  font-size: 13px;
-  fill: var(--color-text);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--color-text);
   font-variant-numeric: tabular-nums;
 }
-.funnel-pill text.lost {
-  fill: var(--funnel-lost-text);
-  font-weight: 600;
-  font-size: 12px;
+
+.funnel-step-pct {
+  margin-bottom: 12px;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
 }
 
-.funnel-callout-divider {
-  stroke: var(--color-border-warm);
-  stroke-width: 1.5;
-}
-.funnel-callout-eyebrow {
-  font-family: var(--font-ui);
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: var(--tracking-eyebrow);
-  text-transform: uppercase;
-  fill: var(--color-accent-dark);
-}
-.funnel-callout-value {
-  font-family: var(--font-primary);
-  font-weight: 700;
-  font-size: 34px;
-  fill: var(--color-text);
-}
-.funnel-callout-sub {
-  font-family: var(--font-body);
-  font-size: 11.5px;
-  fill: var(--color-text-muted);
+.funnel-step-bars {
+  height: 150px;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
 }
 
-.funnel-tooltip {
-  position: absolute;
-  z-index: 5;
-  pointer-events: none;
-  background: var(--color-text);
-  color: var(--color-bg);
-  border-radius: var(--radius-lg);
-  padding: 9px 12px;
-  font-family: var(--font-body);
-  font-size: 12.5px;
-  line-height: 1.5;
-  box-shadow: var(--shadow-lg);
-  opacity: 0;
-  transform: translate(-50%, calc(-100% - 10px));
-  transition: opacity var(--duration-fast) var(--ease-out);
-  max-width: 220px;
-  white-space: nowrap;
+.funnel-step-bar {
+  flex: 1;
+  min-width: 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  transition: height 500ms var(--ease-out-quart);
 }
-.funnel-tooltip.visible { opacity: 1; }
-.funnel-tooltip strong {
-  font-family: var(--font-primary);
-  font-variant-numeric: tabular-nums;
+
+.funnel-step-bar--advance { background: var(--funnel-advance); }
+.funnel-step-bar--whatsapp { background: var(--funnel-whatsapp); }
+.funnel-step-bar--lost { background: var(--funnel-lost); }
+
+.funnel-step-drop {
+  min-height: 18px;
+  margin-top: 10px;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.funnel-step-drop b {
+  font-weight: var(--weight-bold);
+  color: var(--color-danger);
 }
 
 .funnel-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 18px;
-  margin-top: 14px;
+  gap: 16px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border-warm);
 }
+
 .funnel-legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   font-family: var(--font-body);
-  font-size: 12.5px;
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
+
 .funnel-legend-swatch {
-  width: 11px;
-  height: 11px;
+  width: 10px;
+  height: 10px;
   border-radius: 3px;
-  flex: none;
 }
 
-.funnel-table-wrap {
-  margin-top: 4px;
-  overflow-x: auto;
+@media (prefers-reduced-motion: reduce) {
+  .funnel-step-bar { transition: none; }
 }
-.funnel-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-body);
-  font-size: 13px;
-}
-.funnel-table th {
-  text-align: left;
-  font-family: var(--font-ui);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-  padding: 0 10px 8px;
-  border-bottom: 1px solid var(--color-border-warm);
-}
-.funnel-table th:not(:first-child),
-.funnel-table td:not(:first-child) { text-align: right; }
-.funnel-table td {
-  padding: 9px 10px;
-  border-bottom: 1px solid var(--color-border-warm);
-  color: var(--color-text);
-}
-.funnel-table td.num {
-  font-family: var(--font-primary);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-.funnel-table tr.lost td { color: var(--funnel-lost-text); font-weight: 400; }
-.funnel-table tr.lost td.num { font-weight: 600; }
-.funnel-table tr:last-child td { border-bottom: none; }
 
-@media (max-width: 700px) {
-  .funnel-legend { gap: 12px 16px; }
+@media (max-width: 640px) {
+  .funnel-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 22px;
+  }
+  .funnel-step:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .funnel-step-bars { height: 90px; }
 }

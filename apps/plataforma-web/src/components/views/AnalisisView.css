@@ -82,7 +82,7 @@
 .analisis-shell .analisis-stat-value {
   font-family: var(--font-primary);
   font-weight: 700;
-  font-size: 32px;
+  font-size: var(--text-xl);
   letter-spacing: -0.02em;
   line-height: 1;
   color: var(--color-text);
@@ -93,7 +93,7 @@
 .analisis-shell .analisis-stat-label {
   display: block;
   font-family: var(--font-ui);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;

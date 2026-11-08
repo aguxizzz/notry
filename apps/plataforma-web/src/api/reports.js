@@ -1,6 +1,6 @@
 import { API_BASE } from '../config';
 
-export function buildAnalisisCallbacks({ apiFetch, setClicksCache, setVisorDataCache, setClicksLoadingIds, setVisorDataLoadingIds, setFunnelCache, setFunnelLoadingIds, setEngagementCache, setEngagementLoadingIds }) {
+export function buildAnalisisCallbacks({ apiFetch, setClicksCache, setVisorDataCache, setClicksLoadingIds, setVisorDataLoadingIds, setAnalyticsCache, setAnalyticsLoadingIds }) {
   const handleAnalisisRequestClicks = (loteoId, signal) => {
     setClicksLoadingIds(prev => new Set([...prev, loteoId]));
     apiFetch(`${API_BASE}/loteos/${loteoId}/clicks`, { signal })
@@ -39,40 +39,23 @@ export function buildAnalisisCallbacks({ apiFetch, setClicksCache, setVisorDataC
       });
   };
 
-  const handleAnalisisRequestFunnel = (loteoId, lastDays, channel, signal) => {
-    const cacheKey = `${loteoId}:${lastDays}:${channel ?? 'all'}`;
-    setFunnelLoadingIds(prev => new Set([...prev, cacheKey]));
-    const channelQs = channel ? `&channel=${encodeURIComponent(channel)}` : '';
-    apiFetch(`${API_BASE}/loteos/${loteoId}/funnel?last_days=${lastDays}${channelQs}`, { signal })
+  // Analítica del visor agregada por día (/analytics): una sola respuesta por
+  // loteo de la que la vista deriva cualquier período y canal en memoria.
+  const handleAnalisisRequestAnalytics = (loteoId, signal) => {
+    setAnalyticsLoadingIds(prev => new Set([...prev, loteoId]));
+    apiFetch(`${API_BASE}/loteos/${loteoId}/analytics`, { signal })
       .then(data => {
-        setFunnelCache(prev => ({ ...prev, [cacheKey]: data }));
+        if (data?.days) setAnalyticsCache(prev => ({ ...prev, [loteoId]: data }));
       })
       .catch(err => { if (err.name !== 'AbortError') console.error(err); })
       .finally(() => {
-        setFunnelLoadingIds(prev => {
+        setAnalyticsLoadingIds(prev => {
           const next = new Set(prev);
-          next.delete(cacheKey);
+          next.delete(loteoId);
           return next;
         });
       });
   };
 
-  const handleAnalisisRequestEngagement = (loteoId, lastDays, signal) => {
-    const cacheKey = `${loteoId}:${lastDays}`;
-    setEngagementLoadingIds(prev => new Set([...prev, cacheKey]));
-    apiFetch(`${API_BASE}/loteos/${loteoId}/engagement?last_days=${lastDays}`, { signal })
-      .then(data => {
-        setEngagementCache(prev => ({ ...prev, [cacheKey]: data }));
-      })
-      .catch(err => { if (err.name !== 'AbortError') console.error(err); })
-      .finally(() => {
-        setEngagementLoadingIds(prev => {
-          const next = new Set(prev);
-          next.delete(cacheKey);
-          return next;
-        });
-      });
-  };
-
-  return { handleAnalisisRequestClicks, handleAnalisisRequestVisorData, handleAnalisisRequestFunnel, handleAnalisisRequestEngagement };
+  return { handleAnalisisRequestClicks, handleAnalisisRequestVisorData, handleAnalisisRequestAnalytics };
 }
