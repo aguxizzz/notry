@@ -124,6 +124,10 @@ export default function BlueprintHeatmap({
     }
   }
 
+  // The wrapper's CSS sizes the box from this ratio (see .blueprint-heatmap-wrapper);
+  // until the image loads it falls back to the CSS default.
+  const aspectStyle = imageDims ? { '--bp-aspect': `${imageDims.w} / ${imageDims.h}` } : {};
+
   const commonWrapperProps = {
     ref: wrapperRef,
     role: 'region',
@@ -131,7 +135,7 @@ export default function BlueprintHeatmap({
     onMouseMove: handleWrapperMouseMove,
     onMouseEnter: handleMouseEnter,
     onMouseLeave: handleMouseLeave,
-    style: { cursor: 'grab', position: 'relative' },
+    style: { cursor: 'grab', position: 'relative', ...aspectStyle },
   };
 
   return (
@@ -170,7 +174,7 @@ export default function BlueprintHeatmap({
           onMouseMove={handleWrapperMouseMove}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
-          style={{ cursor: 'grab', position: 'relative' }}
+          style={{ cursor: 'grab', position: 'relative', ...aspectStyle }}
         >
           <div
             style={{

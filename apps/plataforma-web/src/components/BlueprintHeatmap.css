@@ -29,8 +29,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: clamp(280px, 50vh, 700px);
-  flex: 1;
+  /* The box takes the plano's own proportions (--bp-aspect, set from the
+     loaded image) instead of stretching to the row: without this it shrank
+     to whatever height the ranking column left (tiny when there are no clicks).
+     Min/max keep wide planos legible and tall (vertical) ones from taking
+     the whole page; past the max the image letterboxes via object-fit. */
+  aspect-ratio: var(--bp-aspect, 16 / 10);
+  min-height: 320px;
+  max-height: min(70vh, 640px);
+  flex: none;
 }
 
 .blueprint-image {
@@ -42,6 +49,7 @@
 
 .blueprint-heatmap-wrapper:fullscreen {
   height: 100vh !important;
+  aspect-ratio: auto;
   max-height: none !important;
   background: var(--color-dark-surface);
   border-radius: 0;
