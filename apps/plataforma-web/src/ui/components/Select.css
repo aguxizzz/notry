@@ -96,7 +96,7 @@
 
 /* Dropdown panel — portaled to document.body, offsets set via inline style.
    position:fixed en base (no solo al abrir) es clave: el panel se renderiza
-   siempre en el DOM (aunque cerrado, oculto con clip-path), y sin position
+   siempre en el DOM (aunque cerrado, oculto con opacity), y sin position
    quedaba `static` al final de <body> ocupando altura real → inflaba el alto
    del documento y metía scroll fantasma. Fixed lo saca del flujo estando
    cerrado. */
@@ -105,21 +105,29 @@
   background: var(--panel-bg);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-control);
-  box-shadow: var(--shadow-offset);
+  /* No shadow: the old clip-path reveal always clipped it away, so the panel
+     has never shown one; keeping it off preserves the look users know. */
   z-index: var(--z-dropdown);
   max-height: min(320px, calc(100vh - 24px));
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
 
-  /* Clip from top — reveals downward like a sliding panel */
-  clip-path: inset(0 0 100% 0);
+  /* Fade + short slide instead of the old clip-path reveal: the browser doesn't
+     hit-test clipped areas, so a quick click on an option that wasn't revealed
+     yet fell through to whatever was underneath. Opacity/transform keep the
+     whole panel clickable from the first frame. */
+  opacity: 0;
+  transform: translateY(-4px);
   pointer-events: none;
-  transition: clip-path 280ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    opacity 140ms ease-out,
+    transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .select-dropdown--open {
-  clip-path: inset(0 0 0% 0);
+  opacity: 1;
+  transform: none;
   pointer-events: auto;
 }
 
@@ -184,8 +192,9 @@
   .select-trigger__chevron {
     transition: none;
   }
+  /* Just no motion; open/closed still comes from opacity above. */
   .select-dropdown {
     transition: none;
-    clip-path: none;
+    transform: none;
   }
 }
