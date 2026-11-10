@@ -38,6 +38,7 @@ export async function createLoteo({ apiFetch, createLoteoForm, setCreateLoteoLoa
         panorama_width: createLoteoForm.panorama_width || undefined,
         panorama_height: createLoteoForm.panorama_height || undefined,
         blueprint_url: createLoteoForm.blueprint_url,
+        blueprint_thumbnail_url: createLoteoForm.blueprint_thumbnail_url || undefined,
         latitude: createLoteoForm.latitude !== '' ? parseFloat(createLoteoForm.latitude) : undefined,
         longitude: createLoteoForm.longitude !== '' ? parseFloat(createLoteoForm.longitude) : undefined,
         loading_gallery: createLoteoForm.loading_gallery?.length ? createLoteoForm.loading_gallery : undefined,
@@ -46,7 +47,7 @@ export async function createLoteo({ apiFetch, createLoteoForm, setCreateLoteoLoa
     });
     onAddLoteo?.(res);
     setCreateLoteoOpen(false);
-    setCreateLoteoForm({ name: '', slug: '', image_url: '', thumbnail_url: '', blueprint_url: '', panorama_width: null, panorama_height: null, latitude: '', longitude: '', loading_gallery: [] });
+    setCreateLoteoForm({ name: '', slug: '', image_url: '', thumbnail_url: '', blueprint_url: '', blueprint_thumbnail_url: '', panorama_width: null, panorama_height: null, latitude: '', longitude: '', loading_gallery: [] });
     if (res?.id) {
       logActivity({ apiFetch, activityType: 'loteo_created', entityType: 'loteo', entityId: res.id, loteOwnerId, description: `Loteo "${res.name}" creado`, name: res.name, addActivity });
     }
@@ -93,6 +94,7 @@ export async function saveEditLoteo({ apiFetch, editingLoteoId, editLoteoForm, a
         previous_panorama_width: editLoteoForm.previous_panorama_width || undefined,
         previous_panorama_height: editLoteoForm.previous_panorama_height || undefined,
         blueprint_url: editLoteoForm.blueprint_url,
+        blueprint_thumbnail_url: editLoteoForm.blueprint_thumbnail_url || undefined,
         latitude: editLoteoForm.latitude !== '' ? parseFloat(editLoteoForm.latitude) : undefined,
         longitude: editLoteoForm.longitude !== '' ? parseFloat(editLoteoForm.longitude) : undefined,
         loading_gallery: editLoteoForm.loading_gallery ?? [],

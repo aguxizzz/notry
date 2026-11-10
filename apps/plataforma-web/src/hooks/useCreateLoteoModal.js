@@ -3,7 +3,7 @@ import { createLoteo } from '../api/loteos';
 
 export function useCreateLoteoModal({ apiFetch, onSuccess, onAddLoteo, loteOwnerId, addActivity, existingLoteos = [] }) {
   const [createLoteoOpen, setCreateLoteoOpen] = useState(false);
-  const [createLoteoForm, setCreateLoteoForm] = useState({ name: '', slug: '', image_url: '', thumbnail_url: '', blueprint_url: '', panorama_width: null, panorama_height: null, latitude: '', longitude: '', loading_gallery: [] });
+  const [createLoteoForm, setCreateLoteoForm] = useState({ name: '', slug: '', image_url: '', thumbnail_url: '', blueprint_url: '', blueprint_thumbnail_url: '', panorama_width: null, panorama_height: null, latitude: '', longitude: '', loading_gallery: [] });
   const [createLoteoLoading, setCreateLoteoLoading] = useState(false);
   const [createLoteoError, setCreateLoteoError] = useState(null);
 
@@ -14,7 +14,7 @@ export function useCreateLoteoModal({ apiFetch, onSuccess, onAddLoteo, loteOwner
 
   const closeCreateLoteoModal = () => {
     setCreateLoteoOpen(false);
-    setCreateLoteoForm({ name: '', slug: '', image_url: '', thumbnail_url: '', blueprint_url: '', panorama_width: null, panorama_height: null, latitude: '', longitude: '', loading_gallery: [] });
+    setCreateLoteoForm({ name: '', slug: '', image_url: '', thumbnail_url: '', blueprint_url: '', blueprint_thumbnail_url: '', panorama_width: null, panorama_height: null, latitude: '', longitude: '', loading_gallery: [] });
   };
 
   const validateForm = (formData) => {

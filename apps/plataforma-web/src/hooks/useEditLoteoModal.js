@@ -15,7 +15,7 @@ export function useEditLoteoModal({ apiFetch, setInventoryLoteos, addToast, onUp
   const [editLoteoOpen, setEditLoteoOpen] = useState(false);
   const [editLoteoClosing, setEditLoteoClosing] = useState(false);
   const [editingLoteoId, setEditingLoteoId] = useState(null);
-  const [editLoteoForm, setEditLoteoForm] = useState({ name: '', slug: '', image_url: '', original_image_url: '', thumbnail_url: '', blueprint_url: '', panorama_width: null, panorama_height: null, previous_panorama_width: null, previous_panorama_height: null, latitude: '', longitude: '', loading_gallery: [] });
+  const [editLoteoForm, setEditLoteoForm] = useState({ name: '', slug: '', image_url: '', original_image_url: '', thumbnail_url: '', blueprint_url: '', blueprint_thumbnail_url: '', panorama_width: null, panorama_height: null, previous_panorama_width: null, previous_panorama_height: null, latitude: '', longitude: '', loading_gallery: [] });
   const [editLoteoLoading, setEditLoteoLoading] = useState(false);
   const [editLoteoError, setEditLoteoError] = useState(null);
 
@@ -28,6 +28,7 @@ export function useEditLoteoModal({ apiFetch, setInventoryLoteos, addToast, onUp
       original_image_url: loteo.image_url || '',
       thumbnail_url: loteo.thumbnail_url || '',
       blueprint_url: loteo.blueprint_url || '',
+      blueprint_thumbnail_url: loteo.blueprint_thumbnail_url || '',
       panorama_width: loteo.panorama_width ?? null,
       panorama_height: loteo.panorama_height ?? null,
       previous_panorama_width: loteo.panorama_width ?? null,

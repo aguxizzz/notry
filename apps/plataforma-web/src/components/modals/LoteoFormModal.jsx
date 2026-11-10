@@ -106,7 +106,12 @@ export default function LoteoFormModal({
             <ImageUploadField
               label="Blueprint"
               value={formData.blueprint_url}
-              onUpload={({ url }) => onFieldChange('blueprint_url', url)}
+              thumbnailUrl={formData.blueprint_thumbnail_url}
+              onUpload={({ url, thumbnailUrl }) => {
+                // keep the upload's thumbnail too, so small previews don't load the full blueprint
+                onFieldChange('blueprint_url', url);
+                onFieldChange('blueprint_thumbnail_url', thumbnailUrl);
+              }}
               apiFetch={apiFetch}
               uploadFn={uploadFn}
               onUploadEvent={onUploadEvent}
