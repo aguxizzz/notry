@@ -23,8 +23,7 @@ const ATTRIBUTION = {
 const isLiteDevice = () => document.documentElement.classList.contains('perf-lite');
 
 /**
- * Same props as the old ArcGIS SatelliteViewer, so ViewerExperience only
- * swapped the component. `variant` is 'satellite' or 'render'; `selectedId`
+ * `variant` is 'satellite' or 'render'; `selectedId`
  * is the lot with its ficha open (from useLotSelection), the map flies to it.
  * `usePanel`/`panelCollapsed` come from usePanelLayout and only trigger a
  * new reading of how much of the screen the panel covers.

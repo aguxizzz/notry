@@ -3,11 +3,7 @@ import react from '@vitejs/plugin-react';
 
 // Atajos de dev a prototipos de design-lab (sin esto el path cae en el
 // fallback del SPA y se interpreta como slug de proyecto).
-// /maqueta: satellite/render mode on Three.js, to compare against ArcGIS.
-const DESIGN_LAB_ROUTES = {
-  '/leyenda': '/design-lab/leyenda.html',
-  '/maqueta': '/design-lab/maqueta.html',
-};
+const DESIGN_LAB_ROUTES = { '/leyenda': '/design-lab/leyenda.html' };
 
 const designLabRoutes = {
   name: 'design-lab-routes',

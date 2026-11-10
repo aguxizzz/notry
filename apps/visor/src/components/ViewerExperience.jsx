@@ -24,10 +24,8 @@ import './ViewerExperience.css';
 
 const VISIT_ORIGIN = detectOrigin();
 
-// @arcgis/core pesa varios MB — se separa en su propio chunk y solo se baja
-// si el usuario efectivamente activa el modo satelital.
-// Satellite/render on Three.js (MapViewer). The ArcGIS SatelliteViewer is
-// kept unused until the new one is approved on real devices.
+// Satellite/render on Three.js, in its own chunk: only downloaded when the
+// buyer switches to one of those modes.
 const MapViewer = lazy(() => import('./MapViewer.jsx'));
 
 // Cuánto queda montada la pantalla de carga después de terminar, para que

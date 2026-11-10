@@ -29,8 +29,8 @@ export default defineConfig([
       // Sin esta regla, no-unused-vars no ve el uso de componentes en JSX.
       'react/jsx-uses-vars': 'error',
       'no-unused-vars': ['error', { varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
-      // Temporal: quedan casos en LotPanel (paso 4 del refactor), Compass,
-      // LoadingScreen, BlueprintViewer, OnboardingOverlay y SatelliteViewer.
+      // Temporal: quedan casos en LoadingScreen, BlueprintViewer,
+      // OnboardingOverlay, LoteoSelector y MapViewer (el aviso de sin WebGL).
       // Volver a 'error' cuando estén resueltos.
       'react-hooks/refs': 'warn',
       'react-hooks/set-state-in-effect': 'warn',
