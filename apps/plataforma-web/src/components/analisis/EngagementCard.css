@@ -89,6 +89,13 @@
 .engagement-hours-cell {
   aspect-ratio: 1;
   border-radius: 3px;
+  cursor: default;
+}
+
+/* Outline on the cell the tooltip is describing. */
+.engagement-hours-cell.is-hovered {
+  outline: 2px solid var(--color-text);
+  outline-offset: 1px;
 }
 
 /* ── Mini stats ── */

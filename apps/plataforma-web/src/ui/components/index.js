@@ -1,6 +1,8 @@
 export { default as Badge } from './Badge';
 export { default as Button } from './Button';
 export { default as CommentTooltip } from './CommentTooltip';
+export { default as ChartTooltip } from './ChartTooltip';
+export { alignFor } from './chartTooltipAlign';
 export { default as DataToolbar } from './DataToolbar';
 export { default as ErrorBoundary } from './ErrorBoundary';
 export { default as FeedbackState } from './FeedbackState';

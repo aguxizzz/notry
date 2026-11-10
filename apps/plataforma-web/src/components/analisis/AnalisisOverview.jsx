@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { ChartTooltip, alignFor } from '../../ui/components';
 import { formatNumber as fmt, formatPercent, formatDuration } from '../../utils/formatters';
 import { describePeriod } from './analytics';
 import './AnalisisOverview.css';
@@ -33,9 +34,15 @@ function Delta({ current, previous, days, unit = 'pct' }) {
   );
 }
 
+// T12:00 so the ISO date never shifts a day when parsed in the local timezone.
+const parseDay = (iso) => new Date(`${iso}T12:00:00`);
+
 function Sparkline({ series }) {
   const W = 400;
   const H = 84;
+  const [hoverIdx, setHoverIdx] = useState(null);
+  // Plot's screen rect at the last mousemove, to place the (portaled) tooltip.
+  const [plotRect, setPlotRect] = useState(null);
   const values = series.map(d => d.sessions);
   const max = Math.max(...values, 1);
   const pts = values.map((v, i) => [
@@ -44,20 +51,57 @@ function Sparkline({ series }) {
   ]);
   const line = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ');
   const peakIdx = values.indexOf(Math.max(...values));
-  const fmtDay = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+  const fmtDay = (iso) => parseDay(iso).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+
+  // The whole plot area is the hitbox: the mouse's x picks the nearest day,
+  // so there's no need to aim at the 2px line itself.
+  const handleMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const fraction = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
+    setPlotRect(rect);
+    setHoverIdx(Math.round(fraction * (values.length - 1)));
+  };
+
+  const hovered = hoverIdx != null ? series[hoverIdx] : null;
+  const hoverFraction = hoverIdx != null ? hoverIdx / (values.length - 1) : 0;
+  // The svg stretches horizontally (preserveAspectRatio="none") but keeps its
+  // 84px height, so the point's y in px is the same as in viewBox units.
+  const hoverY = hoverIdx != null ? pts[hoverIdx][1] : 0;
 
   return (
     <>
-      <svg className="ov-spark__svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
-        <defs>
-          <linearGradient id="ov-spark-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="var(--accent-color)" stopOpacity=".28" />
-            <stop offset="1" stopColor="var(--accent-color)" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path d={`${line} L${W} ${H} L0 ${H} Z`} fill="url(#ov-spark-fill)" />
-        <path d={line} fill="none" stroke="var(--accent-color)" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
-      </svg>
+      <div className="ov-spark__plot" onMouseMove={handleMove} onMouseLeave={() => setHoverIdx(null)}>
+        <svg className="ov-spark__svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="ov-spark-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="var(--accent-color)" stopOpacity=".28" />
+              <stop offset="1" stopColor="var(--accent-color)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path d={`${line} L${W} ${H} L0 ${H} Z`} fill="url(#ov-spark-fill)" />
+          <path d={line} fill="none" stroke="var(--accent-color)" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+        </svg>
+        {hovered && (
+          <>
+            {/* Guide and dot are HTML, not svg: the stretched svg would turn the dot into an ellipse. */}
+            <span className="ov-spark__guide" style={{ left: `${hoverFraction * 100}%` }} aria-hidden="true" />
+            <span className="ov-spark__dot" style={{ left: `${hoverFraction * 100}%`, top: `${hoverY}px` }} aria-hidden="true" />
+            <ChartTooltip
+              x={plotRect.left + hoverFraction * plotRect.width}
+              y={plotRect.top + hoverY}
+              align={alignFor(hoverFraction)}
+              onDismiss={() => setHoverIdx(null)}
+            >
+              <span className="chart-tooltip__muted">
+                {parseDay(hovered.date).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })}
+              </span>
+              <span className="chart-tooltip__title">
+                {fmt(hovered.sessions)} {hovered.sessions === 1 ? 'visita' : 'visitas'}
+              </span>
+            </ChartTooltip>
+          </>
+        )}
+      </div>
       <div className="ov-spark__axis">
         <span>{fmtDay(series[0].date)}</span>
         {max > 0 && <span>pico: {fmt(values[peakIdx])} el {fmtDay(series[peakIdx].date)}</span>}

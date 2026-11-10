@@ -1,10 +1,12 @@
-import { Panel, SectionHeader, Loader } from '../../ui/components';
+import { useState } from 'react';
+import { Panel, SectionHeader, Loader, ChartTooltip, alignFor } from '../../ui/components';
 import { getHeatColor } from '../../utils/heatColor';
 import { formatNumber as fmt, formatDuration } from '../../utils/formatters';
 import { describePeriod } from './analytics';
 import './EngagementCard.css';
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const WEEKDAYS_FULL = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
 function BarList({ rows }) {
   const max = rows.reduce((m, r) => Math.max(m, r.value), 0);
@@ -26,21 +28,43 @@ function BarList({ rows }) {
 // Matriz 7x24 (lunes primero, hora local AR) de inicios de sesión.
 function HourGrid({ matrix }) {
   const max = matrix.reduce((m, row) => Math.max(m, ...row), 0);
+  // Hovered cell (day, hour) + its screen rect for the tooltip.
+  const [hover, setHover] = useState(null);
   return (
-    <div className="engagement-hours" role="img" aria-label="Sesiones por día de la semana y hora">
+    // Leaving clears only on the whole grid, not per cell: crossing the 3px
+    // gaps between cells keeps the last tooltip instead of flickering.
+    <div
+      className="engagement-hours"
+      role="img"
+      aria-label="Sesiones por día de la semana y hora"
+      onMouseLeave={() => setHover(null)}
+    >
       {matrix.map((row, d) => (
         <div key={WEEKDAYS[d]} className="engagement-hours-row">
           <span className="engagement-hours-day">{WEEKDAYS[d]}</span>
           {row.map((v, h) => (
             <span
               key={h}
-              className="engagement-hours-cell"
+              className={`engagement-hours-cell${hover?.d === d && hover?.h === h ? ' is-hovered' : ''}`}
               style={{ background: getHeatColor(v, max) }}
-              title={`${WEEKDAYS[d]} ${h}h: ${fmt(v)} ${v === 1 ? 'sesión' : 'sesiones'}`}
+              onMouseEnter={(e) => setHover({ d, h, v, rect: e.currentTarget.getBoundingClientRect() })}
             />
           ))}
         </div>
       ))}
+      {hover && (
+        <ChartTooltip
+          x={hover.rect.left + hover.rect.width / 2}
+          y={hover.rect.top}
+          align={alignFor(hover.h / 23)}
+          onDismiss={() => setHover(null)}
+        >
+          <span className="chart-tooltip__muted">{WEEKDAYS_FULL[hover.d]} de {hover.h} a {hover.h + 1} h</span>
+          <span className="chart-tooltip__title">
+            {fmt(hover.v)} {hover.v === 1 ? 'sesión' : 'sesiones'}
+          </span>
+        </ChartTooltip>
+      )}
       <div className="engagement-hours-row engagement-hours-axis" aria-hidden="true">
         <span className="engagement-hours-day" />
         {Array.from({ length: 24 }, (_, h) => <span key={h}>{h % 6 === 0 ? `${h}h` : ''}</span>)}

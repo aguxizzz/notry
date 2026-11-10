@@ -86,6 +86,12 @@
   min-width: 0;
   padding: 0 16px;
   border-left: 1px dashed var(--color-border);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+/* Light tint on the hovered column so it's clear which one the tooltip describes. */
+.funnel-step.is-hovered {
+  background: color-mix(in srgb, var(--color-text) 3%, transparent);
 }
 
 .funnel-step:first-child {

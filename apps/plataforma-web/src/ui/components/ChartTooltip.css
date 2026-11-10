@@ -1,0 +1,49 @@
+/* Chart hover tooltip (see ChartTooltip.jsx). Same dark style as the plano's
+   tooltip (.blueprint-tooltip) so every chart in Análisis reads the same. */
+.chart-tooltip {
+  position: fixed; /* viewport coords, rendered in <body> */
+  z-index: var(--z-dropdown);
+  pointer-events: none; /* never steal the hover from the chart underneath */
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-md);
+  background: var(--color-toast-bg);
+  color: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* 10px gap above the anchor point; horizontal shift depends on alignment. */
+.chart-tooltip--center { transform: translate(-50%, calc(-100% - 10px)); }
+.chart-tooltip--start  { transform: translate(-12px, calc(-100% - 10px)); }
+.chart-tooltip--end    { transform: translate(calc(-100% + 12px), calc(-100% - 10px)); }
+
+.chart-tooltip__title {
+  display: block;
+  font-weight: var(--weight-medium);
+}
+
+.chart-tooltip__muted {
+  display: block;
+  opacity: 0.75;
+}
+
+/* One row per series: color swatch, label, value. */
+.chart-tooltip__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-tooltip__row b {
+  margin-left: auto;
+  padding-left: var(--space-sm);
+}
+
+.chart-tooltip__swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex: none;
+}

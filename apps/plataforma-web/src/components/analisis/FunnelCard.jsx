@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Panel, SectionHeader, Loader, Select } from '../../ui/components';
+import { Panel, SectionHeader, Loader, Select, ChartTooltip } from '../../ui/components';
 import { CHANNEL_DISPLAY } from '../../constants/display';
 import { formatNumber as fmt, formatPercent as fmtPct } from '../../utils/formatters';
 import { describePeriod } from './analytics';
@@ -26,11 +26,14 @@ function buildSteps(stats, hasWhatsapp) {
   return [
     {
       label: 'Entraron al visor',
+      // `hint` explains the step in the hover tooltip.
+      hint: 'Sesiones distintas que abrieron el visor',
       value: total,
       parts: [{ kind: 'advance', value: total, label: 'Entraron al visor' }],
     },
     {
       label: 'Tocaron un lote',
+      hint: 'Abrieron la ficha de al menos un lote',
       value: stats.lote_click,
       parts: [
         { kind: 'advance', value: stats.lote_click, label: 'Tocaron un lote' },
@@ -41,6 +44,7 @@ function buildSteps(stats, hasWhatsapp) {
     },
     {
       label: 'Pidieron información',
+      hint: hasWhatsapp ? 'Abrieron el formulario o tocaron WhatsApp' : 'Abrieron el formulario de contacto',
       value: stats.form_open + wa,
       parts: [
         { kind: 'advance', value: stats.form_open, label: 'Abrieron el formulario' },
@@ -52,6 +56,7 @@ function buildSteps(stats, hasWhatsapp) {
     },
     {
       label: 'Te contactaron',
+      hint: hasWhatsapp ? 'Enviaron el formulario o escribieron por WhatsApp' : 'Enviaron el formulario de contacto',
       value: stats.form_submit + wa,
       parts: [
         { kind: 'advance', value: stats.form_submit, label: 'Enviaron la solicitud' },
@@ -73,13 +78,15 @@ export default function FunnelCard({
   selectedChannel = null,
   onChannelChange,
 }) {
-  // Switching the channel filter (or the loteo/period) means a new fetch —
-  // funnelStats goes back to whatever is cached for that combination (often
-  // nothing yet). Keeping the last successfully loaded stats around lets the
+  // Channel and period are computed in memory now, but switching loteo still
+  // waits on /analytics and funnelStats is null meanwhile. Keeping the last
+  // successfully loaded stats around lets the
   // columns stay on screen (dimmed, see funnel-body.is-refreshing) instead of
   // the whole card collapsing to a spinner while it loads, which was
   // shrinking the page and yanking the scroll position upward.
   const [displayStats, setDisplayStats] = useState(funnelStats);
+  // Hovered column + mouse position inside it, for the breakdown tooltip.
+  const [hover, setHover] = useState(null);
   if (funnelStats && funnelStats !== displayStats) {
     setDisplayStats(funnelStats);
   }
@@ -128,7 +135,14 @@ export default function FunnelCard({
           )}
           <ol className="funnel-steps">
             {steps.map((step, i) => (
-              <li key={step.label} className="funnel-step">
+              <li
+                key={step.label}
+                className={`funnel-step${hover?.idx === i ? ' is-hovered' : ''}`}
+                // The whole column is the hitbox (not each thin bar), and the
+                // tooltip follows the mouse so it never sits on top of the numbers.
+                onMouseMove={(e) => setHover({ idx: i, x: e.clientX, y: e.clientY })}
+                onMouseLeave={() => setHover(null)}
+              >
                 <span className="funnel-step-label">{step.label}</span>
                 <span className="funnel-step-value">{fmt(step.value)}</span>
                 <span className="funnel-step-pct">{i === 0 ? '100%' : `${fmtPct(pctOf(step.value, total))} del total`}</span>
@@ -138,10 +152,23 @@ export default function FunnelCard({
                       key={part.label}
                       className={`funnel-step-bar funnel-step-bar--${part.kind}`}
                       style={{ height: `${Math.max(pctOf(part.value, total), part.value > 0 ? 1.5 : 0.75)}%` }}
-                      title={`${part.label}: ${fmt(part.value)}`}
                     />
                   ))}
                 </div>
+                {hover?.idx === i && (
+                  // First/last columns align the tooltip inward so it isn't cut by the card.
+                  <ChartTooltip x={hover.x} y={hover.y} align={i === 0 ? 'start' : i === steps.length - 1 ? 'end' : 'center'} onDismiss={() => setHover(null)}>
+                    <span className="chart-tooltip__title">{step.label}</span>
+                    <span className="chart-tooltip__muted">{step.hint}</span>
+                    {step.parts.map((part) => (
+                      <span key={part.label} className="chart-tooltip__row">
+                        <span className={`chart-tooltip__swatch funnel-step-bar--${part.kind}`} />
+                        {part.label}
+                        <b>{fmt(part.value)} · {fmtPct(pctOf(part.value, total))}</b>
+                      </span>
+                    ))}
+                  </ChartTooltip>
+                )}
                 <span className="funnel-step-drop">
                   {step.lost > 0 && <><b>−{fmt(step.lost)}</b> {step.why}</>}
                 </span>
