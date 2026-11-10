@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Wallet } from 'lucide-react';
 import ImageUploadField from './ImageUploadField';
 import LoadingGalleryField from './LoadingGalleryField';
-import { Select, Panel, FeedbackState } from '../ui/components';
+import { Select, Panel, FeedbackState, Switch } from '../ui/components';
 import { createProject, updateProject, assignLoteos, unassignLoteo } from '../api/projects';
 import { updateOrg } from '../api/organizations';
 import { SIMULADOR_URL } from '../config';
@@ -48,6 +48,7 @@ const EMPTY_BRANDING = {
   lote_badge_style: 'default',
   lote_badge_colors: false,
   lote_plano_style: 'inherit',
+  show_price: false,
 };
 
 const LOTE_BADGE_STYLE_OPTIONS = [
@@ -433,22 +434,25 @@ export default function ProjectSettingsPanel({
 
             {usesDefaultBadge && (
               <div className="form-group">
-                <label className="project-checkbox" htmlFor="project-lote-badge-colors">
-                  <input
-                    id="project-lote-badge-colors"
-                    type="checkbox"
-                    checked={Boolean(branding.lote_badge_colors)}
-                    onChange={e => setBrandingField('lote_badge_colors', e.target.checked)}
-                  />
-                  <span className="project-checkbox-text">
-                    <span className="project-checkbox-title">Colorear badge según estado</span>
-                    <span className="project-checkbox-hint">
-                      Vendido/reservado en azul y no disponible en marrón, en vez de ocultarlo.
-                    </span>
-                  </span>
-                </label>
+                <Switch
+                  id="project-lote-badge-colors"
+                  label="Colorear badge según estado"
+                  hint="Vendido/reservado en azul y no disponible en marrón, en vez de ocultarlo."
+                  checked={branding.lote_badge_colors}
+                  onChange={v => setBrandingField('lote_badge_colors', v)}
+                />
               </div>
             )}
+
+            <div className="form-group">
+              <Switch
+                id="project-show-price"
+                label="Mostrar precio en el visor"
+                hint="El precio de cada lote aparece en su ficha del visor público."
+                checked={branding.show_price}
+                onChange={v => setBrandingField('show_price', v)}
+              />
+            </div>
 
             <div className="form-group">
               <label className="form-label">Logos</label>

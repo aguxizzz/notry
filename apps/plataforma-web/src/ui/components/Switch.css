@@ -1,0 +1,90 @@
+/* On/off switch styles. `.form-group .ui-switch` and `.ui-switch .ui-switch-input`
+   are there to beat the global `.form-group label` and `.form-group input { width: 100% }`. */
+.ui-switch,
+.form-group .ui-switch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin: 0;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: var(--weight-medium);
+  font-size: var(--text-base);
+  color: var(--text-main);
+}
+
+.ui-switch[data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.ui-switch-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ui-switch-hint {
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* The input stays invisible on top of the track, so click and focus are still native. */
+.ui-switch .ui-switch-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 44x24 so it reads as a control next to the form inputs; 36x20 looked tiny on desktop. */
+.ui-switch-track {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--text-muted) 35%, transparent);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.ui-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.ui-switch-input:checked + .ui-switch-track {
+  background: var(--accent-color);
+}
+
+.ui-switch-input:checked + .ui-switch-track .ui-switch-thumb {
+  /* track width - thumb width - both 2px insets */
+  transform: translateX(20px);
+}
+
+.ui-switch-input:focus-visible + .ui-switch-track {
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-switch-track,
+  .ui-switch-thumb {
+    transition: none;
+  }
+}

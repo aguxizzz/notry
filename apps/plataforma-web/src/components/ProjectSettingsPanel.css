@@ -240,43 +240,6 @@
   }
 }
 
-/* Checkbox con título + ayuda. Los selectores llevan .project-settings-form
-   para ganarle a `.form-group input { width: 100% }` y `.form-group label`. */
-.project-settings-form .project-checkbox {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  cursor: pointer;
-  text-transform: none;
-  letter-spacing: 0;
-  font-weight: var(--weight-medium);
-  font-size: var(--text-base);
-  color: var(--text-main);
-}
-
-.project-settings-form .project-checkbox input[type="checkbox"] {
-  flex: none;
-  width: 16px;
-  height: 16px;
-  margin: 2px 0 0;
-  padding: 0;
-  accent-color: var(--accent-color);
-  cursor: pointer;
-}
-
-.project-checkbox-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.project-checkbox-hint {
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--text-muted);
-}
-
 /* Aclaración inline a la derecha de una etiqueta de campo */
 .form-label-note {
   margin-left: 8px;
