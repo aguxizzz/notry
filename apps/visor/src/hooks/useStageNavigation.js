@@ -29,7 +29,8 @@ export function useStageNavigation(group) {
     const modes = [];
     if (visor?.panoramaUrl) modes.push('panorama');
     if (visor?.blueprintUrl) modes.push('blueprint');
-    if (hasSatellite) modes.push('satellite');
+    // Render usa la misma geo que satélite, solo cambia el estilo (SatelliteViewer).
+    if (hasSatellite) modes.push('satellite', 'render');
     return modes;
   }, [visor?.panoramaUrl, visor?.blueprintUrl, hasSatellite]);
 

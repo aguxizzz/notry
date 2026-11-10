@@ -26,7 +26,9 @@ const VISIT_ORIGIN = detectOrigin();
 
 // @arcgis/core pesa varios MB — se separa en su propio chunk y solo se baja
 // si el usuario efectivamente activa el modo satelital.
-const SatelliteViewer = lazy(() => import('./SatelliteViewer.jsx'));
+// Satellite/render on Three.js (MapViewer). The ArcGIS SatelliteViewer is
+// kept unused until the new one is approved on real devices.
+const MapViewer = lazy(() => import('./MapViewer.jsx'));
 
 // Cuánto queda montada la pantalla de carga después de terminar, para que
 // se disuelva sobre el visor (coincide con la transición de .is-done).
@@ -235,13 +237,20 @@ export default function ViewerExperience() {
           badgeStyle={stage.blueprintBadgeStyle}
           badgeColors={stage.badgeColors}
         />
-      ) : viewMode === 'satellite' ? (
+      ) : viewMode === 'satellite' || viewMode === 'render' ? (
+        // Satélite y render son la misma escena 3D con otro estilo: la misma
+        // instancia sigue montada al pasar de uno a otro y la cámara no salta.
         <Suspense fallback={null}>
-          <SatelliteViewer
+          <MapViewer
+            variant={viewMode}
             latitude={visor.latitude}
             longitude={visor.longitude}
             annotations={stage.blueprintAnnotations}
+            loteLabels={stage.loteLabels}
+            selectedId={selection.selectedLotId}
             onMarkerSelect={selection.handleBlueprintSelect}
+            usePanel={layout.usePanel}
+            panelCollapsed={layout.collapsed}
           />
         </Suspense>
       ) : (

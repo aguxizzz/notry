@@ -60,5 +60,7 @@ export function getLotPanelInsets() {
   }
   const lotPanel = document.getElementById('lot-panel');
   if (!lotPanel || lotPanel.dataset.collapsed === '1') return {};
-  return { left: lotPanel.getBoundingClientRect().right + PANEL_MARGIN };
+  // offsetLeft/offsetWidth y no getBoundingClientRect: el panel entra y sale
+  // con un transform animado, y a mitad de la animación el rect da cualquier cosa.
+  return { left: lotPanel.offsetLeft + lotPanel.offsetWidth + PANEL_MARGIN };
 }

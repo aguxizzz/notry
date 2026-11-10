@@ -12,7 +12,7 @@ import './LotPanel.css';
 
 const STATUS_PLURAL = { available: 'Disponibles', reserved: 'Reservados', sold: 'Vendidos', unavailable: 'No disponibles' };
 const SERVICE_STATE = { available: 'Listo', in_progress: 'En obra', unavailable: 'Pendiente' };
-const VIEW_LABEL = { panorama: '360°', blueprint: 'Plano', satellite: 'Satélite' };
+const VIEW_LABEL = { panorama: '360°', blueprint: 'Plano', satellite: 'Satélite', render: 'Render' };
 
 export const IconWhatsApp = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

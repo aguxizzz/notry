@@ -14,6 +14,8 @@ export const I = {
   panorama: '<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>',
   blueprint: '<rect x="3.5" y="3.5" width="7" height="7" rx="1.2"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.2"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.2"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.2"/>',
   satellite: '<path d="M13 7 9 3 5 7l4 4"/><path d="M17 11l4 4-4 4-4-4"/><path d="m8 12 4 4"/><path d="m10.5 9.5 4 4"/><path d="M3 21c2-1 3-2 4-4"/>',
+  // Cubo isométrico: la vista "maqueta" del loteo.
+  render: '<path d="M12 3 4 7.5v9L12 21l8-4.5v-9L12 3Z"/><path d="M4 7.5 12 12l8-4.5"/><path d="M12 12v9"/>',
   up: '<path d="M6 15l6-6 6 6"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   pin: '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.3"/>',
