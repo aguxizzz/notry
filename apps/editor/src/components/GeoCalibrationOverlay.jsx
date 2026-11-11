@@ -3,8 +3,7 @@ import { X } from 'lucide-react';
 import BlueprintEditor from './BlueprintEditor';
 import CalibrationInspector from './CalibrationInspector';
 
-// Lazy: @arcgis/core is heavy, keep it out of the main bundle chunk (same
-// criterion as apps/visor's SatelliteViewer).
+// Lazy: the Three.js map and its tile code only load when calibrating.
 const GeoCalibrationMap = lazy(() => import('./GeoCalibrationMap'));
 
 // Full-screen geo-calibration workspace, parallel to CalibrationOverlay's
@@ -67,6 +66,7 @@ export default function GeoCalibrationOverlay({
                 longitude={longitude}
                 points={geoCalibrationPoints}
                 polygons={geoPolygons}
+                blueprintUrl={blueprintUrl}
                 onMapPointPicked={onMapPointPicked}
               />
             </Suspense>

@@ -9,14 +9,23 @@ import { toModeAnnotation } from './annotationModel.js';
 export const MIN_GEO_PAIRS = 4;
 
 /**
+ * Homografía plano [0,1]² → (lng, lat) de los pares, o null si faltan pares o
+ * sale inválida. La usan el horneado de lotes y el plano superpuesto del mapa.
+ */
+export function geoHomography(geoPoints) {
+  if (geoPoints.length < MIN_GEO_PAIRS) return null;
+  // La homografía trabaja en (x, y) = (lng, lat); los pares guardan [lat, lng].
+  const H = computeHomography(geoPoints.map(p => ({ src: p.blueprint, dst: [p.geo[1], p.geo[0]] })));
+  return isHomographyValid(H) ? H : null;
+}
+
+/**
  * Lotes con geo_coordinates recalculados desde su blueprint_coordinates.
  * Devuelve null si faltan pares o la homografía sale inválida.
  */
 export function projectGeoPolygons(annotations, geoPoints) {
-  if (geoPoints.length < MIN_GEO_PAIRS) return null;
-  // La homografía trabaja en (x, y) = (lng, lat); los pares guardan [lat, lng].
-  const H = computeHomography(geoPoints.map(p => ({ src: p.blueprint, dst: [p.geo[1], p.geo[0]] })));
-  if (!isHomographyValid(H)) return null;
+  const H = geoHomography(geoPoints);
+  if (!H) return null;
   return annotations.map(a => {
     if (a.type !== 'polygon' || !a.blueprint_coordinates?.length) return a;
     const geo_coordinates = a.blueprint_coordinates.map((pt) => {

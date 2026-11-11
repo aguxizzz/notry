@@ -91,9 +91,13 @@ export function useGeoCalibration({
     [annotations, points, pending]
   );
 
+  // Lo que muestra el mapa: con calibración válida, los lotes proyectados EN
+  // VIVO con los pares actuales (vista previa, no se guarda hasta "Actualizar
+  // polígonos satelitales"); sin ella, lo último horneado.
   const polygons = useMemo(
-    () => annotations.filter(a => a.type === 'polygon' && a.geo_coordinates?.length >= 3),
-    [annotations]
+    () => (projectGeoPolygons(annotations, points) ?? annotations)
+      .filter(a => a.type === 'polygon' && a.geo_coordinates?.length >= 3),
+    [annotations, points]
   );
 
   return {

@@ -1043,6 +1043,72 @@ div[onClick]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   color: var(--text-muted);
   text-align: center;
 }
+/* Mode switch + blueprint opacity, floating over the map's top-left corner. */
+.geo-map-toolbar {
+  position: absolute;
+  top: var(--space-sm);
+  left: var(--space-sm);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-2xs) var(--space-xs);
+  background: var(--panel-overlay);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+.geo-map-toolbar__modes { display: flex; gap: 2px; }
+.geo-map-toolbar__mode {
+  padding: var(--space-2xs) var(--space-xs);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.geo-map-toolbar__mode:hover { color: var(--color-text); }
+.geo-map-toolbar__mode.is-active { background: var(--accent); color: var(--accent-ink); }
+.geo-map-toolbar__mode:disabled { opacity: 0.45; cursor: default; }
+.geo-map-toolbar__opacity { display: flex; align-items: center; gap: var(--space-xs); }
+.geo-map-toolbar__opacity input { width: 110px; accent-color: var(--accent); }
+.geo-map-toolbar__opacity.is-disabled { opacity: 0.45; }
+.geo-map-toolbar__hint { color: var(--text-subtle); }
+
+/* Calibration pins: positioned by geoMapScene with a transform from (0,0). */
+.geo-map-pins { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.geo-map-pin {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px; /* centered on the point */
+  display: grid;
+  place-items: center;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #f59e0b;
+  color: #111;
+  font: var(--weight-bold) 11px/1 var(--font-ui);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.geo-map-loading {
+  position: absolute;
+  bottom: var(--space-sm);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--space-2xs) var(--space-sm);
+  border-radius: 999px;
+  background: var(--panel-overlay);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
 .geo-calibration-map__error {
   position: absolute;
   inset: 0;

@@ -1,118 +1,107 @@
-import { useEffect, useRef, useState } from 'react';
-import Map from '@arcgis/core/Map.js';
-import MapView from '@arcgis/core/views/MapView.js';
-import esriConfig from '@arcgis/core/config.js';
-import GraphicsLayer from '@arcgis/core/layers/GraphicsLayer.js';
-import Graphic from '@arcgis/core/Graphic.js';
-import Point from '@arcgis/core/geometry/Point.js';
-import Polygon from '@arcgis/core/geometry/Polygon.js';
-import SimpleMarkerSymbol from '@arcgis/core/symbols/SimpleMarkerSymbol.js';
-import SimpleFillSymbol from '@arcgis/core/symbols/SimpleFillSymbol.js';
-import '@arcgis/core/assets/esri/themes/dark/main.css';
+// Map side of the geo calibration (GeoCalibrationOverlay puts it next to the
+// blueprint). Three.js top-down view with the visor's satellite / render ground
+// (geo/geoMapScene.js); replaced the ArcGIS MapView, slow and heavy.
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createGeoMapScene } from '../geo/geoMapScene';
+import { geoHomography } from '../utils/geoCalibration';
+import { fetchImage } from '../utils/fetchImage';
 
-// Same free-tier caveat as apps/visor/src/components/SatelliteViewer.jsx —
-// set VITE_ARCGIS_API_KEY if World Imagery ever gets gated for this app.
-const ARCGIS_API_KEY = import.meta.env.VITE_ARCGIS_API_KEY || '';
+const MODES = [
+  { id: 'satellite', label: 'Satélite' },
+  { id: 'render', label: 'Render' },
+];
 
 /**
- * 2D satellite mini-map used to calibrate blueprint↔lat/lng correspondences.
- * Click anywhere on the map to report the picked point via onMapPointPicked;
- * draws the already-calibrated points and, once baked, the resulting lot
- * polygons (geo_coordinates) for visual confirmation.
+ * Click anywhere on the map to report the picked point via onMapPointPicked.
+ * Draws the calibration pins and the lots (`polygons`, live-projected while
+ * calibrating). With 4+ valid pairs the blueprint image is laid over the map
+ * through the homography, with adjustable opacity, to check the fit by eye.
  */
-export default function GeoCalibrationMap({ latitude, longitude, points, polygons, onMapPointPicked }) {
+export default function GeoCalibrationMap({ latitude, longitude, points, polygons, blueprintUrl, onMapPointPicked }) {
   const containerRef = useRef(null);
-  const pointsLayerRef = useRef(null);
-  const polygonsLayerRef = useRef(null);
-  const onMapPointPickedRef = useRef(onMapPointPicked);
+  const sceneRef = useRef(null);
+  const onPickRef = useRef(onMapPointPicked);
+  const [mode, setMode] = useState('satellite');
+  const [opacity, setOpacity] = useState(0.5);
+  // 'plano': map turned like the blueprint pane; 'north': north up.
+  const [orientation, setOrientation] = useState('plano');
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [blueprint, setBlueprint] = useState(null);
 
   useEffect(() => {
-    onMapPointPickedRef.current = onMapPointPicked;
+    onPickRef.current = onMapPointPicked;
   }, [onMapPointPicked]);
 
+  const homography = useMemo(() => geoHomography(points ?? []), [points]);
+
+  // Centered on what's already placed when the map opens; later points don't
+  // re-center it (the scene is built once per loteo, the camera stays put).
+  const [initialFocus] = useState(() => [
+    ...(points ?? []).map(p => p.geo),
+    ...(polygons ?? []).flatMap(p => p.geo_coordinates),
+  ]);
+
   useEffect(() => {
-    if (latitude == null || longitude == null || !containerRef.current) return;
-
-    if (ARCGIS_API_KEY) esriConfig.apiKey = ARCGIS_API_KEY;
-
-    const pointsLayer = new GraphicsLayer();
-    const polygonsLayer = new GraphicsLayer();
-    pointsLayerRef.current = pointsLayer;
-    polygonsLayerRef.current = polygonsLayer;
-
-    const map = new Map({ basemap: 'satellite', layers: [polygonsLayer, pointsLayer] });
-
-    const view = new MapView({
-      container: containerRef.current,
-      map,
-      center: [longitude, latitude],
-      zoom: 19,
-    });
-
-    const clickHandle = view.on('click', (event) => {
-      const mapPoint = view.toMap(event);
-      if (!mapPoint) return;
-      onMapPointPickedRef.current?.({ latitude: mapPoint.latitude, longitude: mapPoint.longitude });
-    });
-
-    let cancelled = false;
-    view.when(
-      () => {
-        if (!cancelled) setError(null);
-      },
-      (err) => {
-        if (cancelled) return;
-        console.error('GeoCalibrationMap: error al inicializar ArcGIS MapView', err);
-        setError('No se pudo cargar el mini-mapa satelital.');
-      }
-    );
-
+    if (latitude == null || longitude == null || !containerRef.current) return undefined;
+    let scene;
+    try {
+      scene = createGeoMapScene({
+        container: containerRef.current,
+        latitude, longitude,
+        focus: initialFocus,
+        onPick: (p) => onPickRef.current?.(p),
+        onLoadingChange: setLoading,
+        onError: (err) => {
+          console.error('GeoCalibrationMap: no se pudo armar el mapa', err);
+          setError('No se pudo cargar el mapa.');
+        },
+      });
+    } catch (err) {
+      // WebGL unavailable lands here.
+      console.error('GeoCalibrationMap: no se pudo iniciar WebGL', err);
+      queueMicrotask(() => setError('No se pudo iniciar el mapa 3D en este navegador.'));
+      return undefined;
+    }
+    sceneRef.current = scene;
     return () => {
-      cancelled = true;
-      clickHandle.remove();
-      view.destroy();
-      pointsLayerRef.current = null;
-      polygonsLayerRef.current = null;
+      scene.dispose();
+      sceneRef.current = null;
     };
-  }, [latitude, longitude]);
+    // initialFocus never changes (useState without setter); listed for the linter.
+  }, [latitude, longitude, initialFocus]);
 
+  // Blueprint downloaded as a blob, same CORS-safe path as BlueprintEditor.
   useEffect(() => {
-    const layer = pointsLayerRef.current;
-    if (!layer) return;
-    layer.removeAll();
-    (points ?? []).forEach((pair) => {
-      if (!pair.geo) return;
-      const [lat, lng] = pair.geo;
-      layer.add(new Graphic({
-        geometry: new Point({ latitude: lat, longitude: lng }),
-        symbol: new SimpleMarkerSymbol({
-          color: [245, 158, 11, 0.9],
-          size: 14,
-          outline: { color: [255, 255, 255, 1], width: 2 },
-        }),
-      }));
-    });
-  }, [points]);
+    if (!blueprintUrl) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchImage(blueprintUrl);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const bitmap = await createImageBitmap(await res.blob());
+        if (cancelled) bitmap.close();
+        else setBlueprint(bitmap);
+      } catch (err) {
+        if (!cancelled) console.error('GeoCalibrationMap: no se pudo descargar el plano', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [blueprintUrl]);
 
+  // Each prop pushed into the scene. They also depend on latitude/longitude so
+  // they all re-run, in this order, after the scene is rebuilt for a new pin.
+  useEffect(() => { sceneRef.current?.setMode(mode); }, [mode, latitude, longitude]);
+  useEffect(() => { sceneRef.current?.setBlueprint(blueprint); }, [blueprint, latitude, longitude]);
+  useEffect(() => { sceneRef.current?.setHomography(homography); }, [homography, latitude, longitude]);
+  useEffect(() => { sceneRef.current?.setOpacity(opacity); }, [opacity, latitude, longitude]);
+  useEffect(() => { sceneRef.current?.setOrientation(orientation); }, [orientation, latitude, longitude]);
   useEffect(() => {
-    const layer = polygonsLayerRef.current;
-    if (!layer) return;
-    layer.removeAll();
-    (polygons ?? []).forEach((polygon) => {
-      if (!polygon.geo_coordinates || polygon.geo_coordinates.length < 3) return;
-      layer.add(new Graphic({
-        geometry: new Polygon({
-          rings: [polygon.geo_coordinates.map(([lat, lng]) => [lng, lat])],
-          spatialReference: { wkid: 4326 },
-        }),
-        symbol: new SimpleFillSymbol({
-          color: [34, 211, 238, 0.2],
-          outline: { color: [34, 211, 238, 0.9], width: 2 },
-        }),
-      }));
-    });
-  }, [polygons]);
+    sceneRef.current?.setLots((polygons ?? []).map(p => p.geo_coordinates));
+  }, [polygons, latitude, longitude]);
+  useEffect(() => {
+    sceneRef.current?.setPins((points ?? []).filter(p => p.geo).map((p, i) => ({ label: String(i + 1), geo: p.geo })));
+  }, [points, latitude, longitude]);
 
   if (latitude == null || longitude == null) {
     return (
@@ -125,6 +114,43 @@ export default function GeoCalibrationMap({ latitude, longitude, points, polygon
   return (
     <div className="geo-calibration-map">
       <div ref={containerRef} className="geo-calibration-map__canvas" />
+
+      <div className="geo-map-toolbar">
+        <div className="geo-map-toolbar__modes" role="group" aria-label="Fondo del mapa">
+          {MODES.map(m => (
+            <button
+              key={m.id}
+              type="button"
+              className={`geo-map-toolbar__mode${mode === m.id ? ' is-active' : ''}`}
+              aria-pressed={mode === m.id}
+              onClick={() => setMode(m.id)}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+        <label className={`geo-map-toolbar__opacity${homography ? '' : ' is-disabled'}`}>
+          <span>Plano</span>
+          <input
+            type="range" min="0" max="1" step="0.05"
+            value={opacity}
+            disabled={!homography}
+            onChange={e => setOpacity(Number(e.target.value))}
+          />
+        </label>
+        <button
+          type="button"
+          className="geo-map-toolbar__mode"
+          disabled={!homography}
+          title={orientation === 'plano' ? 'Mostrar con el norte arriba' : 'Girar el mapa como el plano'}
+          onClick={() => setOrientation(o => (o === 'plano' ? 'north' : 'plano'))}
+        >
+          {orientation === 'plano' ? 'Norte arriba' : 'Como el plano'}
+        </button>
+        {!homography && <span className="geo-map-toolbar__hint">Con 4 puntos el plano aparece encima</span>}
+      </div>
+
+      {loading && <div className="geo-map-loading">Cargando mapa…</div>}
       {error && <div className="geo-calibration-map__error">{error}</div>}
     </div>
   );
