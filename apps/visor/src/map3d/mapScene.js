@@ -7,17 +7,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { annId } from '../lotData.js';
 import { createLotLayer } from './lotLayer.js';
-import { VECTOR_MAX_ZOOM, buildVectorGround, loadVectorRange, paintVectorCanvas } from './vectorGround.js';
+import { boxAround, createGroundBuilders, disposeObject, makeProjection, rad } from './ground.js';
 
 // ---------------------------------------------------------------- settings
-
-// Esri World Imagery, free without a key. Tops out at z18 (~0.5 m/px) in rural
-// Argentina; MapTiler was tried and its z19-20 there is its z17 upscaled.
-const SATELLITE = {
-  url: (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`,
-  maxZoom: 18,
-  tileSize: 256,
-};
 
 const INNER_MARGIN_M = 150; // sharp map around the lots
 const OUTER_RADIUS_M = 3000; // blurry context ring, hidden by fog at the edge
@@ -69,40 +61,6 @@ const prefersReducedMotion = () =>
 
 // ---------------------------------------------------------------- geo math
 
-const R = 6378137;
-const rad = (d) => (d * Math.PI) / 180;
-
-// Local tangent plane around (lat0, lng0): x = meters east, z = meters south
-// (north is -z, "up" on screen with the default camera). Over a couple of km
-// the error against a real projection is centimeters.
-function makeProjection(lat0, lng0) {
-  const k = Math.cos(rad(lat0));
-  return (lat, lng) => ({ x: R * rad(lng - lng0) * k, z: -R * rad(lat - lat0) });
-}
-
-// Web Mercator tile coordinates (fractional) for a lat/lng, and back.
-const tileX = (lng, z) => ((lng + 180) / 360) * 2 ** z;
-const tileY = (lat, z) => ((1 - Math.asinh(Math.tan(rad(lat))) / Math.PI) / 2) * 2 ** z;
-const tileLng = (x, z) => (x / 2 ** z) * 360 - 180;
-const tileLat = (y, z) => (Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / 2 ** z))) * 180) / Math.PI;
-
-const metersToDeg = (m, lat) => ({ lat: m / 111320, lng: m / (111320 * Math.cos(rad(lat))) });
-
-/** Highest zoom (≤ maxZoom) whose tile grid for the bbox fits in maxTexture. */
-function pickTileRange(bbox, maxZoom, maxTexture, tileSize = 256) {
-  for (let z = maxZoom; z > 1; z -= 1) {
-    const x0 = Math.floor(tileX(bbox.west, z));
-    const x1 = Math.floor(tileX(bbox.east, z));
-    const y0 = Math.floor(tileY(bbox.north, z));
-    const y1 = Math.floor(tileY(bbox.south, z));
-    const cols = x1 - x0 + 1;
-    const rows = y1 - y0 + 1;
-    if (Math.max(cols, rows) * tileSize > maxTexture) continue;
-    return { z, x0, x1, y0, y1, cols, rows };
-  }
-  throw new Error('bbox too large');
-}
-
 // Sun direction in local axes for SUN_HOUR on the equinox (declination 0):
 // the usual equatorial → east/north/up rotation with δ = 0.
 function sunDirection(lat) {
@@ -122,51 +80,6 @@ function inside(pts, x, z) {
       && x < ((pts[j].x - pts[i].x) * (z - pts[i].z)) / (pts[j].z - pts[i].z) + pts[i].x) hit = !hit;
   }
   return hit;
-}
-
-// ---------------------------------------------------------------- tiles
-
-const loadImage = (src) => new Promise((resolve) => {
-  const img = new Image();
-  img.crossOrigin = 'anonymous'; // without it the canvas is tainted and can't be a texture
-  img.onload = () => resolve(img);
-  img.onerror = () => resolve(null); // a missing tile leaves a hole, not a crash
-  img.src = src;
-});
-
-/**
- * Stitches a tile grid into one canvas. One texture = one draw call for the
- * whole map, the main difference with ArcGIS (hundreds of tiles streamed and
- * re-tiled while the camera moves).
- */
-async function stitchTiles(range, source) {
-  const size = source.tileSize;
-  const canvas = document.createElement('canvas');
-  canvas.width = range.cols * size;
-  canvas.height = range.rows * size;
-  const ctx = canvas.getContext('2d');
-  const jobs = [];
-  for (let ty = range.y0; ty <= range.y1; ty += 1) {
-    for (let tx = range.x0; tx <= range.x1; tx += 1) {
-      jobs.push(loadImage(source.url(range.z, tx, ty)).then((img) => {
-        if (img) ctx.drawImage(img, (tx - range.x0) * size, (ty - range.y0) * size, size, size);
-      }));
-    }
-  }
-  await Promise.all(jobs);
-  return canvas;
-}
-
-// Frees geometries, materials and their textures under an object.
-function disposeObject(root) {
-  root.traverse((o) => {
-    o.geometry?.dispose();
-    const mats = Array.isArray(o.material) ? o.material : [o.material];
-    for (const m of mats) {
-      m?.map?.dispose();
-      m?.dispose();
-    }
-  });
 }
 
 // ---------------------------------------------------------------- scene
@@ -206,7 +119,7 @@ export function createMapScene({
   }
   const lat0 = lots.length ? (bbox.north + bbox.south) / 2 : latitude;
   const lng0 = lots.length ? (bbox.east + bbox.west) / 2 : longitude;
-  const toLocal = makeProjection(lat0, lng0);
+  const { toLocal } = makeProjection(lat0, lng0);
 
   // Lots in local meters, for picking, highlight and block.
   const localLots = lots.map((lot) => {
@@ -226,10 +139,8 @@ export function createMapScene({
   const halfX = localLots.length ? Math.max(...localLots.map((l) => Math.max(-l.minX, l.maxX))) : DEFAULT_SPAN_M;
   const halfZ = localLots.length ? Math.max(...localLots.map((l) => Math.max(-l.minZ, l.maxZ))) : DEFAULT_SPAN_M;
   const span = Math.max(halfX, halfZ);
-  const pad = metersToDeg(span + INNER_MARGIN_M, lat0);
-  const innerBox = { north: lat0 + pad.lat, south: lat0 - pad.lat, east: lng0 + pad.lng, west: lng0 - pad.lng };
-  const outer = metersToDeg(OUTER_RADIUS_M, lat0);
-  const outerBox = { north: lat0 + outer.lat, south: lat0 - outer.lat, east: lng0 + outer.lng, west: lng0 - outer.lng };
+  const innerBox = boxAround(lat0, lng0, span + INNER_MARGIN_M);
+  const outerBox = boxAround(lat0, lng0, OUTER_RADIUS_M);
 
   let disposed = false;
   let needsRender = true;
@@ -275,66 +186,14 @@ export function createMapScene({
   const cache = {};
   let ground = null; // { inner, outer } currently in the scene
 
-  const tex = (c) => {
-    const t = new THREE.CanvasTexture(c);
-    t.colorSpace = THREE.SRGBColorSpace;
-    t.anisotropy = anisotropy;
-    return t;
-  };
-
-  // Flat plane covering a tile range, in local meters. Canvas top = north.
-  const tilePlane = (range, texture, material) => {
-    const nw = toLocal(tileLat(range.y0, range.z), tileLng(range.x0, range.z));
-    const se = toLocal(tileLat(range.y1 + 1, range.z), tileLng(range.x1 + 1, range.z));
-    const geom = new THREE.PlaneGeometry(se.x - nw.x, se.z - nw.z);
-    geom.rotateX(-Math.PI / 2);
-    material.map = texture;
-    const mesh = new THREE.Mesh(geom, material);
-    mesh.position.set((nw.x + se.x) / 2, 0, (nw.z + se.z) / 2);
-    return mesh;
-  };
-
-  // The outer ring ignores light and never writes depth: drawn first
-  // (renderOrder -1), the inner ground always wins on top, no z-fighting.
-  const outerRing = (range, canvas2d) => {
-    const mesh = tilePlane(range, tex(canvas2d), new THREE.MeshBasicMaterial({ depthWrite: false }));
-    mesh.renderOrder = -1;
-    return mesh;
-  };
-
-  async function buildSatellite() {
-    const innerRange = pickTileRange(innerBox, SATELLITE.maxZoom, maxTexture, SATELLITE.tileSize);
-    const outerRange = pickTileRange(outerBox, innerRange.z - 2, maxTexture, SATELLITE.tileSize);
-    const [innerCanvas, outerCanvas] = await Promise.all([
-      stitchTiles(innerRange, SATELLITE),
-      stitchTiles(outerRange, SATELLITE),
-    ]);
-    const inner = tilePlane(innerRange, tex(innerCanvas), new THREE.MeshLambertMaterial());
-    inner.receiveShadow = true;
-    return { inner, outer: outerRing(outerRange, outerCanvas) };
-  }
-
-  async function buildRender() {
-    const innerRange = pickTileRange(innerBox, VECTOR_MAX_ZOOM, maxTexture);
-    const outerRange = pickTileRange(outerBox, VECTOR_MAX_ZOOM - 2, maxTexture); // fewer minor roads far away
-    const [near, far] = await Promise.all([loadVectorRange(innerRange), loadVectorRange(outerRange)]);
-    const tileToLocal = (X, Y) => toLocal(tileLat(Y, innerRange.z), tileLng(X, innerRange.z));
-    const nw = tileToLocal(innerRange.x0, innerRange.y0);
-    const se = tileToLocal(innerRange.x1 + 1, innerRange.y1 + 1);
-    const inner = buildVectorGround(near, tileToLocal, { minX: nw.x, maxX: se.x, minZ: nw.z, maxZ: se.z });
-
-    // The ring is far and fogged: half the max texture is plenty.
-    const tilePx = Math.min(1024, Math.floor(maxTexture / 2 / Math.max(outerRange.cols, outerRange.rows)));
-    const metersPerPx = ((156543.03 * Math.cos(rad(lat0))) / 2 ** outerRange.z) * (256 / tilePx);
-    return { inner, outer: outerRing(outerRange, paintVectorCanvas(far, outerRange, tilePx, metersPerPx)) };
-  }
+  const builders = createGroundBuilders({ toLocal, lat0, innerBox, outerBox, maxTexture, anisotropy });
 
   let mode = null;
   async function setMode(next) {
     if (next === mode) return;
     mode = next;
     // A failed build is forgotten so switching modes again retries it.
-    cache[next] ??= (next === 'render' ? buildRender() : buildSatellite())
+    cache[next] ??= (next === 'render' ? builders.render() : builders.satellite())
       .catch((err) => { delete cache[next]; throw err; });
     onLoadingChange?.(true);
     let layers;
