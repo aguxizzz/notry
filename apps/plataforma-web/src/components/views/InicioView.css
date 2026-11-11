@@ -100,13 +100,14 @@
   --page-section-gap: var(--space-md);
 }
 
-.inicio-shell .inicio-summary-lead {
+/* ── "Para hoy" lead: prospects that need contact ── */
+.inicio-shell .inicio-today {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 
-.inicio-shell .inicio-summary-eyebrow {
+.inicio-shell .inicio-today-eyebrow {
   color: var(--accent-dark);
   font-family: var(--font-primary);
   font-size: var(--text-xs);
@@ -115,19 +116,57 @@
   text-transform: uppercase;
 }
 
-.inicio-shell .inicio-summary-lead strong {
+.inicio-shell .inicio-today-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  column-gap: 10px;
   color: var(--text-main);
   font-family: var(--font-primary);
-  font-size: clamp(1.2rem, 2vw, 1.6rem);
+  font-size: var(--text-lg);
   letter-spacing: var(--tracking-title);
-  line-height: 1.1;
+  line-height: 1.15;
 }
 
-.inicio-shell .inicio-summary-lead p {
-  margin: 3px 0 0;
+.inicio-shell .inicio-today-count {
+  color: var(--color-followup-overdue);
+  font-size: var(--text-xl);
+  line-height: 1;
+}
+
+.inicio-shell .inicio-today--clear .inicio-today-title {
+  align-items: center;
+}
+
+.inicio-shell .inicio-today--clear .inicio-today-title svg {
+  color: var(--color-lot-available);
+  flex: none;
+}
+
+.inicio-shell .inicio-today-sub {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-base);
+  line-height: 1.4;
+}
+
+/* Single line with ellipsis so a long name doesn't make the block grow. */
+.inicio-shell .inicio-today-oldest {
+  overflow: hidden;
+  margin: 2px 0 0;
   color: var(--text-muted);
   font-size: var(--text-sm);
-  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inicio-shell .inicio-today-name {
+  color: var(--text-main);
+  font-weight: var(--weight-medium);
+}
+
+.inicio-shell .inicio-today-days {
+  color: var(--color-followup-overdue);
 }
 
 .inicio-shell .inicio-summary-metric--available .summary-metric__icon,
