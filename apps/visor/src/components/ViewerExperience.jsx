@@ -1,9 +1,9 @@
-import { useCallback, useMemo, useState, lazy, Suspense } from 'react';
+import { useCallback, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { PoiPanel } from './PoiPanel.jsx';
 import { Compass } from './Compass.jsx';
 import { LotPanel } from './LotPanel.jsx';
 import { LotFloat } from './LotFloat.jsx';
-import { MapControls, CompassTape } from './MapControls.jsx';
+import { MapControls, CompassTape, MapViewStrip } from './MapControls.jsx';
 import { LoadingScreen } from './LoadingScreen.jsx';
 import { OnboardingOverlay } from './OnboardingOverlay.jsx';
 import { StageStatus } from './StageStatus.jsx';
@@ -66,6 +66,9 @@ export default function ViewerExperience() {
   );
   const northOffset = visor?.northOffset ?? null;
   const camera = useCameraControls(handles, { homePosition, northOffset });
+  // Botones de cámara del mapa 3D (satélite/render); los expone MapViewer.
+  const mapRef = useRef(null);
+  const isMap3d = viewMode === 'satellite' || viewMode === 'render';
   const { heading, onPositionChange } = useCompass();
 
   // Candidatas para una única precarga conservadora. useViewer descarta las
@@ -235,11 +238,12 @@ export default function ViewerExperience() {
           badgeStyle={stage.blueprintBadgeStyle}
           badgeColors={stage.badgeColors}
         />
-      ) : viewMode === 'satellite' || viewMode === 'render' ? (
+      ) : isMap3d ? (
         // Satélite y render son la misma escena 3D con otro estilo: la misma
         // instancia sigue montada al pasar de uno a otro y la cámara no salta.
         <Suspense fallback={null}>
           <MapViewer
+            ref={mapRef}
             variant={viewMode}
             latitude={visor.latitude}
             longitude={visor.longitude}
@@ -280,14 +284,30 @@ export default function ViewerExperience() {
               hidden={panel.isOpen && panel.docked}
             />
           )}
+          {isMap3d && (
+            // "Vista inicial" acá es la general del loteo entero; el lote
+            // elegido sigue marcado, solo se aleja la cámara.
+            <MapControls
+              onZoomIn={() => mapRef.current?.zoomIn()}
+              onZoomOut={() => mapRef.current?.zoomOut()}
+              onReset={() => mapRef.current?.goToView('overview')}
+              onTopView={() => mapRef.current?.goToView('top')}
+              hidden={panel.isOpen && panel.docked}
+            />
+          )}
         </>
       ) : (
         <LotFloat
           {...lotUiProps}
           onSelectLot={openLotFromList}
-          compass={viewMode === 'panorama' && (
+          compass={viewMode === 'panorama' ? (
             <CompassTape heading={heading} northOffset={northOffset} onNorth={camera.faceNorth} />
-          )}
+          ) : isMap3d ? (
+            <MapViewStrip
+              onOverview={() => mapRef.current?.goToView('overview')}
+              onTopView={() => mapRef.current?.goToView('top')}
+            />
+          ) : null}
         />
       )}
 

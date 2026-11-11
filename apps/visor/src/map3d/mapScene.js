@@ -30,6 +30,15 @@ const BLOCK_GROW_MS = 550;
 const BLOCK_COLOR = 0xc5a059; // brand gold, like the selected lot in panorama
 const FOCUS_TILT_DEG = 55;
 const FOCUS_MS = 900;
+// Preset cameras over the whole loteo, both north up. 'overview' is the 3/4
+// view the map opens with; 'top' looks straight down, like the plano.
+const VIEWS = {
+  overview: { tiltDeg: 40 },
+  top: { tiltDeg: 0.05 }, // not exactly 0: straight down, OrbitControls loses the heading
+};
+const VIEW_MARGIN = 1.15; // breathing room around the lots when framing them
+const ZOOM_STEP = 0.7; // distance factor per +/- button press
+const ZOOM_MS = 350;
 // Slow turn around the selected lot, same speed and pause as panorama's orbit.
 const ORBIT_DEG_PER_S = 5.5;
 const ORBIT_RESUME_MS = 2500;
@@ -173,10 +182,12 @@ function disposeObject(root) {
  * - `lite`: low-end device (devicePerf.js), smaller textures and no antialias.
  * - `onLoadingChange(bool)`: while the map of a mode is being downloaded.
  * - `onError(err)`: the map couldn't be built.
+ * - `initialInsets`: what the UI covers on start (same shape as setInsets),
+ *   so the opening view already leaves the phone's top card out.
  */
 export function createMapScene({
   container, latitude, longitude, annotations, loteLabels, lite = false,
-  onLotClick, onLoadingChange, onError,
+  onLotClick, onLoadingChange, onError, initialInsets,
 }) {
   // Biggest texture we stitch: 4096² RGBA is 64 MB of GPU memory, too much
   // for a low-end phone; 2048² is 16 MB.
@@ -210,9 +221,11 @@ export function createMapScene({
   });
   const lotById = new Map(localLots.map((l) => [l.id, l]));
 
-  const span = localLots.length
-    ? Math.max(...localLots.map((l) => Math.max(Math.abs(l.minX), Math.abs(l.maxX), Math.abs(l.minZ), Math.abs(l.maxZ))))
-    : DEFAULT_SPAN_M;
+  // Half extent of the lots per axis (the origin is their center); span is
+  // the bigger of the two, for the map area around them.
+  const halfX = localLots.length ? Math.max(...localLots.map((l) => Math.max(-l.minX, l.maxX))) : DEFAULT_SPAN_M;
+  const halfZ = localLots.length ? Math.max(...localLots.map((l) => Math.max(-l.minZ, l.maxZ))) : DEFAULT_SPAN_M;
+  const span = Math.max(halfX, halfZ);
   const pad = metersToDeg(span + INNER_MARGIN_M, lat0);
   const innerBox = { north: lat0 + pad.lat, south: lat0 - pad.lat, east: lng0 + pad.lng, west: lng0 - pad.lng };
   const outer = metersToDeg(OUTER_RADIUS_M, lat0);
@@ -363,11 +376,6 @@ export function createMapScene({
   controls.autoRotateSpeed = ORBIT_DEG_PER_S / 6; // OrbitControls: 1.0 = 6°/s when given a delta
   controls.addEventListener('change', requestRender);
 
-  // Frame the whole loteo, north up.
-  controls.target.set(0, 0, 0);
-  camera.position.set(0, span * 2.2, span * 1.8);
-  controls.update();
-
   // Keep the target over the sharp map so you can't pan off the edge.
   const limit = span + INNER_MARGIN_M;
   controls.addEventListener('change', () => {
@@ -385,12 +393,36 @@ export function createMapScene({
     camera.setViewOffset(size.w, size.h, shift.x, shift.y, size.w, size.h);
     camera.updateProjectionMatrix();
   };
+  const insets = { top: 0, bottom: 0, left: 0 };
   function setInsets({ top = 0, bottom = 0, left = 0 } = {}) {
+    Object.assign(insets, { top, bottom, left });
     // Free area center = screen center + (left/2, (top-bottom)/2); the window
     // moves the opposite way for the content to land there.
     shift.tx = -left / 2;
     shift.ty = (bottom - top) / 2;
     requestRender();
+  }
+
+  /**
+   * Camera pose that fits all the lots in the part of the screen the panel
+   * leaves free, looking north with the given tilt from vertical. Returns
+   * { position, target }.
+   */
+  function viewPose(tiltDeg) {
+    const freeW = Math.max(1, size.w - insets.left);
+    const freeH = Math.max(1, size.h - insets.top - insets.bottom);
+    const tanV = Math.tan(rad(camera.fov / 2));
+    // Distance where the lots fill the free area seen from straight above.
+    // Tilting makes the near edge come closer and the far one recede; dividing
+    // the depth by cos(tilt) is a cheap stand-in that keeps both on screen.
+    const tilt = rad(tiltDeg);
+    const depth = halfZ / Math.max(0.5, Math.cos(tilt));
+    const dist = VIEW_MARGIN * Math.max(depth / (tanV * (freeH / size.h)), halfX / (tanV * camera.aspect * (freeW / size.w)));
+    const d = THREE.MathUtils.clamp(dist, controls.minDistance, controls.maxDistance);
+    // Camera to the south (+z) of the target, so north (-z) is up on screen.
+    const target = new THREE.Vector3(0, 0, 0);
+    const position = new THREE.Vector3(0, Math.cos(tilt) * d, Math.sin(tilt) * d);
+    return { position, target };
   }
 
   const resize = () => {
@@ -405,14 +437,52 @@ export function createMapScene({
   resizeObserver.observe(container);
   resize();
 
+  // Open on the whole loteo. After resize and the insets: the framing depends
+  // on the aspect and on what the UI covers. The shift is applied at once,
+  // there's nothing on screen yet to slide.
+  if (initialInsets) {
+    setInsets(initialInsets);
+    shift.x = shift.tx;
+    shift.y = shift.ty;
+    applyShift();
+  }
+  {
+    const { position, target } = viewPose(VIEWS.overview.tiltDeg);
+    camera.position.copy(position);
+    controls.target.copy(target);
+    controls.update();
+  }
+
   // --- selection: highlight + gold block (render only) + flight + orbit
   let selected = null;
   let block = null;
   let highlight = null;
   let hover = null; // { entry, mesh }
   let grow = null; // { start }
-  let fly = null; // { start, fromPos, toPos, fromTarget, toTarget }
+  let fly = null; // { start, ms, fromPos, toPos, fromTarget, toTarget, orbit }
   let resumeTimer = null;
+  // Whether the camera is on the selected lot (orbit allowed). A preset view
+  // moves it to the whole loteo and the orbit must not resume around that.
+  let onLot = false;
+
+  // Animated camera move; `orbit` starts the slow turn on arrival.
+  function flyTo(toPos, toTarget, { ms = FOCUS_MS, orbit = false } = {}) {
+    controls.autoRotate = false;
+    clearTimeout(resumeTimer);
+    if (prefersReducedMotion()) {
+      fly = null;
+      camera.position.copy(toPos);
+      controls.target.copy(toTarget);
+      controls.update();
+    } else {
+      fly = {
+        start: performance.now(), ms, orbit,
+        fromPos: camera.position.clone(), toPos: toPos.clone(),
+        fromTarget: controls.target.clone(), toTarget: toTarget.clone(),
+      };
+    }
+    requestRender();
+  }
 
   // Flat copy of a lot's outline, laid between the lot fills and the borders.
   const lotMesh = (entry, color, opacity) => {
@@ -483,8 +553,10 @@ export function createMapScene({
     removeMesh(highlight);
     highlight = null;
     refreshBlock(true);
+    onLot = false;
     // A lot without geo_coordinates still opens its ficha; the map stays put.
     if (!entry) return;
+    onLot = true;
 
     highlight = lotMesh(entry, BLOCK_COLOR, 0.55);
     scene.add(highlight);
@@ -498,16 +570,23 @@ export function createMapScene({
     const toPos = entry.center.clone().add(new THREE.Vector3(
       Math.sin(heading) * Math.sin(tilt) * dist, Math.cos(tilt) * dist, Math.cos(heading) * Math.sin(tilt) * dist,
     ));
-    const fromPos = camera.position.clone();
-    const fromTarget = controls.target.clone();
-    if (prefersReducedMotion()) {
-      camera.position.copy(toPos);
-      controls.target.copy(entry.center);
-      controls.update();
-    } else {
-      fly = { start: performance.now(), fromPos, toPos, fromTarget, toTarget: entry.center.clone() };
-    }
-    requestRender();
+    flyTo(toPos, entry.center, { orbit: true });
+  }
+
+  /** Flies to a preset view of the whole loteo ('overview' or 'top'). */
+  function goToView(name) {
+    const view = VIEWS[name];
+    if (!view) return;
+    onLot = false;
+    const { position, target } = viewPose(view.tiltDeg);
+    flyTo(position, target);
+  }
+
+  /** Moves closer (factor < 1) or farther (> 1) along the current view line. */
+  function zoomBy(factor) {
+    const offset = camera.position.clone().sub(controls.target);
+    const d = THREE.MathUtils.clamp(offset.length() * factor, controls.minDistance, controls.maxDistance);
+    flyTo(controls.target.clone().add(offset.setLength(d)), controls.target, { ms: ZOOM_MS, orbit: onLot && !!selected });
   }
 
   // Any touch pauses the orbit; it resumes a while after the last one.
@@ -517,9 +596,9 @@ export function createMapScene({
     clearTimeout(resumeTimer);
   };
   const onControlEnd = () => {
-    if (!selected || prefersReducedMotion()) return;
+    if (!selected || !onLot || prefersReducedMotion()) return;
     resumeTimer = setTimeout(() => {
-      if (selected && !disposed) { controls.autoRotate = true; requestRender(); }
+      if (selected && onLot && !disposed) { controls.autoRotate = true; requestRender(); }
     }, ORBIT_RESUME_MS);
   };
   controls.addEventListener('start', onControlStart);
@@ -597,13 +676,13 @@ export function createMapScene({
       needsRender = true;
     }
     if (fly) {
-      const t = Math.min(1, (now - fly.start) / FOCUS_MS);
+      const t = Math.min(1, (now - fly.start) / fly.ms);
       const k = t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2; // in-out cubic
       camera.position.lerpVectors(fly.fromPos, fly.toPos, k);
       controls.target.lerpVectors(fly.fromTarget, fly.toTarget, k);
       if (t === 1) {
+        if (fly.orbit && selected) controls.autoRotate = true;
         fly = null;
-        if (selected && !prefersReducedMotion()) controls.autoRotate = true;
       }
       needsRender = true;
     }
@@ -651,5 +730,10 @@ export function createMapScene({
     canvas.remove();
   }
 
-  return { setMode, setSelected, setInsets, dispose };
+  return {
+    setMode, setSelected, setInsets, goToView,
+    zoomIn: () => zoomBy(ZOOM_STEP),
+    zoomOut: () => zoomBy(1 / ZOOM_STEP),
+    dispose,
+  };
 }

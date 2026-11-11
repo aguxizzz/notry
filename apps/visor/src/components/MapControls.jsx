@@ -54,7 +54,21 @@ export function CompassTape({ heading, northOffset, onNorth }) {
   );
 }
 
-export function MapControls({ onZoomIn, onZoomOut, onReset, hidden = false }) {
+// Vistas del mapa 3D en el celular: va en el mismo lugar que la cinta de la
+// brújula (última franja de la tarjeta de arriba), que en satélite/render no
+// se muestra. Sin +/−: en el celular el zoom es con pellizco.
+export function MapViewStrip({ onOverview, onTopView }) {
+  return (
+    <div className="lf-views" role="group" aria-label="Vistas del mapa">
+      <button type="button" onClick={onOverview}><Ico d={I.home} />Vista general</button>
+      <button type="button" onClick={onTopView}><Ico d={I.topView} />Desde arriba</button>
+    </div>
+  );
+}
+
+// `onTopView` solo lo pasa el mapa 3D (satélite/render): suma el botón de la
+// vista desde arriba. En el panorama no aplica.
+export function MapControls({ onZoomIn, onZoomOut, onReset, onTopView, hidden = false }) {
   const toggleFullscreen = () => {
     if (document.fullscreenElement) document.exitFullscreen?.();
     else document.documentElement.requestFullscreen?.();
@@ -64,6 +78,9 @@ export function MapControls({ onZoomIn, onZoomOut, onReset, hidden = false }) {
       <button type="button" onClick={onZoomIn} aria-label="Acercar" title="Acercar"><Ico d={I.plus} /></button>
       <button type="button" onClick={onZoomOut} aria-label="Alejar" title="Alejar"><Ico d={I.minus} /></button>
       <button type="button" onClick={onReset} aria-label="Volver a la vista inicial" title="Volver a la vista inicial"><Ico d={I.home} /></button>
+      {onTopView && (
+        <button type="button" onClick={onTopView} aria-label="Ver desde arriba" title="Ver desde arriba"><Ico d={I.topView} /></button>
+      )}
       <button type="button" onClick={toggleFullscreen} aria-label="Pantalla completa" title="Pantalla completa"><Ico d={I.expand} /></button>
     </div>
   );

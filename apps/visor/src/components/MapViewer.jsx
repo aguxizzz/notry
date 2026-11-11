@@ -1,7 +1,7 @@
 // 3D map of the loteo for the visor's 'satellite' and 'render' modes. Thin
 // React wrapper around map3d/mapScene.js: it builds the scene once per stage
 // and forwards mode, selected lot and panel insets to it.
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { createMapScene } from '../map3d/mapScene.js';
 import { getLotPanelInsets } from '../hooks/usePanelLayout.js';
 import './MapViewer.css';
@@ -26,14 +26,22 @@ const isLiteDevice = () => document.documentElement.classList.contains('perf-lit
  * `variant` is 'satellite' or 'render'; `selectedId`
  * is the lot with its ficha open (from useLotSelection), the map flies to it.
  * `usePanel`/`panelCollapsed` come from usePanelLayout and only trigger a
- * new reading of how much of the screen the panel covers.
+ * new reading of how much of the screen the panel covers. `ref` exposes the
+ * camera buttons: zoomIn, zoomOut and goToView('overview' | 'top').
  */
 export default function MapViewer({
   latitude, longitude, annotations, loteLabels, variant = 'satellite', selectedId, onMarkerSelect,
-  usePanel, panelCollapsed,
+  usePanel, panelCollapsed, ref,
 }) {
   const containerRef = useRef(null);
   const sceneRef = useRef(null);
+
+  // Read sceneRef at call time: the scene is rebuilt on every stage change.
+  useImperativeHandle(ref, () => ({
+    zoomIn: () => sceneRef.current?.zoomIn(),
+    zoomOut: () => sceneRef.current?.zoomOut(),
+    goToView: (name) => sceneRef.current?.goToView(name),
+  }), []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -71,6 +79,7 @@ export default function MapViewer({
         annotations,
         loteLabels,
         lite: isLiteDevice(),
+        initialInsets: readInsets(),
         onLotClick: (ann) => onMarkerSelectRef.current?.(ann),
         onLoadingChange: setLoading,
         onError: (err) => {

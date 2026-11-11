@@ -355,6 +355,22 @@ html.lp-on:not(.lp-collapsed) .recommended-filter-toggle { left: calc(50% + 198p
 }
 .lf-tape-mark.is-north { color: var(--accent); font-size: 12.5px; }
 
+/* Vistas del mapa 3D (satélite/render): misma franja que la cinta, con dos
+   botones a medias. Son acciones, no estados: no quedan marcados. */
+.lf-views {
+  display: flex; margin: 0 -7px -7px; border-top: 1px solid var(--lp-line);
+}
+.lf-views button {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 34px; border: 0; background: transparent; padding: 0 6px;
+  font-size: 12.5px; font-weight: 500; color: var(--lp-ink-2); white-space: nowrap;
+}
+.lf-views button + button { border-left: 1px solid var(--lp-line); }
+.lf-views button:first-child { border-bottom-left-radius: 15px; }
+.lf-views button:last-child { border-bottom-right-radius: 15px; }
+.lf-views button:active { background: var(--lp-line); }
+.lf-views svg { width: 15px; height: 15px; }
+
 .lf-scrim { position: absolute; inset: 0; border: 0; padding: 0; background: rgba(10, 10, 10, 0.28); cursor: default; animation: lf-fade 0.25s ease-out; }
 @keyframes lf-fade { from { opacity: 0; } }
 
