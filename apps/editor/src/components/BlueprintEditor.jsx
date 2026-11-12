@@ -138,7 +138,7 @@ export default function BlueprintEditor({
     const px = panXRef.current;
     const py = panYRef.current;
 
-    // Invert the CSS transform: translate(panX, panY) scale(zoom) from origin (0,0)
+    // Invert the pan offset plus the zoomed size (dw * zoom) of the drawing box
     // Forward: viewport = svgCoord * zoom + pan
     // Inverse: svgCoord = (viewport - pan) / zoom
     const svgX = (screenX - containerRect.left - px) / z;
@@ -445,16 +445,19 @@ export default function BlueprintEditor({
         cursor: activeTool === 'polygon' || activeTool === 'poi' || activeTool === 'calibrate' || activeTool === 'rect' || activeTool === 'autodetect' ? 'crosshair' : 'default'
       }}
     >
-      {/* Both image and SVG are inside the same transformed container so they move together */}
+      {/* Both image and SVG are inside the same container so they move together.
+          Zoom is applied as the container's real size, not as scale(): with scale()
+          Chrome stretches an old bitmap after fast wheel zooms and the thin lot
+          strokes stay blurry until the next slow zoom. Same math as before:
+          screen = svgCoord * zoom + pan. */}
       <div
         style={{
           position: 'absolute',
           top: 0,
           left: 0,
-          width: '100%',
-          height: '100%',
-          transformOrigin: '0 0',
-          transform: `translate(${panX}px, ${panY}px) scale(${zoom})`,
+          width: dw * zoom,
+          height: dh * zoom,
+          transform: `translate(${panX}px, ${panY}px)`,
           pointerEvents: 'none'
         }}
       >
@@ -465,8 +468,8 @@ export default function BlueprintEditor({
             position: 'absolute',
             top: 0,
             left: 0,
-            width: dw,
-            height: dh,
+            width: '100%',
+            height: '100%',
             display: 'block',
             pointerEvents: 'none',
             userSelect: 'none'
@@ -476,14 +479,18 @@ export default function BlueprintEditor({
           draggable="false"
         />
 
+        {/* viewBox keeps drawing coordinates in zoom=1 units (dw x dh) while the
+            SVG fills the zoomed box, so every "N / zoom" size below still works. */}
         <svg
           ref={svgRef}
+          viewBox={`0 0 ${dw} ${dh}`}
+          preserveAspectRatio="none"
           style={{
             position: 'absolute',
             top: 0,
             left: 0,
-            width: dw,
-            height: dh,
+            width: '100%',
+            height: '100%',
             userSelect: 'none',
             pointerEvents: 'auto',
             overflow: 'visible'
