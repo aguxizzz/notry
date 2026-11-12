@@ -8,6 +8,7 @@ import { useLatest } from '../hooks/useLatest';
 import { midpointFnFor } from '../hooks/useDisplayAnnotations';
 import { usePanoramaPointer } from '../hooks/usePanoramaPointer';
 import { useSurfaceMarkers } from '../hooks/useSurfaceMarkers';
+import { installPolygonClipping } from '../utils/polygonClipping';
 import '@photo-sphere-viewer/core/index.css';
 import '@photo-sphere-viewer/markers-plugin/index.css';
 
@@ -104,6 +105,8 @@ export default function EditorViewer({
     });
 
     markersPluginRef.current = viewerRef.current.getPlugin(MarkersPlugin);
+    // Huge lots/surfaces lagged on zoom: PSV drew them off-screen at millions of px.
+    installPolygonClipping(markersPluginRef.current);
 
     viewerRef.current.addEventListener('ready', () => {
       setIsReady(true);
