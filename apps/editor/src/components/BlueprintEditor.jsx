@@ -3,17 +3,20 @@ import { HIGHLIGHT_SVG_STYLE, getLotSvgStyle } from '../utils/lotStyles';
 import { FIRST_TEMP_POINT_ID } from '../utils/markerIds';
 import { fetchImage } from '../utils/fetchImage';
 import { useLatest } from '../hooks/useLatest';
-import { edgeNormal, insertVertex, projectOntoSegment, removeVertex, slideEdge } from '../utils/polygonEdit';
+import {
+  faceAround, insertVertex, projectOntoSegment, removeVertex, slideFace,
+} from '../utils/polygonEdit';
+
 
 // Screen pixels a corner must travel before a press counts as a drag, so
 // clicking a corner to select it doesn't nudge it off its line.
 const DRAG_THRESHOLD_PX = 3;
 
-// An edge shorter than this on screen gets no slide handle: it would sit on
-// top of the corner handles and steal their clicks.
-const MIN_EDGE_FOR_HANDLE_PX = 40;
+// Screen pixels a point can stray from a straight line and still count as
+// part of the same face when right-clicking a side (see faceAround).
+const FACE_TOLERANCE_PX = 3;
 
-/** Resize cursor closest to the edge's normal, so the handle shows which way it moves. */
+/** Resize cursor closest to the face's normal, so it shows which way the face moves. */
 function cursorForNormal(nx, ny) {
   const deg = ((Math.atan2(ny, nx) * 180) / Math.PI + 180) % 180; // 0..180, direction only
   if (deg < 22.5 || deg >= 157.5) return 'ew-resize';
@@ -59,6 +62,9 @@ export default function BlueprintEditor({
   const [selectedVertex, setSelectedVertex] = useState(null);
   // Ghost point that follows the cursor along a hovered edge: { markerId, point: [nx, ny] }
   const [edgeHover, setEdgeHover] = useState(null);
+  // Face picked with right-click for stretching: { markerId, start, end } (corner
+  // indices, see faceAround). Only counts while that lot is still the selected one.
+  const [selectedFace, setSelectedFace] = useState(null);
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0 });
 
@@ -71,6 +77,7 @@ export default function BlueprintEditor({
   const onPolygonCommitRef = useLatest(onPolygonCommit);
   const selectedIdRef = useLatest(selectedId);
   const selectedVertexRef = useLatest(selectedVertex);
+  const selectedFaceRef = useLatest(selectedFace);
   const activeToolRef = useLatest(activeTool);
   const annotationsRef = useLatest(annotations);
   const zoomRef = useLatest(zoom);
@@ -81,7 +88,7 @@ export default function BlueprintEditor({
   const draggingCornerRef = useRef(null);
   const draggingMarkerRef = useRef(null);
   const draggingPolygonRef = useRef(null);
-  // Whole-edge slide: { markerId, index, startNorm, originalPixels }
+  // Face stretch: { markerId, start, end, startNorm, originalPixels }
   const draggingEdgeRef = useRef(null);
   const isSnappedRef = useRef(false);
 
@@ -245,6 +252,7 @@ export default function BlueprintEditor({
     if (!next) return false;
     onPolygonCommitRef.current && onPolygonCommitRef.current(markerId, next);
     setSelectedVertex(null);
+    setSelectedFace(null); // its corner indices no longer line up
     return true;
   };
 
@@ -253,6 +261,11 @@ export default function BlueprintEditor({
   // would otherwise delete the whole lot.
   useEffect(() => {
     const onKeyDown = (e) => {
+      if (e.key === 'Escape' && selectedFaceRef.current) {
+        e.stopPropagation();
+        setSelectedFace(null);
+        return;
+      }
       const v = selectedVertexRef.current;
       if (!v || v.markerId !== selectedIdRef.current) return;
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable) return;
@@ -270,9 +283,44 @@ export default function BlueprintEditor({
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Right-click is the secondary action on what's under the cursor (instead of
+  // the browser's menu): on a corner it deletes it, on a side it picks that
+  // straight face for stretching.
+  const handleContextMenu = (e) => {
+    const cornerEl = e.target.closest('[data-type="corner"]');
+    if (cornerEl) {
+      e.preventDefault();
+      deleteVertex(cornerEl.getAttribute('data-marker-id'), parseInt(cornerEl.getAttribute('data-index'), 10));
+      return;
+    }
+    // Right-click on the picked face again drops it
+    if (e.target.closest('[data-type="face"]')) {
+      e.preventDefault();
+      setSelectedFace(null);
+      return;
+    }
+    const edgeEl = e.target.closest('[data-type="edge"]');
+    if (edgeEl) {
+      e.preventDefault();
+      const markerId = edgeEl.getAttribute('data-marker-id');
+      const marker = annotationsRef.current.find(a => a.id === markerId);
+      if (!marker?.polygonPixels) return;
+      // In display px so the straightness tolerance is the same on screen at any zoom
+      const { w, h } = displayDimsRef.current;
+      const px = marker.polygonPixels.map(([x, y]) => [x * w, y * h]);
+      const face = faceAround(px, parseInt(edgeEl.getAttribute('data-index'), 10), FACE_TOLERANCE_PX / zoomRef.current);
+      setSelectedFace({ markerId, ...face });
+      setSelectedVertex(null);
+      setEdgeHover(null);
+    }
+  };
+
   // Event handlers
   const handlePointerDown = (e) => {
     if (e.button !== 0) return;
+    // Pressing anywhere but the selected face itself drops it
+    const faceEl = e.target.closest('[data-type="face"]');
+    if (!faceEl) setSelectedFace(null);
 
     // Check if snapped to first point (closes polygon)
     if (isSnappedRef.current && activeToolRef.current === 'polygon') {
@@ -301,18 +349,19 @@ export default function BlueprintEditor({
       return;
     }
 
-    // Slide handle in the middle of an edge: move the whole edge, parallel to itself
-    const edgeHandleEl = e.target.closest('[data-type="edge-handle"]');
-    if (edgeHandleEl) {
+    // Selected face (right-click on a side): pressing on it stretches it,
+    // parallel to itself, instead of adding a corner there
+    if (faceEl) {
       e.stopPropagation();
-      const markerId = edgeHandleEl.getAttribute('data-marker-id');
-      const index = parseInt(edgeHandleEl.getAttribute('data-index'), 10);
-      const marker = annotationsRef.current.find(a => a.id === markerId);
+      const face = selectedFaceRef.current;
+      const marker = annotationsRef.current.find(a => a.id === face?.markerId);
       const norm = screenToNormalized(e.clientX, e.clientY);
       if (marker?.polygonPixels && norm) {
-        draggingEdgeRef.current = { markerId, index, startNorm: norm, originalPixels: marker.polygonPixels };
+        draggingEdgeRef.current = {
+          markerId: face.markerId, start: face.start, end: face.end,
+          startNorm: norm, originalPixels: marker.polygonPixels,
+        };
         setSelectedVertex(null);
-        setEdgeHover(null);
       }
       return;
     }
@@ -431,11 +480,11 @@ export default function BlueprintEditor({
     } else if (draggingEdgeRef.current) {
       // Slide in display pixels (same reason as projectOnEdge), from the shape at
       // press time so rounding doesn't pile up over a long drag.
-      const { markerId, index, startNorm, originalPixels } = draggingEdgeRef.current;
+      const { markerId, start, end, startNorm, originalPixels } = draggingEdgeRef.current;
       const { w, h } = displayDimsRef.current;
-      const moved = slideEdge(
+      const moved = slideFace(
         originalPixels.map(([x, y]) => [x * w, y * h]),
-        index,
+        start, end,
         { x: (norm.nx - startNorm.nx) * w, y: (norm.ny - startNorm.ny) * h },
       );
       onPolygonUpdateRef.current && onPolygonUpdateRef.current(markerId, moved.map(([x, y]) => [x / w, y / h]));
@@ -584,13 +633,15 @@ export default function BlueprintEditor({
 
   /**
    * Edit handles of the selected lot/POI: an invisible wide hit line per edge
-   * (press = new corner there), a ghost dot where that corner would go, a
-   * slide handle in the middle of each long-enough edge, and the corners on
-   * top. Sizes are N / zoom so they stay the same few pixels on screen at any zoom.
+   * (press = new corner there), a ghost dot where that corner would go, the
+   * face picked with right-click (press = stretch it), and the corners on top. Sizes are N / zoom so they stay the same few pixels on screen at any zoom.
    */
   const renderVertexHandles = (markerId, pts, color) => {
     const activeVertex = selectedVertex?.markerId === markerId ? selectedVertex.index : null;
     const ghost = edgeHover?.markerId === markerId ? normToSvg(edgeHover.point[0], edgeHover.point[1]) : null;
+    // Ignore a face whose indices went stale (e.g. an undo changed the corner count)
+    const face = selectedFace?.markerId === markerId && selectedFace.start < pts.length && selectedFace.end < pts.length
+      ? selectedFace : null;
     return (
       <>
         {pts.map((p, i) => {
@@ -614,34 +665,32 @@ export default function BlueprintEditor({
           <circle cx={ghost.x} cy={ghost.y} r={3.5 / zoom} fill="#fff" stroke={color}
             strokeWidth={1.5 / zoom} opacity={0.8} pointerEvents="none" />
         )}
-        {pts.map((p, i) => {
-          const next = pts[(i + 1) % pts.length];
-          const len = Math.hypot(next.x - p.x, next.y - p.y);
-          if (len * zoom < MIN_EDGE_FOR_HANDLE_PX) return null;
-          // Short bar along the edge, 16px on screen, centered on its midpoint
-          const half = 8 / zoom / len;
-          const mx = (p.x + next.x) / 2;
-          const my = (p.y + next.y) / 2;
-          const dx = (next.x - p.x) * half;
-          const dy = (next.y - p.y) * half;
-          const normal = edgeNormal([[p.x, p.y], [next.x, next.y]], 0);
-          const common = {
-            x1: mx - dx, y1: my - dy, x2: mx + dx, y2: my + dy, strokeLinecap: 'round',
-          };
+        {face && (() => {
+          // Face corners in order start→end, wrapping around the ring
+          const facePts = [];
+          for (let k = face.start; ; k = (k + 1) % pts.length) {
+            facePts.push(pts[k]);
+            if (k === face.end) break;
+          }
+          const ptsStr = facePts.map(q => `${q.x},${q.y}`).join(' ');
+          const a = facePts[0];
+          const b = facePts[facePts.length - 1];
           return (
-            <g
-              key={`${markerId}-slide-${i}`}
-              data-type="edge-handle"
-              data-marker-id={markerId}
-              data-index={i}
-              style={{ cursor: cursorForNormal(normal.x, normal.y) }}
-            >
-              {/* White under-stroke so the bar reads on top of the lot's own border */}
-              <line {...common} stroke="#fff" strokeWidth={6 / zoom} />
-              <line {...common} stroke={color} strokeWidth={3.5 / zoom} />
+            <g>
+              {/* White under-stroke so the picked face reads over the lot's own border */}
+              <polyline points={ptsStr} fill="none" stroke="#fff" strokeWidth={7 / zoom}
+                strokeLinecap="round" pointerEvents="none" />
+              <polyline points={ptsStr} fill="none" stroke={color} strokeWidth={4 / zoom}
+                strokeLinecap="round" pointerEvents="none" />
+              {/* Wide invisible hit area on top of the edge ones, so pressing here stretches */}
+              <polyline
+                points={ptsStr} fill="none" stroke="transparent" strokeWidth={24 / zoom}
+                pointerEvents="stroke" data-type="face"
+                style={{ cursor: cursorForNormal(-(b.y - a.y), b.x - a.x) }}
+              />
             </g>
           );
-        })}
+        })()}
         {pts.map((p, i) => (
           <circle
             key={`${markerId}-corner-${i}`}
@@ -666,6 +715,7 @@ export default function BlueprintEditor({
     <div
       ref={containerRef}
       onPointerDown={handlePointerDown}
+      onContextMenu={handleContextMenu}
       onMouseDown={handlePanStart}
       style={{
         width: '100%',

@@ -1,6 +1,8 @@
 // Tests for the plano's vertex editing geometry (utils/polygonEdit.js).
 import { describe, expect, it } from 'vitest';
-import { insertVertex, projectOntoSegment, removeVertex, slideEdge } from './polygonEdit';
+import {
+  faceAround, insertVertex, projectOntoSegment, removeVertex, slideEdge, slideFace,
+} from './polygonEdit';
 
 describe('projectOntoSegment', () => {
   const a = { x: 0, y: 0 };
@@ -75,5 +77,30 @@ describe('slideEdge', () => {
   it('does not mutate the original', () => {
     slideEdge(square, 0, { x: 0, y: 4 });
     expect(square[0]).toEqual([0, 0]);
+  });
+});
+
+describe('faceAround / slideFace', () => {
+  // Rectangle with an extra point in the middle of the top side (index 1).
+  const pts = [[0, 0], [5, 0], [10, 0], [10, 10], [0, 10]];
+
+  it('picks the collinear neighbors as one face', () => {
+    expect(faceAround(pts, 0, 0.5)).toEqual({ start: 0, end: 2 });
+    expect(faceAround(pts, 1, 0.5)).toEqual({ start: 0, end: 2 });
+    // The right side has no straight continuation.
+    expect(faceAround(pts, 2, 0.5)).toEqual({ start: 2, end: 3 });
+  });
+
+  it('stops at real corners even in a star-like shape', () => {
+    const zigzag = [[0, 0], [10, 0], [12, 5], [10, 10], [0, 10]];
+    expect(faceAround(zigzag, 1, 0.5)).toEqual({ start: 1, end: 2 });
+  });
+
+  it('moves the whole face, including the point in the middle', () => {
+    const out = slideFace(pts, 0, 2, { x: 0, y: 3 });
+    [[0, 3], [5, 3], [10, 3], [10, 10], [0, 10]].forEach((e, i) => {
+      expect(out[i][0]).toBeCloseTo(e[0]);
+      expect(out[i][1]).toBeCloseTo(e[1]);
+    });
   });
 });

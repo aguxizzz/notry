@@ -59,31 +59,63 @@ function intersectLines(p, r, q, s) {
 }
 
 /**
- * Moves edge i→i+1 by `drag` ({ x, y }) keeping it parallel to itself: only
- * the part of the drag perpendicular to the edge counts. Its two corners
- * slide along the neighbor edges, so the lot stays closed and those edges
- * keep their direction. A neighbor parallel to the edge can't be slid on;
- * that corner just shifts with the edge.
+ * The straight face around edge i→i+1: that edge plus the neighbor edges
+ * that continue the same line (every point within `tolerance` of the chord).
+ * That way a side with an extra point in the middle is picked as one face.
+ * Returns { start, end }: corner indices, the face runs forward start→end.
  */
-export function slideEdge(points, edgeIndex, drag) {
+export function faceAround(points, edgeIndex, tolerance) {
   const n = points.length;
-  const normal = edgeNormal(points, edgeIndex);
-  if (!normal) return points.map(p => [...p]);
+  let start = edgeIndex;
+  let end = (edgeIndex + 1) % n;
+  const straight = (s, e) => {
+    const [ax, ay] = points[s];
+    const [bx, by] = points[e];
+    const len = Math.hypot(bx - ax, by - ay);
+    if (len === 0) return false;
+    for (let i = s; i !== e; i = (i + 1) % n) {
+      const [px, py] = points[i];
+      if (Math.abs((px - ax) * (by - ay) - (py - ay) * (bx - ax)) / len > tolerance) return false;
+    }
+    return true;
+  };
+  const edgeCount = () => (end - start + n) % n;
+  // Stop one short of the whole ring: a face needs corners outside it to slide on.
+  while (edgeCount() < n - 2 && straight((start - 1 + n) % n, end)) start = (start - 1 + n) % n;
+  while (edgeCount() < n - 2 && straight(start, (end + 1) % n)) end = (end + 1) % n;
+  return { start, end };
+}
 
+/**
+ * Moves the face start→end (see faceAround) by `drag` ({ x, y }) keeping it
+ * parallel to itself: only the part of the drag perpendicular to the face
+ * counts. The points in between move with it; its two end corners slide
+ * along the neighbor edges, so the lot stays closed and those edges keep
+ * their direction. A neighbor parallel to the face can't be slid on; that
+ * corner just shifts with the face.
+ */
+export function slideFace(points, start, end, drag) {
+  const n = points.length;
+  const a = points[start];
+  const b = points[end];
+  const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  if (len === 0) return points.map(p => [...p]);
+  const normal = { x: -(b[1] - a[1]) / len, y: (b[0] - a[0]) / len };
   const dist = drag.x * normal.x + drag.y * normal.y;
-  const ia = edgeIndex;
-  const ib = (edgeIndex + 1) % n;
-  const a = points[ia];
-  const b = points[ib];
-  const prev = points[(ia - 1 + n) % n];
-  const next = points[(ib + 1) % n];
-  const dir = [b[0] - a[0], b[1] - a[1]];
-  const a2 = [a[0] + normal.x * dist, a[1] + normal.y * dist];
-  const b2 = [b[0] + normal.x * dist, b[1] + normal.y * dist];
+  const shift = p => [p[0] + normal.x * dist, p[1] + normal.y * dist];
 
   const out = points.map(p => [...p]);
-  // Each corner = shifted edge line ∩ the neighbor edge's line (through the old corner).
-  out[ia] = intersectLines(a2, dir, prev, [a[0] - prev[0], a[1] - prev[1]]) ?? a2;
-  out[ib] = intersectLines(b2, dir, b, [next[0] - b[0], next[1] - b[1]]) ?? b2;
+  for (let i = (start + 1) % n; i !== end; i = (i + 1) % n) out[i] = shift(points[i]);
+  const prev = points[(start - 1 + n) % n];
+  const next = points[(end + 1) % n];
+  const dir = [b[0] - a[0], b[1] - a[1]];
+  // Each end corner = shifted face line ∩ the neighbor edge's line (through the old corner).
+  out[start] = intersectLines(shift(a), dir, prev, [a[0] - prev[0], a[1] - prev[1]]) ?? shift(a);
+  out[end] = intersectLines(shift(b), dir, b, [next[0] - b[0], next[1] - b[1]]) ?? shift(b);
   return out;
+}
+
+/** slideFace for a single edge i→i+1. */
+export function slideEdge(points, edgeIndex, drag) {
+  return slideFace(points, edgeIndex, (edgeIndex + 1) % points.length, drag);
 }
