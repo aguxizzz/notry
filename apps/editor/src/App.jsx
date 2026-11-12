@@ -557,6 +557,15 @@ function App() {
     )));
   };
 
+  // One-shot shape edit (e.g. deleting a vertex): unlike handlePolygonUpdate it
+  // isn't part of a drag, so it goes to history right away instead of on pointerup.
+  const handlePolygonCommit = (markerId, newPolygonPixels) => {
+    pushHistory(annotations);
+    setAnnotations(prevAnnotations => prevAnnotations.map(a => (
+      a.id === markerId ? withShapeCoords(a, mode, newPolygonPixels) : a
+    )));
+  };
+
   const handleMarkerDragEnd = (markerId, textureX, textureY) => {
     if (calibration.dragEnd(markerId, textureX, textureY)) return;
 
@@ -967,6 +976,7 @@ function App() {
                 onClick={handleViewerClick}
                 onMarkerSelect={handleMarkerSelect}
                 onPolygonUpdate={handlePolygonUpdate}
+                onPolygonCommit={handlePolygonCommit}
                 onMarkerDragEnd={handleMarkerDragEnd}
               />
             ) : (mode === 'panorama' || mode === 'render') && panoramaUrl ? (

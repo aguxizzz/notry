@@ -3,6 +3,24 @@ import { HIGHLIGHT_SVG_STYLE, getLotSvgStyle } from '../utils/lotStyles';
 import { FIRST_TEMP_POINT_ID } from '../utils/markerIds';
 import { fetchImage } from '../utils/fetchImage';
 import { useLatest } from '../hooks/useLatest';
+import { edgeNormal, insertVertex, projectOntoSegment, removeVertex, slideEdge } from '../utils/polygonEdit';
+
+// Screen pixels a corner must travel before a press counts as a drag, so
+// clicking a corner to select it doesn't nudge it off its line.
+const DRAG_THRESHOLD_PX = 3;
+
+// An edge shorter than this on screen gets no slide handle: it would sit on
+// top of the corner handles and steal their clicks.
+const MIN_EDGE_FOR_HANDLE_PX = 40;
+
+/** Resize cursor closest to the edge's normal, so the handle shows which way it moves. */
+function cursorForNormal(nx, ny) {
+  const deg = ((Math.atan2(ny, nx) * 180) / Math.PI + 180) % 180; // 0..180, direction only
+  if (deg < 22.5 || deg >= 157.5) return 'ew-resize';
+  if (deg < 67.5) return 'nwse-resize';
+  if (deg < 112.5) return 'ns-resize';
+  return 'nesw-resize';
+}
 
 export default function BlueprintEditor({
   blueprintUrl,
@@ -14,7 +32,8 @@ export default function BlueprintEditor({
   detectOverlay, // ImageBitmap from lotDetectionClient: what auto-detect sees, drawn over the plano
   onClick,
   onMarkerSelect,
-  onPolygonUpdate,
+  onPolygonUpdate, // live shape change during a drag; App commits it to history on pointerup
+  onPolygonCommit, // one-shot shape change (vertex delete), committed right away
   onMarkerDragEnd
 }) {
   const containerRef = useRef(null);
@@ -35,6 +54,11 @@ export default function BlueprintEditor({
   const [panY, setPanY] = useState(0);
   // The image's display size at zoom=1, pan=0 (in the SVG's untransformed coordinate space)
   const [displayDims, setDisplayDims] = useState({ w: 1, h: 1 });
+  // Corner picked for deletion: { markerId, index }. Only counts while that lot
+  // is still the selected one, so deselecting the lot drops it without an effect.
+  const [selectedVertex, setSelectedVertex] = useState(null);
+  // Ghost point that follows the cursor along a hovered edge: { markerId, point: [nx, ny] }
+  const [edgeHover, setEdgeHover] = useState(null);
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0 });
 
@@ -44,6 +68,9 @@ export default function BlueprintEditor({
   const onMarkerSelectRef = useLatest(onMarkerSelect);
   const onPolygonUpdateRef = useLatest(onPolygonUpdate);
   const onMarkerDragEndRef = useLatest(onMarkerDragEnd);
+  const onPolygonCommitRef = useLatest(onPolygonCommit);
+  const selectedIdRef = useLatest(selectedId);
+  const selectedVertexRef = useLatest(selectedVertex);
   const activeToolRef = useLatest(activeTool);
   const annotationsRef = useLatest(annotations);
   const zoomRef = useLatest(zoom);
@@ -54,6 +81,8 @@ export default function BlueprintEditor({
   const draggingCornerRef = useRef(null);
   const draggingMarkerRef = useRef(null);
   const draggingPolygonRef = useRef(null);
+  // Whole-edge slide: { markerId, index, startNorm, originalPixels }
+  const draggingEdgeRef = useRef(null);
   const isSnappedRef = useRef(false);
 
   // Load image — vía fetchImage + blob URL (igual que el panorama en App.jsx):
@@ -190,6 +219,57 @@ export default function BlueprintEditor({
     isPanningRef.current = false;
   };
 
+  /**
+   * Cursor projected onto edge `edgeIndex` of a lot, as normalized [nx, ny].
+   * Projection is done in display pixels: in normalized space the plano's
+   * aspect ratio would skew the perpendicular.
+   */
+  const projectOnEdge = (pixels, edgeIndex, clientX, clientY) => {
+    const norm = screenToNormalized(clientX, clientY);
+    if (!norm) return null;
+    const { w, h } = displayDimsRef.current;
+    const [ax, ay] = pixels[edgeIndex];
+    const [bx, by] = pixels[(edgeIndex + 1) % pixels.length];
+    const p = projectOntoSegment(
+      { x: norm.nx * w, y: norm.ny * h },
+      { x: ax * w, y: ay * h },
+      { x: bx * w, y: by * h },
+    );
+    return [p.x / w, p.y / h];
+  };
+
+  /** Removes a corner (if the lot keeps at least 3) and clears the vertex selection. */
+  const deleteVertex = (markerId, index) => {
+    const marker = annotationsRef.current.find(a => a.id === markerId);
+    const next = marker?.polygonPixels && removeVertex(marker.polygonPixels, index);
+    if (!next) return false;
+    onPolygonCommitRef.current && onPolygonCommitRef.current(markerId, next);
+    setSelectedVertex(null);
+    return true;
+  };
+
+  // Delete/Backspace on a selected corner removes it; Escape just unselects it.
+  // Capture phase on window so it runs before App's document listener, which
+  // would otherwise delete the whole lot.
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      const v = selectedVertexRef.current;
+      if (!v || v.markerId !== selectedIdRef.current) return;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable) return;
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        e.stopPropagation();
+        // At 3 corners there's nothing to delete; still swallow the key so the lot survives.
+        deleteVertex(v.markerId, v.index);
+      } else if (e.key === 'Escape') {
+        e.stopPropagation();
+        setSelectedVertex(null);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Event handlers
   const handlePointerDown = (e) => {
     if (e.button !== 0) return;
@@ -208,26 +288,50 @@ export default function BlueprintEditor({
       e.stopPropagation();
       const markerId = cornerEl.getAttribute('data-marker-id');
       const index = parseInt(cornerEl.getAttribute('data-index'), 10);
-      draggingCornerRef.current = { markerId, index, lastNorm: null };
+      // Alt+click: quick delete without selecting first
+      if (e.altKey) {
+        deleteVertex(markerId, index);
+        return;
+      }
+      setSelectedVertex({ markerId, index });
+      // moved=false until it passes DRAG_THRESHOLD_PX (see handlePointerMove)
+      draggingCornerRef.current = {
+        markerId, index, lastNorm: null, moved: false, startX: e.clientX, startY: e.clientY,
+      };
       return;
     }
 
-    // Check for midpoint element (takes priority over polygon selection)
-    const midpointEl = e.target.closest('[data-type="midpoint"]');
-    if (midpointEl) {
+    // Slide handle in the middle of an edge: move the whole edge, parallel to itself
+    const edgeHandleEl = e.target.closest('[data-type="edge-handle"]');
+    if (edgeHandleEl) {
       e.stopPropagation();
-      const markerId = midpointEl.getAttribute('data-marker-id');
-      const index = parseInt(midpointEl.getAttribute('data-index'), 10);
+      const markerId = edgeHandleEl.getAttribute('data-marker-id');
+      const index = parseInt(edgeHandleEl.getAttribute('data-index'), 10);
       const marker = annotationsRef.current.find(a => a.id === markerId);
+      const norm = screenToNormalized(e.clientX, e.clientY);
+      if (marker?.polygonPixels && norm) {
+        draggingEdgeRef.current = { markerId, index, startNorm: norm, originalPixels: marker.polygonPixels };
+        setSelectedVertex(null);
+        setEdgeHover(null);
+      }
+      return;
+    }
 
-      if (marker && marker.polygonPixels) {
-        const norm = screenToNormalized(e.clientX, e.clientY);
-        if (norm) {
-          const pts = [...marker.polygonPixels];
-          pts.splice(index + 1, 0, [norm.nx, norm.ny]);
-          onPolygonUpdateRef.current && onPolygonUpdateRef.current(markerId, pts);
-          draggingCornerRef.current = { markerId, index: index + 1, lastNorm: norm };
-        }
+    // Press anywhere on an edge: add a corner right there (where the ghost point
+    // was) and keep dragging it. Takes priority over polygon selection.
+    const edgeEl = e.target.closest('[data-type="edge"]');
+    if (edgeEl) {
+      e.stopPropagation();
+      const markerId = edgeEl.getAttribute('data-marker-id');
+      const index = parseInt(edgeEl.getAttribute('data-index'), 10);
+      const marker = annotationsRef.current.find(a => a.id === markerId);
+      const pt = marker?.polygonPixels && projectOnEdge(marker.polygonPixels, index, e.clientX, e.clientY);
+      if (pt) {
+        onPolygonUpdateRef.current && onPolygonUpdateRef.current(markerId, insertVertex(marker.polygonPixels, index, pt));
+        // Already under the cursor, so it moves from the first pixel (moved=true)
+        draggingCornerRef.current = { markerId, index: index + 1, lastNorm: { nx: pt[0], ny: pt[1] }, moved: true };
+        setSelectedVertex({ markerId, index: index + 1 });
+        setEdgeHover(null);
       }
       return;
     }
@@ -245,6 +349,7 @@ export default function BlueprintEditor({
     const polygonEl = e.target.closest('[data-type="polygon"]');
     if (polygonEl && activeToolRef.current === 'select') {
       e.stopPropagation();
+      setSelectedVertex(null);
       const markerId = polygonEl.getAttribute('data-marker-id');
       onMarkerSelectRef.current && onMarkerSelectRef.current(markerId);
 
@@ -265,6 +370,7 @@ export default function BlueprintEditor({
     }
 
     // Click on canvas for drawing
+    setSelectedVertex(null);
     const norm = screenToNormalized(e.clientX, e.clientY);
     if (norm && norm.nx >= 0 && norm.nx <= 1 && norm.ny >= 0 && norm.ny <= 1) {
       onClickRef.current && onClickRef.current(norm.nx, norm.ny);
@@ -293,8 +399,27 @@ export default function BlueprintEditor({
 
     setCursorNorm(norm);
 
+    // Ghost point on the hovered edge of the selected lot (not while dragging anything)
+    const isDragging = draggingCornerRef.current || draggingEdgeRef.current
+      || draggingPolygonRef.current || draggingMarkerRef.current;
+    const edgeEl = !isDragging && e.target?.closest?.('[data-type="edge"]');
+    if (edgeEl) {
+      const markerId = edgeEl.getAttribute('data-marker-id');
+      const index = parseInt(edgeEl.getAttribute('data-index'), 10);
+      const marker = annotationsRef.current.find(a => a.id === markerId);
+      const point = marker?.polygonPixels && projectOnEdge(marker.polygonPixels, index, e.clientX, e.clientY);
+      setEdgeHover(point ? { markerId, point } : null);
+    } else {
+      setEdgeHover(null);
+    }
+
     if (draggingCornerRef.current) {
-      const { markerId, index } = draggingCornerRef.current;
+      const drag = draggingCornerRef.current;
+      if (!drag.moved) {
+        if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < DRAG_THRESHOLD_PX) return;
+        drag.moved = true;
+      }
+      const { markerId, index } = drag;
       const marker = annotationsRef.current.find(a => a.id === markerId);
 
       if (marker && marker.polygonPixels) {
@@ -303,6 +428,17 @@ export default function BlueprintEditor({
         onPolygonUpdateRef.current && onPolygonUpdateRef.current(markerId, newPixels);
         draggingCornerRef.current.lastNorm = norm;
       }
+    } else if (draggingEdgeRef.current) {
+      // Slide in display pixels (same reason as projectOnEdge), from the shape at
+      // press time so rounding doesn't pile up over a long drag.
+      const { markerId, index, startNorm, originalPixels } = draggingEdgeRef.current;
+      const { w, h } = displayDimsRef.current;
+      const moved = slideEdge(
+        originalPixels.map(([x, y]) => [x * w, y * h]),
+        index,
+        { x: (norm.nx - startNorm.nx) * w, y: (norm.ny - startNorm.ny) * h },
+      );
+      onPolygonUpdateRef.current && onPolygonUpdateRef.current(markerId, moved.map(([x, y]) => [x / w, y / h]));
     } else if (draggingPolygonRef.current) {
       draggingPolygonRef.current.isDrag = true;
       const { startNorm, originalPixels, markerId } = draggingPolygonRef.current;
@@ -356,6 +492,9 @@ export default function BlueprintEditor({
         }
       }
       draggingCornerRef.current = null;
+    } else if (draggingEdgeRef.current) {
+      // Nothing to flush: App commits the drag to history on its own pointerup.
+      draggingEdgeRef.current = null;
     } else if (draggingPolygonRef.current) {
       if (draggingPolygonRef.current.isDrag && draggingPolygonRef.current.lastPixels) {
         const { markerId, lastPixels } = draggingPolygonRef.current;
@@ -442,6 +581,86 @@ export default function BlueprintEditor({
 
   // Convert normalized (0-1) to SVG coordinates
   const normToSvg = (nx, ny) => ({ x: nx * dw, y: ny * dh });
+
+  /**
+   * Edit handles of the selected lot/POI: an invisible wide hit line per edge
+   * (press = new corner there), a ghost dot where that corner would go, a
+   * slide handle in the middle of each long-enough edge, and the corners on
+   * top. Sizes are N / zoom so they stay the same few pixels on screen at any zoom.
+   */
+  const renderVertexHandles = (markerId, pts, color) => {
+    const activeVertex = selectedVertex?.markerId === markerId ? selectedVertex.index : null;
+    const ghost = edgeHover?.markerId === markerId ? normToSvg(edgeHover.point[0], edgeHover.point[1]) : null;
+    return (
+      <>
+        {pts.map((p, i) => {
+          const next = pts[(i + 1) % pts.length];
+          return (
+            <line
+              key={`${markerId}-edge-${i}`}
+              x1={p.x} y1={p.y} x2={next.x} y2={next.y}
+              stroke="transparent"
+              // ~12px of slack on each side: at 10 you had to land right on the line
+              strokeWidth={24 / zoom}
+              pointerEvents="stroke"
+              data-type="edge"
+              data-marker-id={markerId}
+              data-index={i}
+              style={{ cursor: 'copy' }}
+            />
+          );
+        })}
+        {ghost && (
+          <circle cx={ghost.x} cy={ghost.y} r={3.5 / zoom} fill="#fff" stroke={color}
+            strokeWidth={1.5 / zoom} opacity={0.8} pointerEvents="none" />
+        )}
+        {pts.map((p, i) => {
+          const next = pts[(i + 1) % pts.length];
+          const len = Math.hypot(next.x - p.x, next.y - p.y);
+          if (len * zoom < MIN_EDGE_FOR_HANDLE_PX) return null;
+          // Short bar along the edge, 16px on screen, centered on its midpoint
+          const half = 8 / zoom / len;
+          const mx = (p.x + next.x) / 2;
+          const my = (p.y + next.y) / 2;
+          const dx = (next.x - p.x) * half;
+          const dy = (next.y - p.y) * half;
+          const normal = edgeNormal([[p.x, p.y], [next.x, next.y]], 0);
+          const common = {
+            x1: mx - dx, y1: my - dy, x2: mx + dx, y2: my + dy, strokeLinecap: 'round',
+          };
+          return (
+            <g
+              key={`${markerId}-slide-${i}`}
+              data-type="edge-handle"
+              data-marker-id={markerId}
+              data-index={i}
+              style={{ cursor: cursorForNormal(normal.x, normal.y) }}
+            >
+              {/* White under-stroke so the bar reads on top of the lot's own border */}
+              <line {...common} stroke="#fff" strokeWidth={6 / zoom} />
+              <line {...common} stroke={color} strokeWidth={3.5 / zoom} />
+            </g>
+          );
+        })}
+        {pts.map((p, i) => (
+          <circle
+            key={`${markerId}-corner-${i}`}
+            cx={p.x}
+            cy={p.y}
+            // Selected corner is filled and a bit bigger: that's the one Supr deletes
+            r={(i === activeVertex ? 6 : 5) / zoom}
+            fill={i === activeVertex ? color : '#fff'}
+            stroke={i === activeVertex ? '#fff' : color}
+            strokeWidth={1.5 / zoom}
+            data-type="corner"
+            data-marker-id={markerId}
+            data-index={i}
+            style={{ cursor: 'grab' }}
+          />
+        ))}
+      </>
+    );
+  };
 
   return (
     <div
@@ -547,41 +766,7 @@ export default function BlueprintEditor({
                     data-marker-id={ann.id}
                     style={{ cursor: activeTool === 'polygon' ? 'crosshair' : (isSelected ? 'move' : 'pointer') }}
                   />
-                  {isSelected && pts.map((p, i) => (
-                    <circle
-                      key={`${ann.id}-corner-${i}`}
-                      cx={p.x}
-                      cy={p.y}
-                      r={Math.max(2, 6 / zoom)}
-                      fill="#fff"
-                      stroke="#06f"
-                      strokeWidth={Math.max(1, 2 / zoom)}
-                      data-type="corner"
-                      data-marker-id={ann.id}
-                      data-index={i}
-                      style={{ cursor: 'grab' }}
-                    />
-                  ))}
-                  {isSelected && pts.map((p, i) => {
-                    const next = pts[(i + 1) % pts.length];
-                    const mid = { x: (p.x + next.x) / 2, y: (p.y + next.y) / 2 };
-                    return (
-                      <circle
-                        key={`${ann.id}-mid-${i}`}
-                        cx={mid.x}
-                        cy={mid.y}
-                        r={Math.max(1.5, 5 / zoom)}
-                        fill="#fff"
-                        stroke="#0f0"
-                        strokeWidth={Math.max(1, 2 / zoom)}
-                        opacity={0.8}
-                        data-type="midpoint"
-                        data-marker-id={ann.id}
-                        data-index={i}
-                        style={{ cursor: 'copy' }}
-                      />
-                    );
-                  })}
+                  {isSelected && renderVertexHandles(ann.id, pts, '#06f')}
                 </g>
               );
             }
@@ -609,41 +794,7 @@ export default function BlueprintEditor({
                     data-marker-id={ann.id}
                     style={{ cursor: isSelected ? 'move' : 'pointer' }}
                   />
-                  {isSelected && pts.map((p, i) => (
-                    <circle
-                      key={`${ann.id}-corner-${i}`}
-                      cx={p.x}
-                      cy={p.y}
-                      r={Math.max(2, 6 / zoom)}
-                      fill="#fff"
-                      stroke={poiColor}
-                      strokeWidth={Math.max(1, 2 / zoom)}
-                      data-type="corner"
-                      data-marker-id={ann.id}
-                      data-index={i}
-                      style={{ cursor: 'grab' }}
-                    />
-                  ))}
-                  {isSelected && pts.map((p, i) => {
-                    const next = pts[(i + 1) % pts.length];
-                    const mid = { x: (p.x + next.x) / 2, y: (p.y + next.y) / 2 };
-                    return (
-                      <circle
-                        key={`${ann.id}-mid-${i}`}
-                        cx={mid.x}
-                        cy={mid.y}
-                        r={Math.max(1.5, 5 / zoom)}
-                        fill="#fff"
-                        stroke={poiColor}
-                        strokeWidth={Math.max(1, 2 / zoom)}
-                        opacity={0.8}
-                        data-type="midpoint"
-                        data-marker-id={ann.id}
-                        data-index={i}
-                        style={{ cursor: 'copy' }}
-                      />
-                    );
-                  })}
+                  {isSelected && renderVertexHandles(ann.id, pts, poiColor)}
                 </g>
               );
             }
