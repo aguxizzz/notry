@@ -9,6 +9,7 @@ import { midpointFnFor } from '../hooks/useDisplayAnnotations';
 import { usePanoramaPointer } from '../hooks/usePanoramaPointer';
 import { useSurfaceMarkers } from '../hooks/useSurfaceMarkers';
 import { installPolygonClipping } from '../utils/polygonClipping';
+import Loader from './Loader';
 import '@photo-sphere-viewer/core/index.css';
 import '@photo-sphere-viewer/markers-plugin/index.css';
 
@@ -230,6 +231,12 @@ export default function EditorViewer({
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      {/* Reemplaza al loader nativo de PSV (oculto en App.css) hasta el "ready". */}
+      {!isReady && (
+        <div className="loader-overlay">
+          <Loader label="Cargando panorama…" />
+        </div>
+      )}
     </div>
   );
 }

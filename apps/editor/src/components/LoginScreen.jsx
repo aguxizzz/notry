@@ -1,6 +1,21 @@
 import { useState } from 'react';
 import { login } from '../api/auth';
 
+const MailIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="m3 7 9 6 9-6" />
+  </svg>
+);
+
+const LockIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <rect x="4" y="11" width="16" height="10" rx="2" />
+    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+  </svg>
+);
+
+// Misma estructura que el login de editor-deptos (y de plataforma-web, en oscuro).
 export default function LoginScreen({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,108 +37,68 @@ export default function LoginScreen({ onLogin }) {
   };
 
   return (
-    <div style={styles.overlay}>
-      <form onSubmit={handleSubmit} style={styles.card}>
-        <h1 style={styles.title}>Notry Editor</h1>
-        <p style={styles.subtitle}>Ingresa tus credenciales para continuar</p>
+    <main className="login-page">
+      <div className="login-brand" aria-label="Notry">
+        <span className="login-brand-mark" aria-hidden="true" />
+        <span>notry</span>
+      </div>
 
-        <label style={styles.label}>Email</label>
-        <input
-          type="email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          required
-          autoFocus
-          style={styles.input}
-          placeholder="usuario@ejemplo.com"
-        />
+      <section className="login-card" aria-labelledby="login-title">
+        <header className="login-header">
+          <p className="login-eyebrow">Editor de loteos</p>
+          <h1 id="login-title">Ingresá para editar</h1>
+          <p>Usá la misma cuenta de la plataforma.</p>
+        </header>
 
-        <label style={styles.label}>Contraseña</label>
-        <input
-          type="password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          required
-          style={styles.input}
-          placeholder="••••••••"
-        />
+        <form className="login-form" onSubmit={handleSubmit}>
+          <div className="login-field">
+            <label htmlFor="login-email">Correo electrónico</label>
+            <div className="login-input-wrap">
+              <input
+                id="login-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="nombre@empresa.com"
+                autoComplete="email"
+                aria-invalid={!!error}
+                required
+                autoFocus
+              />
+              <MailIcon />
+            </div>
+          </div>
 
-        {error && <p style={styles.error}>{error}</p>}
+          <div className="login-field">
+            <label htmlFor="login-password">Contraseña</label>
+            <div className="login-input-wrap">
+              <input
+                id="login-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Tu contraseña"
+                autoComplete="current-password"
+                aria-invalid={!!error}
+                required
+              />
+              <LockIcon />
+            </div>
+          </div>
 
-        <button 
-          type="submit" 
-          disabled={loading} 
-          style={{
-            ...styles.button,
-            background: loading ? 'var(--border)' : 'var(--accent)',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            opacity: loading ? 0.7 : 1
-          }}
-        >
-          {loading ? 'Ingresando...' : 'Ingresar'}
-        </button>
-      </form>
-    </div>
+          <button type="submit" className="btn-primary login-submit" disabled={loading}>
+            {loading ? 'Ingresando…' : 'Ingresar'}
+          </button>
+
+          {error && (
+            <p className="login-error" role="alert">
+              {error}
+            </p>
+          )}
+        </form>
+      </section>
+
+      <p className="login-note">Herramienta interna</p>
+    </main>
   );
 }
-
-const styles = {
-  overlay: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100vw',
-    height: '100vh',
-    background: 'var(--panel-deep)',
-  },
-  card: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '10px',
-    background: 'var(--panel-bg)',
-    border: '1px solid var(--border)',
-    borderRadius: '12px',
-    padding: '2.5rem',
-    width: '100%',
-    maxWidth: '380px',
-  },
-  title: {
-    margin: '0 0 4px 0',
-    fontSize: 'var(--text-4xl)',
-    fontWeight: 'var(--weight-bold)',
-    color: '#fff',
-  },
-  subtitle: {
-    margin: '0 0 16px 0',
-    fontSize: 'var(--text-lg)',
-    color: 'var(--text-muted)',
-  },
-  label: {
-    fontSize: 'var(--text-md)',
-    color: 'var(--text-muted)',
-  },
-  input: {
-    background: 'var(--panel-deep)',
-    border: '1px solid var(--border)',
-    color: '#eee',
-    padding: '10px',
-    borderRadius: '6px',
-    fontSize: 'var(--text-xl)',
-    outline: 'none',
-  },
-  error: {
-    margin: '4px 0 0 0',
-    color: 'var(--color-danger)',
-    fontSize: 'var(--text-md)',
-  },
-  button: {
-    marginTop: '8px',
-    padding: '12px',
-    background: 'var(--accent)',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '6px',
-    fontWeight: 'var(--weight-bold)',
-    fontSize: 'var(--text-xl)',
-  },
-};

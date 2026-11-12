@@ -27,6 +27,7 @@ import { Check, Image as ImageIcon, X } from 'lucide-react';
 import EditorViewer from './components/EditorViewer';
 import BlueprintEditor from './components/BlueprintEditor';
 import LoginScreen from './components/LoginScreen';
+import Loader from './components/Loader';
 import LoteoList from './components/LoteoList';
 import DraftBanner from './components/DraftBanner';
 import SessionExpiredBanner from './components/SessionExpiredBanner';
@@ -789,7 +790,7 @@ function App() {
 
   // user === undefined mientras /auth/me todavía no respondió.
   if (user === undefined) {
-    return null;
+    return <Loader fullscreen label="Preparando el editor…" />;
   }
 
   if (!selectedLoteo && (!loteo.hasDataParam || loteo.untrustedDirectLink)) {
@@ -798,6 +799,7 @@ function App() {
         token={accessToken}
         onSelect={handleLoteoSelect}
         onAuthError={handleLogout}
+        onLogout={handleLogout}
         user={user}
         activeOrgId={activeOrgId}
         onOrgChange={setActiveOrgId}
@@ -818,12 +820,7 @@ function App() {
   }
 
   if (loteo.hasDataParam && !selectedLoteo) {
-    return (
-      <div className="access-screen">
-        <div className="access-screen__spinner" />
-        <p>Verificando acceso…</p>
-      </div>
-    );
+    return <Loader fullscreen label="Abriendo loteo…" />;
   }
 
   // Borradores viejos (v2) no traen geo-calibración ni Render: eso queda
@@ -988,7 +985,7 @@ function App() {
 
           <div className="viewer-surface">
             {loteo.isLoading ? (
-              <div className="viewer-feedback">Cargando loteo…</div>
+              <Loader label="Cargando loteo…" />
             ) : mode === 'blueprint' && blueprintUrl ? (
               <BlueprintEditor
                 blueprintUrl={blueprintUrl}

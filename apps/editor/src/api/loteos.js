@@ -9,8 +9,16 @@ export const fetchVisorData = url => apiRequest(url);
 
 export const getLoteo = (token, loteoId) => apiRequest(`/loteos/${loteoId}`, { token });
 
-export const listLoteos = (token, { limit, orgId } = {}) =>
-  apiRequest(`/loteos${limit ? `?limit=${limit}` : ''}`, { token, orgId });
+export const listLoteos = (token, { limit, orgId, includeLotes } = {}) => {
+  const params = new URLSearchParams();
+  if (limit) params.set('limit', limit);
+  if (includeLotes) params.set('include_lotes', 'true');
+  const qs = params.toString();
+  return apiRequest(`/loteos${qs ? `?${qs}` : ''}`, { token, orgId });
+};
+
+export const listProjects = (token, { orgId } = {}) =>
+  apiRequest('/projects', { token, orgId });
 
 export const patchLoteo = (token, loteoId, patch) =>
   apiRequest(`/loteos/${loteoId}`, { method: 'PATCH', token, body: patch });
