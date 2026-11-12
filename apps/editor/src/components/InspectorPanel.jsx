@@ -21,9 +21,9 @@ export default function InspectorPanel({
   updateNestedSelected,
   // Lot — pending
   pendingMode, onPendingModeChange,
-  isCreatingLote, onCreateLote,
+  onCreateLote,
   assignTargetId, onAssignTargetChange,
-  isAssigning, onAssign,
+  onAssign,
   // POI
   siblingStages, onPoiFieldChange,
   uploadFn,
@@ -49,12 +49,10 @@ export default function InspectorPanel({
         onPendingModeChange={onPendingModeChange}
         selectedMarker={selectedMarker}
         onUpdateSelected={updateSelected}
-        isCreatingLote={isCreatingLote}
         onCreateLote={onCreateLote}
         lotsWithEmptyCoords={lotsWithEmptyCoords}
         assignTargetId={assignTargetId}
         onAssignTargetChange={onAssignTargetChange}
-        isAssigning={isAssigning}
         onAssign={onAssign}
         onDiscard={onDelete}
         onClose={onClose}

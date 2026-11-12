@@ -128,20 +128,37 @@ function App() {
     panoramaDimensions: loteo.panoramaDimensions,
   });
   const {
-    isCreatingLote,
     pendingMode, setPendingMode,
     assignTargetId, setAssignTargetId,
-    isAssigning,
     handleCreateLote,
     handleAssignToExistingLot,
     handleDeleteLot,
   } = useLotOperations({
     annotations, setAnnotations,
-    selectedId, setSelectedId,
+    setSelectedId,
     token: accessToken,
     loteoId, mode,
     onAuthError: handleLogout,
-    onAfterCreate: clearDraft,
+    // El lote ya está en la base: entra a la foto de "lo último guardado"
+    // para no contar como cambio pendiente. Esa comparación es del array
+    // entero (JSON), así que va en la misma posición relativa que en pantalla:
+    // detrás de los que ya estaban guardados y lo precedían.
+    onAfterCreate: (createdLot, annotationsAtCreate, tempId) => {
+      const saved = savedAnnotationsRef.current;
+      const savedIds = new Set(saved.map(a => a.id));
+      const before = annotationsAtCreate.slice(0, annotationsAtCreate.findIndex(a => a.id === tempId));
+      const at = before.filter(a => savedIds.has(a.id)).length;
+      savedAnnotationsRef.current = [...saved.slice(0, at), createdLot, ...saved.slice(at)];
+      clearDraft();
+    },
+    // La forma ya quedó en la base: se copia a la foto de "lo último guardado"
+    // para que no aparezca como cambio pendiente. Solo esa forma, no el lote
+    // entero, así otras ediciones sin guardar del lote siguen contando.
+    onAfterAssign: (lotId, assignedMode, coords) => {
+      savedAnnotationsRef.current = savedAnnotationsRef.current.map(a => (
+        a.id === lotId ? withShapeCoords(a, assignedMode, coords) : a
+      ));
+    },
   });
   const { handleDeletePoi } = usePoiOperations({
     setAnnotations, selectedId, setSelectedId,
@@ -324,7 +341,8 @@ function App() {
       mode: 'blueprint',
       coords: result.coordinates,
       tooltip: `Lote Auto ${autoDetectLotsGenerated + 1}`,
-      svgStyle: { fill: 'rgba(76,175,80,0.15)', stroke: '#4caf50', strokeWidth: '2', strokeDasharray: '4,2' },
+      // Sin svgStyle propio: usa el naranja punteado de todo lote pendiente.
+      // Antes era verde, y se confundía con un lote ya creado y disponible.
     });
 
     pushHistory(annotations);
@@ -692,6 +710,13 @@ function App() {
 
     if (!selectedMarker) return;
 
+    // Lote cuyo POST /lots todavía no volvió: si se borrara de la pantalla
+    // ahora, quedaría creado en la base sin que se vea. Se espera al id real.
+    if (selectedMarker.creating) {
+      notify('El lote se está creando, probá de nuevo en un segundo.', { variant: 'info' });
+      return;
+    }
+
     // Lote guardado: Supr (y "Borrar" por default) lo quita solo de esta
     // vista — se deshace con Ctrl+Z. Borrarlo de la base es "Eliminar lote".
     if (selectedMarker.type === 'polygon' && selectedMarker.uuid) {
@@ -1044,11 +1069,9 @@ function App() {
           updateNestedSelected={updateNestedSelected}
           pendingMode={pendingMode}
           onPendingModeChange={setPendingMode}
-          isCreatingLote={isCreatingLote}
           onCreateLote={() => handleCreateLote(selectedMarker)}
           assignTargetId={assignTargetId}
           onAssignTargetChange={setAssignTargetId}
-          isAssigning={isAssigning}
           onAssign={() => handleAssignToExistingLot(selectedMarker)}
           siblingStages={loteo.siblingStages}
           accessToken={accessToken}

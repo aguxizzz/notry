@@ -23,7 +23,9 @@ export function useSaveAll({ annotations, setAnnotations, token, loteoId, savedA
       const textAnnotations = annotations.filter(a => a.type === 'text');
       const textChanged = changes.text;
 
-      const allPolygons = annotations.filter(a => a.type === 'polygon' && !a.pending && (a.uuid || a.id));
+      // Un lote con `creating` todavía espera su id real del POST /lots: se
+      // deja afuera porque se mandaría con el id temporal.
+      const allPolygons = annotations.filter(a => a.type === 'polygon' && !a.pending && !a.creating && (a.uuid || a.id));
       const polygonsWithUuid = allPolygons.filter(m => polygonChanged(m, savedMap.get(m.uuid ?? m.id)));
 
       const pendingPois = annotations.filter(a => a.type === 'poi' && a.pending);

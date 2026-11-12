@@ -23,12 +23,10 @@ export default function PendingPolygonInspector({
   onPendingModeChange,
   selectedMarker,
   onUpdateSelected,
-  isCreatingLote,
   onCreateLote,
   lotsWithEmptyCoords,
   assignTargetId,
   onAssignTargetChange,
-  isAssigning,
   onAssign,
   onDiscard,
   onClose,
@@ -55,10 +53,11 @@ export default function PendingPolygonInspector({
   const target = lotsWithEmptyCoords.find(lot => String(lot.id) === String(assignTargetId));
 
   const creating = pendingMode === 'create';
-  const busy = creating ? isCreatingLote : isAssigning;
+  // Crear y asignar son optimistas: el panel pasa al lote al toque, así que
+  // no hay estado de "en curso" ni doble envío posible.
   const canSubmit = creating ? name.trim().length > 0 : !!target;
   const submit = () => {
-    if (!canSubmit || busy) return;
+    if (!canSubmit) return;
     if (creating) onCreateLote();
     else onAssign();
   };
@@ -70,8 +69,8 @@ export default function PendingPolygonInspector({
   };
 
   const submitLabel = creating
-    ? (isCreatingLote ? 'Creando…' : `Crear ${name.trim() || 'lote'}`)
-    : (isAssigning ? 'Asignando…' : target ? `Asignar a ${target.tooltip || 'lote'}` : 'Elegí un lote');
+    ? `Crear ${name.trim() || 'lote'}`
+    : (target ? `Asignar a ${target.tooltip || 'lote'}` : 'Elegí un lote');
 
   return (
     <InspectorShell
@@ -89,9 +88,9 @@ export default function PendingPolygonInspector({
             type="button"
             className="editor-btn editor-btn--primary ins-foot__block"
             onClick={submit}
-            disabled={!canSubmit || busy}
+            disabled={!canSubmit}
           >
-            {submitLabel} {!busy && canSubmit && <kbd>↵</kbd>}
+            {submitLabel} {canSubmit && <kbd>↵</kbd>}
           </button>
         </>
       )}

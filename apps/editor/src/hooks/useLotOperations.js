@@ -8,19 +8,21 @@ import { useUIFeedback } from './useUIFeedback';
 export function useLotOperations({
   annotations,
   setAnnotations,
-  selectedId,
   setSelectedId,
   token,
   loteoId,
   mode,
   onAuthError,
+  // (createdLot, annotationsAtCreate, tempId) cuando el back confirmó un
+  // lote nuevo: App lo suma a la foto de "lo último guardado".
   onAfterCreate,
+  // (lotId, mode, coords) cuando el back confirmó una asignación: App lo
+  // usa para que el "cambios sin guardar" no cuente algo que ya está en la base.
+  onAfterAssign,
 }) {
   const { confirm, notify } = useUIFeedback();
-  const [isCreatingLote, setIsCreatingLote] = useState(false);
   const [pendingMode, setPendingMode] = useState('create');
   const [assignTargetId, setAssignTargetId] = useState('');
-  const [isAssigning, setIsAssigning] = useState(false);
 
   // 401 → logout; cualquier otro error → aviso con el motivo si lo hay.
   const reportError = (action, error) => {
@@ -28,72 +30,116 @@ export function useLotOperations({
     notify(`No se pudo ${action}: ${errorMessage(error, 'error del servidor.')}`, { variant: 'error' });
   };
 
+  // Asignar el dibujo pendiente a un lote que ya existe. Es optimista: el
+  // lote toma la forma al toque y la API corre atrás; si falla, el polígono
+  // pendiente vuelve y el lote recupera la forma que tenía en esta vista.
   const handleAssignToExistingLot = async (selectedMarker) => {
     if (!assignTargetId || !selectedMarker) return;
     const targetLot = annotations.find(a => a.id === assignTargetId);
     if (!targetLot?.uuid) return;
 
-    setIsAssigning(true);
+    const pending = annotations.find(a => a.id === selectedMarker.id) ?? selectedMarker;
+    const pendingIndex = annotations.indexOf(pending);
+    const coords = getShapeCoords(selectedMarker, mode);
+    const previousCoords = getShapeCoords(targetLot, mode);
+    const targetId = targetLot.id;
+    // `mode` se fija acá: si el usuario cambia de vista mientras la API
+    // responde, el rollback tiene que tocar la geometría de esta vista.
+    const assignedMode = mode;
+
+    // El polígono pendiente desaparece: su geometría pasa al lote elegido.
+    setAnnotations(prev => prev
+      .filter(a => a.id !== pending.id)
+      .map(a => (a.id === targetId ? withShapeCoords(a, assignedMode, coords) : a))
+    );
+    setSelectedId(targetId);
+
     try {
-      const coords = getShapeCoords(selectedMarker, mode);
       await assignLotCoordinates(token, {
         uuid: targetLot.uuid,
         polygonPoints: coords,
-        space: spaceForMode(mode),
+        space: spaceForMode(assignedMode),
       });
-
-      // El polígono pendiente desaparece: su geometría pasa al lote elegido.
-      setAnnotations(prev => prev
-        .filter(a => a.id !== selectedId)
-        .map(a => (a.id === assignTargetId ? withShapeCoords(a, mode, coords) : a))
-      );
-      setSelectedId(assignTargetId);
+      onAfterAssign?.(targetId, assignedMode, coords);
     } catch (error) {
+      // Solo se revierte la forma en esta vista, no el lote entero: si
+      // mientras tanto se editó otra cosa del lote, eso no se pierde.
+      setAnnotations(prev => reinsertAnnotation(
+        prev.map(a => (a.id === targetId ? withShapeCoords(a, assignedMode, previousCoords) : a)),
+        pending,
+        pendingIndex,
+      ));
+      // Solo se le devuelve la selección si sigue mirando el lote asignado.
+      setSelectedId(prev => (prev === targetId ? pending.id : prev));
       reportError('asignar las coordenadas', error);
-    } finally {
-      setIsAssigning(false);
     }
   };
 
+  // Crear un lote nuevo con el dibujo pendiente. Es optimista: el polígono
+  // pasa a lote al toque (con un id temporal y `creating: true`) y la API
+  // corre atrás; cuando responde, el id temporal se cambia por el real. Si
+  // falla, vuelve a quedar pendiente con lo que se había cargado.
   const handleCreateLote = async (selectedMarker) => {
     if (!selectedMarker?.tooltip?.trim()) { notify('El nombre es requerido.', { variant: 'error' }); return; }
     if (!loteoId) { notify('No se encontró el loteo_id.', { variant: 'error' }); return; }
     const coords = getShapeCoords(selectedMarker, mode);
     if (!coords.length) { notify('Seleccioná un polígono antes de crear un lote.', { variant: 'error' }); return; }
 
-    setIsCreatingLote(true);
+    const tempId = selectedMarker.id;
+    const createdMode = mode;
+    const name = selectedMarker.tooltip.trim();
+    const status = selectedMarker.status || 'available';
+    const price = parseNumberOrZero(selectedMarker.price);
+    const area = parseNumberOrZero(selectedMarker.area_m2);
+    const comments = selectedMarker.comments?.trim();
+    // Se guarda el lugar en la lista para que App ubique el lote en la foto
+    // de "lo último guardado" en el mismo orden que en pantalla.
+    const annotationsAtCreate = annotations;
+
+    // En pantalla ya es un lote con los valores normalizados que viajan al back.
+    const optimistic = annotation => withShapeCoords({
+      ...annotation,
+      pending: false,
+      creating: true,
+      tooltip: name,
+      status,
+      price,
+      area_m2: area,
+      comments: comments || '',
+    }, createdMode, coords);
+    const snapshot = optimistic(annotations.find(a => a.id === tempId) ?? selectedMarker);
+    setAnnotations(prev => prev.map(a => (a.id === tempId ? optimistic(a) : a)));
+
     try {
       const lote = await createLot(token, {
-        name: selectedMarker.tooltip.trim(),
-        status: selectedMarker.status || 'available',
-        price: parseNumberOrZero(selectedMarker.price),
-        area_m2: parseNumberOrZero(selectedMarker.area_m2),
-        ...(selectedMarker.comments?.trim() && { comments: selectedMarker.comments.trim() }),
+        name,
+        status,
+        price,
+        area_m2: area,
+        ...(comments && { comments }),
         loteo_id: loteoId,
-        ...(spaceForMode(mode) === 'blueprint'
+        ...(spaceForMode(createdMode) === 'blueprint'
           ? { blueprint_coordinates: coords }
           : { coordinates_360: coords }),
       });
-      setAnnotations(prev => prev.map(a =>
-        a.id === selectedId ? withShapeCoords({
-          ...a,
-          id: lote.id,
-          uuid: lote.id,
-          pending: false,
-          tooltip: lote.name,
-          price: lote.price,
-          area_m2: lote.area_m2,
-          status: lote.status,
-          slug: lote.slug,
-          comments: lote.comments,
-        }, mode, coords) : a
-      ));
-      setSelectedId(lote.id);
-      onAfterCreate?.();
+      // Solo se completa lo que pone el back (id, slug): si mientras tanto
+      // se editó el nombre o el precio, esos cambios no se pisan.
+      const confirmed = annotation => {
+        const next = { ...annotation, id: lote.id, uuid: lote.id, slug: lote.slug };
+        delete next.creating;
+        return next;
+      };
+      setAnnotations(prev => prev.map(a => (a.id === tempId ? confirmed(a) : a)));
+      setSelectedId(prev => (prev === tempId ? lote.id : prev));
+      onAfterCreate?.(confirmed(snapshot), annotationsAtCreate, tempId);
     } catch (error) {
+      setAnnotations(prev => prev.map(a => {
+        if (a.id !== tempId) return a;
+        const reverted = { ...a, pending: true };
+        delete reverted.creating;
+        return reverted;
+      }));
       reportError('crear el lote', error);
-    } finally {
-      setIsCreatingLote(false);
     }
   };
 
@@ -122,10 +168,8 @@ export function useLotOperations({
   };
 
   return {
-    isCreatingLote,
     pendingMode, setPendingMode,
     assignTargetId, setAssignTargetId,
-    isAssigning,
     handleCreateLote,
     handleAssignToExistingLot,
     handleDeleteLot,
