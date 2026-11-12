@@ -4,6 +4,8 @@ import { createUploadFn } from './api/upload';
 import { useAuth } from './hooks/useAuth';
 import { useCalibration } from './hooks/useCalibration';
 import { useDraft } from './hooks/useDraft';
+import { useLotDrafts } from './hooks/useLotDrafts';
+import { insertIntoSaved } from './utils/lotDrafts';
 import { useGeoCalibration } from './hooks/useGeoCalibration';
 import { useHistory } from './hooks/useHistory';
 import { useLoteoData } from './hooks/useLoteoData';
@@ -128,6 +130,11 @@ function App() {
     loteoId, state: editorState, isDirty,
     panoramaDimensions: loteo.panoramaDimensions,
   });
+  // Auto-detected pending lots stored on the back (not the localStorage draft above).
+  const lotDrafts = useLotDrafts({
+    annotations, setAnnotations, savedAnnotationsRef,
+    token: accessToken, loteoId, notify, onAuthError: handleLogout,
+  });
   const {
     pendingMode, setPendingMode,
     assignTargetId, setAssignTargetId,
@@ -144,21 +151,22 @@ function App() {
     // para no contar como cambio pendiente. Esa comparación es del array
     // entero (JSON), así que va en la misma posición relativa que en pantalla:
     // detrás de los que ya estaban guardados y lo precedían.
+    // A lot made from a server draft shares its temp id with the draft's saved entry: that
+    // entry goes first (the back already deleted the draft), then the lot takes its place.
     onAfterCreate: (createdLot, annotationsAtCreate, tempId) => {
-      const saved = savedAnnotationsRef.current;
-      const savedIds = new Set(saved.map(a => a.id));
-      const before = annotationsAtCreate.slice(0, annotationsAtCreate.findIndex(a => a.id === tempId));
-      const at = before.filter(a => savedIds.has(a.id)).length;
-      savedAnnotationsRef.current = [...saved.slice(0, at), createdLot, ...saved.slice(at)];
+      const saved = savedAnnotationsRef.current.filter(a => a.id !== tempId);
+      savedAnnotationsRef.current = insertIntoSaved(saved, createdLot, annotationsAtCreate, tempId);
       clearDraft();
     },
     // La forma ya quedó en la base: se copia a la foto de "lo último guardado"
     // para que no aparezca como cambio pendiente. Solo esa forma, no el lote
     // entero, así otras ediciones sin guardar del lote siguen contando.
-    onAfterAssign: (lotId, assignedMode, coords) => {
+    onAfterAssign: (lotId, assignedMode, coords, pending) => {
       savedAnnotationsRef.current = savedAnnotationsRef.current.map(a => (
         a.id === lotId ? withShapeCoords(a, assignedMode, coords) : a
       ));
+      // The pending shape now belongs to that lot, so its server draft has no reason to stay.
+      if (pending?.draftId) lotDrafts.discardDraft(pending);
     },
   });
   const { handleDeletePoi } = usePoiOperations({
@@ -194,6 +202,8 @@ function App() {
       savedAnnotationsRef.current = mappedAnnotations;
       // Check for draft from previous session
       loadDraft(loadedLoteoId, panoramaDimensions);
+      // visor_data is public and only has real lots; pending ones come from the drafts endpoint.
+      lotDrafts.loadServerDrafts(loadedLoteoId);
     }
     if (Array.isArray(data.calibrationPoints) && data.calibrationPoints.length > 0) {
       calibration.load(data.calibrationPoints);
@@ -349,6 +359,8 @@ function App() {
     pushHistory(annotations);
     setAnnotations([...annotations, newAnn]);
     setSelectedId(newId);
+    // Stored on the back right away, so it survives a reload and the MCP can fill it in.
+    lotDrafts.persistDetected(newAnn);
     setAutoDetectLotsGenerated(prev => prev + 1);
     setAutoDetectLoading(false);
     setInspectorOpen(true);
@@ -747,6 +759,19 @@ function App() {
       return;
     }
 
+    // Pending lot stored on the back: deleting it there can't be undone, so it also leaves
+    // the undo history (an undo would bring back a draft the back no longer has).
+    if (selectedMarker.draftId) {
+      setAnnotations(prev => prev.filter(a => a.id !== selectedMarker.id));
+      setSelectedId(null);
+      if (await lotDrafts.discardDraft(selectedMarker)) {
+        removeAnnotationFromHistory(selectedMarker.id);
+      } else {
+        setAnnotations(prev => [...prev, selectedMarker]);
+      }
+      return;
+    }
+
     pushHistory(annotations);
     setAnnotations(annotations.filter(a => a.id !== selectedId));
     setSelectedId(null);
@@ -826,7 +851,8 @@ function App() {
   // Borradores viejos (v2) no traen geo-calibración ni Render: eso queda
   // como vino del servidor.
   const restoreDraft = (draft) => {
-    setAnnotations(draft.annotations ?? []);
+    // The local copy may predate drafts filled in or discarded elsewhere (the MCP, another tab).
+    setAnnotations(lotDrafts.reconcileRestored(draft.annotations ?? []));
     calibration.setPoints(draft.calibrationPoints ?? []);
     if (Array.isArray(draft.geoCalibrationPoints)) geo.setPoints(draft.geoCalibrationPoints);
     if (draft.renderSurfaces) render.load(draft.renderSurfaces);

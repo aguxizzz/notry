@@ -60,7 +60,7 @@ export function useLotOperations({
         polygonPoints: coords,
         space: spaceForMode(assignedMode),
       });
-      onAfterAssign?.(targetId, assignedMode, coords);
+      onAfterAssign?.(targetId, assignedMode, coords, pending);
     } catch (error) {
       // Solo se revierte la forma en esta vista, no el lote entero: si
       // mientras tanto se editó otra cosa del lote, eso no se pierde.
@@ -118,6 +118,8 @@ export function useLotOperations({
         area_m2: area,
         ...(comments && { comments }),
         loteo_id: loteoId,
+        // From a server draft: the back deletes it in the same transaction as the insert.
+        ...(selectedMarker.draftId && { draft_id: selectedMarker.draftId }),
         ...(spaceForMode(createdMode) === 'blueprint'
           ? { blueprint_coordinates: coords }
           : { coordinates_360: coords }),
@@ -127,6 +129,7 @@ export function useLotOperations({
       const confirmed = annotation => {
         const next = { ...annotation, id: lote.id, uuid: lote.id, slug: lote.slug };
         delete next.creating;
+        delete next.draftId; // the draft no longer exists on the back
         return next;
       };
       setAnnotations(prev => prev.map(a => (a.id === tempId ? confirmed(a) : a)));
