@@ -7,6 +7,10 @@ import {
   faceAround, insertVertex, lotDirections, projectOntoSegment, removeVertex, slideFace, snapOnSegment, snapPoint,
 } from '../utils/polygonEdit';
 
+// Zoom range of the plano. The high end is for placing a corner exactly on a
+// 1px line; at 5x (the old cap) a whole lot border was still a couple of pixels.
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 40;
 
 // Screen pixels a corner must travel before a press counts as a drag, so
 // clicking a corner to select it doesn't nudge it off its line.
@@ -202,7 +206,7 @@ export default function BlueprintEditor({
 
     const prevZoom = zoomRef.current;
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    const newZoom = Math.max(0.5, Math.min(5, prevZoom * delta));
+    const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, prevZoom * delta));
     if (newZoom === prevZoom) return;
 
     // Keep the point under the cursor fixed on screen: recompute pan so that
@@ -843,7 +847,7 @@ export default function BlueprintEditor({
                     points={polyStr}
                     fill={style.fill || 'rgba(0,100,255,0.2)'}
                     stroke={style.stroke || '#06f'}
-                    strokeWidth={style.strokeWidth || 2}
+                    strokeWidth={(Number(style.strokeWidth) || 2) / zoom}
                     data-type="polygon"
                     data-marker-id={ann.id}
                     style={{ cursor: activeTool === 'polygon' ? 'crosshair' : (isSelected ? 'move' : 'pointer') }}
@@ -871,7 +875,7 @@ export default function BlueprintEditor({
                     points={polyStr}
                     fill={style.fill}
                     stroke={style.stroke}
-                    strokeWidth={style.strokeWidth}
+                    strokeWidth={(Number(style.strokeWidth) || 2) / zoom}
                     data-type="polygon"
                     data-marker-id={ann.id}
                     style={{ cursor: isSelected ? 'move' : 'pointer' }}
@@ -913,7 +917,7 @@ export default function BlueprintEditor({
                   points={ptsStr}
                   fill="none"
                   stroke={ann.svgStyle?.stroke || '#ffa500'}
-                  strokeWidth={Math.max(1, 2 / zoom)}
+                  strokeWidth={1.5 / zoom}
                   strokeDasharray={`${5 / zoom},${5 / zoom}`}
                   pointerEvents="none"
                 />
@@ -923,7 +927,8 @@ export default function BlueprintEditor({
             // Temporary points (while drawing)
             if (ann.type === 'point' && ann.position) {
               const { x, y } = normToSvg(ann.position.textureX, ann.position.textureY);
-              const r = ann.radius || 4;
+              // Divided by zoom so the point keeps its screen size instead of growing with the plano.
+              const r = (ann.radius || 4) / zoom;
               const isFirstPoint = ann.id === FIRST_TEMP_POINT_ID && isSnapped;
 
               return (
@@ -934,17 +939,17 @@ export default function BlueprintEditor({
                     r={r}
                     fill={ann.svgStyle?.fill || '#ffa500'}
                     stroke={ann.svgStyle?.stroke || 'none'}
-                    strokeWidth={ann.svgStyle?.strokeWidth || 2}
+                    strokeWidth={(ann.svgStyle?.strokeWidth || 2) / zoom}
                     pointerEvents="none"
                   />
                   {isFirstPoint && (
                     <circle
                       cx={x}
                       cy={y}
-                      r={r + 8}
+                      r={r + 8 / zoom}
                       fill="none"
                       stroke="#ffa500"
-                      strokeWidth={2}
+                      strokeWidth={2 / zoom}
                       opacity={0.6}
                       pointerEvents="none"
                     />
@@ -964,7 +969,7 @@ export default function BlueprintEditor({
                   points={ptsStr}
                   fill="none"
                   stroke="rgba(245,158,11,0.55)"
-                  strokeWidth={Math.max(1, 2 / zoom)}
+                  strokeWidth={1.5 / zoom}
                   strokeDasharray={`${6 / zoom},${4 / zoom}`}
                   pointerEvents="none"
                 />
@@ -980,8 +985,8 @@ export default function BlueprintEditor({
               const { x, y } = normToSvg(posNorm[0], posNorm[1]);
               const color = ann.svgStyle?.fill ?? '#3b82f6';
               const opacity = ann.svgStyle?.opacity ?? 1;
-              const r = Math.max(3, 7 / zoom);
-              const fontSize = Math.max(6, 9 / zoom);
+              const r = 7 / zoom;
+              const fontSize = 9 / zoom;
               const interactive = activeTool === 'select' || activeTool === 'calibrate';
               return (
                 <g
@@ -992,7 +997,7 @@ export default function BlueprintEditor({
                   pointerEvents={interactive ? 'auto' : 'none'}
                   style={interactive ? { cursor: 'grab' } : undefined}
                 >
-                  <circle cx={x} cy={y} r={r} fill={color} stroke="#fff" strokeWidth={Math.max(1, 2 / zoom)} />
+                  <circle cx={x} cy={y} r={r} fill={color} stroke="#fff" strokeWidth={1.5 / zoom} />
                   <text x={x} y={y} textAnchor="middle" dominantBaseline="central"
                     fill="#fff" fontSize={fontSize} fontWeight="700" pointerEvents="none">
                     {ann.label}
@@ -1020,13 +1025,13 @@ export default function BlueprintEditor({
                       x={x} y={y} width={w} height={h}
                       fill="rgba(255,165,0,0.15)"
                       stroke="#ffa500"
-                      strokeWidth={Math.max(1, 2 / zoom)}
+                      strokeWidth={1.5 / zoom}
                       strokeDasharray={`${5 / zoom},${5 / zoom}`}
                       pointerEvents="none"
                     />
                   );
                 })()}
-                <circle cx={p1.x} cy={p1.y} r={Math.max(2, 4 / zoom)} fill="#ffa500" pointerEvents="none" />
+                <circle cx={p1.x} cy={p1.y} r={4 / zoom} fill="#ffa500" pointerEvents="none" />
               </>
             );
           })()}
@@ -1051,14 +1056,14 @@ export default function BlueprintEditor({
               <line
                 key={`guide-${i}`}
                 x1={g.pos * dw} y1={0} x2={g.pos * dw} y2={dh}
-                stroke="#22d3ee" strokeWidth={Math.max(0.75, 1 / zoom)}
+                stroke="#22d3ee" strokeWidth={1 / zoom}
                 strokeDasharray={`${4 / zoom},${4 / zoom}`} pointerEvents="none"
               />
             ) : (
               <line
                 key={`guide-${i}`}
                 x1={0} y1={g.pos * dh} x2={dw} y2={g.pos * dh}
-                stroke="#22d3ee" strokeWidth={Math.max(0.75, 1 / zoom)}
+                stroke="#22d3ee" strokeWidth={1 / zoom}
                 strokeDasharray={`${4 / zoom},${4 / zoom}`} pointerEvents="none"
               />
             )
