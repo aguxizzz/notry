@@ -1,153 +1,71 @@
-import { useEffect, useRef, useState } from 'react';
-import { getPreviewMask } from '../utils/lotDetection';
-import './AutoDetectInspector.css';
+// Side-panel body for the "Detección automática" tool: detection params and status.
+// The preview isn't drawn here: App renders it over the plano itself (BlueprintEditor's
+// detectOverlay), so moving a slider shows its effect at full size.
+import { useEffect, useState } from 'react';
+import { Slider } from './inspector/InspectorUI';
 
-export default function AutoDetectInspector({
-  blueprintUrl,
-  isLoading,
-  error,
-  params,
-  onParamsChange,
-  generatedCount,
-}) {
-  const canvasRef = useRef(null);
-  const [previewReady, setPreviewReady] = useState(false);
-  const previewTimeoutRef = useRef(null);
+export default function AutoDetectInspector({ isLoading, error, params, onParamsChange, generatedCount, onExit }) {
+  // While dragging, only this panel follows the slider (draft). App gets the value on release:
+  // each App update re-renders the whole editor and reprocesses the plano, which froze the drag.
+  const [draft, setDraft] = useState(params);
+  useEffect(() => { setDraft(params); }, [params]);
 
-  // Update preview when params change (debounced)
-  useEffect(() => {
-    if (!blueprintUrl || !params) return;
-
-    let isMounted = true;
-
-    if (previewTimeoutRef.current) {
-      clearTimeout(previewTimeoutRef.current);
-    }
-
-    previewTimeoutRef.current = setTimeout(async () => {
-      if (!isMounted) return;
-      const preview = await getPreviewMask(blueprintUrl, params);
-      if (isMounted && preview && canvasRef.current) {
-        const ctx = canvasRef.current.getContext('2d');
-        canvasRef.current.width = preview.width;
-        canvasRef.current.height = preview.height;
-        ctx.putImageData(preview, 0, 0);
-        setPreviewReady(true);
-      }
-    }, 200);
-
-    return () => {
-      isMounted = false;
-      if (previewTimeoutRef.current) clearTimeout(previewTimeoutRef.current);
-    };
-  }, [blueprintUrl, params]);
-
-  const handleThresholdChange = (val) => {
-    onParamsChange({ ...params, threshold: parseInt(val) });
-  };
-
-  const handleMaxTextDimChange = (val) => {
-    onParamsChange({ ...params, maxTextDim: parseInt(val) });
-  };
-
-  const handleEpsilonChange = (val) => {
-    onParamsChange({ ...params, epsilon: parseFloat(val) });
+  const move = key => value => setDraft(prev => ({ ...prev, [key]: value }));
+  const commit = key => value => {
+    if (params[key] !== value) onParamsChange({ ...params, [key]: value });
   };
 
   return (
-    <div className="autodetect-inspector">
-      <div className="section-title">Detección Automática</div>
+    <>
+      <p className="ins-help">
+        Hacé clic <strong>adentro de un lote</strong> en el plano y se arma su contorno.
+        En el plano se ve lo que detecta: <strong style={{ color: 'var(--accent)' }}>dorado</strong> son
+        bordes, <strong style={{ color: 'var(--color-danger)' }}>rojo</strong> es texto que se ignora.
+      </p>
 
-      {error && (
-        <div className="error-message">
-          <strong>Error:</strong> {error}
-        </div>
-      )}
+      <Slider
+        id="ad-threshold"
+        label="Detección de líneas"
+        valueLabel={draft.threshold}
+        min={50}
+        max={230}
+        value={draft.threshold}
+        onChange={move('threshold')}
+        onCommit={commit('threshold')}
+        ends={['Solo las oscuras', 'También las claras']}
+      />
+      <Slider
+        id="ad-text"
+        label="Tamaño máximo de texto"
+        valueLabel={`${draft.maxTextDim} px`}
+        min={5}
+        max={80}
+        value={draft.maxTextDim}
+        onChange={move('maxTextDim')}
+        onCommit={commit('maxTextDim')}
+        ends={['Ignora poco', 'Ignora más']}
+      />
+      <Slider
+        id="ad-epsilon"
+        label="Simplificación del contorno"
+        valueLabel={draft.epsilon.toFixed(1)}
+        min={0.5}
+        max={6}
+        step={0.5}
+        value={draft.epsilon}
+        onChange={move('epsilon')}
+        onCommit={commit('epsilon')}
+        ends={['Más vértices', 'Menos vértices']}
+      />
 
-      {isLoading && (
-        <div className="loading-state">
-          <span>Procesando…</span>
-        </div>
-      )}
+      {isLoading && <p className="ins-help">Procesando el plano…</p>}
+      {error && <p className="ins-error">{error}</p>}
 
-      <div className="param-group">
-        <label>
-          <span className="param-label">
-            Umbral de binarización
-            <small>{params.threshold}</small>
-          </span>
-          <input
-            type="range"
-            min="50"
-            max="200"
-            value={params.threshold}
-            onChange={(e) => handleThresholdChange(e.target.value)}
-            disabled={isLoading}
-            className="param-slider"
-          />
-          <small className="param-hint">Menor = más líneas detectadas</small>
-        </label>
+      <div className="setup-actions">
+        <button type="button" className="ins-mini ins-mini--primary" onClick={onExit}>
+          Listo{generatedCount > 0 ? ` · ${generatedCount} lote${generatedCount === 1 ? '' : 's'}` : ''}
+        </button>
       </div>
-
-      <div className="param-group">
-        <label>
-          <span className="param-label">
-            Tamaño máx. de texto (px)
-            <small>{params.maxTextDim}</small>
-          </span>
-          <input
-            type="range"
-            min="5"
-            max="50"
-            value={params.maxTextDim}
-            onChange={(e) => handleMaxTextDimChange(e.target.value)}
-            disabled={isLoading}
-            className="param-slider"
-          />
-          <small className="param-hint">Mayor = menos texto removido</small>
-        </label>
-      </div>
-
-      <div className="param-group">
-        <label>
-          <span className="param-label">
-            Tolerancia simplificación
-            <small>{params.epsilon.toFixed(1)}</small>
-          </span>
-          <input
-            type="range"
-            min="0.5"
-            max="5"
-            step="0.5"
-            value={params.epsilon}
-            onChange={(e) => handleEpsilonChange(e.target.value)}
-            disabled={isLoading}
-            className="param-slider"
-          />
-          <small className="param-hint">Mayor = menos vértices</small>
-        </label>
-      </div>
-
-      <div className="preview-section">
-        <div className="preview-label">
-          Vista previa
-          {!previewReady && !isLoading && <small>cargando…</small>}
-        </div>
-        <div className="preview-wrap">
-          <canvas ref={canvasRef} className="autodetect-preview" />
-        </div>
-      </div>
-
-      {generatedCount > 0 && (
-        <div className="status-message">
-          ✓ {generatedCount} lote{generatedCount === 1 ? '' : 's'} generado{generatedCount === 1 ? '' : 's'}
-        </div>
-      )}
-
-      <small className="help-text">
-        Click en el plano para detectar un lote. El sistema binariza la imagen, elimina texto quemado,
-        y traza el contorno usando flood fill.
-      </small>
-    </div>
+    </>
   );
 }

@@ -173,6 +173,7 @@ export default function ProjectPanel({
   autoDetectLoading,
   autoDetectError,
   autoDetectLotsGenerated,
+  onExitAutoDetect,
   onProjectMissing,
   onReprojectAll,
   onRemoveAllFromPanorama,
@@ -315,12 +316,12 @@ export default function ProjectPanel({
       case 'autodetect':
         return (
           <AutoDetectInspector
-            blueprintUrl={blueprintUrl}
             isLoading={autoDetectLoading}
             error={autoDetectError}
             params={autoDetectParams}
             onParamsChange={onAutoDetectParamsChange}
             generatedCount={autoDetectLotsGenerated}
+            onExit={onExitAutoDetect}
           />
         );
       case 'images':

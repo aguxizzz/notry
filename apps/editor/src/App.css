@@ -74,6 +74,36 @@
   min-width: 0;
 }
 
+/* Full-screen "busy" cover while auto-detect reprocesses the plano (see App.jsx).
+   Above modals on purpose: nothing should be touched until the new overlay is in. */
+.processing-cover {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-modal) + 10);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  /* No backdrop-filter: blurring the zoomed plano + overlay underneath cost frames
+     right when the cover had to show up. A darker plain tint does the job. */
+  background: rgba(0, 0, 0, 0.6);
+  cursor: wait;
+}
+.processing-cover__title {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+}
+.processing-cover__sub {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
 .document-bar {
   min-height: 56px;
   padding-inline: var(--space-sm);

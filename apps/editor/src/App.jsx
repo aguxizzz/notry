@@ -18,7 +18,7 @@ import {
 import {
   FIRST_TEMP_POINT_ID, isCalibrationMarker, parseCalibPointId, selectableAnnotationId,
 } from './utils/markerIds';
-import { detectLotPolygon } from './utils/lotDetection';
+import { detectLotPolygon, getDetectionOverlay } from './utils/lotDetectionClient';
 import { DEFAULT_RENDER_SURFACES } from './utils/renderSurfaces';
 import { detectChanges, hasUnsavedChanges } from './utils/editorChanges';
 import { useRenderSurfaces } from './hooks/useRenderSurfaces';
@@ -117,6 +117,9 @@ function App() {
   const [autoDetectLoading, setAutoDetectLoading] = useState(false);
   const [autoDetectError, setAutoDetectError] = useState(null);
   const [autoDetectLotsGenerated, setAutoDetectLotsGenerated] = useState(0);
+  // What the detector "sees" (lines vs. ignored text), drawn over the plano while the tool is active.
+  const [autoDetectOverlay, setAutoDetectOverlay] = useState(null);
+  const [autoDetectProcessing, setAutoDetectProcessing] = useState(false);
 
   const [viewerReady, setViewerReady] = useState(false);
   const uploadFn = useMemo(() => createUploadFn(accessToken, handleLogout), [accessToken, handleLogout]);
@@ -304,8 +307,9 @@ function App() {
     setAutoDetectLoading(true);
     setAutoDetectError(null);
 
-    // Normalize click to [0, 1] assuming textureX/Y are already in that range
-    const result = await detectLotPolygon(blueprintUrl, 1, 1, textureX, textureY, autoDetectParams);
+    // textureX/Y already come normalized [0, 1] from BlueprintEditor.
+    // Masks are cached by params, so a click right after the preview is instant.
+    const result = await detectLotPolygon(blueprintUrl, textureX, textureY, autoDetectParams);
 
     if (!result.success) {
       setAutoDetectError(result.error);
@@ -330,6 +334,38 @@ function App() {
     setAutoDetectLoading(false);
     setInspectorOpen(true);
   };
+
+  // Recompute the detection overlay when the tool opens or a slider is released.
+  // No debounce needed: AutoDetectInspector only sends the value once the drag ends.
+  const autoDetectActive = activeTool === 'autodetect' && !!blueprintUrl;
+  const { threshold: adThreshold, maxTextDim: adMaxTextDim } = autoDetectParams;
+  useEffect(() => {
+    if (!autoDetectActive) {
+      setAutoDetectOverlay(null);
+      // A run cancelled mid-way never clears its own flag, so leaving the tool does.
+      setAutoDetectProcessing(false);
+      return;
+    }
+    let cancelled = false;
+    // The detection runs in a Web Worker (lotDetectionClient), so the cover
+    // paints right away and stays up for the whole computation.
+    setAutoDetectProcessing(true);
+    (async () => {
+      try {
+        const overlay = await getDetectionOverlay(blueprintUrl, { threshold: adThreshold, maxTextDim: adMaxTextDim });
+        if (cancelled) return;
+        setAutoDetectOverlay(overlay);
+        // Lift the cover only after the new overlay is on screen: two frames = React
+        // commits + BlueprintEditor draws it, then the browser paints that frame.
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      } catch (err) {
+        if (!cancelled) setAutoDetectError(err.message);
+      } finally {
+        if (!cancelled) setAutoDetectProcessing(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [autoDetectActive, blueprintUrl, adThreshold, adMaxTextDim]);
 
   // Cambio de vista pedido por el usuario: avisa si hay marcadores que no
   // existen en la vista destino.
@@ -768,6 +804,14 @@ function App() {
 
   return (
     <div className="editor-container">
+      {/* Covers the whole editor while auto-detect reprocesses the plano, so nobody
+          edits lots against an overlay that's about to change. */}
+      {autoDetectProcessing && (
+        <div className="processing-cover" role="status" aria-live="polite">
+          <p className="processing-cover__title">Procesando el plano…</p>
+          <p className="processing-cover__sub">Aplicando los ajustes de detección</p>
+        </div>
+      )}
       <DraftBanner
         draft={pendingDraft}
         onRestore={restoreDraft}
@@ -867,9 +911,10 @@ function App() {
           onClearCalibration={calibration.clear}
           autoDetectParams={autoDetectParams}
           onAutoDetectParamsChange={setAutoDetectParams}
-          autoDetectLoading={autoDetectLoading}
+          autoDetectLoading={autoDetectLoading || autoDetectProcessing}
           autoDetectError={autoDetectError}
           autoDetectLotsGenerated={autoDetectLotsGenerated}
+          onExitAutoDetect={() => setActiveTool('select')}
           onProjectMissing={() => importPolygonsFromBlueprint({ overwrite: false })}
           onReprojectAll={() => importPolygonsFromBlueprint({ overwrite: true })}
           onRemoveAllFromPanorama={handleUnimportAll}
@@ -918,6 +963,7 @@ function App() {
                 selectedId={selectedId}
                 highlightedId={hoveredId}
                 rectStart={rectStart}
+                detectOverlay={autoDetectOverlay}
                 onClick={handleViewerClick}
                 onMarkerSelect={handleMarkerSelect}
                 onPolygonUpdate={handlePolygonUpdate}

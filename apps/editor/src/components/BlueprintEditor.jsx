@@ -11,6 +11,7 @@ export default function BlueprintEditor({
   selectedId,
   highlightedId,
   rectStart,
+  detectOverlay, // ImageBitmap from lotDetectionClient: what auto-detect sees, drawn over the plano
   onClick,
   onMarkerSelect,
   onPolygonUpdate,
@@ -19,6 +20,7 @@ export default function BlueprintEditor({
   const containerRef = useRef(null);
   const imgRef = useRef(null);
   const svgRef = useRef(null);
+  const overlayCanvasRef = useRef(null);
   const [imgDims, setImgDims] = useState({ w: 1, h: 1 });
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [blueprintSrc, setBlueprintSrc] = useState(null); // blob URL del plano ya descargado
@@ -404,6 +406,17 @@ export default function BlueprintEditor({
     };
   }, [handleWheel]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Paint the detection overlay at its own resolution; CSS stretches it to the plano's size.
+  // Depends on isImageLoaded too: the canvas only exists once the plano is shown.
+  useEffect(() => {
+    const canvas = overlayCanvasRef.current;
+    if (!canvas || !detectOverlay) return;
+    canvas.width = detectOverlay.width;
+    canvas.height = detectOverlay.height;
+    // ImageBitmap from the worker: drawImage is a GPU copy, unlike putImageData of raw pixels.
+    canvas.getContext('2d').drawImage(detectOverlay, 0, 0);
+  }, [detectOverlay, isImageLoaded]);
+
   if (!blueprintUrl || !isImageLoaded) {
     return (
       <div
@@ -472,12 +485,30 @@ export default function BlueprintEditor({
             height: '100%',
             display: 'block',
             pointerEvents: 'none',
-            userSelect: 'none'
+            userSelect: 'none',
+            // Dimmed under the detection overlay so gold/red stand out from the plano's own ink.
+            opacity: detectOverlay ? 0.3 : 1
           }}
           alt="Plano del loteo"
           onError={() => setIsImageLoaded(false)}
           draggable="false"
         />
+
+        {detectOverlay && (
+          <canvas
+            ref={overlayCanvasRef}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              pointerEvents: 'none',
+              // Keep detected pixels crisp when zooming in instead of blurring them.
+              imageRendering: 'pixelated'
+            }}
+          />
+        )}
 
         {/* viewBox keeps drawing coordinates in zoom=1 units (dw x dh) while the
             SVG fills the zoomed box, so every "N / zoom" size below still works. */}

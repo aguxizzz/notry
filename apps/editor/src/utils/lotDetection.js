@@ -1,345 +1,268 @@
 /**
- * Lot detection via image processing: binarize → clean text → magic wand → contour tracing
- * All client-side, no external dependencies beyond standard JS Canvas API
+ * Lot detection on the blueprint image: grayscale → binarize → drop text blobs →
+ * flood fill from a click → trace the region's outline → simplify.
+ * Only pure functions on typed arrays (testable without a DOM). They run inside
+ * lotDetection.worker.js; the app calls them through lotDetectionClient.js.
  */
 
-import { fetchImage } from './fetchImage';
+// Longest side the plano is processed at. Big CAD exports (8000px+) would need
+// hundreds of MB of typed arrays; 4096 keeps every lot dozens of pixels wide.
+export const WORK_MAX_DIM = 4096;
+// The overlay drawn over the plano doesn't need full precision, only to be readable.
+const OVERLAY_MAX_DIM = 2048;
 
-export async function loadPixelData(url) {
-  try {
-    const response = await fetchImage(url, { headers: { 'Accept': 'image/*' } });
-    if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+// 8 neighbors in clockwise screen order (y grows down), starting east.
+const DIRS = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
 
-    const blob = await response.blob();
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-
-    return new Promise((resolve, reject) => {
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        ctx.drawImage(img, 0, 0);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        resolve({ imageData, width: canvas.width, height: canvas.height });
-      };
-      img.onerror = () => reject(new Error('Image load failed'));
-      img.src = URL.createObjectURL(blob);
-    });
-  } catch (err) {
-    throw new Error(`loadPixelData: ${err.message}`);
+/**
+ * RGBA → grayscale, downscaled so the longest side fits maxDim.
+ * Each target pixel keeps the DARKEST source pixel of its block (min-pooling):
+ * averaging would turn 1px lines into light gray and the threshold would lose them.
+ */
+export function toGrayMinPooled(rgba, srcW, srcH, maxDim = WORK_MAX_DIM) {
+  const k = Math.max(1, Math.ceil(Math.max(srcW, srcH) / maxDim));
+  const w = Math.ceil(srcW / k);
+  const h = Math.ceil(srcH / k);
+  const gray = new Uint8Array(w * h).fill(255);
+  for (let y = 0; y < srcH; y++) {
+    const row = ((y / k) | 0) * w;
+    for (let x = 0; x < srcW; x++) {
+      const i = (y * srcW + x) * 4;
+      // Transparent pixels count as paper, not as ink.
+      const g = rgba[i + 3] < 128 ? 255 : (0.299 * rgba[i] + 0.587 * rgba[i + 1] + 0.114 * rgba[i + 2]);
+      const t = row + ((x / k) | 0);
+      if (g < gray[t]) gray[t] = g;
+    }
   }
+  return { gray, w, h, scale: 1 / k };
 }
 
-export function binarize(imageData, w, h, threshold = 128) {
-  const data = imageData.data;
-  const mask = new Uint8Array(w * h);
-
-  for (let i = 0; i < w * h; i++) {
-    const r = data[i * 4];
-    const g = data[i * 4 + 1];
-    const b = data[i * 4 + 2];
-    const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-    mask[i] = gray < threshold ? 1 : 0;
-  }
-
+/** 1 = ink (line or text), 0 = paper. */
+export function binarize(gray, threshold = 128) {
+  const mask = new Uint8Array(gray.length);
+  for (let i = 0; i < gray.length; i++) mask[i] = gray[i] < threshold ? 1 : 0;
   return mask;
 }
 
 /**
- * Connected-component labeling: find all distinct black blobs, erase small ones (text)
- * Blob = maxTextDim in both width AND height → text signature vs line
+ * Splits ink into lines and text: every 8-connected ink blob whose bounding box
+ * fits in maxTextDim × maxTextDim is text (lot numbers, labels), the rest is kept.
+ * One labeling pass + one sweep, so it's linear in the pixel count.
+ * Returns { cleaned, text }: two masks with the same shape as the input.
  */
-export function cleanText(mask, w, h, maxTextDim = 20) {
-  const labeled = new Uint32Array(mask.length);
-  let nextLabel = 1;
-  const blobs = new Map(); // label -> { minX, maxX, minY, maxY }
+export function removeText(mask, w, h, maxTextDim = 20) {
+  const labels = new Int32Array(w * h);
+  // Each pixel is labeled when pushed, so it enters the stack at most once.
+  const stack = new Int32Array(w * h);
+  const keep = [0];
+  let next = 1;
 
-  // First pass: label connected components (8-connected)
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const idx = y * w + x;
-      if (mask[idx] === 0 || labeled[idx] > 0) continue;
-
-      // Start flood fill
-      const stack = [[x, y]];
-      const blob = { minX: x, maxX: x, minY: y, maxY: y };
-
-      while (stack.length > 0) {
-        const [cx, cy] = stack.pop();
-        const cidx = cy * w + cx;
-
-        if (cx < 0 || cx >= w || cy < 0 || cy >= h) continue;
-        if (mask[cidx] === 0 || labeled[cidx] > 0) continue;
-
-        labeled[cidx] = nextLabel;
-        blob.minX = Math.min(blob.minX, cx);
-        blob.maxX = Math.max(blob.maxX, cx);
-        blob.minY = Math.min(blob.minY, cy);
-        blob.maxY = Math.max(blob.maxY, cy);
-
-        // 8-connected neighbors
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            if (dx !== 0 || dy !== 0) stack.push([cx + dx, cy + dy]);
-          }
+  for (let start = 0; start < mask.length; start++) {
+    if (mask[start] === 0 || labels[start] !== 0) continue;
+    let minX = start % w, maxX = minX, minY = (start / w) | 0, maxY = minY;
+    let top = 0;
+    stack[top++] = start;
+    labels[start] = next;
+    while (top > 0) {
+      const idx = stack[--top];
+      const x = idx % w;
+      const y = (idx - x) / w;
+      if (x < minX) minX = x; else if (x > maxX) maxX = x;
+      if (y < minY) minY = y; else if (y > maxY) maxY = y;
+      for (let d = 0; d < 8; d++) {
+        const nx = x + DIRS[d][0];
+        const ny = y + DIRS[d][1];
+        if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+        const n = ny * w + nx;
+        if (mask[n] === 1 && labels[n] === 0) {
+          labels[n] = next;
+          stack[top++] = n;
         }
       }
-
-      blobs.set(nextLabel, blob);
-      nextLabel++;
     }
+    // A line is long in at least one direction; text is small in both.
+    keep.push(maxX - minX + 1 > maxTextDim || maxY - minY + 1 > maxTextDim ? 1 : 0);
+    next++;
   }
 
-  // Second pass: zero out small blobs (text)
-  const cleaned = new Uint8Array(mask.length);
-  for (let label = 1; label < nextLabel; label++) {
-    const blob = blobs.get(label);
-    const w_blob = blob.maxX - blob.minX + 1;
-    const h_blob = blob.maxY - blob.minY + 1;
-
-    // Keep blob only if it's large in at least one dimension (line = long, text = small in both)
-    const isText = w_blob <= maxTextDim && h_blob <= maxTextDim;
-
-    if (!isText) {
-      for (let i = 0; i < labeled.length; i++) {
-        if (labeled[i] === label) cleaned[i] = 1;
-      }
-    }
+  const cleaned = new Uint8Array(w * h);
+  const text = new Uint8Array(w * h);
+  for (let i = 0; i < labels.length; i++) {
+    const l = labels[i];
+    if (l === 0) continue;
+    if (keep[l]) cleaned[i] = 1; else text[i] = 1;
   }
-
-  return cleaned;
+  return { cleaned, text };
 }
 
 /**
- * Magic wand: flood fill from click, detect if region is closed (no escape to edge)
+ * Magic wand: 4-connected fill of the paper region under (sx, sy).
+ * 4-connectivity on paper pairs with 8-connectivity on ink, so a diagonal
+ * line still closes the lot. Returns the region mask, its size, whether it
+ * leaked to the image border (not a closed lot) and its first pixel in raster order.
  */
-export function floodFillRegion(mask, w, h, sx, sy) {
-  const visited = new Uint8Array(w * h);
-  const region = [];
-  let reachesEdge = false;
-
-  const stack = [[sx, sy]];
-  const startValue = mask[sy * w + sx];
-
-  while (stack.length > 0) {
-    const [x, y] = stack.pop();
-
-    if (x < 0 || x >= w || y < 0 || y >= h) {
-      reachesEdge = true;
-      continue;
-    }
-
-    const idx = y * w + x;
-    if (visited[idx] || mask[idx] !== startValue) continue;
-
-    visited[idx] = 1;
-    region.push([x, y]);
-
-    if (x === 0 || x === w - 1 || y === 0 || y === h - 1) {
-      reachesEdge = true;
-    }
-
-    // 4-connected
-    stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+export function floodFill(mask, w, h, sx, sy) {
+  const region = new Uint8Array(w * h);
+  const stack = new Int32Array(w * h);
+  const startIdx = sy * w + sx;
+  let top = 0, size = 0, reachesEdge = false, firstIdx = startIdx;
+  stack[top++] = startIdx;
+  region[startIdx] = 1;
+  while (top > 0) {
+    const idx = stack[--top];
+    size++;
+    if (idx < firstIdx) firstIdx = idx;
+    const x = idx % w;
+    const y = (idx - x) / w;
+    if (x === 0 || y === 0 || x === w - 1 || y === h - 1) reachesEdge = true;
+    if (x + 1 < w && !region[idx + 1] && !mask[idx + 1]) { region[idx + 1] = 1; stack[top++] = idx + 1; }
+    if (x > 0 && !region[idx - 1] && !mask[idx - 1]) { region[idx - 1] = 1; stack[top++] = idx - 1; }
+    if (y + 1 < h && !region[idx + w] && !mask[idx + w]) { region[idx + w] = 1; stack[top++] = idx + w; }
+    if (y > 0 && !region[idx - w] && !mask[idx - w]) { region[idx - w] = 1; stack[top++] = idx - w; }
   }
-
-  return { region, reachesEdge, visited };
+  return { region, size, reachesEdge, firstIdx };
 }
 
 /**
- * Moore-neighbor contour tracing from a region
+ * Moore-neighbor tracing of a region's outer boundary, clockwise.
+ * startIdx must be the region's first pixel in raster order: everything above
+ * it and to its left is outside, which is where the search begins.
+ * Stops with Jacob's criterion (back at the start about to repeat the first move),
+ * which handles regions that pass through the start pixel twice.
  */
-export function traceBoundary(visited, w, h) {
-  // Find a point on the boundary
-  let startX = -1, startY = -1;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      if (visited[y * w + x] === 1) {
-        startX = x;
-        startY = y;
-        break;
-      }
+export function traceBoundary(region, w, h, startIdx) {
+  const inside = (x, y) => x >= 0 && x < w && y >= 0 && y < h && region[y * w + x] === 1;
+  const sx = startIdx % w;
+  const sy = (startIdx - sx) / w;
+  const contour = [[sx, sy]];
+  let x = sx, y = sy;
+  let back = 4; // the west neighbor of the start is known to be outside
+  let firstMove = -1;
+  const maxSteps = 4 * w * h;
+
+  for (let step = 0; step < maxSteps; step++) {
+    let moved = -1;
+    for (let i = 1; i <= 8; i++) {
+      const d = (back + i) % 8;
+      if (inside(x + DIRS[d][0], y + DIRS[d][1])) { moved = d; break; }
     }
-    if (startX >= 0) break;
-  }
-
-  if (startX < 0) return [];
-
-  const contour = [];
-  let x = startX, y = startY;
-  let dir = 0; // Start going right
-  const dirs = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
-  let steps = 0;
-  const maxSteps = w * h * 2;
-
-  do {
+    if (moved < 0) break; // single isolated pixel
+    if (x === sx && y === sy && moved === firstMove) break;
+    if (firstMove < 0) firstMove = moved;
+    x += DIRS[moved][0];
+    y += DIRS[moved][1];
+    // Restart the search from the last outside pixel checked before the move,
+    // seen from the new position (it depends on whether the move was diagonal).
+    back = moved % 2 === 0 ? (moved + 6) % 8 : (moved + 5) % 8;
     contour.push([x, y]);
-    let found = false;
+  }
 
-    for (let i = 0; i < 8; i++) {
-      const [dx, dy] = dirs[(dir + i) % 8];
-      const nx = x + dx;
-      const ny = y + dy;
-
-      if (nx >= 0 && nx < w && ny >= 0 && ny < h && visited[ny * w + nx] === 1) {
-        x = nx;
-        y = ny;
-        dir = (dir + i) % 8;
-        found = true;
-        break;
-      }
-    }
-
-    if (!found) break;
-    steps++;
-  } while ((x !== startX || y !== startY) && steps < maxSteps);
-
+  // The loop closes on the start pixel; drop the duplicate.
+  if (contour.length > 1 && contour[contour.length - 1][0] === sx && contour[contour.length - 1][1] === sy) {
+    contour.pop();
+  }
   return contour;
 }
 
-/**
- * Douglas-Peucker: simplify polygon by removing points below epsilon tolerance
- */
+/** Douglas-Peucker for an open polyline. */
 export function simplify(points, epsilon = 1.0) {
   if (points.length <= 2) return points;
-
-  let maxDist = 0;
-  let maxIdx = 0;
-
   const start = points[0];
   const end = points[points.length - 1];
-
+  let maxDist = 0;
+  let maxIdx = 0;
   for (let i = 1; i < points.length - 1; i++) {
     const dist = pointLineDistance(points[i], start, end);
-    if (dist > maxDist) {
-      maxDist = dist;
-      maxIdx = i;
-    }
+    if (dist > maxDist) { maxDist = dist; maxIdx = i; }
   }
+  if (maxDist <= epsilon) return [start, end];
+  const left = simplify(points.slice(0, maxIdx + 1), epsilon);
+  const right = simplify(points.slice(maxIdx), epsilon);
+  return [...left.slice(0, -1), ...right];
+}
 
-  if (maxDist > epsilon) {
-    const left = simplify(points.slice(0, maxIdx + 1), epsilon);
-    const right = simplify(points.slice(maxIdx), epsilon);
-    return [...left.slice(0, -1), ...right];
-  } else {
-    return [start, end];
+/**
+ * Douglas-Peucker for a closed ring: plain DP collapses when first and last
+ * point are neighbors, so the ring is cut at the point farthest from the start
+ * and each half is simplified on its own.
+ */
+export function simplifyClosed(points, epsilon = 1.0) {
+  if (points.length <= 3) return points;
+  const [ax, ay] = points[0];
+  let far = 0, farDist = -1;
+  for (let i = 1; i < points.length; i++) {
+    const d = (points[i][0] - ax) ** 2 + (points[i][1] - ay) ** 2;
+    if (d > farDist) { farDist = d; far = i; }
   }
+  const a = simplify(points.slice(0, far + 1), epsilon);
+  const b = simplify([...points.slice(far), points[0]], epsilon);
+  return [...a.slice(0, -1), ...b.slice(0, -1)];
 }
 
 function pointLineDistance(p, a, b) {
   const [px, py] = p, [ax, ay] = a, [bx, by] = b;
   const num = Math.abs((by - ay) * px - (bx - ax) * py + bx * ay - by * ax);
-  const den = Math.sqrt((by - ay) ** 2 + (bx - ax) ** 2);
+  const den = Math.hypot(by - ay, bx - ax);
   return den === 0 ? Math.hypot(px - ax, py - ay) : num / den;
 }
 
 /**
- * Main entry point: detect lot polygon from blueprint image at click point
- * Returns normalized coordinates [0, 1] ready for blueprint_coordinates
+ * Lot outline under a click, on already-processed masks.
+ * nx, ny: click in normalized plano coords [0, 1]. Returns normalized coords or an error in Spanish.
  */
-export async function detectLotPolygon(url, w, h, sx, sy, params = {}) {
-  const {
-    threshold = 128,
-    maxTextDim = 20,
-    epsilon = 2.0
-  } = params;
-
-  try {
-    // Load and binarize
-    const { imageData, width: imgW, height: imgH } = await loadPixelData(url);
-    const mask = binarize(imageData, imgW, imgH, threshold);
-
-    // Clean text
-    const cleaned = cleanText(mask, imgW, imgH, maxTextDim);
-
-    // Scale click to image space if needed
-    const clickX = Math.round(sx * imgW);
-    const clickY = Math.round(sy * imgH);
-
-    if (clickX < 0 || clickX >= imgW || clickY < 0 || clickY >= imgH) {
-      throw new Error('Click outside image bounds');
-    }
-
-    // Magic wand
-    const { region, reachesEdge } = floodFillRegion(cleaned, imgW, imgH, clickX, clickY);
-
-    if (reachesEdge) {
-      throw new Error('Region reaches image edge (not a closed lot)');
-    }
-
-    if (region.length < 3) {
-      throw new Error('Region too small to form polygon');
-    }
-
-    // Recreate visited array from region
-    const visited = new Uint8Array(imgW * imgH);
-    region.forEach(([x, y]) => { visited[y * imgW + x] = 1; });
-
-    // Trace boundary
-    const contour = traceBoundary(visited, imgW, imgH);
-    if (contour.length < 3) {
-      throw new Error('Could not trace boundary');
-    }
-
-    // Simplify
-    const simplified = simplify(contour, epsilon);
-    if (simplified.length < 3) {
-      throw new Error('Simplified polygon has < 3 points');
-    }
-
-    // Normalize to [0, 1]
-    const normalized = simplified.map(([x, y]) => [x / imgW, y / imgH]);
-
-    return {
-      success: true,
-      coordinates: normalized,
-      vertexCount: normalized.length,
-      message: `Detected ${normalized.length}-vertex polygon`
-    };
-  } catch (err) {
-    return {
-      success: false,
-      error: err.message,
-      coordinates: []
-    };
+export function detectLotAt({ cleaned, w, h }, nx, ny, epsilon = 2.0) {
+  const sx = Math.floor(nx * w);
+  const sy = Math.floor(ny * h);
+  if (sx < 0 || sx >= w || sy < 0 || sy >= h) {
+    return { success: false, error: 'El clic quedó fuera del plano.' };
   }
+  if (cleaned[sy * w + sx] === 1) {
+    return { success: false, error: 'Hiciste clic sobre una línea. Probá en el medio del lote.' };
+  }
+  const { region, size, reachesEdge, firstIdx } = floodFill(cleaned, w, h, sx, sy);
+  if (reachesEdge) {
+    return { success: false, error: 'Esa zona no está cerrada: se escapa hasta el borde del plano. Si el lote tiene un hueco en la línea, bajá el umbral.' };
+  }
+  if (size < 16) {
+    return { success: false, error: 'La zona es demasiado chica para ser un lote.' };
+  }
+  const contour = traceBoundary(region, w, h, firstIdx);
+  const simplified = simplifyClosed(contour, epsilon);
+  if (simplified.length < 3) {
+    return { success: false, error: 'No se pudo armar un contorno con esa zona.' };
+  }
+  return {
+    success: true,
+    // +0.5 → pixel centers, so the polygon doesn't drift half a pixel up-left.
+    coordinates: simplified.map(([x, y]) => [(x + 0.5) / w, (y + 0.5) / h]),
+  };
 }
 
 /**
- * For preview: binarize + clean, return downscaled mask as ImageData for canvas rendering
+ * Overlay of what the detector sees, for drawing on top of the plano:
+ * lines in the editor's gold, removed text in red, paper transparent.
+ * Returns raw RGBA (wrap it in ImageData to draw it).
  */
-export async function getPreviewMask(url, params = {}, maxDim = 640) {
-  const { threshold = 128, maxTextDim = 20 } = params;
-
-  try {
-    const { imageData, width: w, height: h } = await loadPixelData(url);
-    const mask = binarize(imageData, w, h, threshold);
-    const cleaned = cleanText(mask, w, h, maxTextDim);
-
-    // Downscale for preview
-    const scale = Math.min(1, maxDim / Math.max(w, h));
-    const previewW = Math.round(w * scale);
-    const previewH = Math.round(h * scale);
-
-    const preview = new Uint8ClampedArray(previewW * previewH * 4);
-    for (let y = 0; y < previewH; y++) {
-      for (let x = 0; x < previewW; x++) {
-        const srcIdx = (Math.floor(y / scale) * w + Math.floor(x / scale));
-        const dstIdx = (y * previewW + x) * 4;
-
-        const val = cleaned[srcIdx] * 255;
-        preview[dstIdx] = val;     // R
-        preview[dstIdx + 1] = val; // G
-        preview[dstIdx + 2] = val; // B
-        preview[dstIdx + 3] = 255; // A
-      }
+export function buildOverlay({ cleaned, text, w, h }, maxDim = OVERLAY_MAX_DIM) {
+  const k = Math.max(1, Math.ceil(Math.max(w, h) / maxDim));
+  const ow = Math.ceil(w / k);
+  const oh = Math.ceil(h / k);
+  // 2 = line, 1 = text; a line anywhere in the block wins so thin lines survive.
+  const prio = new Uint8Array(ow * oh);
+  for (let y = 0; y < h; y++) {
+    const row = ((y / k) | 0) * ow;
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      const p = cleaned[i] ? 2 : text[i] ? 1 : 0;
+      const t = row + ((x / k) | 0);
+      if (p > prio[t]) prio[t] = p;
     }
-
-    return new ImageData(preview, previewW, previewH);
-  } catch (err) {
-    console.error('getPreviewMask:', err.message);
-    return null;
   }
+  const data = new Uint8ClampedArray(ow * oh * 4);
+  for (let i = 0; i < prio.length; i++) {
+    const o = i * 4;
+    if (prio[i] === 2) { data[o] = 197; data[o + 1] = 160; data[o + 2] = 89; data[o + 3] = 255; }
+    else if (prio[i] === 1) { data[o] = 248; data[o + 1] = 113; data[o + 2] = 113; data[o + 3] = 230; }
+  }
+  return { data, width: ow, height: oh };
 }
