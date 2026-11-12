@@ -1,7 +1,7 @@
 // Tests for the plano's vertex editing geometry (utils/polygonEdit.js).
 import { describe, expect, it } from 'vitest';
 import {
-  faceAround, insertVertex, projectOntoSegment, removeVertex, slideEdge, slideFace,
+  faceAround, insertVertex, lotDirections, projectOntoSegment, removeVertex, slideEdge, slideFace, snapOnSegment, snapPoint,
 } from './polygonEdit';
 
 describe('projectOntoSegment', () => {
@@ -77,6 +77,62 @@ describe('slideEdge', () => {
   it('does not mutate the original', () => {
     slideEdge(square, 0, { x: 0, y: 4 });
     expect(square[0]).toEqual([0, 0]);
+  });
+});
+
+describe('lotDirections', () => {
+  it('merges parallel sides, skipping the given edges', () => {
+    const square = [[0, 0], [10, 0], [10, 10], [0, 10]];
+    expect(lotDirections(square)).toHaveLength(2);
+    // Skip both horizontal sides: only the vertical direction is left.
+    const dirs = lotDirections(square, [0, 2]);
+    expect(dirs).toHaveLength(1);
+    expect(Math.abs(dirs[0].y)).toBeCloseTo(1);
+  });
+});
+
+describe('snapPoint', () => {
+  const dirs = [{ x: 1, y: 0 }, { x: 0, y: 1 }];
+
+  it('leaves the point alone when nothing is close', () => {
+    expect(snapPoint([5, 5], [[0, 0]], dirs, 2)).toEqual({ point: [5, 5], guides: [] });
+  });
+
+  it('pulls onto one alignment line', () => {
+    const r = snapPoint([5, 1], [[0, 0]], dirs, 2);
+    expect(r.point[0]).toBeCloseTo(5);
+    expect(r.point[1]).toBeCloseTo(0);
+    expect(r.guides).toHaveLength(1);
+  });
+
+  it('goes to the crossing of two lines', () => {
+    // Close to x = 10 (from anchor (10, 0)) and to y = 20 (from anchor (0, 20)).
+    const r = snapPoint([11, 19], [[10, 0], [0, 20]], dirs, 2);
+    expect(r.point[0]).toBeCloseTo(10);
+    expect(r.point[1]).toBeCloseTo(20);
+    expect(r.guides).toHaveLength(2);
+  });
+
+  it('works along rotated directions', () => {
+    const s = Math.SQRT1_2;
+    // 45° line through the origin; (5, 6) is ~0.7 from it.
+    const r = snapPoint([5, 6], [[0, 0]], [{ x: s, y: s }], 1);
+    expect(r.point[0]).toBeCloseTo(5.5);
+    expect(r.point[1]).toBeCloseTo(5.5);
+  });
+});
+
+describe('snapOnSegment', () => {
+  it('lines a new point up with a corner on the opposite side', () => {
+    // Bottom side y = 0, a corner at (4, 10) on the top side, vertical lot direction.
+    const r = snapOnSegment([5, 0], [0, 0], [10, 0], [[4, 10]], [{ x: 0, y: 1 }], 2);
+    expect(r.point[0]).toBeCloseTo(4);
+    expect(r.point[1]).toBeCloseTo(0);
+  });
+
+  it('ignores crossings out of reach or past the segment ends', () => {
+    expect(snapOnSegment([5, 0], [0, 0], [10, 0], [[9, 10]], [{ x: 0, y: 1 }], 2).guides).toHaveLength(0);
+    expect(snapOnSegment([9.5, 0], [0, 0], [10, 0], [[12, 10]], [{ x: 0, y: 1 }], 5).guides).toHaveLength(0);
   });
 });
 

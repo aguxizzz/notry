@@ -4,7 +4,7 @@ import { FIRST_TEMP_POINT_ID } from '../utils/markerIds';
 import { fetchImage } from '../utils/fetchImage';
 import { useLatest } from '../hooks/useLatest';
 import {
-  faceAround, insertVertex, projectOntoSegment, removeVertex, slideFace,
+  faceAround, insertVertex, lotDirections, projectOntoSegment, removeVertex, slideFace, snapOnSegment, snapPoint,
 } from '../utils/polygonEdit';
 
 
@@ -15,6 +15,10 @@ const DRAG_THRESHOLD_PX = 3;
 // Screen pixels a point can stray from a straight line and still count as
 // part of the same face when right-clicking a side (see faceAround).
 const FACE_TOLERANCE_PX = 3;
+
+// Screen pixels within which a corner snaps into line with another corner of
+// its lot. Holding Ctrl turns the snap off.
+const SNAP_PX = 8;
 
 /** Resize cursor closest to the face's normal, so it shows which way the face moves. */
 function cursorForNormal(nx, ny) {
@@ -65,6 +69,8 @@ export default function BlueprintEditor({
   // Face picked with right-click for stretching: { markerId, start, end } (corner
   // indices, see faceAround). Only counts while that lot is still the selected one.
   const [selectedFace, setSelectedFace] = useState(null);
+  // Alignment lines the corner snapped to, in display px: [{ q: [x, y], d: { x, y } }]
+  const [vertexGuides, setVertexGuides] = useState([]);
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0 });
 
@@ -227,22 +233,31 @@ export default function BlueprintEditor({
   };
 
   /**
-   * Cursor projected onto edge `edgeIndex` of a lot, as normalized [nx, ny].
-   * Projection is done in display pixels: in normalized space the plano's
-   * aspect ratio would skew the perpendicular.
+   * Cursor projected onto edge `edgeIndex` of a lot, snapped into line with
+   * the lot's other corners unless `noSnap`. Returns { point: [nx, ny], guides }.
+   * Done in display pixels: in normalized space the plano's aspect ratio
+   * would skew the perpendicular.
    */
-  const projectOnEdge = (pixels, edgeIndex, clientX, clientY) => {
+  const projectOnEdge = (pixels, edgeIndex, clientX, clientY, noSnap) => {
     const norm = screenToNormalized(clientX, clientY);
     if (!norm) return null;
     const { w, h } = displayDimsRef.current;
-    const [ax, ay] = pixels[edgeIndex];
-    const [bx, by] = pixels[(edgeIndex + 1) % pixels.length];
+    const px = pixels.map(([x, y]) => [x * w, y * h]);
+    const ia = edgeIndex;
+    const ib = (edgeIndex + 1) % px.length;
     const p = projectOntoSegment(
       { x: norm.nx * w, y: norm.ny * h },
-      { x: ax * w, y: ay * h },
-      { x: bx * w, y: by * h },
+      { x: px[ia][0], y: px[ia][1] },
+      { x: px[ib][0], y: px[ib][1] },
     );
-    return [p.x / w, p.y / h];
+    let point = [p.x, p.y];
+    let guides = [];
+    if (!noSnap) {
+      // The edge's own ends are left out: snapping to them would just land on the corner.
+      const anchors = px.filter((_, i) => i !== ia && i !== ib);
+      ({ point, guides } = snapOnSegment(point, px[ia], px[ib], anchors, lotDirections(px), SNAP_PX / zoomRef.current));
+    }
+    return { point: [point[0] / w, point[1] / h], guides };
   };
 
   /** Removes a corner (if the lot keeps at least 3) and clears the vertex selection. */
@@ -374,7 +389,7 @@ export default function BlueprintEditor({
       const markerId = edgeEl.getAttribute('data-marker-id');
       const index = parseInt(edgeEl.getAttribute('data-index'), 10);
       const marker = annotationsRef.current.find(a => a.id === markerId);
-      const pt = marker?.polygonPixels && projectOnEdge(marker.polygonPixels, index, e.clientX, e.clientY);
+      const pt = marker?.polygonPixels && projectOnEdge(marker.polygonPixels, index, e.clientX, e.clientY, e.ctrlKey)?.point;
       if (pt) {
         onPolygonUpdateRef.current && onPolygonUpdateRef.current(markerId, insertVertex(marker.polygonPixels, index, pt));
         // Already under the cursor, so it moves from the first pixel (moved=true)
@@ -456,10 +471,13 @@ export default function BlueprintEditor({
       const markerId = edgeEl.getAttribute('data-marker-id');
       const index = parseInt(edgeEl.getAttribute('data-index'), 10);
       const marker = annotationsRef.current.find(a => a.id === markerId);
-      const point = marker?.polygonPixels && projectOnEdge(marker.polygonPixels, index, e.clientX, e.clientY);
-      setEdgeHover(point ? { markerId, point } : null);
+      const hit = marker?.polygonPixels && projectOnEdge(marker.polygonPixels, index, e.clientX, e.clientY, e.ctrlKey);
+      setEdgeHover(hit ? { markerId, point: hit.point } : null);
+      setVertexGuides(hit ? hit.guides : []);
     } else {
       setEdgeHover(null);
+      // While dragging a corner its own snap owns the guides (set below).
+      if (!draggingCornerRef.current) setVertexGuides([]);
     }
 
     if (draggingCornerRef.current) {
@@ -472,10 +490,23 @@ export default function BlueprintEditor({
       const marker = annotationsRef.current.find(a => a.id === markerId);
 
       if (marker && marker.polygonPixels) {
+        // Snap in display px against the lot's other corners, along the lot's
+        // directions minus the two edges this corner drags along with it.
+        const { w, h } = displayDimsRef.current;
+        const px = marker.polygonPixels.map(([x, y]) => [x * w, y * h]);
+        const n = px.length;
+        let point = [norm.nx * w, norm.ny * h];
+        let guides = [];
+        if (!e.ctrlKey) {
+          const dirs = lotDirections(px, [(index - 1 + n) % n, index]);
+          ({ point, guides } = snapPoint(point, px.filter((_, i) => i !== index), dirs, SNAP_PX / zoomRef.current));
+        }
+        const snapped = { nx: point[0] / w, ny: point[1] / h };
         const newPixels = [...marker.polygonPixels];
-        newPixels[index] = [norm.nx, norm.ny];
+        newPixels[index] = [snapped.nx, snapped.ny];
         onPolygonUpdateRef.current && onPolygonUpdateRef.current(markerId, newPixels);
-        draggingCornerRef.current.lastNorm = norm;
+        draggingCornerRef.current.lastNorm = snapped;
+        setVertexGuides(guides);
       }
     } else if (draggingEdgeRef.current) {
       // Slide in display pixels (same reason as projectOnEdge), from the shape at
@@ -541,6 +572,7 @@ export default function BlueprintEditor({
         }
       }
       draggingCornerRef.current = null;
+      setVertexGuides([]);
     } else if (draggingEdgeRef.current) {
       // Nothing to flush: App commits the drag to history on its own pointerup.
       draggingEdgeRef.current = null;
@@ -998,6 +1030,20 @@ export default function BlueprintEditor({
               </>
             );
           })()}
+
+          {/* Alignment lines a lot corner snapped to (long enough to cross the whole plano) */}
+          {vertexGuides.map((g, i) => {
+            const L = (dw + dh) * 2;
+            return (
+              <line
+                key={`vguide-${i}`}
+                x1={g.q[0] - g.d.x * L} y1={g.q[1] - g.d.y * L}
+                x2={g.q[0] + g.d.x * L} y2={g.q[1] + g.d.y * L}
+                stroke="#22d3ee" strokeWidth={1 / zoom}
+                strokeDasharray={`${4 / zoom},${4 / zoom}`} pointerEvents="none"
+              />
+            );
+          })}
 
           {/* Alignment guides while dragging a calib point */}
           {alignmentGuides.map((g, i) => (

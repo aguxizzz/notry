@@ -119,3 +119,86 @@ export function slideFace(points, start, end, drag) {
 export function slideEdge(points, edgeIndex, drag) {
   return slideFace(points, edgeIndex, (edgeIndex + 1) % points.length, drag);
 }
+
+/**
+ * Directions the lot is drawn along: one unit vector per edge, minus the
+ * edges in `skipEdges`, with near-duplicates (same angle within ~2°, either
+ * way round) merged. These are the alignment axes for the snap: on a rotated
+ * plano they're the lot's own sides, not the screen's X/Y.
+ */
+export function lotDirections(points, skipEdges = []) {
+  const dirs = [];
+  points.forEach((_, i) => {
+    if (skipEdges.includes(i)) return;
+    const n = edgeNormal(points, i);
+    if (!n) return;
+    const d = { x: n.y, y: -n.x }; // edge direction = normal rotated back 90°
+    const dup = dirs.some(o => Math.abs(o.x * d.y - o.y * d.x) < 0.035); // sin(2°)
+    if (!dup) dirs.push(d);
+  });
+  return dirs;
+}
+
+/** Distance from p to the infinite line through q along unit direction d. */
+function distToLine(p, q, d) {
+  return Math.abs((p[0] - q[0]) * d.y - (p[1] - q[1]) * d.x);
+}
+
+/**
+ * Free snap for a dragged corner: if p sits within `threshold` of a line
+ * through an anchor along one of `dirs`, it's pulled onto that line; with
+ * two such lines in different directions it goes to where they cross.
+ * Returns { point, guides: [{ q, d }] } (guides empty = no snap).
+ */
+export function snapPoint(p, anchors, dirs, threshold) {
+  const hits = [];
+  for (const q of anchors) {
+    for (const d of dirs) {
+      const dist = distToLine(p, q, d);
+      if (dist < threshold) hits.push({ q, d, dist });
+    }
+  }
+  if (!hits.length) return { point: p, guides: [] };
+  hits.sort((a, b) => a.dist - b.dist);
+  const first = hits[0];
+
+  // Second line: closest one that isn't parallel to the first and whose
+  // crossing stays near the cursor (a shallow angle would throw it far off).
+  for (const second of hits.slice(1)) {
+    const x = intersectLines(first.q, [first.d.x, first.d.y], second.q, [second.d.x, second.d.y]);
+    if (x && Math.hypot(x[0] - p[0], x[1] - p[1]) < threshold * 2) {
+      return { point: x, guides: [first, second].map(({ q, d }) => ({ q, d })) };
+    }
+  }
+  // Only one line: drop p onto it perpendicularly.
+  const t = (p[0] - first.q[0]) * first.d.x + (p[1] - first.q[1]) * first.d.y;
+  return {
+    point: [first.q[0] + t * first.d.x, first.q[1] + t * first.d.y],
+    guides: [{ q: first.q, d: first.d }],
+  };
+}
+
+/**
+ * Snap for a point that has to stay on segment a→b (the ghost point of a
+ * new corner): it jumps to where a line through an anchor along one of
+ * `dirs` crosses the segment, if that's within `threshold` of p. This is
+ * what lines up a new point with its pair on the opposite side of the lot.
+ * Returns { point, guides } like snapPoint.
+ */
+export function snapOnSegment(p, a, b, anchors, dirs, threshold) {
+  const ab = [b[0] - a[0], b[1] - a[1]];
+  const len2 = ab[0] * ab[0] + ab[1] * ab[1];
+  if (len2 === 0) return { point: p, guides: [] };
+  let best = null;
+  for (const q of anchors) {
+    for (const d of dirs) {
+      const x = intersectLines(a, ab, q, [d.x, d.y]);
+      if (!x) continue;
+      const t = ((x[0] - a[0]) * ab[0] + (x[1] - a[1]) * ab[1]) / len2;
+      if (t <= 0 || t >= 1) continue; // past the ends it would land on the corner itself
+      const dist = Math.hypot(x[0] - p[0], x[1] - p[1]);
+      if (dist < threshold && (!best || dist < best.dist)) best = { point: x, q, d, dist };
+    }
+  }
+  return best ? { point: best.point, guides: [{ q: best.q, d: best.d }] } : { point: p, guides: [] };
+}
