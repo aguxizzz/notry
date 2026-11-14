@@ -33,12 +33,17 @@ const isRealLot = a => a.type === 'polygon' && !a.pending;
  * A local (localStorage) draft can be older than the server: someone may have created or
  * discarded a draft meanwhile (the MCP, another tab). Restored pendings whose server draft
  * is gone are dropped, and server drafts the local copy doesn't know about are appended.
+ * `serverLots` (real lots from the saved snapshot) brings back lots created after the local
+ * copy was taken; deleting a lot is immediate on the back, so one that's still there wasn't
+ * removed on purpose.
  */
-export function reconcileRestoredDrafts(restored, serverDrafts) {
+export function reconcileRestoredDrafts(restored, serverDrafts, serverLots = []) {
   const serverIds = new Set(serverDrafts.map(a => a.draftId));
   const kept = restored.filter(a => !a.draftId || serverIds.has(a.draftId));
   const keptIds = new Set(kept.map(a => a.draftId).filter(Boolean));
-  return [...kept, ...serverDrafts.filter(a => !keptIds.has(a.draftId))];
+  const known = new Set(kept.flatMap(a => [a.id, a.uuid]).filter(Boolean));
+  const missingLots = serverLots.filter(a => isRealLot(a) && !known.has(a.id) && !known.has(a.uuid));
+  return [...kept, ...missingLots, ...serverDrafts.filter(a => !keptIds.has(a.draftId))];
 }
 
 /**

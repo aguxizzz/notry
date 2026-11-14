@@ -41,6 +41,18 @@ describe('reconcileRestoredDrafts', () => {
     // The local edit of a draft that still exists wins over the server copy.
     expect(result[1].tooltip).toBe('edited locally');
   });
+
+  it('brings back lots created on the back after the local copy was taken', () => {
+    const restored = [{ id: 'a', uuid: 'a', type: 'polygon', tooltip: 'edited locally' }];
+    const serverLots = [
+      { id: 'a', uuid: 'a', type: 'polygon' },
+      { id: 'mcp', uuid: 'mcp', type: 'polygon' },
+      { id: 'poi-1', type: 'poi' },
+    ];
+    const result = reconcileRestoredDrafts(restored, [], serverLots);
+    expect(result.map(a => a.id)).toEqual(['a', 'mcp']);
+    expect(result[0].tooltip).toBe('edited locally');
+  });
 });
 
 describe('mergeServerChanges', () => {

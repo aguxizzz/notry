@@ -113,8 +113,10 @@ export function useLotDrafts({ annotations, setAnnotations, savedAnnotationsRef,
     return true;
   };
 
-  /** For "restore local draft": the restored annotations, reconciled with the server's drafts. */
-  const reconcileRestored = restored => reconcileRestoredDrafts(restored, serverDraftsRef.current);
+  /** For "restore local draft": the restored annotations, reconciled with the server's drafts and lots. */
+  const reconcileRestored = restored => (
+    reconcileRestoredDrafts(restored, serverDraftsRef.current, savedAnnotationsRef.current)
+  );
 
   /**
    * One look at the back. Lots are only fetched when a draft on screen is gone, which is
