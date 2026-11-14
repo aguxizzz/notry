@@ -1,9 +1,31 @@
 // Tests for the lot draft helpers: server draft mapping, saved-snapshot ordering and
 // reconciling an old local draft with what the server has now.
 import { describe, expect, it } from 'vitest';
-import { draftToAnnotation, insertIntoSaved, mergeServerChanges, reconcileRestoredDrafts } from './lotDrafts';
+import { draftShapeChanges, draftToAnnotation, insertIntoSaved, mergeServerChanges, reconcileRestoredDrafts } from './lotDrafts';
 
 const SQUARE = [[0.1, 0.1], [0.2, 0.1], [0.2, 0.2], [0.1, 0.2]];
+
+describe('draftShapeChanges', () => {
+  const draft = draftToAnnotation({ id: '1', blueprint_coordinates: SQUARE });
+  const moved = [[0.1, 0.1], [0.25, 0.1], [0.25, 0.22], [0.1, 0.2]];
+
+  it('lists a pending whose plano shape differs from the saved one', () => {
+    const edited = { ...draft, blueprint_coordinates: moved };
+    expect(draftShapeChanges([edited], [draft])).toEqual([{ id: 'draft-1', draftId: '1', coords: moved }]);
+  });
+
+  it('ignores untouched pendings, ones not stored yet and ones being created', () => {
+    const edited = { ...draft, blueprint_coordinates: moved };
+    expect(draftShapeChanges([draft], [draft])).toEqual([]);
+    expect(draftShapeChanges([edited], [])).toEqual([]);
+    expect(draftShapeChanges([{ ...edited, creating: true }], [draft])).toEqual([]);
+  });
+
+  it('ignores real lots, even with a different shape', () => {
+    const lot = { id: 'l1', type: 'polygon', blueprint_coordinates: moved };
+    expect(draftShapeChanges([lot], [{ ...lot, blueprint_coordinates: SQUARE }])).toEqual([]);
+  });
+});
 
 describe('draftToAnnotation', () => {
   it('builds a pending blueprint lot that keeps the server id', () => {

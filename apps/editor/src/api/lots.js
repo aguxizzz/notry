@@ -12,6 +12,12 @@ export const createLotDrafts = (token, loteoId, drafts) => apiRequest(
   `/loteos/${loteoId}/drafts`, { method: 'POST', token, body: { drafts } },
 );
 
+// After editing a pending's vertices, so a lot made from the draft keeps the edited shape.
+export const updateLotDraft = (token, loteoId, draftId, blueprintCoordinates) => apiRequest(
+  `/loteos/${loteoId}/drafts/${draftId}`,
+  { method: 'PATCH', token, body: { blueprint_coordinates: blueprintCoordinates } },
+);
+
 export const deleteLotDraft = (token, loteoId, draftId) => apiRequest(
   `/loteos/${loteoId}/drafts/${draftId}`, { method: 'DELETE', token },
 );

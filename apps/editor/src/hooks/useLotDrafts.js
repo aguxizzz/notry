@@ -1,18 +1,22 @@
 // Keeps auto-detected pending lots in sync with the back's lot drafts, so they survive
 // a reload and can be filled in from outside the editor (the MCP). Creating the lot itself
-// is still useLotOperations (POST /lots with `draft_id`); this hook loads, stores, discards
-// and polls the back so what the MCP does shows up without reloading.
-import { useEffect, useRef } from 'react';
+// is still useLotOperations (POST /lots with `draft_id`); this hook loads, stores, reshapes,
+// discards and polls the back so what the MCP does shows up without reloading.
+import { useEffect, useReducer, useRef } from 'react';
 import { errorMessage } from '../api/client';
 import { fetchVisorData } from '../api/loteos';
-import { createLotDrafts, deleteLotDraft, listLotDrafts } from '../api/lots';
-import { normalizeApiAnnotation } from '../utils/annotationModel';
-import { draftToAnnotation, insertIntoSaved, mergeServerChanges, reconcileRestoredDrafts } from '../utils/lotDrafts';
+import { createLotDrafts, deleteLotDraft, listLotDrafts, updateLotDraft } from '../api/lots';
+import { normalizeApiAnnotation, withShapeCoords } from '../utils/annotationModel';
+import {
+  draftShapeChanges, draftToAnnotation, insertIntoSaved, mergeServerChanges, reconcileRestoredDrafts,
+} from '../utils/lotDrafts';
 import { useLatest } from './useLatest';
 
 // Drafts are one small query, so a few seconds keeps up with the MCP without hammering
 // the back. Only while the tab is visible; coming back to it checks right away.
 const SYNC_INTERVAL_MS = 5000;
+// Quiet time after the last vertex edit before its shape goes to the draft.
+const SHAPE_DEBOUNCE_MS = 600;
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
@@ -30,6 +34,9 @@ export function useLotDrafts({ annotations, setAnnotations, savedAnnotationsRef,
   const onServerChangesRef = useLatest(onServerChanges);
   const notifyRef = useLatest(notify);
   const noteLocalChange = () => { localEpochRef.current += 1; };
+  // draftId → shape (JSON) being PATCHed right now.
+  const shapesInFlightRef = useRef(new Map());
+  const [, rerender] = useReducer(n => n + 1, 0);
 
   const reportError = (action, error) => {
     if (error?.isUnauthorized) { onAuthError(); return; }
@@ -112,6 +119,56 @@ export function useLotDrafts({ annotations, setAnnotations, savedAnnotationsRef,
     serverDraftsRef.current = serverDraftsRef.current.filter(a => a.draftId !== annotation.draftId);
     return true;
   };
+
+  /**
+   * Sends edited pending shapes to their drafts. Once the back has one, it also goes into
+   * the saved snapshot: the shape is stored, so it isn't an unsaved change anymore.
+   */
+  const flushShapes = async () => {
+    if (!token || !loteoId) return;
+    const changes = draftShapeChanges(annotationsRef.current, savedAnnotationsRef.current);
+    for (const { id, draftId, coords } of changes) {
+      const key = JSON.stringify(coords);
+      // The same shape already on its way (a flush on blur right after the debounced one).
+      if (shapesInFlightRef.current.get(draftId) === key) continue;
+      shapesInFlightRef.current.set(draftId, key);
+      try {
+        await updateLotDraft(token, loteoId, draftId, coords);
+        savedAnnotationsRef.current = savedAnnotationsRef.current.map(a => (
+          a.id === id ? withShapeCoords(a, 'blueprint', coords) : a
+        ));
+        serverDraftsRef.current = serverDraftsRef.current.map(a => (
+          a.draftId === draftId ? withShapeCoords(a, 'blueprint', coords) : a
+        ));
+        // The dirty check reads the snapshot on render; without one the indicator stays on.
+        rerender();
+      } catch (error) {
+        // 404: it became a lot meanwhile (MCP, another tab) and the poll will bring that in.
+        if (error?.status !== 404) reportError('guardar la forma del lote pendiente', error);
+      } finally {
+        shapesInFlightRef.current.delete(draftId);
+      }
+    }
+  };
+  const flushShapesRef = useLatest(flushShapes);
+
+  // A drag fires on every pointermove: wait until the shape settles before sending it.
+  useEffect(() => {
+    const timer = setTimeout(() => flushShapesRef.current(), SHAPE_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [annotations, flushShapesRef]);
+
+  // Leaving the editor (to ask the MCP for the lot) can't wait for the debounce.
+  useEffect(() => {
+    const flushNow = () => flushShapesRef.current();
+    const onVisibility = () => { if (document.visibilityState === 'hidden') flushNow(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('blur', flushNow);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('blur', flushNow);
+    };
+  }, [flushShapesRef]);
 
   /** For "restore local draft": the restored annotations, reconciled with the server's drafts and lots. */
   const reconcileRestored = restored => (

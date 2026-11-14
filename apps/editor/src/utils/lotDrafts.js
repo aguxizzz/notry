@@ -30,6 +30,25 @@ export function insertIntoSaved(saved, item, annotationsAt, id) {
 const isRealLot = a => a.type === 'polygon' && !a.pending;
 
 /**
+ * Pending lots whose plano shape was edited (vertices moved, added, deleted, or an undo)
+ * since it was last stored on the back: their entry in the saved snapshot has other
+ * coordinates. Those have to reach the draft, or a lot created from it outside the editor
+ * (the MCP only sends the draft id) comes out with the detected shape.
+ * Returns [{ id, draftId, coords }].
+ */
+export function draftShapeChanges(annotations, saved) {
+  const savedById = new Map(saved.map(a => [a.id, a]));
+  return annotations
+    .filter(a => a.pending && a.draftId && !a.creating && a.blueprint_coordinates?.length >= 3)
+    .filter(a => {
+      const before = savedById.get(a.id);
+      // Not in the snapshot yet: persistDetected is still storing it, with these same coords.
+      return before && JSON.stringify(before.blueprint_coordinates) !== JSON.stringify(a.blueprint_coordinates);
+    })
+    .map(a => ({ id: a.id, draftId: a.draftId, coords: a.blueprint_coordinates }));
+}
+
+/**
  * A local (localStorage) draft can be older than the server: someone may have created or
  * discarded a draft meanwhile (the MCP, another tab). Restored pendings whose server draft
  * is gone are dropped, and server drafts the local copy doesn't know about are appended.
