@@ -220,8 +220,11 @@ export default function BlueprintEditor({
     setPanY(cursorY - svgY * newZoom);
   }, [zoomRef, panXRef, panYRef]);
 
+  // Right drag pans (same as the panorama and satellite views); middle still works.
   const handlePanStart = (e) => {
-    if (e.button !== 1) return;
+    if (e.button !== 1 && e.button !== 2) return;
+    // Right-click on a corner or a side has its own action (see handleContextMenu), so no pan there.
+    if (e.button === 2 && e.target.closest('[data-type="corner"], [data-type="edge"], [data-type="face"]')) return;
     isPanningRef.current = true;
     panStartRef.current = { x: e.clientX - panXRef.current, y: e.clientY - panYRef.current };
   };
@@ -306,6 +309,8 @@ export default function BlueprintEditor({
   // the browser's menu): on a corner it deletes it, on a side it picks that
   // straight face for stretching.
   const handleContextMenu = (e) => {
+    // Never the browser menu here: right drag pans, and on Linux it would pop up on the press itself.
+    e.preventDefault();
     const cornerEl = e.target.closest('[data-type="corner"]');
     if (cornerEl) {
       e.preventDefault();

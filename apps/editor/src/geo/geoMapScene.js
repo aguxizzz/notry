@@ -367,9 +367,12 @@ export function createGeoMapScene({
     requestRender();
   }
 
-  // --- controls: pan with drag, wheel zooms toward the cursor, no rotation
+  // --- controls: pan with right drag, wheel zooms toward the cursor, no rotation
   const controls = new MapControls(camera, canvas);
   controls.enableRotate = false;
+  // Right drag pans, like the panorama and the blueprint. Left is left for
+  // picks and "Ajustar" grabs (null = no action); middle keeps panning too.
+  controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.PAN };
   controls.screenSpacePanning = true; // the screen plane IS the ground here
   controls.zoomToCursor = true;
   controls.minZoom = MIN_ZOOM;
