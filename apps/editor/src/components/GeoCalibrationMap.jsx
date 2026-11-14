@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createGeoMapScene } from '../geo/geoMapScene';
 import { geoHomography } from '../utils/geoCalibration';
 import { fetchImage } from '../utils/fetchImage';
+import { getLotSvgStyle } from '../utils/lotStyles';
 import { useMapView } from '../hooks/useMapView';
 import MapControls from './MapControls';
 
@@ -108,7 +109,8 @@ export default function GeoCalibrationMap({
   useEffect(() => { sceneRef.current?.setOpacity(opacity); }, [opacity, latitude, longitude]);
   useEffect(() => { sceneRef.current?.setOrientation(orientation); }, [orientation, latitude, longitude]);
   useEffect(() => {
-    sceneRef.current?.setLots((polygons ?? []).map(p => p.geo_coordinates));
+    // Each lot with its status style, so the map paints it like the blueprint and the panorama.
+    sceneRef.current?.setLots((polygons ?? []).map(p => ({ ring: p.geo_coordinates, style: getLotSvgStyle(p) })));
   }, [polygons, latitude, longitude]);
   useEffect(() => { sceneRef.current?.setSurfaces(surfaces); }, [surfaces, latitude, longitude]);
   useEffect(() => { sceneRef.current?.setCursor(drawingTool); }, [drawingTool, latitude, longitude]);

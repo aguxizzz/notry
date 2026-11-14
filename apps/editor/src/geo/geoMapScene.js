@@ -35,6 +35,21 @@ const BLUEPRINT_CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]];
 const DRAWING_COLOR = 0xf59e0b;
 
 /**
+ * CSS color of the lot styles ('rgba(34,197,94,0.15)', '#22c55e') → Three.js
+ * color + opacity. THREE.Color drops the alpha of rgba(), so it's read apart.
+ * Anything missing or unparseable returns `fallback`.
+ */
+function cssColor(css, fallback) {
+  if (typeof css !== 'string') return fallback;
+  const rgba = /^rgba?\(([^)]+)\)$/.exec(css.trim());
+  if (rgba) {
+    const [r, g, b, a = 1] = rgba[1].split(',').map(Number);
+    return { color: new THREE.Color(`rgb(${r},${g},${b})`), opacity: a };
+  }
+  return css.startsWith('#') ? { color: new THREE.Color(css), opacity: 1 } : fallback;
+}
+
+/**
  * Builds the map inside `container`. Returns setters for what the React side
  * changes (mode, blueprint, homography, opacity, lots, pins) and dispose().
  *
@@ -237,26 +252,52 @@ export function createGeoMapScene({
     refreshWarp();
   }
 
-  // --- lot outlines, rebuilt whole on every change (a few hundred segments)
-  let lotLines = null;
-  function setLots(rings) {
-    if (lotLines) { scene.remove(lotLines); disposeObject(lotLines); }
-    const pos = [];
-    for (const ring of rings) {
+  // --- lots: [{ ring: [[lat, lng]...], style? }], filled and outlined with
+  // the same per-status style as the blueprint and the panorama (lotStyles.js).
+  // Rebuilt whole on every change (a few hundred lots). Lots of the same style
+  // share their materials, so a whole status changes color in one place.
+  const lotGroup = new THREE.Group();
+  scene.add(lotGroup);
+  function setLots(lots) {
+    for (const child of [...lotGroup.children]) { lotGroup.remove(child); disposeObject(child); }
+    const materials = new Map();
+    const materialsFor = (style) => {
+      const key = `${style?.fill}|${style?.stroke}|${style?.fillOpacity}`;
+      if (!materials.has(key)) {
+        // No status (a lot still pending) falls back to the old cyan outline,
+        // with a faint fill so it still reads as a surface.
+        const fill = cssColor(style?.fill, { color: LOT_COLOR, opacity: 0.12 });
+        const line = cssColor(style?.stroke, { color: LOT_COLOR, opacity: 0.9 });
+        materials.set(key, {
+          fill: new THREE.MeshBasicMaterial({
+            color: fill.color, opacity: style?.fillOpacity ?? fill.opacity,
+            transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide,
+          }),
+          line: new THREE.LineBasicMaterial({
+            color: line.color, opacity: line.opacity, transparent: true, depthTest: false, depthWrite: false,
+          }),
+        });
+      }
+      return materials.get(key);
+    };
+    for (const { ring, style } of lots) {
       const pts = ring.map(([la, ln]) => toLocal(la, ln));
-      pts.forEach((p, i) => {
-        const q = pts[(i + 1) % pts.length];
-        pos.push(p.x, 0, p.z, q.x, 0, q.z);
-      });
+      const mats = materialsFor(style);
+      // Same flat-shape trick as the manzanas/calles below: built in (east,
+      // north) and laid on the ground with rotateX.
+      const geom = new THREE.ShapeGeometry(new THREE.Shape(pts.map((p) => new THREE.Vector2(p.x, -p.z))));
+      geom.rotateX(-Math.PI / 2);
+      const fill = new THREE.Mesh(geom, mats.fill);
+      fill.renderOrder = ORDER.lots;
+      const outline = new THREE.LineLoop(
+        new THREE.BufferGeometry().setFromPoints(pts.map((p) => new THREE.Vector3(p.x, 0, p.z))),
+        mats.line,
+      );
+      // Borders above every fill, so a neighbour's fill never dims them.
+      outline.renderOrder = ORDER.lots + 0.1;
+      lotGroup.add(fill, outline);
     }
-    const geom = new THREE.BufferGeometry();
-    geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    lotLines = new THREE.LineSegments(geom, new THREE.LineBasicMaterial({
-      color: LOT_COLOR, transparent: true, opacity: 0.9, depthTest: false, depthWrite: false,
-    }));
-    lotLines.renderOrder = ORDER.lots;
-    lotLines.frustumCulled = false;
-    scene.add(lotLines);
+    lotGroup.traverse((o) => { o.frustumCulled = false; });
     requestRender();
   }
 
@@ -526,7 +567,7 @@ export function createGeoMapScene({
     window.removeEventListener('pointermove', onGrabMove);
     window.removeEventListener('pointerup', onGrabEnd);
     controls.dispose();
-    if (lotLines) disposeObject(lotLines);
+    disposeObject(lotGroup);
     disposeObject(surfaceGroup);
     disposeObject(warpMesh);
     for (const p of Object.values(cache)) {
