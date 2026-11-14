@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { RenderStatus, RenderTools } from './RenderToolbar';
+import { MapBackgroundSwitch, MapBlueprintControls } from './MapControls';
 import { MAX_STREET_WIDTH_M, MIN_STREET_WIDTH_M } from '../utils/geoSurfaces';
 
 const GLIDE_MS = 180;
@@ -139,6 +140,7 @@ export default function Toolbar({
   geoCalibrationPoints,
   render,
   geoSurfaces,
+  satelliteMapView,
 }) {
   // 'render' isn't a view of its own: it's the Panorama view drawing surfaces
   // (manzanas/calles) instead of lots, picked with the Lotes | Superficies switch.
@@ -147,6 +149,8 @@ export default function Toolbar({
   const isSatelliteMode = mode === 'satellite';
   // Plano and Panorama share the lot tools; Render and Satélite bring their own.
   const hasLotTools = !isRenderMode && !isSatelliteMode;
+  // Map controls only once linked: before that the Satellite view shows no map.
+  const showMapControls = isSatelliteMode && !!satelliteMapView && geoSurfaces.canDraw;
   const toolbarRef = useRef(null);
   useGlideRecenter(toolbarRef);
 
@@ -217,10 +221,30 @@ export default function Toolbar({
           </>
         )}
 
+        {/* Satélite | Render right after the view switcher, in the same spot
+            and style as Lotes | Superficies in the Panorama view. */}
+        {showMapControls && (
+          <>
+            <MapBackgroundSwitch view={satelliteMapView} />
+            <span className="toolbar-divider" aria-hidden="true" />
+          </>
+        )}
+
         {isRenderMode ? (
           <RenderTools render={render} />
         ) : isSatelliteMode ? (
-          <SatelliteTools surfaces={geoSurfaces} />
+          <>
+            <SatelliteTools surfaces={geoSurfaces} />
+            {/* Map controls in the same bar, not a second one over the map that
+                the toolbar ran into when it grew (e.g. the street width field).
+                The background switch went up next to the view switcher. */}
+            {showMapControls && (
+              <>
+                <span className="toolbar-divider" aria-hidden="true" />
+                <MapBlueprintControls view={satelliteMapView} hasBlueprint />
+              </>
+            )}
+          </>
         ) : (
           <div className="toolbar-tools" aria-label="Herramientas de edición">
             {TOOLS.filter(tool => tool.id === 'rect'

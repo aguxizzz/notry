@@ -8,6 +8,7 @@ import { useLotDrafts } from './hooks/useLotDrafts';
 import { insertIntoSaved } from './utils/lotDrafts';
 import { useGeoCalibration } from './hooks/useGeoCalibration';
 import { useGeoSurfaces } from './hooks/useGeoSurfaces';
+import { useMapView } from './hooks/useMapView';
 import { useHistory } from './hooks/useHistory';
 import { useLoteoData } from './hooks/useLoteoData';
 import { useLotOperations } from './hooks/useLotOperations';
@@ -86,6 +87,9 @@ function App() {
   // Manzanas/calles dibujadas en la vista Satélite (todavía sin guardar: solo
   // viven en el historial de la sesión).
   const geoSurfaces = useGeoSurfaces({ geoPoints: geo.points, onBeforeChange: snapshotHistory });
+  // Satellite view's map background/opacity/orientation, here because the
+  // controls live in the Toolbar and the map in SatelliteView. Blueprint starts hidden.
+  const satelliteMapView = useMapView(0);
 
   const { pushHistory, undo, redo, canUndo, canRedo, removeAnnotationFromHistory } = useHistory({
     slices: {
@@ -1063,6 +1067,8 @@ function App() {
             geoCalibrationPoints={geo.points}
             render={render}
             geoSurfaces={geoSurfaces}
+            // Only when SatelliteView actually shows the map (it needs a location).
+            satelliteMapView={selectedLoteo?.latitude != null && selectedLoteo?.longitude != null ? satelliteMapView : null}
           />
 
           <div className="viewer-surface">
@@ -1075,6 +1081,7 @@ function App() {
                 blueprintUrl={blueprintUrl}
                 geo={geo}
                 surfaces={geoSurfaces}
+                mapView={satelliteMapView}
                 onLink={() => handleToolChange('calibrate-geo')}
               />
             ) : mode === 'blueprint' && blueprintUrl ? (

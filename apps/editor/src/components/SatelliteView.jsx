@@ -11,8 +11,9 @@ const GeoCalibrationMap = lazy(() => import('./GeoCalibrationMap'));
 /**
  * `geo` is useGeoCalibration (pairs + live-projected lots), `surfaces` is
  * useGeoSurfaces (drawing tool and shapes). `onLink` opens the calibration.
+ * `mapView` (useMapView) is owned by App because its controls sit in the main toolbar.
  */
-export default function SatelliteView({ latitude, longitude, blueprintUrl, geo, surfaces, onLink }) {
+export default function SatelliteView({ latitude, longitude, blueprintUrl, geo, surfaces, mapView, onLink }) {
   const { tool, canDraw, geoRings, geoSelectedRing, geoDrawing, selected } = surfaces;
   // The selection is an outline on top: calles are painted merged, so the
   // selected one has no outline of its own to highlight.
@@ -56,7 +57,7 @@ export default function SatelliteView({ latitude, longitude, blueprintUrl, geo, 
         longitude={longitude}
         points={geo.points}
         showPins={false}
-        initialOpacity={0}
+        view={mapView}
         polygons={geo.polygons}
         blueprintUrl={blueprintUrl}
         surfaces={mapSurfaces}
