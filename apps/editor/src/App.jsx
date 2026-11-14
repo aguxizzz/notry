@@ -134,6 +134,13 @@ function App() {
   const lotDrafts = useLotDrafts({
     annotations, setAnnotations, savedAnnotationsRef,
     token: accessToken, loteoId, notify, onAuthError: handleLogout,
+    // Pendings that the MCP filled in or discarded: out of the undo history (an undo would
+    // bring back a pending that no longer exists) and out of the selection.
+    onServerChanges: ({ goneIds }) => {
+      if (goneIds.length === 0) return;
+      removeAnnotationFromHistory(...goneIds);
+      setSelectedId(current => (goneIds.includes(current) ? null : current));
+    },
   });
   const {
     pendingMode, setPendingMode,
@@ -156,6 +163,8 @@ function App() {
     onAfterCreate: (createdLot, annotationsAtCreate, tempId) => {
       const saved = savedAnnotationsRef.current.filter(a => a.id !== tempId);
       savedAnnotationsRef.current = insertIntoSaved(saved, createdLot, annotationsAtCreate, tempId);
+      // A poll that read the back mid-create would still list this lot's draft.
+      lotDrafts.noteLocalChange();
       clearDraft();
     },
     // La forma ya quedó en la base: se copia a la foto de "lo último guardado"
