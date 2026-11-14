@@ -411,6 +411,9 @@ function App() {
   // existen en la vista destino.
   const handleModeChange = async (nextMode) => {
     if (nextMode === mode) return;
+    // Lotes ↔ Superficies es el mismo panorama: las ubicaciones no cambian.
+    const panoramaModes = ['panorama', 'render'];
+    if (panoramaModes.includes(mode) && panoramaModes.includes(nextMode)) { switchView(nextMode); return; }
     const spatialAnnotations = annotations.filter(a => (
       !a.pending
       && (a.type === 'polygon' || (nextMode === 'panorama' && a.type === 'poi'))

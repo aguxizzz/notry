@@ -43,7 +43,10 @@ export default function Toolbar({
   calibrationPoints,
   render,
 }) {
+  // 'render' isn't a view of its own: it's the Panorama view drawing surfaces
+  // (manzanas/calles) instead of lots, picked with the Lotes | Superficies switch.
   const isRenderMode = mode === 'render';
+  const isPanoramaView = mode === 'panorama' || isRenderMode;
 
   return (
     <>
@@ -51,10 +54,11 @@ export default function Toolbar({
         <div className="view-switcher" aria-label="Vista del editor">
           <button
             type="button"
-            className={mode === 'panorama' ? 'is-active' : ''}
-            onClick={() => onModeChange('panorama')}
+            className={isPanoramaView ? 'is-active' : ''}
+            // Already in the panorama (lots or surfaces): stay where you are.
+            onClick={() => { if (!isPanoramaView) onModeChange('panorama'); }}
             disabled={!panoramaUrl}
-            aria-pressed={mode === 'panorama'}
+            aria-pressed={isPanoramaView}
           >
             <Camera size={16} />
             <span>Panorama</span>
@@ -69,19 +73,36 @@ export default function Toolbar({
             <Grid3x3 size={16} />
             <span>Plano</span>
           </button>
-          <button
-            type="button"
-            className={isRenderMode ? 'is-active' : ''}
-            onClick={() => onModeChange('render')}
-            disabled={!panoramaUrl}
-            aria-pressed={isRenderMode}
-          >
-            <Layers size={16} />
-            <span>Render</span>
-          </button>
         </div>
 
         <span className="toolbar-divider" aria-hidden="true" />
+
+        {isPanoramaView && (
+          <>
+            <div className="view-switcher view-switcher--sub" aria-label="Qué dibujar en el panorama">
+              <button
+                type="button"
+                className={!isRenderMode ? 'is-active' : ''}
+                onClick={() => onModeChange('panorama')}
+                aria-pressed={!isRenderMode}
+              >
+                <Pentagon size={15} />
+                <span>Lotes</span>
+              </button>
+              <button
+                type="button"
+                className={isRenderMode ? 'is-active' : ''}
+                onClick={() => onModeChange('render')}
+                aria-pressed={isRenderMode}
+                title="Manzanas y calles dibujadas sobre el panorama"
+              >
+                <Layers size={15} />
+                <span>Superficies</span>
+              </button>
+            </div>
+            <span className="toolbar-divider" aria-hidden="true" />
+          </>
+        )}
 
         {isRenderMode ? (
           <RenderTools render={render} />

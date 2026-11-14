@@ -311,6 +311,11 @@
   border-radius: var(--radius-md);
 }
 
+/* Lotes | Superficies inside the Panorama view: same control, lighter, so it
+   reads as a choice within the view and not as one more view. */
+.view-switcher--sub { background: transparent; }
+.view-switcher.view-switcher--sub button { min-height: 30px; padding: 4px 8px; font-size: var(--text-sm); }
+
 .view-switcher button,
 .tool-btn,
 .calibration-mode-btn {
