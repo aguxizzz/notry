@@ -14,8 +14,41 @@ import {
   Undo2,
   Wand2,
 } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { RenderStatus, RenderTools } from './RenderToolbar';
 import { MAX_STREET_WIDTH_M, MIN_STREET_WIDTH_M } from '../utils/geoSurfaces';
+
+const GLIDE_MS = 180;
+
+/**
+ * The toolbar is centered, so when its width changes (another tool set) its
+ * left edge jumps by half the difference and the view switcher moves under the
+ * cursor. This animates that jump instead: the observer fires after layout and
+ * before paint, so the bar starts where it was and slides to its new center.
+ */
+function useGlideRecenter(ref) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    let lastWidth = el.offsetWidth;
+    const observer = new ResizeObserver(() => {
+      const width = el.offsetWidth;
+      const delta = width - lastWidth;
+      lastWidth = width;
+      if (!delta) return;
+      // Hidden (side panel over it on narrow screens) or reduced motion: just jump.
+      if (getComputedStyle(el).pointerEvents === 'none') return;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      // Start shifted by half the growth, i.e. with the left edge where it was.
+      el.animate(
+        [{ transform: `translateX(calc(-50% + ${delta / 2}px))` }, { transform: 'translateX(-50%)' }],
+        { duration: GLIDE_MS, easing: 'cubic-bezier(0.2, 0, 0, 1)' },
+      );
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref]);
+}
 
 const TOOLS = [
   { id: 'select', icon: MousePointer2, label: 'Seleccionar', shortcut: 'V' },
@@ -114,10 +147,12 @@ export default function Toolbar({
   const isSatelliteMode = mode === 'satellite';
   // Plano and Panorama share the lot tools; Render and Satélite bring their own.
   const hasLotTools = !isRenderMode && !isSatelliteMode;
+  const toolbarRef = useRef(null);
+  useGlideRecenter(toolbarRef);
 
   return (
     <>
-      <div className="toolbar" aria-label="Herramientas del editor">
+      <div ref={toolbarRef} className="toolbar" aria-label="Herramientas del editor">
         <div className="view-switcher" aria-label="Vista del editor">
           <button
             type="button"

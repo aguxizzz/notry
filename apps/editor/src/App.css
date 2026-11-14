@@ -276,6 +276,9 @@
 .save-state__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-success); }
 .save-state.is-dirty .save-state__dot { background: var(--color-warning); }
 
+/* Centered in the viewer pane (the space between the side panels). Its width
+   changes with the tool set; Toolbar.jsx glides the re-centering so the view
+   switcher doesn't jump under the cursor. */
 .toolbar {
   position: absolute;
   top: var(--space-sm);
@@ -339,6 +342,8 @@
 .tool-btn:hover,
 .calibration-mode-btn:hover { color: var(--color-text); background: var(--panel-raised); }
 .view-switcher button.is-active { color: var(--accent-ink); background: var(--accent); }
+/* The gold swaps at once: fading it made old and new option look lit together. */
+.view-switcher button { transition: none; }
 .tool-btn.active { color: var(--color-text); background: var(--panel-raised); border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
 .tool-btn kbd,
 .editor-btn kbd { color: var(--text-subtle); font: inherit; font-size: 0.58rem; }
