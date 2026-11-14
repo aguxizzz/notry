@@ -6,8 +6,8 @@ import { useMemo, useState } from 'react';
 import { invertHomography } from '../utils/homography';
 import { geoHomography } from '../utils/geoCalibration';
 import {
-  DEFAULT_STREET_WIDTH_M, EMPTY_GEO_SURFACES, addSurface, blueprintToGeo, findCalle, findSurfaceAt,
-  geoToBlueprint, minPointsFor, removeSurface, setCalleWidth, surfaceRings,
+  DEFAULT_STREET_WIDTH_M, EMPTY_GEO_SURFACES, addSurface, blueprintToGeo, displayRings, findCalle, findSurfaceAt,
+  geoToBlueprint, minPointsFor, removeSurface, setCalleWidth, snapToAxis, surfaceRings,
 } from '../utils/geoSurfaces';
 
 // Click a esta distancia del primer punto (en fracción del plano) cierra la
@@ -31,12 +31,19 @@ export function useGeoSurfaces({ geoPoints, onBeforeChange }) {
   const H = useMemo(() => geoHomography(geoPoints), [geoPoints]);
   const Hinv = useMemo(() => (H ? invertHomography(H) : null), [H]);
 
-  // Contornos en el plano (para buscar clicks) y en geo (lo que dibuja el mapa).
+  // Contornos por shape en el plano (para buscar clicks y marcar la selección)
+  // y, en geo, lo que dibuja el mapa: las calles ya fundidas entre sí.
   const rings = useMemo(() => surfaceRings(surfaces, H, Hinv), [surfaces, H, Hinv]);
-  const geoRings = useMemo(
-    () => (H ? rings.map(s => ({ ...s, ring: s.ring.map(p => blueprintToGeo(H, p)) })) : []),
-    [rings, H]
-  );
+  const geoRings = useMemo(() => {
+    if (!H) return [];
+    const toGeo = ring => ring.map(p => blueprintToGeo(H, p));
+    return displayRings(rings).map(s => ({ ...s, ring: toGeo(s.ring), holes: s.holes.map(toGeo) }));
+  }, [rings, H]);
+  // Borde de la shape seleccionada, aparte: dentro de la unión la calle ya no tiene contorno propio.
+  const geoSelectedRing = useMemo(() => {
+    const hit = H && selected && rings.find(s => s.kind === selected.kind && s.id === selected.id);
+    return hit ? hit.ring.map(p => blueprintToGeo(H, p)) : null;
+  }, [rings, H, selected]);
   const geoDrawing = useMemo(() => (H ? drawing.map(p => blueprintToGeo(H, p)) : []), [drawing, H]);
 
   const selectedCalle = selected?.kind === 'calle' ? findCalle(surfaces, selected.id) : null;
@@ -67,7 +74,10 @@ export function useGeoSurfaces({ geoPoints, onBeforeChange }) {
   /** Un click en el mapa, { latitude, longitude }. */
   const handleMapPoint = ({ latitude, longitude }) => {
     if (!Hinv) return;
-    const point = geoToBlueprint(Hinv, [latitude, longitude]);
+    const raw = geoToBlueprint(Hinv, [latitude, longitude]);
+    // Calles: pegado a los vértices de las otras, así un cruce o una T caen
+    // exacto sobre el eje y, si es una punta, addSurface continúa esa calle.
+    const point = tool === 'calle' ? snapToAxis(surfaces, raw) : raw;
     if (tool === 'select') {
       setSelected(findSurfaceAt(rings, point));
       return;
@@ -116,7 +126,7 @@ export function useGeoSurfaces({ geoPoints, onBeforeChange }) {
     surfaces, setSurfaces,
     tool, setTool: changeTool, reset, canDraw: !!H,
     drawing, geoDrawing, selected, selectedCalle,
-    geoRings,
+    geoRings, geoSelectedRing,
     streetWidth, changeStreetWidth,
     handleMapPoint, finish, deleteSelected, handleDeleteKey, handleEscape,
   };

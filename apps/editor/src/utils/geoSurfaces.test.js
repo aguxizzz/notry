@@ -3,7 +3,8 @@
 import { describe, expect, it } from 'vitest';
 import { computeHomography, invertHomography } from './homography.js';
 import {
-  addSurface, blueprintToGeo, calleRing, findSurfaceAt, geoToBlueprint, removeSurface, surfaceRings,
+  addSurface, blueprintToGeo, calleRing, displayRings, findSurfaceAt, geoToBlueprint, removeSurface, snapToAxis,
+  surfaceRings,
 } from './geoSurfaces.js';
 
 // Plano [0,1]² sobre un rectángulo de ~400 m × ~200 m en Misiones: el plano
@@ -66,5 +67,44 @@ describe('shapes', () => {
     expect(findSurfaceAt(rings, [0.5, 0.2])).toEqual({ kind: 'manzana', id: 'm' });
     expect(findSurfaceAt(rings, [0.95, 0.95])).toBeNull();
     expect(removeSurface(s, { kind: 'calle', id: 'c' }).calles).toEqual([]);
+  });
+});
+
+describe('conexiones entre calles', () => {
+  const base = { manzanas: [], calles: [] };
+  const calle = (s, id, points) => addSurface(s, { kind: 'calle', id, points, width: 12 });
+
+  it('dos calles que se cruzan se pintan como un solo contorno', () => {
+    let s = calle(base, 'h', [[0.2, 0.5], [0.8, 0.5]]);
+    s = calle(s, 'v', [[0.5, 0.2], [0.5, 0.8]]);
+    const shown = displayRings(surfaceRings(s, H, Hinv));
+    expect(shown).toHaveLength(1);
+    expect(shown[0].holes).toEqual([]);
+    // Para elegir cuál editar siguen siendo dos.
+    expect(s.calles).toHaveLength(2);
+  });
+
+  it('una grilla conserva la manzana encerrada como agujero, no como calle', () => {
+    let s = calle(base, 'a', [[0.1, 0.3], [0.9, 0.3]]);
+    s = calle(s, 'b', [[0.1, 0.7], [0.9, 0.7]]);
+    s = calle(s, 'c', [[0.3, 0.1], [0.3, 0.9]]);
+    s = calle(s, 'd', [[0.7, 0.1], [0.7, 0.9]]);
+    const shown = displayRings(surfaceRings(s, H, Hinv));
+    expect(shown).toHaveLength(1);
+    expect(shown[0].holes).toHaveLength(1);
+  });
+
+  it('una calle que arranca en la punta de otra la continúa', () => {
+    let s = calle(base, 'h', [[0.2, 0.5], [0.5, 0.5]]);
+    const start = snapToAxis(s, [0.505, 0.502]);
+    expect(start).toEqual([0.5, 0.5]);
+    s = calle(s, 'v', [start, [0.5, 0.9]]);
+    expect(s.calles).toHaveLength(1);
+    expect(s.calles[0].axis).toEqual([[0.2, 0.5], [0.5, 0.5], [0.5, 0.9]]);
+  });
+
+  it('lejos de cualquier eje el click queda donde cayó', () => {
+    const s = calle(base, 'h', [[0.2, 0.5], [0.5, 0.5]]);
+    expect(snapToAxis(s, [0.6, 0.6])).toEqual([0.6, 0.6]);
   });
 });

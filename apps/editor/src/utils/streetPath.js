@@ -105,9 +105,11 @@ export const AXIS_SNAP_THRESHOLD = 20; // px de textura del panorama
 // Ruta queda como shape independiente que arranca exacto en ese vértice; el
 // contorno se ve continuo porque los dos ribbons se unen con una boolean
 // union al renderizar, ver unionStreetPolygons).
-export function findAxisEndpointSnap(point, calleShapes, excludeId = null) {
+// `threshold` va en las unidades de los puntos: px de textura en el panorama,
+// fracción del plano en el modo satélite (geoSurfaces.js).
+export function findAxisEndpointSnap(point, calleShapes, excludeId = null, threshold = AXIS_SNAP_THRESHOLD) {
   let best = null;
-  let bestDist = AXIS_SNAP_THRESHOLD;
+  let bestDist = threshold;
   for (const shape of calleShapes) {
     if (!shape.axis || shape.axis.length < 2 || shape.id === excludeId) continue;
     shape.axis.forEach((pt, i) => {
@@ -191,6 +193,24 @@ export function unionStreetPolygons(polygonsPoints) {
     const outer = polygon[0];
     return outer.slice(0, -1);
   });
+}
+
+/**
+ * Same union as unionStreetPolygons, but keeping the holes: in the satellite
+ * view a grid of crossing streets is the normal case, and the manzana enclosed
+ * by four calles is a hole of their union, not street.
+ * Returns [{ outer, holes: [ring...] }], rings open (no repeated closing point).
+ */
+export function unionStreetAreas(polygonsPoints) {
+  const closed = polygonsPoints
+    .filter(pts => pts && pts.length >= 3)
+    .map(pts => [[...pts.map(([x, y]) => [x, y]), pts[0]]]);
+  if (!closed.length) return [];
+  const open = ring => ring.slice(0, -1);
+  return polygonClipping.union(...closed).map(([outer, ...holes]) => ({
+    outer: open(outer),
+    holes: holes.map(open),
+  }));
 }
 
 function pathLength(points) {

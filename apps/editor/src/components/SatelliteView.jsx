@@ -13,11 +13,15 @@ const GeoCalibrationMap = lazy(() => import('./GeoCalibrationMap'));
  * useGeoSurfaces (drawing tool and shapes). `onLink` opens the calibration.
  */
 export default function SatelliteView({ latitude, longitude, blueprintUrl, geo, surfaces, onLink }) {
-  const { tool, canDraw, geoRings, geoDrawing, selected } = surfaces;
+  const { tool, canDraw, geoRings, geoSelectedRing, geoDrawing, selected } = surfaces;
+  // The selection is an outline on top: calles are painted merged, so the
+  // selected one has no outline of its own to highlight.
   const mapSurfaces = useMemo(() => ({
-    shapes: geoRings.map(s => ({ ...s, selected: selected?.id === s.id })),
+    shapes: geoSelectedRing
+      ? [...geoRings, { kind: selected.kind, id: 'selected', ring: geoSelectedRing, selected: true, outlineOnly: true }]
+      : geoRings,
     drawing: geoDrawing,
-  }), [geoRings, geoDrawing, selected]);
+  }), [geoRings, geoSelectedRing, geoDrawing, selected]);
 
   // Without a center there's no map to show at all; the pin still comes from the CRM.
   if (latitude == null || longitude == null) {

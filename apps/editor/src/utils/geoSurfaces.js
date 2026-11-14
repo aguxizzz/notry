@@ -11,7 +11,9 @@
 // del panorama y no sirve para el mapa.
 import { makeProjection } from '@map3d/ground.js';
 import { applyHomography } from './homography.js';
-import { buildStreetRibbon, pointInPolygon } from './streetPath.js';
+import {
+  buildStreetRibbon, findAxisEndpointSnap, mergeStreetAxis, pointInPolygon, unionStreetAreas,
+} from './streetPath.js';
 
 export const EMPTY_GEO_SURFACES = { manzanas: [], calles: [] };
 // Calle de loteo típica con veredas; se ajusta por calle desde la barra.
@@ -20,6 +22,15 @@ export const MIN_STREET_WIDTH_M = 3;
 export const MAX_STREET_WIDTH_M = 40;
 
 export const minPointsFor = kind => (kind === 'calle' ? 2 : 3);
+
+// Un click de calle a esta distancia (fracción del plano) de un vértice del eje
+// de otra calle se pega a ese vértice. Mismo orden que el cierre de manzana.
+export const AXIS_SNAP_DISTANCE = 0.012;
+
+/** El punto pegado al vértice de eje más cercano, o el mismo punto si no hay ninguno cerca. */
+export function snapToAxis(surfaces, point) {
+  return findAxisEndpointSnap(point, surfaces.calles, null, AXIS_SNAP_DISTANCE)?.point ?? point;
+}
 
 export function normalizeGeoSurfaces(raw) {
   if (!raw || typeof raw !== 'object') return EMPTY_GEO_SURFACES;
@@ -70,15 +81,44 @@ export function surfaceRings(surfaces, H, Hinv) {
   ].filter(s => s.ring.length >= 3);
 }
 
+/**
+ * Lo que se pinta: las calles fundidas en un contorno por grupo conectado
+ * (con agujeros, ver unionStreetAreas), así dos calles que se cruzan se ven
+ * como una sola red y no como dos capas con el borde de una sobre la otra.
+ * Las manzanas van tal cual. [{ kind, id, ring, holes }]
+ */
+export function displayRings(rings) {
+  const calles = unionStreetAreas(rings.filter(s => s.kind === 'calle').map(s => s.ring))
+    .map(({ outer, holes }, i) => ({ kind: 'calle', id: `calles-${i}`, ring: outer, holes }));
+  return [...calles, ...rings.filter(s => s.kind === 'manzana').map(s => ({ ...s, holes: [] }))];
+}
+
 /** La shape bajo un punto del plano, como { kind, id }, o null. */
 export function findSurfaceAt(rings, point) {
   const hit = rings.find(s => pointInPolygon(point, s.ring));
   return hit ? { kind: hit.kind, id: hit.id } : null;
 }
 
+/**
+ * Calle: si arranca en la punta del eje de otra calle, se continúa esa misma
+ * (un solo eje, el quiebre queda curvado por el fillet, con el ancho de la
+ * existente), como en el panorama. Si arranca en un vértice del medio queda
+ * como calle aparte; la unión al pintar (displayRings) la funde visualmente.
+ */
 export function addSurface(surfaces, { kind, points, width, id = crypto.randomUUID() }) {
   if (points.length < minPointsFor(kind)) return surfaces;
-  if (kind === 'calle') return { ...surfaces, calles: [...surfaces.calles, { id, axis: points, width }] };
+  if (kind === 'calle') {
+    const snap = findAxisEndpointSnap(points[0], surfaces.calles, null, AXIS_SNAP_DISTANCE);
+    if (snap && snap.end !== 'interior') {
+      return {
+        ...surfaces,
+        calles: surfaces.calles.map(c => (
+          c.id === snap.shapeId ? { ...c, axis: mergeStreetAxis(c.axis, snap.end, points) } : c
+        )),
+      };
+    }
+    return { ...surfaces, calles: [...surfaces.calles, { id, axis: points, width }] };
+  }
   return { ...surfaces, manzanas: [...surfaces.manzanas, { id, points }] };
 }
 

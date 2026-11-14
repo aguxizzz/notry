@@ -260,8 +260,10 @@ export function createGeoMapScene({
     requestRender();
   }
 
-  // --- drawn manzanas/calles: [{ kind, id, ring: [[lat, lng]...], selected }]
-  // plus the stroke in progress. Rebuilt whole on every change, like the lots.
+  // --- drawn manzanas/calles: [{ kind, id, ring: [[lat, lng]...], holes?,
+  // selected?, outlineOnly? }] plus the stroke in progress. Rebuilt whole on
+  // every change, like the lots. The merged calles come with holes (the
+  // manzanas a street grid encloses); `outlineOnly` is the selection border.
   const surfaceGroup = new THREE.Group();
   scene.add(surfaceGroup);
   const overlayMat = (props) => ({ transparent: true, depthTest: false, depthWrite: false, ...props });
@@ -270,20 +272,32 @@ export function createGeoMapScene({
     for (const child of [...surfaceGroup.children]) { surfaceGroup.remove(child); disposeObject(child); }
     for (const shape of shapes) {
       const style = SURFACE_STYLE[shape.kind];
-      const pts = shape.ring.map(([la, ln]) => toLocal(la, ln));
-      // Shape in (east, north), laid flat with rotateX like the visor's lots.
-      const geom = new THREE.ShapeGeometry(new THREE.Shape(pts.map((p) => new THREE.Vector2(p.x, -p.z))));
-      geom.rotateX(-Math.PI / 2);
-      const fill = new THREE.Mesh(geom, new THREE.MeshBasicMaterial(overlayMat({
-        color: style.fill, opacity: style.fillOpacity, side: THREE.DoubleSide,
-      })));
-      fill.renderOrder = ORDER.surfaces;
-      const outline = new THREE.LineLoop(
-        new THREE.BufferGeometry().setFromPoints(pts.map((p) => new THREE.Vector3(p.x, 0, p.z))),
-        new THREE.LineBasicMaterial(overlayMat({ color: shape.selected ? SELECTED_LINE : style.line })),
-      );
-      outline.renderOrder = ORDER.surfaces + 0.1;
-      surfaceGroup.add(fill, outline);
+      const local = (ring) => ring.map(([la, ln]) => toLocal(la, ln));
+      const outer = local(shape.ring);
+      const holes = (shape.holes ?? []).map(local);
+      if (!shape.outlineOnly) {
+        // Shape in (east, north), laid flat with rotateX like the visor's lots.
+        const flat = (pts) => pts.map((p) => new THREE.Vector2(p.x, -p.z));
+        const s = new THREE.Shape(flat(outer));
+        s.holes = holes.map((h) => new THREE.Path(flat(h)));
+        const geom = new THREE.ShapeGeometry(s);
+        geom.rotateX(-Math.PI / 2);
+        const fill = new THREE.Mesh(geom, new THREE.MeshBasicMaterial(overlayMat({
+          color: style.fill, opacity: style.fillOpacity, side: THREE.DoubleSide,
+        })));
+        fill.renderOrder = ORDER.surfaces;
+        surfaceGroup.add(fill);
+      }
+      // Outer border and each hole's; the selection border goes above the rest.
+      const lineMat = new THREE.LineBasicMaterial(overlayMat({ color: shape.selected ? SELECTED_LINE : style.line }));
+      for (const pts of [outer, ...holes]) {
+        const outline = new THREE.LineLoop(
+          new THREE.BufferGeometry().setFromPoints(pts.map((p) => new THREE.Vector3(p.x, 0, p.z))),
+          lineMat,
+        );
+        outline.renderOrder = ORDER.surfaces + (shape.outlineOnly ? 0.2 : 0.1);
+        surfaceGroup.add(outline);
+      }
     }
     if (drawing.length) {
       const pts = drawing.map(([la, ln]) => {
