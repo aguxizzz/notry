@@ -2,6 +2,7 @@
 // geo: [lat, lng] }`. Con 4+ pares se ajusta una homografía plano → (lng, lat)
 // y se "hornean" los geo_coordinates de cada lote — no se recalcula solo, se
 // corre a mano con "Actualizar polígonos satelitales".
+import { makeProjection } from '@map3d/ground.js';
 import { applyHomography, computeHomography, isHomographyValid } from './homography.js';
 import { MARKER_ID, geoCalibPointId } from './markerIds.js';
 import { toModeAnnotation } from './annotationModel.js';
@@ -17,6 +18,47 @@ export function geoHomography(geoPoints) {
   // La homografía trabaja en (x, y) = (lng, lat); los pares guardan [lat, lng].
   const H = computeHomography(geoPoints.map(p => ({ src: p.blueprint, dst: [p.geo[1], p.geo[0]] })));
   return isHomographyValid(H) ? H : null;
+}
+
+/**
+ * Pares con el lado del mapa (geo) movido por un gesto de "Ajustar" sobre el
+ * plano superpuesto. El plano no tiene posición propia: se mueve moviendo los
+ * pares, así sigue habiendo una sola calibración. `gesture` es
+ * { target, from, to } con from/to como { latitude, longitude } del suelo:
+ *   - target.type 'move':   todos los pares se trasladan from → to.
+ *   - target.type 'corner': escala + giro alrededor del centro del plano, lo
+ *                           que haga falta para que `from` caiga en `to`.
+ *   - target.type 'pin':    solo el par target.id se traslada (ajuste fino).
+ * Las cuentas van en metros (plano local en el centro del plano), no en grados:
+ * un giro en grados deformaría, porque un grado de lng mide menos que uno de lat.
+ */
+export function transformGeoPairs(pairs, { target, from, to }) {
+  const H = geoHomography(pairs);
+  if (!H) return pairs;
+  const [clng, clat] = applyHomography(H, [0.5, 0.5]);
+  const { toLocal, toGeo } = makeProjection(clat, clng);
+  const f = toLocal(from.latitude, from.longitude);
+  const t = toLocal(to.latitude, to.longitude);
+
+  let fn;
+  if (target.type === 'corner') {
+    const r0 = Math.hypot(f.x, f.z);
+    if (r0 < 1e-6) return pairs; // agarrado justo en el centro: no hay giro ni escala que medir
+    const s = Math.hypot(t.x, t.z) / r0;
+    const a = Math.atan2(t.z, t.x) - Math.atan2(f.z, f.x);
+    const cos = Math.cos(a) * s;
+    const sin = Math.sin(a) * s;
+    fn = p => ({ x: p.x * cos - p.z * sin, z: p.x * sin + p.z * cos });
+  } else {
+    fn = p => ({ x: p.x + t.x - f.x, z: p.z + t.z - f.z });
+  }
+
+  return pairs.map((pair) => {
+    if (target.type === 'pin' && pair._id !== target.id) return pair;
+    const q = fn(toLocal(pair.geo[0], pair.geo[1]));
+    const g = toGeo(q.x, q.z);
+    return { ...pair, geo: [g.lat, g.lng] };
+  });
 }
 
 /**

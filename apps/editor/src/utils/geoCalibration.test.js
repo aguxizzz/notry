@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { geoOverlayAnnotations, projectGeoPolygons } from './geoCalibration.js';
+import { geoOverlayAnnotations, projectGeoPolygons, transformGeoPairs } from './geoCalibration.js';
 import { MARKER_ID, geoCalibPointId } from './markerIds.js';
 
 // Verdad conocida: el plano es un rectángulo alineado al norte, así que la
@@ -50,5 +50,47 @@ describe('geoOverlayAnnotations', () => {
 
   test('sin pendiente, sin marker pendiente', () => {
     expect(geoOverlayAnnotations([], geoPoints, null)).toHaveLength(4);
+  });
+});
+
+describe('transformGeoPairs (Ajustar)', () => {
+  const M_PER_DEG_LAT = 111320;
+  const metersApart = ([la1, ln1], [la2, ln2]) => Math.hypot(
+    (la2 - la1) * M_PER_DEG_LAT,
+    (ln2 - ln1) * M_PER_DEG_LAT * Math.cos((la1 * Math.PI) / 180),
+  );
+  // Centro del plano en el mapa (los pares son las 4 esquinas, el plano es afín).
+  const center = toGeo([0.5, 0.5]);
+  const at = ([lat, lng]) => ({ latitude: lat, longitude: lng });
+
+  test('mover traslada todos los pares lo mismo', () => {
+    const from = at(center);
+    const to = at([center[0] + 0.001, center[1] + 0.002]);
+    const out = transformGeoPairs(geoPoints, { target: { type: 'move' }, from, to });
+    out.forEach((pair, i) => {
+      expect(pair.geo[0] - geoPoints[i].geo[0]).toBeCloseTo(0.001, 6);
+      expect(pair.geo[1] - geoPoints[i].geo[1]).toBeCloseTo(0.002, 6);
+      expect(pair.blueprint).toBe(geoPoints[i].blueprint); // el lado del plano no se toca
+    });
+  });
+
+  test('la esquina escala y gira alrededor del centro: la esquina agarrada cae donde se suelta', () => {
+    const corner = geoPoints[1].geo;
+    // Soltar la esquina al doble de distancia del centro, en otra dirección.
+    const to = [center[0] + 2 * (corner[1] - center[1]) * 0.5, center[1] - 2 * (corner[0] - center[0]) * 2];
+    const out = transformGeoPairs(geoPoints, { target: { type: 'corner' }, from: at(corner), to: at(to) });
+    expect(metersApart(out[1].geo, to)).toBeLessThan(0.01);
+    // Escala uniforme: las otras esquinas también quedan al doble de distancia del centro.
+    const ratio = metersApart(out[3].geo, center) / metersApart(geoPoints[3].geo, center);
+    // 3 decimales: metersApart usa el coseno de la latitud de cada punto, ~0,01% de error propio.
+    expect(ratio).toBeCloseTo(metersApart(to, center) / metersApart(corner, center), 3);
+  });
+
+  test('un pin mueve solo su par', () => {
+    const from = at(geoPoints[2].geo);
+    const to = at([geoPoints[2].geo[0] + 0.0005, geoPoints[2].geo[1]]);
+    const out = transformGeoPairs(geoPoints, { target: { type: 'pin', id: 'g2' }, from, to });
+    expect(out[0]).toBe(geoPoints[0]);
+    expect(out[2].geo[0]).toBeCloseTo(geoPoints[2].geo[0] + 0.0005, 9);
   });
 });

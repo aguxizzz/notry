@@ -18,9 +18,21 @@ const WARP_CELLS = 48;
 const MIN_ZOOM = 0.05;
 const MAX_ZOOM = 40;
 
-// Above the ground (which stacks itself between -1 and 0): blueprint, then lots.
-const ORDER = { blueprint: 10, lots: 11 };
+// Above the ground (which stacks itself between -1 and 0): blueprint, drawn
+// manzanas/calles, lots, and the stroke being drawn on top of everything.
+const ORDER = { blueprint: 10, surfaces: 10.5, lots: 11, drawing: 12 };
 const LOT_COLOR = 0x22d3ee;
+// Same colors as the blueprint pane (GeoCalibrationOverlay), so a shape reads
+// the same on both sides.
+const SURFACE_STYLE = {
+  manzana: { fill: 0xddb86c, fillOpacity: 0.3, line: 0xddb86c },
+  calle: { fill: 0x94a3b8, fillOpacity: 0.55, line: 0xe2e8f0 },
+};
+const SELECTED_LINE = 0xffffff;
+// "Ajustar": how close (screen px) a press must be to a pin or corner to grab it.
+const GRAB_PX = 14;
+const BLUEPRINT_CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]];
+const DRAWING_COLOR = 0xf59e0b;
 
 /**
  * Builds the map inside `container`. Returns setters for what the React side
@@ -30,8 +42,13 @@ const LOT_COLOR = 0x22d3ee;
  * - `focus`: [[lat, lng], ...] to center and frame on (calibration points and
  *   lots already in geo); empty → the pin.
  * - `onPick({ latitude, longitude })`: a click (not a drag) on the map.
+ * - `onAdjust({ phase, target, from, to })`: drag of the blueprint while
+ *   setAdjust(true); phase 'start' | 'move' | 'end', target { type: 'move' |
+ *   'corner' | 'pin', id? }, from/to as { latitude, longitude } on the ground.
  */
-export function createGeoMapScene({ container, latitude, longitude, focus = [], onPick, onLoadingChange, onError }) {
+export function createGeoMapScene({
+  container, latitude, longitude, focus = [], onPick, onAdjust, onLoadingChange, onError,
+}) {
   // Origin and framing from what's already known on the map.
   let lat0 = latitude;
   let lng0 = longitude;
@@ -178,9 +195,13 @@ export function createGeoMapScene({ container, latitude, longitude, focus = [], 
 
   /** 3×3 homography blueprint → (lng, lat), or null while there are < 4 valid pairs. */
   function setHomography(H) {
+    const first = !homography && H;
     homography = H;
     refreshWarp();
-    applyOrientation();
+    // Turned only when the calibration first appears (or on setOrientation),
+    // not on every change: while "Ajustar" rotates the blueprint the camera
+    // must hold still, or the blueprint would stay put and the photo spin.
+    if (first) applyOrientation();
   }
 
   // --- orientation: 'plano' turns the map so the blueprint's up is the
@@ -239,29 +260,111 @@ export function createGeoMapScene({ container, latitude, longitude, focus = [], 
     requestRender();
   }
 
-  // --- calibration pins: [{ label, geo: [lat, lng] }]
+  // --- drawn manzanas/calles: [{ kind, id, ring: [[lat, lng]...], selected }]
+  // plus the stroke in progress. Rebuilt whole on every change, like the lots.
+  const surfaceGroup = new THREE.Group();
+  scene.add(surfaceGroup);
+  const overlayMat = (props) => ({ transparent: true, depthTest: false, depthWrite: false, ...props });
+
+  function setSurfaces({ shapes = [], drawing = [] } = {}) {
+    for (const child of [...surfaceGroup.children]) { surfaceGroup.remove(child); disposeObject(child); }
+    for (const shape of shapes) {
+      const style = SURFACE_STYLE[shape.kind];
+      const pts = shape.ring.map(([la, ln]) => toLocal(la, ln));
+      // Shape in (east, north), laid flat with rotateX like the visor's lots.
+      const geom = new THREE.ShapeGeometry(new THREE.Shape(pts.map((p) => new THREE.Vector2(p.x, -p.z))));
+      geom.rotateX(-Math.PI / 2);
+      const fill = new THREE.Mesh(geom, new THREE.MeshBasicMaterial(overlayMat({
+        color: style.fill, opacity: style.fillOpacity, side: THREE.DoubleSide,
+      })));
+      fill.renderOrder = ORDER.surfaces;
+      const outline = new THREE.LineLoop(
+        new THREE.BufferGeometry().setFromPoints(pts.map((p) => new THREE.Vector3(p.x, 0, p.z))),
+        new THREE.LineBasicMaterial(overlayMat({ color: shape.selected ? SELECTED_LINE : style.line })),
+      );
+      outline.renderOrder = ORDER.surfaces + 0.1;
+      surfaceGroup.add(fill, outline);
+    }
+    if (drawing.length) {
+      const pts = drawing.map(([la, ln]) => {
+        const p = toLocal(la, ln);
+        return new THREE.Vector3(p.x, 0, p.z);
+      });
+      const line = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(pts),
+        new THREE.LineBasicMaterial(overlayMat({ color: DRAWING_COLOR })),
+      );
+      // Vertices as fixed-size dots (sizeAttenuation off = pixels at any zoom).
+      const dots = new THREE.Points(
+        new THREE.BufferGeometry().setFromPoints(pts),
+        new THREE.PointsMaterial(overlayMat({ color: DRAWING_COLOR, size: 8, sizeAttenuation: false })),
+      );
+      line.renderOrder = ORDER.drawing;
+      dots.renderOrder = ORDER.drawing;
+      surfaceGroup.add(line, dots);
+    }
+    surfaceGroup.traverse((o) => { o.frustumCulled = false; });
+    requestRender();
+  }
+
+  /** Crosshair while drawing, so a click reads as "add a point", not "pan". */
+  function setCursor(drawingTool) {
+    canvas.style.cursor = drawingTool ? 'crosshair' : '';
+  }
+
+  // --- calibration pins: [{ id, label, geo: [lat, lng] }]
   let pins = [];
   function setPins(list) {
-    pinLayer.replaceChildren();
-    pins = list.map(({ label, geo }) => {
+    for (const pin of pins) pin.el.remove();
+    pins = list.map(({ id, label, geo }) => {
       const el = document.createElement('div');
       el.className = 'geo-map-pin';
       el.textContent = label;
       pinLayer.appendChild(el);
       const p = toLocal(geo[0], geo[1]);
-      return { el, world: new THREE.Vector3(p.x, 0, p.z) };
+      return { id, el, world: new THREE.Vector3(p.x, 0, p.z), screen: { x: 0, y: 0 } };
     });
     requestRender();
   }
 
+  // Corners of the warped blueprint, the "Ajustar" scale/rotate handles. HTML
+  // like the pins; only shown in adjust mode with a calibration.
+  const corners = BLUEPRINT_CORNERS.map(() => {
+    const el = document.createElement('div');
+    el.className = 'geo-map-handle';
+    el.hidden = true;
+    pinLayer.appendChild(el);
+    return { el, world: new THREE.Vector3(), screen: { x: 0, y: 0 } };
+  });
+  let adjust = false;
+  const cornersActive = () => adjust && !!homography;
+
   const projected = new THREE.Vector3();
+  const toScreen = (world, out) => {
+    projected.copy(world).project(camera);
+    out.x = ((projected.x + 1) / 2) * size.w;
+    out.y = ((1 - projected.y) / 2) * size.h;
+  };
   function placePins() {
     for (const pin of pins) {
-      projected.copy(pin.world).project(camera);
-      const x = ((projected.x + 1) / 2) * size.w;
-      const y = ((1 - projected.y) / 2) * size.h;
-      pin.el.style.transform = `translate(${x}px, ${y}px)`;
+      toScreen(pin.world, pin.screen);
+      pin.el.style.transform = `translate(${pin.screen.x}px, ${pin.screen.y}px)`;
     }
+    corners.forEach((c, i) => {
+      c.el.hidden = !cornersActive();
+      if (c.el.hidden) return;
+      const [lng, lat] = applyHomography(homography, BLUEPRINT_CORNERS[i]);
+      const p = toLocal(lat, lng);
+      c.world.set(p.x, 0, p.z);
+      toScreen(c.world, c.screen);
+      c.el.style.transform = `translate(${c.screen.x}px, ${c.screen.y}px)`;
+    });
+  }
+
+  function setAdjust(on) {
+    adjust = on;
+    if (!on) canvas.style.cursor = '';
+    requestRender();
   }
 
   // --- controls: pan with drag, wheel zooms toward the cursor, no rotation
@@ -312,6 +415,77 @@ export function createGeoMapScene({ container, latitude, longitude, focus = [], 
   canvas.addEventListener('pointerdown', onPointerDown);
   canvas.addEventListener('pointerup', onPointerUp);
 
+  // --- "Ajustar": grab a pin, a corner or the blueprint itself. Listened on
+  // the container in the capture phase, so a grab is caught before
+  // MapControls (on the canvas) turns the press into a pan.
+  const groundAt = (e) => {
+    const r = canvas.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    raycaster.setFromCamera(ndc, camera);
+    if (!raycaster.ray.intersectPlane(groundPlane, hit)) return null;
+    const { lat, lng } = toGeo(hit.x, hit.z);
+    return { latitude: lat, longitude: lng, x: hit.x, z: hit.z };
+  };
+  // Point-in-quad on the ground: H maps the blueprint's rectangle to a
+  // quadrilateral with straight sides, so its 4 corners are enough.
+  const insideBlueprint = (x, z) => {
+    let inside = false;
+    for (let i = 0, j = 3; i < 4; j = i, i += 1) {
+      const a = corners[i].world;
+      const b = corners[j].world;
+      if ((a.z > z) !== (b.z > z) && x < ((b.x - a.x) * (z - a.z)) / (b.z - a.z) + a.x) inside = !inside;
+    }
+    return inside;
+  };
+  function grabTarget(e) {
+    if (!cornersActive()) return null;
+    const r = canvas.getBoundingClientRect();
+    const sx = e.clientX - r.left;
+    const sy = e.clientY - r.top;
+    const near = (c) => Math.hypot(c.screen.x - sx, c.screen.y - sy) <= GRAB_PX;
+    // Pins first: they're small and often sit right on a corner.
+    const pin = pins.find(near);
+    if (pin) return { type: 'pin', id: pin.id };
+    if (corners.some(near)) return { type: 'corner' };
+    const g = groundAt(e);
+    return g && insideBlueprint(g.x, g.z) ? { type: 'move' } : null;
+  }
+  const CURSOR = { pin: 'grab', corner: 'nwse-resize', move: 'move' };
+
+  let grab = null; // { target, from }
+  const geoOf = (g) => ({ latitude: g.latitude, longitude: g.longitude });
+  const onGrabMove = (e) => {
+    const g = groundAt(e);
+    if (grab && g) onAdjust?.({ phase: 'move', target: grab.target, from: grab.from, to: geoOf(g) });
+  };
+  const onGrabEnd = (e) => {
+    window.removeEventListener('pointermove', onGrabMove);
+    window.removeEventListener('pointerup', onGrabEnd);
+    const g = groundAt(e);
+    if (grab) onAdjust?.({ phase: 'end', target: grab.target, from: grab.from, to: g ? geoOf(g) : grab.from });
+    grab = null;
+  };
+  const onGrabStart = (e) => {
+    if (e.button !== 0) return;
+    const target = grabTarget(e);
+    const g = target && groundAt(e);
+    if (!g) return;
+    e.stopPropagation(); // MapControls never sees it: no pan
+    e.preventDefault();
+    grab = { target, from: geoOf(g) };
+    onAdjust?.({ phase: 'start', target, from: grab.from, to: grab.from });
+    window.addEventListener('pointermove', onGrabMove);
+    window.addEventListener('pointerup', onGrabEnd);
+  };
+  // Hover cursor tells what a press would grab.
+  const onHover = (e) => {
+    if (!cornersActive() || grab || e.buttons) return;
+    const target = grabTarget(e);
+    canvas.style.cursor = target ? CURSOR[target.type] : '';
+  };
+  container.addEventListener('pointerdown', onGrabStart, true);
+  canvas.addEventListener('pointermove', onHover);
+
   // --- loop: draws only when something changed
   let frame = 0;
   function tick() {
@@ -330,8 +504,13 @@ export function createGeoMapScene({ container, latitude, longitude, focus = [], 
     resizeObserver.disconnect();
     canvas.removeEventListener('pointerdown', onPointerDown);
     canvas.removeEventListener('pointerup', onPointerUp);
+    container.removeEventListener('pointerdown', onGrabStart, true);
+    canvas.removeEventListener('pointermove', onHover);
+    window.removeEventListener('pointermove', onGrabMove);
+    window.removeEventListener('pointerup', onGrabEnd);
     controls.dispose();
     if (lotLines) disposeObject(lotLines);
+    disposeObject(surfaceGroup);
     disposeObject(warpMesh);
     for (const p of Object.values(cache)) {
       p.then((g) => { disposeObject(g.inner); disposeObject(g.outer); }).catch(() => {});
@@ -341,5 +520,8 @@ export function createGeoMapScene({ container, latitude, longitude, focus = [], 
     pinLayer.remove();
   }
 
-  return { setMode, setBlueprint, setHomography, setOrientation, setOpacity, setLots, setPins, dispose };
+  return {
+    setMode, setBlueprint, setHomography, setOrientation, setOpacity, setLots, setPins, setSurfaces, setCursor,
+    setAdjust, dispose,
+  };
 }

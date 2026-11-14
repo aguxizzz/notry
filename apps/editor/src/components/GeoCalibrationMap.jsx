@@ -1,7 +1,8 @@
-// Map side of the geo calibration (GeoCalibrationOverlay puts it next to the
-// blueprint). Three.js top-down view with the visor's satellite / render ground
+// Map of the Satellite view and of its calibration (GeoCalibrationOverlay puts
+// it next to the blueprint). Three.js top-down view with the visor's satellite / render ground
 // (geo/geoMapScene.js); replaced the ArcGIS MapView, slow and heavy.
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Compass, Grid3x3 } from 'lucide-react';
 import { createGeoMapScene } from '../geo/geoMapScene';
 import { geoHomography } from '../utils/geoCalibration';
 import { fetchImage } from '../utils/fetchImage';
@@ -16,13 +17,25 @@ const MODES = [
  * Draws the calibration pins and the lots (`polygons`, live-projected while
  * calibrating). With 4+ valid pairs the blueprint image is laid over the map
  * through the homography, with adjustable opacity, to check the fit by eye.
+ * `surfaces` ({ shapes, drawing }, in geo) are the manzanas/calles being drawn
+ * (useGeoSurfaces); `drawingTool` switches the cursor to a crosshair.
+ * `adjustMode` lets the blueprint be dragged (move, corner = scale+rotate,
+ * pin = fine tune), reported through onAdjust (useGeoCalibration.adjust).
+ * `showPins` off hides the calibration pins (the Satellite view only needs
+ * the pairs for the homography, not to see them). `initialOpacity` is where
+ * the "Plano" slider starts: half while calibrating, hidden in the Satellite
+ * view, where the blueprint only gets in the way unless you raise it.
  */
-export default function GeoCalibrationMap({ latitude, longitude, points, polygons, blueprintUrl, onMapPointPicked }) {
+export default function GeoCalibrationMap({
+  latitude, longitude, points, polygons, blueprintUrl, surfaces, drawingTool, adjustMode,
+  showPins = true, initialOpacity = 0.5, onMapPointPicked, onAdjust,
+}) {
   const containerRef = useRef(null);
   const sceneRef = useRef(null);
   const onPickRef = useRef(onMapPointPicked);
+  const onAdjustRef = useRef(onAdjust);
   const [mode, setMode] = useState('satellite');
-  const [opacity, setOpacity] = useState(0.5);
+  const [opacity, setOpacity] = useState(initialOpacity);
   // 'plano': map turned like the blueprint pane; 'north': north up.
   const [orientation, setOrientation] = useState('plano');
   const [loading, setLoading] = useState(false);
@@ -31,7 +44,8 @@ export default function GeoCalibrationMap({ latitude, longitude, points, polygon
 
   useEffect(() => {
     onPickRef.current = onMapPointPicked;
-  }, [onMapPointPicked]);
+    onAdjustRef.current = onAdjust;
+  }, [onMapPointPicked, onAdjust]);
 
   const homography = useMemo(() => geoHomography(points ?? []), [points]);
 
@@ -51,6 +65,7 @@ export default function GeoCalibrationMap({ latitude, longitude, points, polygon
         latitude, longitude,
         focus: initialFocus,
         onPick: (p) => onPickRef.current?.(p),
+        onAdjust: (g) => onAdjustRef.current?.(g),
         onLoadingChange: setLoading,
         onError: (err) => {
           console.error('GeoCalibrationMap: no se pudo armar el mapa', err);
@@ -99,9 +114,13 @@ export default function GeoCalibrationMap({ latitude, longitude, points, polygon
   useEffect(() => {
     sceneRef.current?.setLots((polygons ?? []).map(p => p.geo_coordinates));
   }, [polygons, latitude, longitude]);
+  useEffect(() => { sceneRef.current?.setSurfaces(surfaces); }, [surfaces, latitude, longitude]);
+  useEffect(() => { sceneRef.current?.setCursor(drawingTool); }, [drawingTool, latitude, longitude]);
+  useEffect(() => { sceneRef.current?.setAdjust(!!adjustMode); }, [adjustMode, latitude, longitude]);
   useEffect(() => {
-    sceneRef.current?.setPins((points ?? []).filter(p => p.geo).map((p, i) => ({ label: String(i + 1), geo: p.geo })));
-  }, [points, latitude, longitude]);
+    const pins = showPins ? (points ?? []).filter(p => p.geo) : [];
+    sceneRef.current?.setPins(pins.map((p, i) => ({ id: p._id, label: String(i + 1), geo: p.geo })));
+  }, [points, showPins, latitude, longitude]);
 
   if (latitude == null || longitude == null) {
     return (
@@ -115,13 +134,15 @@ export default function GeoCalibrationMap({ latitude, longitude, points, polygon
     <div className="geo-calibration-map">
       <div ref={containerRef} className="geo-calibration-map__canvas" />
 
-      <div className="geo-map-toolbar">
-        <div className="geo-map-toolbar__modes" role="group" aria-label="Fondo del mapa">
+      {/* Same building blocks as the main toolbar (view-switcher, dividers,
+          icon buttons) so both read as one editor, not two UIs. */}
+      <div className="map-controls" aria-label="Controles del mapa">
+        <div className="view-switcher view-switcher--sub" role="group" aria-label="Fondo del mapa">
           {MODES.map(m => (
             <button
               key={m.id}
               type="button"
-              className={`geo-map-toolbar__mode${mode === m.id ? ' is-active' : ''}`}
+              className={mode === m.id ? 'is-active' : ''}
               aria-pressed={mode === m.id}
               onClick={() => setMode(m.id)}
             >
@@ -129,25 +150,35 @@ export default function GeoCalibrationMap({ latitude, longitude, points, polygon
             </button>
           ))}
         </div>
-        <label className={`geo-map-toolbar__opacity${homography ? '' : ' is-disabled'}`}>
-          <span>Plano</span>
-          <input
-            type="range" min="0" max="1" step="0.05"
-            value={opacity}
-            disabled={!homography}
-            onChange={e => setOpacity(Number(e.target.value))}
-          />
-        </label>
-        <button
-          type="button"
-          className="geo-map-toolbar__mode"
-          disabled={!homography}
-          title={orientation === 'plano' ? 'Mostrar con el norte arriba' : 'Girar el mapa como el plano'}
-          onClick={() => setOrientation(o => (o === 'plano' ? 'north' : 'plano'))}
-        >
-          {orientation === 'plano' ? 'Norte arriba' : 'Como el plano'}
-        </button>
-        {!homography && <span className="geo-map-toolbar__hint">Con 4 puntos el plano aparece encima</span>}
+        <span className="toolbar-divider" aria-hidden="true" />
+        {homography ? (
+          <>
+            <label className="map-controls__opacity" title="Qué tanto se ve el plano sobre el mapa">
+              <Grid3x3 size={15} aria-hidden="true" />
+              <span>Plano</span>
+              <input
+                type="range" min="0" max="1" step="0.05"
+                value={opacity}
+                onChange={e => setOpacity(Number(e.target.value))}
+              />
+            </label>
+            <span className="toolbar-divider" aria-hidden="true" />
+            {/* Toggle: lit = north up; off = map turned like the blueprint (default). */}
+            <button
+              type="button"
+              className={`editor-icon-btn${orientation === 'north' ? ' is-active' : ''}`}
+              aria-pressed={orientation === 'north'}
+              aria-label="Norte arriba"
+              title={orientation === 'plano' ? 'Poner el norte arriba' : 'Girar el mapa como el plano'}
+              onClick={() => setOrientation(o => (o === 'plano' ? 'north' : 'plano'))}
+            >
+              <Compass size={17} />
+            </button>
+          </>
+        ) : (
+          // Only while calibrating: without 4 pairs there's no blueprint to fade or turn.
+          <span className="map-controls__hint">Con 4 puntos el plano aparece encima</span>
+        )}
       </div>
 
       {loading && <div className="geo-map-loading">Cargando mapa…</div>}

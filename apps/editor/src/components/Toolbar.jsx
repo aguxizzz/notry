@@ -7,12 +7,15 @@ import {
   MousePointer2,
   Pentagon,
   Redo2,
+  Route,
+  Satellite,
   Square,
   Type,
   Undo2,
   Wand2,
 } from 'lucide-react';
 import { RenderStatus, RenderTools } from './RenderToolbar';
+import { MAX_STREET_WIDTH_M, MIN_STREET_WIDTH_M } from '../utils/geoSurfaces';
 
 const TOOLS = [
   { id: 'select', icon: MousePointer2, label: 'Seleccionar', shortcut: 'V' },
@@ -23,6 +26,65 @@ const TOOLS = [
   // "rectángulo" se deforma igual que cualquier otro polígono.
   { id: 'rect', icon: Square, label: 'Rectángulo', shortcut: '2' },
 ];
+
+// Tools of the Satellite view. They draw manzanas/calles on the map
+// (useGeoSurfaces), not lots: lots come from the plano through the calibration.
+const SATELLITE_TOOLS = [
+  { id: 'select', icon: MousePointer2, label: 'Seleccionar', shortcut: 'V' },
+  { id: 'manzana', icon: Pentagon, label: 'Manzana', shortcut: '1' },
+  { id: 'calle', icon: Route, label: 'Calle', shortcut: '2' },
+];
+
+const SATELLITE_HINTS = {
+  manzana: 'Clic para agregar puntos · clic en el primero o Enter para cerrar · Supr saca el último',
+  calle: 'Clic para trazar el eje · Enter para terminar · Supr saca el último',
+};
+
+/** Manzana/calle tools + street width, shown instead of the lot tools in the Satellite view. */
+function SatelliteTools({ surfaces }) {
+  const { tool, canDraw, selectedCalle, streetWidth } = surfaces;
+  const showWidth = tool === 'calle' || !!selectedCalle;
+  return (
+    <div className="toolbar-tools" aria-label="Herramientas del satélite">
+      {SATELLITE_TOOLS.map(t => {
+        const Icon = t.icon;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            className={`tool-btn${tool === t.id ? ' active' : ''}`}
+            onClick={() => surfaces.setTool(t.id)}
+            title={canDraw ? `${t.label} (${t.shortcut})` : 'Primero vinculá el plano con el mapa'}
+            aria-label={`${t.label}. Atajo ${t.shortcut}`}
+            aria-pressed={tool === t.id}
+            disabled={!canDraw}
+          >
+            <Icon size={18} />
+            <span>{t.label}</span>
+            <kbd>{t.shortcut}</kbd>
+          </button>
+        );
+      })}
+      {showWidth && (
+        <label className="geo-draw-toolbar__width">
+          <span>{selectedCalle ? 'Ancho de la calle' : 'Ancho'}</span>
+          <input
+            type="number"
+            min={MIN_STREET_WIDTH_M}
+            max={MAX_STREET_WIDTH_M}
+            step="0.5"
+            value={selectedCalle?.width ?? streetWidth}
+            onChange={e => {
+              const value = Number(e.target.value);
+              if (value >= MIN_STREET_WIDTH_M && value <= MAX_STREET_WIDTH_M) surfaces.changeStreetWidth(value);
+            }}
+          />
+          <span>m</span>
+        </label>
+      )}
+    </div>
+  );
+}
 
 export default function Toolbar({
   activeTool,
@@ -41,12 +103,17 @@ export default function Toolbar({
   onUndo,
   onRedo,
   calibrationPoints,
+  geoCalibrationPoints,
   render,
+  geoSurfaces,
 }) {
   // 'render' isn't a view of its own: it's the Panorama view drawing surfaces
   // (manzanas/calles) instead of lots, picked with the Lotes | Superficies switch.
   const isRenderMode = mode === 'render';
   const isPanoramaView = mode === 'panorama' || isRenderMode;
+  const isSatelliteMode = mode === 'satellite';
+  // Plano and Panorama share the lot tools; Render and Satélite bring their own.
+  const hasLotTools = !isRenderMode && !isSatelliteMode;
 
   return (
     <>
@@ -72,6 +139,17 @@ export default function Toolbar({
           >
             <Grid3x3 size={16} />
             <span>Plano</span>
+          </button>
+          <button
+            type="button"
+            className={isSatelliteMode ? 'is-active' : ''}
+            onClick={() => onModeChange('satellite')}
+            disabled={!blueprintUrl}
+            title={blueprintUrl ? undefined : 'Necesita el plano: los lotes se ubican en el mapa a partir de él'}
+            aria-pressed={isSatelliteMode}
+          >
+            <Satellite size={16} />
+            <span>Satélite</span>
           </button>
         </div>
 
@@ -106,6 +184,8 @@ export default function Toolbar({
 
         {isRenderMode ? (
           <RenderTools render={render} />
+        ) : isSatelliteMode ? (
+          <SatelliteTools surfaces={geoSurfaces} />
         ) : (
           <div className="toolbar-tools" aria-label="Herramientas de edición">
             {TOOLS.filter(tool => tool.id === 'rect'
@@ -133,7 +213,27 @@ export default function Toolbar({
           </div>
         )}
 
-        {!isRenderMode && blueprintUrl && panoramaUrl && (
+        {isSatelliteMode && (
+          <>
+            <span className="toolbar-divider" aria-hidden="true" />
+            <button
+              type="button"
+              className="calibration-mode-btn"
+              onClick={() => onToolChange('calibrate-geo')}
+              title="Vincular el plano con el mapa (puntos y ajuste)"
+            >
+              <Crosshair size={17} />
+              <span>Calibrar</span>
+              {geoCalibrationPoints?.length > 0 && (
+                <small className={geoCalibrationPoints.length >= 4 ? 'is-ready' : ''}>
+                  {geoCalibrationPoints.length}
+                </small>
+              )}
+            </button>
+          </>
+        )}
+
+        {hasLotTools && blueprintUrl && panoramaUrl && (
           <>
             <span className="toolbar-divider" aria-hidden="true" />
             <button
@@ -154,7 +254,7 @@ export default function Toolbar({
           </>
         )}
 
-        {!isRenderMode && blueprintUrl && (
+        {hasLotTools && blueprintUrl && (
           <button
             type="button"
             className={`calibration-mode-btn${activeTool === 'autodetect' ? ' active' : ''}`}
@@ -201,6 +301,17 @@ export default function Toolbar({
       )}
 
       {isRenderMode && <RenderStatus render={render} />}
+
+      {isSatelliteMode && SATELLITE_HINTS[geoSurfaces.tool] && (
+        <div className="drawing-actions" role="status">
+          <span>{SATELLITE_HINTS[geoSurfaces.tool]}</span>
+          {geoSurfaces.drawing.length > 0 && (
+            <button type="button" className="editor-btn editor-btn--primary" onClick={geoSurfaces.finish}>
+              Terminar
+            </button>
+          )}
+        </div>
+      )}
     </>
   );
 }

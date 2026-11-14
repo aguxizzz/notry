@@ -7,6 +7,7 @@ import { useDraft } from './hooks/useDraft';
 import { useLotDrafts } from './hooks/useLotDrafts';
 import { insertIntoSaved } from './utils/lotDrafts';
 import { useGeoCalibration } from './hooks/useGeoCalibration';
+import { useGeoSurfaces } from './hooks/useGeoSurfaces';
 import { useHistory } from './hooks/useHistory';
 import { useLoteoData } from './hooks/useLoteoData';
 import { useLotOperations } from './hooks/useLotOperations';
@@ -39,13 +40,14 @@ import DocumentBar from './components/DocumentBar';
 import ProjectPanel from './components/ProjectPanel';
 import CalibrationOverlay from './components/CalibrationOverlay';
 import GeoCalibrationOverlay from './components/GeoCalibrationOverlay';
+import SatelliteView from './components/SatelliteView';
 import './App.css';
 
 function App() {
   const { confirm, notify } = useUIFeedback();
   const [activeTool, setActiveTool] = useState('select');
   const [annotations, setAnnotations] = useState([]);
-  const [mode, setMode] = useState('panorama'); // 'panorama' | 'blueprint' | 'render'
+  const [mode, setMode] = useState('panorama'); // 'panorama' | 'blueprint' | 'render' | 'satellite'
   const { token: accessToken, user, handleLogin, handleLogout, activeOrgId, setActiveOrgId } = useAuth();
   const getViewerPositionRef = useRef(null);
   // Snapshot of annotations as last saved/loaded — used to diff before saving
@@ -81,12 +83,16 @@ function App() {
   const geo = useGeoCalibration({
     activeTool, setActiveTool, annotations, setAnnotations, onBeforeChange: snapshotHistory, confirm, notify,
   });
+  // Manzanas/calles dibujadas en la vista Satélite (todavía sin guardar: solo
+  // viven en el historial de la sesión).
+  const geoSurfaces = useGeoSurfaces({ geoPoints: geo.points, onBeforeChange: snapshotHistory });
 
   const { pushHistory, undo, redo, canUndo, canRedo, removeAnnotationFromHistory } = useHistory({
     slices: {
       annotations: [annotations, setAnnotations],
       calibrationPoints: [calibration.points, calibration.setPoints],
       geoCalibrationPoints: [geo.points, geo.setPoints],
+      geoSurfaces: [geoSurfaces.surfaces, geoSurfaces.setSurfaces],
       renderManzanaShapes: [render.manzanas, render.setManzanas],
       renderCalleShapes: [render.calles, render.setCalles],
     },
@@ -235,6 +241,7 @@ function App() {
 
   const handleViewerClick = async (textureX, textureY) => {
     if (activeTool === 'calibrate-geo') {
+      // La mitad plano de un par de calibración geo (la otra es el click en el mapa).
       geo.pickBlueprintPoint([textureX, textureY]);
       return;
     }
@@ -411,6 +418,9 @@ function App() {
   // existen en la vista destino.
   const handleModeChange = async (nextMode) => {
     if (nextMode === mode) return;
+    // En Satélite los lotes salen del plano por la calibración: no hay
+    // ubicación propia que pueda faltar.
+    if (nextMode === 'satellite') { switchView(nextMode); return; }
     // Lotes ↔ Superficies es el mismo panorama: las ubicaciones no cambian.
     const panoramaModes = ['panorama', 'render'];
     if (panoramaModes.includes(mode) && panoramaModes.includes(nextMode)) { switchView(nextMode); return; }
@@ -440,6 +450,7 @@ function App() {
     setSelectedId(null);
     // Salir de Render descarta la herramienta de dibujo y el trazo en curso.
     if (mode === 'render') render.resetDrawing();
+    if (mode === 'satellite') geoSurfaces.reset();
     setMode(nextMode);
     if (activeTool !== 'calibrate') {
       setDrawingPolygon([]);
@@ -457,6 +468,9 @@ function App() {
     // Recién entrando: re-clickear Calibrar a mitad de un lote no lo saca del panorama.
     if (tool === 'calibrate' && activeTool !== 'calibrate' && blueprintUrl) switchView('blueprint');
     if (tool === 'autodetect') switchView('blueprint');
+    // Calibrar el satélite se abre desde su vista y vuelve a ella al salir,
+    // también si se entra desde el panel del proyecto estando en otra.
+    if (tool === 'calibrate-geo') switchView('satellite');
     setActiveTool(tool);
     if (tool !== 'polygon') setDrawingPolygon([]);
     if (tool !== 'rect') setRectStart(null);
@@ -472,10 +486,11 @@ function App() {
     }
   };
 
-  // Si el plano desaparece (se borró desde el panel) estando en esa vista,
-  // se vuelve al panorama. Es lo único que cambia la vista desde afuera.
+  // Si el plano desaparece (se borró desde el panel) estando en esa vista o en
+  // Satélite (que depende de él), se vuelve al panorama. Es lo único que
+  // cambia la vista desde afuera.
   useEffect(() => {
-    if (!blueprintUrl && mode === 'blueprint') {
+    if (!blueprintUrl && (mode === 'blueprint' || mode === 'satellite')) {
       setSelectedId(null);
       setMode('panorama');
       setDrawingPolygon([]);
@@ -517,7 +532,10 @@ function App() {
         if (keyboardStateRef.current?.activeTool === 'calibrate') {
           keyboardStateRef.current?.handleEscapeCalibration();
         } else if (keyboardStateRef.current?.activeTool === 'calibrate-geo') {
-          keyboardStateRef.current?.handleEscapeGeoCalibration();
+          keyboardStateRef.current.handleEscapeGeoCalibration();
+        } else if (keyboardStateRef.current?.mode === 'satellite') {
+          // Corta el trazo, después la selección, después vuelve a Seleccionar.
+          keyboardStateRef.current.geoSurfaces.handleEscape();
         } else if (keyboardStateRef.current?.activeTool === 'autodetect') {
           keyboardStateRef.current?.setActiveTool('select');
         } else if (keyboardStateRef.current?.activeTool === 'rect') {
@@ -527,6 +545,27 @@ function App() {
         }
         if (keyboardStateRef.current?.mode === 'render') keyboardStateRef.current.render.clearSelection();
         return;
+      }
+      // Vista Satélite (sin la calibración abierta): atajos de manzanas/calles
+      // en vez de los de lotes, que acá no se dibujan.
+      if (keyboardStateRef.current?.mode === 'satellite' && keyboardStateRef.current.activeTool !== 'calibrate-geo') {
+        const { geoSurfaces: gs } = keyboardStateRef.current;
+        if (e.key === 'Enter') { e.preventDefault(); gs.finish(); return; }
+        // A medio trazo, Ctrl+Z saca el último punto (el trazo no está en el historial).
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey && gs.drawing.length) {
+          e.preventDefault();
+          gs.handleDeleteKey();
+          return;
+        }
+        if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); gs.handleDeleteKey(); return; }
+        const SATELLITE_KEYS = { v: 'select', 1: 'manzana', 2: 'calle' };
+        const key = e.key.toLowerCase();
+        if (!e.ctrlKey && !e.metaKey && (key in SATELLITE_KEYS || key === '3')) {
+          // Sin vincular no hay herramientas; igual se corta acá para que no
+          // caigan a las de lotes ("3", Texto del panorama, tampoco existe acá).
+          if (gs.canDraw && SATELLITE_KEYS[key]) gs.setTool(SATELLITE_KEYS[key]);
+          return;
+        }
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
@@ -805,6 +844,7 @@ function App() {
       mode,
       saveAll: handleSaveAll,
       render,
+      geoSurfaces,
     };
   });
 
@@ -942,6 +982,8 @@ function App() {
             pendingGeoBlueprintPoint={geo.pending}
             onMapPointPicked={geo.pickMapPoint}
             geoPolygons={geo.polygons}
+            surfaces={geoSurfaces}
+            onAdjust={geo.adjust}
             onCancelCalibration={geo.cancel}
             onDeleteCalibrationPoint={geo.deletePoint}
             onClearCalibration={geo.clear}
@@ -1018,12 +1060,23 @@ function App() {
             onUndo={undo}
             onRedo={redo}
             calibrationPoints={calibration.points}
+            geoCalibrationPoints={geo.points}
             render={render}
+            geoSurfaces={geoSurfaces}
           />
 
           <div className="viewer-surface">
             {loteo.isLoading ? (
               <Loader label="Cargando loteo…" />
+            ) : mode === 'satellite' ? (
+              <SatelliteView
+                latitude={selectedLoteo?.latitude}
+                longitude={selectedLoteo?.longitude}
+                blueprintUrl={blueprintUrl}
+                geo={geo}
+                surfaces={geoSurfaces}
+                onLink={() => handleToolChange('calibrate-geo')}
+              />
             ) : mode === 'blueprint' && blueprintUrl ? (
               <BlueprintEditor
                 blueprintUrl={blueprintUrl}

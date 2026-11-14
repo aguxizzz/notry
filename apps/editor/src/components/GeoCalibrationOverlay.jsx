@@ -1,16 +1,28 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import BlueprintEditor from './BlueprintEditor';
 import CalibrationInspector from './CalibrationInspector';
+import { geoHomography } from '../utils/geoCalibration';
 
-// Lazy: the Three.js map and its tile code only load when calibrating.
+// Lazy: the Three.js map and its tile code only load when they're on screen.
 const GeoCalibrationMap = lazy(() => import('./GeoCalibrationMap'));
 
-// Full-screen geo-calibration workspace, parallel to CalibrationOverlay's
-// blueprint↔panorama flow. Unlike that one, the blueprint and the satellite
-// map are shown side by side (no view-switching needed — clicking either
-// pane is independent, the map isn't a spherical viewer that needs full
-// screen real estate the way the panorama does).
+const TOOLS = [
+  { id: 'points', label: 'Puntos' },
+  { id: 'adjust', label: 'Ajustar' },
+];
+
+const HINTS = {
+  points: 'Clic en el plano y después en el mapa para sumar un par',
+  adjust: 'Arrastrá el plano para moverlo · una esquina para agrandarlo y girarlo · un pin para afinar esa zona',
+};
+
+// Full-screen "link the blueprint to the map" step of the Satellite view,
+// opened from its Calibrar button (same role as CalibrationOverlay for the
+// panorama). Two tools: 'points' shows blueprint and map side by side to add
+// pairs; 'adjust' works on the map alone, moving/scaling/rotating the
+// blueprint over it (`onAdjust` is useGeoCalibration.adjust). Drawing
+// manzanas/calles lives in the Satellite view itself, not here.
 export default function GeoCalibrationOverlay({
   blueprintUrl,
   annotations,
@@ -21,23 +33,55 @@ export default function GeoCalibrationOverlay({
   pendingGeoBlueprintPoint,
   onMapPointPicked,
   geoPolygons,
+  surfaces,
+  onAdjust,
   onCancelCalibration,
   onDeleteCalibrationPoint,
   onClearCalibration,
   onUpdateGeoPolygons,
 }) {
+  // Already linked → straight to Ajustar on the map; otherwise pairs first.
+  // Adjust needs a valid homography, so losing it (deleting pairs) falls back to points.
+  const [toolState, setTool] = useState(() => (geoHomography(geoCalibrationPoints) ? 'adjust' : 'points'));
+  const canAdjust = !!geoHomography(geoCalibrationPoints);
+  const tool = canAdjust ? toolState : 'points';
+
+  // Manzanas/calles shown read-only, so the fit can be checked against them too.
+  const mapSurfaces = useMemo(() => ({ shapes: surfaces.geoRings, drawing: [] }), [surfaces.geoRings]);
+
   return (
     <div className="calibration-overlay">
       <div className="calibration-overlay__topbar">
-        <span className="calibration-overlay__eyebrow">Calibración geográfica (satelital)</span>
+        <span className="calibration-overlay__eyebrow">Vincular plano con el mapa</span>
+        <div className="geo-draw-toolbar">
+          <div className="geo-map-toolbar__modes" role="group" aria-label="Herramienta">
+            {TOOLS.map(t => (
+              <button
+                key={t.id}
+                type="button"
+                className={`geo-map-toolbar__mode${tool === t.id ? ' is-active' : ''}`}
+                aria-pressed={tool === t.id}
+                disabled={t.id === 'adjust' && !canAdjust}
+                title={t.id === 'adjust' && !canAdjust ? 'Primero calibrá con 4 puntos' : undefined}
+                onClick={() => setTool(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <span className="geo-draw-toolbar__hint">{HINTS[tool]}</span>
+        </div>
         <button type="button" className="editor-btn editor-btn--secondary" onClick={onCancelCalibration}>
           <X size={16} />
-          Salir
+          Listo
         </button>
       </div>
 
       <div className="calibration-overlay__body">
-        <main className="viewer-pane calibration-overlay__stage">
+        {/* Keyed: hiding the blueprint pane must not make React reuse its
+            <main> for the map, which would rebuild the whole 3D scene. */}
+        {tool === 'points' && (
+        <main key="blueprint" className="viewer-pane calibration-overlay__stage">
           <div className="viewer-surface">
             {blueprintUrl ? (
               <BlueprintEditor
@@ -57,8 +101,9 @@ export default function GeoCalibrationOverlay({
             )}
           </div>
         </main>
+        )}
 
-        <main className="viewer-pane calibration-overlay__stage">
+        <main key="map" className="viewer-pane calibration-overlay__stage">
           <div className="viewer-surface">
             <Suspense fallback={<div className="viewer-feedback">Cargando mapa satelital…</div>}>
               <GeoCalibrationMap
@@ -67,7 +112,10 @@ export default function GeoCalibrationOverlay({
                 points={geoCalibrationPoints}
                 polygons={geoPolygons}
                 blueprintUrl={blueprintUrl}
+                surfaces={mapSurfaces}
+                adjustMode={tool === 'adjust'}
                 onMapPointPicked={onMapPointPicked}
+                onAdjust={onAdjust}
               />
             </Suspense>
           </div>

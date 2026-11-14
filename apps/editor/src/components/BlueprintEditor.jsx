@@ -341,8 +341,9 @@ export default function BlueprintEditor({
     const faceEl = e.target.closest('[data-type="face"]');
     if (!faceEl) setSelectedFace(null);
 
-    // Check if snapped to first point (closes polygon)
-    if (isSnappedRef.current && activeToolRef.current === 'polygon') {
+    // Check if snapped to first point (closes polygon). Also while drawing a
+    // manzana in the geo calibration, whose overlay finishes it on this id.
+    if (isSnappedRef.current && (activeToolRef.current === 'polygon' || activeToolRef.current === 'calibrate-geo')) {
       e.stopPropagation();
       isSnappedRef.current = false;
       onMarkerSelectRef.current && onMarkerSelectRef.current(FIRST_TEMP_POINT_ID);

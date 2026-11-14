@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { withPairIds } from '../utils/calibration';
-import { geoOverlayAnnotations, projectGeoPolygons } from '../utils/geoCalibration';
+import { geoOverlayAnnotations, projectGeoPolygons, transformGeoPairs } from '../utils/geoCalibration';
 
 /**
  * Calibración geográfica (plano ↔ lat/lng), para el modo satelital del visor.
@@ -43,6 +43,21 @@ export function useGeoCalibration({
     onBeforeChange();
     setPoints(prev => [...prev, { _id: crypto.randomUUID(), blueprint: pending, geo: [latitude, longitude] }]);
     setPending(null);
+  };
+
+  // "Ajustar" en el mapa: mover / escalar+girar el plano o arrastrar un pin.
+  // Cada paso se calcula desde los pares de cuando arrancó el gesto (no desde
+  // el paso anterior, que acumularía error), y todo el gesto es UN undo.
+  const gestureStartRef = useRef(null);
+  const adjust = ({ phase, ...gesture }) => {
+    if (phase === 'start') {
+      gestureStartRef.current = points;
+      onBeforeChange();
+      return;
+    }
+    if (!gestureStartRef.current) return;
+    setPoints(transformGeoPairs(gestureStartRef.current, gesture));
+    if (phase === 'end') gestureStartRef.current = null;
   };
 
   const deletePoint = (index) => {
@@ -103,7 +118,7 @@ export function useGeoCalibration({
   return {
     points, setPoints, savedRef, load,
     pending,
-    pickBlueprintPoint, pickMapPoint,
+    pickBlueprintPoint, pickMapPoint, adjust,
     deletePoint, clear, cancel, escape,
     updatePolygons,
     overlayAnnotations, polygons,
