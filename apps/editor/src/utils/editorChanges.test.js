@@ -51,4 +51,13 @@ describe('detectChanges', () => {
     expect(changes).toMatchObject({ renderSurfaces: true, renderPreferences: false });
     expect(hasUnsavedChanges(changes)).toBe(true);
   });
+
+  test('manzanas/calles del Satélite: null del back equivale a vacío; una calle nueva es cambio', () => {
+    const empty = { manzanas: [], calles: [] };
+    expect(detectChanges({ ...saved, geoSurfaces: empty }, { ...saved, geoSurfaces: null }).geoSurfaces).toBe(false);
+    const geoSurfaces = { manzanas: [], calles: [{ id: 'c1', axis: [[0, 0], [1, 1]], width: 12 }] };
+    const changes = detectChanges({ ...saved, geoSurfaces }, { ...saved, geoSurfaces: empty });
+    expect(changes.geoSurfaces).toBe(true);
+    expect(hasUnsavedChanges(changes)).toBe(true);
+  });
 });

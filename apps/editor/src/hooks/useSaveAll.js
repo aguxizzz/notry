@@ -7,7 +7,7 @@ import { useUIFeedback } from './useUIFeedback';
 
 // `changes` sale de detectChanges (utils/editorChanges): la misma detección
 // que el indicador de "cambios sin guardar" y el borrador.
-export function useSaveAll({ annotations, setAnnotations, token, loteoId, savedAnnotationsRef, onAfterSave, changes, calibrationPoints, savedCalibrationRef, geoCalibrationPoints, savedGeoCalibrationRef, renderSurfaces, savedRenderSurfacesRef }) {
+export function useSaveAll({ annotations, setAnnotations, token, loteoId, savedAnnotationsRef, onAfterSave, changes, calibrationPoints, savedCalibrationRef, geoCalibrationPoints, savedGeoCalibrationRef, renderSurfaces, savedRenderSurfacesRef, geoSurfaces, savedGeoSurfacesRef }) {
   const { notify } = useUIFeedback();
   const [isSavingAll, setIsSavingAll] = useState(false);
   const [sessionExpiredDuringSave, setSessionExpiredDuringSave] = useState(false);
@@ -47,13 +47,14 @@ export function useSaveAll({ annotations, setAnnotations, token, loteoId, savedA
       const calibrationChanged = changes.calibration;
       const geoCalibrationChanged = changes.geoCalibration;
       const renderSurfacesChanged = changes.renderSurfaces || changes.renderPreferences;
+      const geoSurfacesChanged = changes.geoSurfaces;
 
-      if ((calibrationChanged || geoCalibrationChanged) && !loteoId) {
+      if ((calibrationChanged || geoCalibrationChanged || geoSurfacesChanged) && !loteoId) {
         notify('No se encontró el loteo_id para guardar la calibración.', { variant: 'error' });
         return;
       }
 
-      if (!textChanged && polygonsWithUuid.length === 0 && pendingPois.length === 0 && poisWithUuid.length === 0 && !calibrationChanged && !geoCalibrationChanged && !renderSurfacesChanged) {
+      if (!textChanged && polygonsWithUuid.length === 0 && pendingPois.length === 0 && poisWithUuid.length === 0 && !calibrationChanged && !geoCalibrationChanged && !renderSurfacesChanged && !geoSurfacesChanged) {
         if (pendingLots.length > 0) {
           notify(
             `${pendingLots.length} lote(s) siguen pendientes. Abrí cada uno y elegí “Crear lote” o “Asignar existente” antes de guardarlos.`,
@@ -70,6 +71,8 @@ export function useSaveAll({ annotations, setAnnotations, token, loteoId, savedA
         ...(calibrationChanged ? { calibration_points: calibrationPoints ?? [] } : {}),
         ...(geoCalibrationChanged ? { geo_calibration_points: geoCalibrationPoints ?? [] } : {}),
         ...(renderSurfacesChanged ? { render_surfaces: renderSurfaces ?? null } : {}),
+        // Siempre el objeto entero: listas vacías borran lo guardado (null no tocaría la columna).
+        ...(geoSurfacesChanged ? { geo_surfaces: geoSurfaces } : {}),
         lots: polygonsWithUuid.map(marker => buildLotItem(marker, savedMap)),
         pois_create: pendingPois.map(buildPoiCreateItem),
         pois_update: poisWithUuid.map(buildPoiUpdateItem),
@@ -119,10 +122,11 @@ export function useSaveAll({ annotations, setAnnotations, token, loteoId, savedA
       if (savedCalibrationRef) savedCalibrationRef.current = calibrationPoints ?? [];
       if (savedGeoCalibrationRef) savedGeoCalibrationRef.current = geoCalibrationPoints ?? [];
       if (savedRenderSurfacesRef) savedRenderSurfacesRef.current = renderSurfaces ?? null;
+      if (savedGeoSurfacesRef) savedGeoSurfacesRef.current = geoSurfaces;
       if (pendingLots.length === 0) onAfterSave?.();
 
       const parts = [];
-      if (result.loteo_updated) parts.push('texto/calibración guardados');
+      if (result.loteo_updated) parts.push('datos del loteo guardados');
       if (result.lots_updated.length > 0) parts.push(`${result.lots_updated.length} lote(s) actualizados`);
       if (result.pois_created.length > 0) parts.push(`${result.pois_created.length} lugar(es) creados`);
       if (result.pois_updated.length > 0) parts.push(`${result.pois_updated.length} POI(s) actualizados`);

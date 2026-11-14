@@ -71,12 +71,14 @@ const draftHasContent = draft => (
   || draft.geoCalibrationPoints?.length > 0
   || draft.renderSurfaces?.manzanas?.length > 0
   || draft.renderSurfaces?.calles?.length > 0
+  || draft.geoSurfaces?.manzanas?.length > 0
+  || draft.geoSurfaces?.calles?.length > 0
 );
 
 /**
  * Borrador local (localStorage) de todo lo editable, para no perder trabajo
  * si se cierra la pestaña. `state` es { annotations, calibrationPoints,
- * geoCalibrationPoints, renderSurfaces }; se guarda 2s después del último
+ * geoCalibrationPoints, renderSurfaces, geoSurfaces }; se guarda 2s después del último
  * cambio, solo si `isDirty` (detectChanges, igual que el indicador).
  */
 export function useDraft({ loteoId, state, isDirty, panoramaDimensions }) {
@@ -94,6 +96,8 @@ export function useDraft({ loteoId, state, isDirty, panoramaDimensions }) {
       calibrationPoints: state.calibrationPoints ?? [],
       geoCalibrationPoints: state.geoCalibrationPoints ?? [],
       renderSurfaces: state.renderSurfaces,
+      // En coords del plano: no depende del panorama, no se reescala como renderSurfaces.
+      geoSurfaces: state.geoSurfaces,
       panoramaDimensions,
     }));
   };
@@ -123,7 +127,7 @@ export function useDraft({ loteoId, state, isDirty, panoramaDimensions }) {
     if (!loteoId || !isDirty) return;
     const timer = setTimeout(saveDraft, 2000);
     return () => clearTimeout(timer);
-  }, [state.annotations, state.calibrationPoints, state.geoCalibrationPoints, state.renderSurfaces, isDirty, loteoId, panoramaDimensions]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [state.annotations, state.calibrationPoints, state.geoCalibrationPoints, state.renderSurfaces, state.geoSurfaces, isDirty, loteoId, panoramaDimensions]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { pendingDraft, loadDraft, clearDraft };
 }

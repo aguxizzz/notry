@@ -4,10 +4,12 @@ import { surfacesForDirtyCheck } from './renderSurfaces.js';
 // DocumentBar, el auto-guardado del borrador y el "Guardar todo".
 //
 // `current` y `saved` tienen la misma forma:
-//   { annotations, calibrationPoints, geoCalibrationPoints, renderSurfaces }
+//   { annotations, calibrationPoints, geoCalibrationPoints, renderSurfaces, geoSurfaces }
 
 const differs = (a, b) => JSON.stringify(a) !== JSON.stringify(b);
 const textOnly = annotations => (annotations ?? []).filter(a => a.type === 'text');
+// Sin dibujos guardados (null del back) es lo mismo que listas vacías.
+const geoShapes = s => ({ manzanas: s?.manzanas ?? [], calles: s?.calles ?? [] });
 
 export function detectChanges(current, saved) {
   const surfaces = current.renderSurfaces ?? null;
@@ -20,6 +22,7 @@ export function detectChanges(current, saved) {
     calibration: differs(current.calibrationPoints ?? [], saved.calibrationPoints ?? []),
     geoCalibration: differs(current.geoCalibrationPoints ?? [], saved.geoCalibrationPoints ?? []),
     renderSurfaces: renderContent,
+    geoSurfaces: differs(geoShapes(current.geoSurfaces), geoShapes(saved.geoSurfaces)),
     // Solo cambió qué capas se ven: no cuenta como cambio sin guardar, pero
     // si se guarda por otra cosa, viaja igual (se recuerda la preferencia).
     renderPreferences: renderAny && !renderContent,
@@ -28,4 +31,5 @@ export function detectChanges(current, saved) {
 
 export const hasUnsavedChanges = changes => (
   changes.annotations || changes.calibration || changes.geoCalibration || changes.renderSurfaces
+  || changes.geoSurfaces
 );

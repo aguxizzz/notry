@@ -24,6 +24,7 @@ import {
 } from './utils/markerIds';
 import { detectLotPolygon, getDetectionOverlay } from './utils/lotDetectionClient';
 import { DEFAULT_RENDER_SURFACES } from './utils/renderSurfaces';
+import { EMPTY_GEO_SURFACES, normalizeGeoSurfaces } from './utils/geoSurfaces';
 import { detectChanges, hasUnsavedChanges } from './utils/editorChanges';
 import { useRenderSurfaces } from './hooks/useRenderSurfaces';
 import { useUIFeedback } from './hooks/useUIFeedback';
@@ -56,6 +57,8 @@ function App() {
   // Arranca igual que el estado inicial de useRenderSurfaces, para que el diff
   // no se dispare en loteos que nunca tocaron el modo Render.
   const savedRenderSurfacesRef = useRef(DEFAULT_RENDER_SURFACES);
+  // Manzanas/calles de la vista Satélite tal como están en el back.
+  const savedGeoSurfacesRef = useRef(EMPTY_GEO_SURFACES);
 
   // Todos los cambios que se pueden deshacer guardan snapshot antes de aplicarse.
   const snapshotHistory = () => pushHistory(annotations);
@@ -84,8 +87,7 @@ function App() {
   const geo = useGeoCalibration({
     activeTool, setActiveTool, annotations, setAnnotations, onBeforeChange: snapshotHistory, confirm, notify,
   });
-  // Manzanas/calles dibujadas en la vista Satélite (todavía sin guardar: solo
-  // viven en el historial de la sesión).
+  // Manzanas/calles dibujadas en la vista Satélite (Loteo.geo_surfaces en el back).
   const geoSurfaces = useGeoSurfaces({ geoPoints: geo.points, onBeforeChange: snapshotHistory });
   // Satellite view's map background/opacity/orientation, here because the
   // controls live in the Toolbar and the map in SatelliteView. Blueprint starts hidden.
@@ -109,12 +111,14 @@ function App() {
     calibrationPoints: calibration.points,
     geoCalibrationPoints: geo.points,
     renderSurfaces: render.surfaces,
+    geoSurfaces: geoSurfaces.surfaces,
   };
   const changes = detectChanges(editorState, {
     annotations: savedAnnotationsRef.current,
     calibrationPoints: calibration.savedRef.current,
     geoCalibrationPoints: geo.savedRef.current,
     renderSurfaces: savedRenderSurfacesRef.current,
+    geoSurfaces: savedGeoSurfacesRef.current,
   });
   const isDirty = hasUnsavedChanges(changes);
 
@@ -211,6 +215,7 @@ function App() {
     calibrationPoints: calibration.points, savedCalibrationRef: calibration.savedRef,
     geoCalibrationPoints: geo.points, savedGeoCalibrationRef: geo.savedRef,
     renderSurfaces: render.surfaces, savedRenderSurfacesRef,
+    geoSurfaces: geoSurfaces.surfaces, savedGeoSurfacesRef,
   });
 
   // Lo editable que trae el loteo (lo llama useLoteoData al terminar de cargar).
@@ -233,6 +238,10 @@ function App() {
     if (data.renderSurfaces && typeof data.renderSurfaces === 'object') {
       savedRenderSurfacesRef.current = render.load(data.renderSurfaces);
     }
+    // Siempre, aunque venga null: al cambiar de loteo no tienen que quedar las del anterior.
+    const loadedGeoSurfaces = normalizeGeoSurfaces(data.geoSurfaces);
+    geoSurfaces.setSurfaces(loadedGeoSurfaces);
+    savedGeoSurfacesRef.current = loadedGeoSurfaces;
   }
 
   // Reset pending panel state when selection changes
@@ -912,6 +921,7 @@ function App() {
     calibration.setPoints(draft.calibrationPoints ?? []);
     if (Array.isArray(draft.geoCalibrationPoints)) geo.setPoints(draft.geoCalibrationPoints);
     if (draft.renderSurfaces) render.load(draft.renderSurfaces);
+    if (draft.geoSurfaces) geoSurfaces.setSurfaces(normalizeGeoSurfaces(draft.geoSurfaces));
     clearDraft();
   };
 
