@@ -30,8 +30,8 @@ const isLiteDevice = () => document.documentElement.classList.contains('perf-lit
  * camera buttons: zoomIn, zoomOut and goToView('overview' | 'top').
  */
 export default function MapViewer({
-  latitude, longitude, annotations, loteLabels, variant = 'satellite', selectedId, onMarkerSelect,
-  usePanel, panelCollapsed, ref,
+  latitude, longitude, annotations, loteLabels, geoSurfaces, geoCalibrationPoints,
+  variant = 'satellite', selectedId, onMarkerSelect, usePanel, panelCollapsed, ref,
 }) {
   const containerRef = useRef(null);
   const sceneRef = useRef(null);
@@ -78,6 +78,8 @@ export default function MapViewer({
         longitude,
         annotations,
         loteLabels,
+        geoSurfaces,
+        geoCalibrationPoints,
         lite: isLiteDevice(),
         initialInsets: readInsets(),
         onLotClick: (ann) => onMarkerSelectRef.current?.(ann),
@@ -105,7 +107,7 @@ export default function MapViewer({
       setError(null);
       setLoading(true);
     };
-  }, [latitude, longitude, annotations, loteLabels]);
+  }, [latitude, longitude, annotations, loteLabels, geoSurfaces, geoCalibrationPoints]);
 
   useEffect(() => {
     sceneRef.current?.setMode(variant);

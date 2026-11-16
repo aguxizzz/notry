@@ -249,6 +249,8 @@ export default function ViewerExperience() {
             longitude={visor.longitude}
             annotations={stage.blueprintAnnotations}
             loteLabels={stage.loteLabels}
+            geoSurfaces={visor.geoSurfaces}
+            geoCalibrationPoints={visor.geoCalibrationPoints}
             selectedId={selection.selectedLotId}
             onMarkerSelect={selection.handleBlueprintSelect}
             usePanel={layout.usePanel}

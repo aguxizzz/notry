@@ -8,6 +8,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { annId } from '../lotData.js';
 import { createLotLayer } from './lotLayer.js';
 import { boxAround, createGroundBuilders, disposeObject, makeProjection, rad } from './ground.js';
+import { geoSurfaceRings } from './geoSurfaces.js';
+import { SURFACE_STYLE, createSurfaceLayer } from './surfaceLayer.js';
 
 // ---------------------------------------------------------------- settings
 
@@ -92,6 +94,8 @@ function inside(pts, x, z) {
  *
  * - `annotations`: lots of the stage; only polygons with geo_coordinates are drawn.
  * - `loteLabels`: Map lot id → number shown on the lot.
+ * - `geoSurfaces` / `geoCalibrationPoints`: manzanas and calles drawn in the
+ *   editor's satellite view (blueprint coords) and the pairs to place them.
  * - `lite`: low-end device (devicePerf.js), smaller textures and no antialias.
  * - `onLoadingChange(bool)`: while the map of a mode is being downloaded.
  * - `onError(err)`: the map couldn't be built.
@@ -99,7 +103,7 @@ function inside(pts, x, z) {
  *   so the opening view already leaves the phone's top card out.
  */
 export function createMapScene({
-  container, latitude, longitude, annotations, loteLabels, lite = false,
+  container, latitude, longitude, annotations, loteLabels, geoSurfaces, geoCalibrationPoints, lite = false,
   onLotClick, onLoadingChange, onError, initialInsets,
 }) {
   // Biggest texture we stitch: 4096² RGBA is 64 MB of GPU memory, too much
@@ -182,6 +186,10 @@ export function createMapScene({
   });
   scene.add(lotLayer.group);
 
+  // Manzanas and calles go under the lots (see the renderOrder in surfaceLayer.js).
+  const surfaceLayer = createSurfaceLayer(geoSurfaceRings(geoSurfaces, geoCalibrationPoints, toLocal));
+  scene.add(surfaceLayer.group);
+
   // --- ground per mode, built on first use and kept for switching back
   const cache = {};
   let ground = null; // { inner, outer } currently in the scene
@@ -208,6 +216,7 @@ export function createMapScene({
     ground = layers;
     scene.add(ground.outer, ground.inner);
     lotLayer.setStyle(STYLE[mode]);
+    surfaceLayer.setStyle(SURFACE_STYLE[mode]);
     // ×π because since r155 Lambert divides by π: intensity 1 alone would
     // leave the ground at ~1/3 of its brightness.
     const light = LIGHT[mode];
@@ -580,6 +589,7 @@ export function createMapScene({
     controls.dispose();
     for (const mesh of [block, highlight, hover?.mesh]) removeMesh(mesh);
     lotLayer.dispose();
+    surfaceLayer.dispose();
     // Grounds of both modes, also the one not on screen. A build still in
     // flight is freed when it lands.
     for (const p of Object.values(cache)) {

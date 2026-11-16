@@ -3,22 +3,14 @@
 // y se "hornean" los geo_coordinates de cada lote — no se recalcula solo, se
 // corre a mano con "Actualizar polígonos satelitales".
 import { makeProjection } from '@map3d/ground.js';
-import { applyHomography, computeHomography, isHomographyValid } from './homography.js';
+import { geoHomography } from '@map3d/geoSurfaces.js';
+import { applyHomography } from './homography.js';
 import { MARKER_ID, geoCalibPointId } from './markerIds.js';
 import { toModeAnnotation } from './annotationModel.js';
 
-export const MIN_GEO_PAIRS = 4;
-
-/**
- * Homografía plano [0,1]² → (lng, lat) de los pares, o null si faltan pares o
- * sale inválida. La usan el horneado de lotes y el plano superpuesto del mapa.
- */
-export function geoHomography(geoPoints) {
-  if (geoPoints.length < MIN_GEO_PAIRS) return null;
-  // La homografía trabaja en (x, y) = (lng, lat); los pares guardan [lat, lng].
-  const H = computeHomography(geoPoints.map(p => ({ src: p.blueprint, dst: [p.geo[1], p.geo[0]] })));
-  return isHomographyValid(H) ? H : null;
-}
+// The blueprint → (lng, lat) homography is shared with the visor's 3D map,
+// which draws the manzanas and calles with it (@map3d/geoSurfaces.js).
+export { MIN_GEO_PAIRS, geoHomography } from '@map3d/geoSurfaces.js';
 
 /**
  * Pares con el lado del mapa (geo) movido por un gesto de "Ajustar" sobre el
