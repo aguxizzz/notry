@@ -1267,6 +1267,8 @@ div[onClick]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   color: var(--color-text);
   font: inherit;
 }
+/* Curvas / Irregular of verdes and agua: short, the toolbar is already wide. */
+.geo-draw-toolbar__slider { width: 72px; accent-color: var(--accent); }
 .geo-draw-toolbar__hint {
   min-width: 0;
   overflow: hidden;

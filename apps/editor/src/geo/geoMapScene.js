@@ -24,9 +24,14 @@ const ORDER = { blueprint: 10, surfaces: 10.5, lots: 11, drawing: 12 };
 const LOT_COLOR = 0x22d3ee;
 // Same colors as the blueprint pane (GeoCalibrationOverlay), so a shape reads
 // the same on both sides.
+// The perimeter is only a border (fillOpacity 0): filled, it would cover the
+// whole loteo and hide everything inside.
 const SURFACE_STYLE = {
   manzana: { fill: 0xddb86c, fillOpacity: 0.3, line: 0xddb86c },
   calle: { fill: 0x94a3b8, fillOpacity: 0.55, line: 0xe2e8f0 },
+  verde: { fill: 0x4ade80, fillOpacity: 0.35, line: 0x86efac },
+  agua: { fill: 0x38bdf8, fillOpacity: 0.45, line: 0x7dd3fc },
+  perimetro: { fill: 0xf472b6, fillOpacity: 0, line: 0xf472b6 },
 };
 const SELECTED_LINE = 0xffffff;
 // "Ajustar": how close (screen px) a press must be to a pin or corner to grab it.
@@ -316,7 +321,7 @@ export function createGeoMapScene({
       const local = (ring) => ring.map(([la, ln]) => toLocal(la, ln));
       const outer = local(shape.ring);
       const holes = (shape.holes ?? []).map(local);
-      if (!shape.outlineOnly) {
+      if (!shape.outlineOnly && style.fillOpacity > 0) {
         // Shape in (east, north), laid flat with rotateX like the visor's lots.
         const flat = (pts) => pts.map((p) => new THREE.Vector2(p.x, -p.z));
         const s = new THREE.Shape(flat(outer));

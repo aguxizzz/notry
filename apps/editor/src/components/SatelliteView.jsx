@@ -14,7 +14,7 @@ const GeoCalibrationMap = lazy(() => import('./GeoCalibrationMap'));
  * `mapView` (useMapView) is owned by App because its controls sit in the main toolbar.
  */
 export default function SatelliteView({ latitude, longitude, blueprintUrl, geo, surfaces, mapView, onLink }) {
-  const { tool, canDraw, geoRings, geoSelectedRing, geoDrawing, selected } = surfaces;
+  const { canDraw, geoRings, geoSelectedRing, geoDrawing, selected } = surfaces;
   // The selection is an outline on top: calles are painted merged, so the
   // selected one has no outline of its own to highlight.
   const mapSurfaces = useMemo(() => ({
@@ -61,7 +61,7 @@ export default function SatelliteView({ latitude, longitude, blueprintUrl, geo, 
         polygons={geo.polygons}
         blueprintUrl={blueprintUrl}
         surfaces={mapSurfaces}
-        drawingTool={tool === 'manzana' || tool === 'calle'}
+        drawingTool={surfaces.isDrawingTool}
         onMapPointPicked={surfaces.handleMapPoint}
       />
     </Suspense>

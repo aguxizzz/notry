@@ -1,4 +1,5 @@
 import { surfacesForDirtyCheck } from './renderSurfaces.js';
+import { normalizeGeoSurfaces } from './geoSurfaces.js';
 
 // Única detección de "cambios sin guardar": la usan el indicador del
 // DocumentBar, el auto-guardado del borrador y el "Guardar todo".
@@ -8,8 +9,9 @@ import { surfacesForDirtyCheck } from './renderSurfaces.js';
 
 const differs = (a, b) => JSON.stringify(a) !== JSON.stringify(b);
 const textOnly = annotations => (annotations ?? []).filter(a => a.type === 'text');
-// Sin dibujos guardados (null del back) es lo mismo que listas vacías.
-const geoShapes = s => ({ manzanas: s?.manzanas ?? [], calles: s?.calles ?? [] });
+// Sin dibujos guardados (null del back, o un loteo de antes de verdes/agua/
+// perímetro) es lo mismo que listas vacías.
+const geoShapes = s => normalizeGeoSurfaces(s);
 
 export function detectChanges(current, saved) {
   const surfaces = current.renderSurfaces ?? null;

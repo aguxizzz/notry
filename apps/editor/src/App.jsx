@@ -87,8 +87,12 @@ function App() {
   const geo = useGeoCalibration({
     activeTool, setActiveTool, annotations, setAnnotations, onBeforeChange: snapshotHistory, confirm, notify,
   });
-  // Manzanas/calles dibujadas en la vista Satélite (Loteo.geo_surfaces en el back).
-  const geoSurfaces = useGeoSurfaces({ geoPoints: geo.points, onBeforeChange: snapshotHistory });
+  // Superficies dibujadas en la vista Satélite (Loteo.geo_surfaces en el back).
+  // Seleccionar una abre el inspector, como con los lotes (setInspectorOpen se
+  // declara más abajo, pero el callback recién corre con un click).
+  const geoSurfaces = useGeoSurfaces({
+    geoPoints: geo.points, annotations, onBeforeChange: snapshotHistory, onSelect: () => setInspectorOpen(true),
+  });
   // Satellite view's map background/opacity/orientation, here because the
   // controls live in the Toolbar and the map in SatelliteView. Blueprint starts hidden.
   const satelliteMapView = useMapView(0);
@@ -571,12 +575,13 @@ function App() {
           return;
         }
         if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); gs.handleDeleteKey(); return; }
-        const SATELLITE_KEYS = { v: 'select', 1: 'manzana', 2: 'calle' };
+        // Mismos atajos que muestra SATELLITE_TOOLS en Toolbar.jsx.
+        const SATELLITE_KEYS = { v: 'select', 1: 'manzana', 2: 'calle', 3: 'verde', 4: 'agua', 5: 'perimetro' };
         const key = e.key.toLowerCase();
-        if (!e.ctrlKey && !e.metaKey && (key in SATELLITE_KEYS || key === '3')) {
+        if (!e.ctrlKey && !e.metaKey && key in SATELLITE_KEYS) {
           // Sin vincular no hay herramientas; igual se corta acá para que no
-          // caigan a las de lotes ("3", Texto del panorama, tampoco existe acá).
-          if (gs.canDraw && SATELLITE_KEYS[key]) gs.setTool(SATELLITE_KEYS[key]);
+          // caigan a las de lotes ("3" es Texto en el panorama).
+          if (gs.canDraw) gs.setTool(SATELLITE_KEYS[key]);
           return;
         }
       }

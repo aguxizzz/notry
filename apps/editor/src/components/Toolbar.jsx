@@ -1,6 +1,7 @@
 import {
   Camera,
   Crosshair,
+  Fence,
   Grid3x3,
   Layers,
   MapPin,
@@ -10,9 +11,11 @@ import {
   Route,
   Satellite,
   Square,
+  Trees,
   Type,
   Undo2,
   Wand2,
+  Waves,
 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { RenderStatus, RenderTools } from './RenderToolbar';
@@ -61,23 +64,53 @@ const TOOLS = [
   { id: 'rect', icon: Square, label: 'Rectángulo', shortcut: '2' },
 ];
 
-// Tools of the Satellite view. They draw manzanas/calles on the map
+// Tools of the Satellite view. They draw the loteo's surfaces on the map
 // (useGeoSurfaces), not lots: lots come from the plano through the calibration.
+// Shortcuts are also read by App.jsx's key handler (SATELLITE_KEYS there).
 const SATELLITE_TOOLS = [
   { id: 'select', icon: MousePointer2, label: 'Seleccionar', shortcut: 'V' },
   { id: 'manzana', icon: Pentagon, label: 'Manzana', shortcut: '1' },
   { id: 'calle', icon: Route, label: 'Calle', shortcut: '2' },
+  { id: 'verde', icon: Trees, label: 'Verde', shortcut: '3' },
+  { id: 'agua', icon: Waves, label: 'Agua', shortcut: '4' },
+  { id: 'perimetro', icon: Fence, label: 'Perímetro', shortcut: '5' },
 ];
 
+const AREA_HINT = 'Clic para agregar puntos · clic en el primero o Enter para cerrar · Supr saca el último';
 const SATELLITE_HINTS = {
-  manzana: 'Clic para agregar puntos · clic en el primero o Enter para cerrar · Supr saca el último',
+  select: 'Clic en una superficie para editarla en el inspector · Supr la borra',
+  manzana: AREA_HINT,
+  verde: AREA_HINT,
+  agua: AREA_HINT,
+  perimetro: AREA_HINT,
   calle: 'Clic para trazar el eje · Enter para terminar · Supr saca el último',
 };
 
-/** Manzana/calle tools + street width, shown instead of the lot tools in the Satellite view. */
+/** A 0..1 slider of the verde/agua outline, shown as 0-100. */
+function NaturalShapeSlider({ label, title, value, onChange }) {
+  return (
+    <label className="geo-draw-toolbar__width" title={title}>
+      <span>{label}</span>
+      <input
+        type="range"
+        className="geo-draw-toolbar__slider"
+        min="0"
+        max="100"
+        value={Math.round(value * 100)}
+        onChange={e => onChange(Number(e.target.value) / 100)}
+      />
+    </label>
+  );
+}
+
+/**
+ * Surface tools of the Satellite view, shown instead of the lot tools, plus
+ * the settings for what's about to be drawn (street width, verde/agua shape).
+ * What applies to a selected surface lives in the inspector (GeoSurfaceInspector).
+ */
 function SatelliteTools({ surfaces }) {
-  const { tool, canDraw, selectedCalle, streetWidth } = surfaces;
-  const showWidth = tool === 'calle' || !!selectedCalle;
+  const { tool, canDraw, streetWidth } = surfaces;
+  const showWidth = tool === 'calle';
   return (
     <div className="toolbar-tools" aria-label="Herramientas del satélite">
       {SATELLITE_TOOLS.map(t => {
@@ -101,13 +134,13 @@ function SatelliteTools({ surfaces }) {
       })}
       {showWidth && (
         <label className="geo-draw-toolbar__width">
-          <span>{selectedCalle ? 'Ancho de la calle' : 'Ancho'}</span>
+          <span>Ancho</span>
           <input
             type="number"
             min={MIN_STREET_WIDTH_M}
             max={MAX_STREET_WIDTH_M}
             step="0.5"
-            value={selectedCalle?.width ?? streetWidth}
+            value={streetWidth}
             onChange={e => {
               const value = Number(e.target.value);
               if (value >= MIN_STREET_WIDTH_M && value <= MAX_STREET_WIDTH_M) surfaces.changeStreetWidth(value);
@@ -115,6 +148,22 @@ function SatelliteTools({ surfaces }) {
           />
           <span>m</span>
         </label>
+      )}
+      {surfaces.showNaturalShape && (
+        <>
+          <NaturalShapeSlider
+            label="Curvas"
+            title="Redondea las esquinas del borde"
+            value={surfaces.naturalShape.curve}
+            onChange={curve => surfaces.changeNaturalShape({ curve })}
+          />
+          <NaturalShapeSlider
+            label="Irregular"
+            title="Ondula los lados rectos para que el borde se vea natural"
+            value={surfaces.naturalShape.wobble}
+            onChange={wobble => surfaces.changeNaturalShape({ wobble })}
+          />
+        </>
       )}
     </div>
   );

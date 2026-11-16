@@ -71,8 +71,8 @@ const draftHasContent = draft => (
   || draft.geoCalibrationPoints?.length > 0
   || draft.renderSurfaces?.manzanas?.length > 0
   || draft.renderSurfaces?.calles?.length > 0
-  || draft.geoSurfaces?.manzanas?.length > 0
-  || draft.geoSurfaces?.calles?.length > 0
+  // Cualquier lista de geoSurfaces (manzanas, calles, verdes...) con algo.
+  || Object.values(draft.geoSurfaces ?? {}).some(list => list?.length > 0)
 );
 
 /**

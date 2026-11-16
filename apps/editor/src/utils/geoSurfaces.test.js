@@ -1,10 +1,11 @@
-// Calles y manzanas geo: el contorno de una calle tiene que tener el ancho en
-// metros reales del terreno aunque el plano esté estirado.
+// Superficies geo (manzanas, calles, verdes, agua, perímetro): el contorno de
+// una calle tiene que tener el ancho en metros reales del terreno aunque el
+// plano esté estirado.
 import { describe, expect, it } from 'vitest';
 import { computeHomography, invertHomography } from './homography.js';
 import {
-  addSurface, blueprintToGeo, calleRing, displayRings, findSurfaceAt, geoToBlueprint, removeSurface, snapToAxis,
-  surfaceRings,
+  DEFAULT_NATURAL_SHAPE, addSurface, blueprintToGeo, calleRing, displayRings, findSurfaceAt, geoToBlueprint, normalizeGeoSurfaces,
+  removeSurface, snapToAxis, surfaceRings,
 } from './geoSurfaces.js';
 
 // Plano [0,1]² sobre un rectángulo de ~400 m × ~200 m en Misiones: el plano
@@ -67,6 +68,33 @@ describe('shapes', () => {
     expect(findSurfaceAt(rings, [0.5, 0.2])).toEqual({ kind: 'manzana', id: 'm' });
     expect(findSurfaceAt(rings, [0.95, 0.95])).toBeNull();
     expect(removeSurface(s, { kind: 'calle', id: 'c' }).calles).toEqual([]);
+  });
+
+  it('verde, agua y perímetro van cada uno a su lista, aunque el loteo no las traiga', () => {
+    const square = [[0.1, 0.1], [0.3, 0.1], [0.3, 0.3], [0.1, 0.3]];
+    let s = addSurface(base, { kind: 'verde', id: 'v', points: square });
+    s = addSurface(s, { kind: 'agua', id: 'a', points: square });
+    s = addSurface(s, { kind: 'perimetro', id: 'p', points: square });
+    // Verdes y agua nacen con la forma por defecto del borde; el perímetro no la usa.
+    expect(s.verdes).toEqual([{ id: 'v', points: square, ...DEFAULT_NATURAL_SHAPE }]);
+    expect(s.aguas).toEqual([{ id: 'a', points: square, ...DEFAULT_NATURAL_SHAPE }]);
+    expect(s.perimetros).toEqual([{ id: 'p', points: square }]);
+    expect(removeSurface(s, { kind: 'agua', id: 'a' }).aguas).toEqual([]);
+  });
+
+  it('el perímetro se agarra por el borde, no por adentro', () => {
+    const s = addSurface(base, { kind: 'perimetro', id: 'p', points: [[0.1, 0.1], [0.9, 0.1], [0.9, 0.9], [0.1, 0.9]] });
+    const rings = surfaceRings(s, H, Hinv);
+    expect(findSurfaceAt(rings, [0.5, 0.5])).toBeNull();
+    expect(findSurfaceAt(rings, [0.5, 0.105])).toEqual({ kind: 'perimetro', id: 'p' });
+  });
+});
+
+describe('normalizeGeoSurfaces', () => {
+  it('completa con listas vacías lo que un loteo viejo no trae', () => {
+    expect(normalizeGeoSurfaces({ manzanas: [{ id: 'm' }] })).toEqual({
+      manzanas: [{ id: 'm' }], calles: [], verdes: [], aguas: [], perimetros: [],
+    });
   });
 });
 
