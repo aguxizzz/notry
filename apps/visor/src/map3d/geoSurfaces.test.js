@@ -2,7 +2,7 @@
 // whose answer is known (the blueprint square laid on a ~333 m geo square).
 import { describe, expect, test } from 'vitest';
 import { makeProjection } from './ground.js';
-import { geoHomography, geoSurfaceRings } from './geoSurfaces.js';
+import { geoHomography, geoSurfaceRings, lotGeoRing } from './geoSurfaces.js';
 
 const LAT = -27.61;
 const LNG = -55.32;
@@ -62,5 +62,22 @@ describe('geoSurfaceRings', () => {
       ],
     };
     expect(geoSurfaceRings(s, PAIRS, toLocal).calles).toHaveLength(1);
+  });
+});
+
+describe('lotGeoRing', () => {
+  const stale = [[1, 1], [1, 2], [2, 2]];
+
+  test('places the lot from its blueprint outline, not the saved geo_coordinates', () => {
+    const ring = lotGeoRing(PAIRS)({ blueprint_coordinates: [[0, 1], [1, 1], [1, 0]], geo_coordinates: stale });
+    expect(ring[0][0]).toBeCloseTo(LAT, 9);
+    expect(ring[0][1]).toBeCloseTo(LNG, 9);
+    expect(ring[2][0]).toBeCloseTo(LAT + D, 9);
+  });
+
+  test('falls back to geo_coordinates without calibration or blueprint outline', () => {
+    expect(lotGeoRing([])({ blueprint_coordinates: [[0, 0], [1, 0], [1, 1]], geo_coordinates: stale })).toBe(stale);
+    expect(lotGeoRing(PAIRS)({ geo_coordinates: stale })).toBe(stale);
+    expect(lotGeoRing(PAIRS)({})).toBeNull();
   });
 });

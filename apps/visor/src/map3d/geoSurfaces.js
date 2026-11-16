@@ -21,6 +21,27 @@ export function geoHomography(geoPoints) {
 }
 
 /**
+ * Returns lot → its outline as [[lat, lng], ...], or null if it can't go on the map.
+ * With a valid calibration the lot is placed from its blueprint outline, like
+ * the editor's satellite view and like the manzanas/calles: the saved
+ * geo_coordinates are only refreshed by hand in the editor ("Actualizar
+ * polígonos satelitales") and fall behind after a recalibration or a vertex
+ * edit. They're still the fallback for a lot without a blueprint outline.
+ */
+export function lotGeoRing(geoPoints) {
+  const H = geoHomography(geoPoints);
+  return (lot) => {
+    if (H && lot.blueprint_coordinates?.length >= 3) {
+      return lot.blueprint_coordinates.map((point) => {
+        const [lng, lat] = applyHomography(H, point);
+        return [lat, lng];
+      });
+    }
+    return lot.geo_coordinates?.length >= 3 ? lot.geo_coordinates : null;
+  };
+}
+
+/**
  * Manzanas and calles as rings in the map's local meters, ready to fill:
  * { manzanas: [ring], calles: [{ outer, holes }] }, rings as [[x, z], ...].
  * Calles are built here in meters (their width is in meters) and merged, so

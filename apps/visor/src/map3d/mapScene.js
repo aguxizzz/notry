@@ -8,7 +8,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { annId } from '../lotData.js';
 import { createLotLayer } from './lotLayer.js';
 import { boxAround, createGroundBuilders, disposeObject, makeProjection, rad } from './ground.js';
-import { geoSurfaceRings } from './geoSurfaces.js';
+import { geoSurfaceRings, lotGeoRing } from './geoSurfaces.js';
 import { SURFACE_STYLE, createSurfaceLayer } from './surfaceLayer.js';
 
 // ---------------------------------------------------------------- settings
@@ -92,7 +92,8 @@ function inside(pts, x, z) {
  * (from the panel, the list or a deep link) and it reports taps through
  * `onLotClick(annotation)`. Returns { setMode, setSelected, setInsets, dispose }.
  *
- * - `annotations`: lots of the stage; only polygons with geo_coordinates are drawn.
+ * - `annotations`: lots of the stage; only polygons that can be placed on the
+ *   map are drawn (see lotGeoRing).
  * - `loteLabels`: Map lot id → number shown on the lot.
  * - `geoSurfaces` / `geoCalibrationPoints`: manzanas and calles drawn in the
  *   editor's satellite view (blueprint coords) and the pairs to place them.
@@ -110,13 +111,20 @@ export function createMapScene({
   // for a low-end phone; 2048² is 16 MB.
   const maxTexture = lite ? 2048 : 4096;
 
-  const lots = (annotations || []).filter((a) => a.type === 'polygon' && a.geo_coordinates?.length >= 3);
+  // Each lot with its outline on the map (see lotGeoRing: from the blueprint
+  // and the current calibration when there is one). `lot` stays the original
+  // annotation, it's what onLotClick hands back.
+  const ringOf = lotGeoRing(geoCalibrationPoints);
+  const lots = (annotations || [])
+    .filter((a) => a.type === 'polygon')
+    .map((lot) => ({ lot, ring: ringOf(lot) }))
+    .filter(({ ring }) => ring);
 
   // Bbox of the lots; the scene origin is its center. Without geo lots it
   // falls back to the loteo's pin.
   const bbox = { north: -90, south: 90, east: -180, west: 180 };
-  for (const lot of lots) {
-    for (const [la, ln] of lot.geo_coordinates) {
+  for (const { ring } of lots) {
+    for (const [la, ln] of ring) {
       bbox.north = Math.max(bbox.north, la); bbox.south = Math.min(bbox.south, la);
       bbox.east = Math.max(bbox.east, ln); bbox.west = Math.min(bbox.west, ln);
     }
@@ -126,8 +134,8 @@ export function createMapScene({
   const { toLocal } = makeProjection(lat0, lng0);
 
   // Lots in local meters, for picking, highlight and block.
-  const localLots = lots.map((lot) => {
-    const pts = lot.geo_coordinates.map(([la, ln]) => toLocal(la, ln));
+  const localLots = lots.map(({ lot, ring }) => {
+    const pts = ring.map(([la, ln]) => toLocal(la, ln));
     const xs = pts.map((p) => p.x);
     const zs = pts.map((p) => p.z);
     return {
