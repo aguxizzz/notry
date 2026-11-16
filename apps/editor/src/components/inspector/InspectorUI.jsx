@@ -116,7 +116,11 @@ export function Segmented({ options, value, onChange, label }) {
  * Range input with label and end captions. onChange fires on every tick while dragging;
  * onCommit (optional) fires once when the user lets go, for values that are costly to apply.
  */
-export function Slider({ id, label, valueLabel, ends, min, max, step = 1, value, onChange, onCommit, color, alpha = false }) {
+/**
+ * `onCommit` fires when a gesture ends, `onBegin` when one starts (press or
+ * arrow key), e.g. to take a single undo snapshot for a whole drag.
+ */
+export function Slider({ id, label, valueLabel, ends, min, max, step = 1, value, onChange, onCommit, onBegin, color, alpha = false }) {
   const percent = ((value - min) / (max - min)) * 100;
   // Pointer release covers mouse/touch drags, key release covers arrow-key nudges.
   const commit = onCommit ? event => onCommit(Number(event.target.value)) : undefined;
@@ -138,6 +142,8 @@ export function Slider({ id, label, valueLabel, ends, min, max, step = 1, value,
         onChange={event => onChange(Number(event.target.value))}
         onPointerUp={commit}
         onKeyUp={commit}
+        onPointerDown={onBegin}
+        onKeyDown={onBegin}
       />
       {ends && <div className="ins-slider__ends"><span>{ends[0]}</span><span>{ends[1]}</span></div>}
     </div>

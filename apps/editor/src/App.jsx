@@ -1186,6 +1186,7 @@ function App() {
           siblingStages={loteo.siblingStages}
           accessToken={accessToken}
           uploadFn={uploadFn}
+          geoSurfaces={geoSurfaces}
           onPoiFieldChange={(field, value) => {
             // Updater funcional: el inspector puede cambiar varios campos
             // en el mismo evento (ej. limpiar etapa y link juntos).

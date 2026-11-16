@@ -3,6 +3,7 @@ import POIInspector from './POIInspector';
 import PendingPolygonInspector from './PendingPolygonInspector';
 import LoteInspector from './LoteInspector';
 import TextInspector from './TextInspector';
+import GeoSurfaceInspector from './GeoSurfaceInspector';
 import { Field, InspectorShell, Section } from './inspector/InspectorUI';
 import { hasLocationIn } from '../utils/annotationModel';
 
@@ -27,6 +28,8 @@ export default function InspectorPanel({
   // POI
   siblingStages, onPoiFieldChange,
   uploadFn,
+  // Vista Satélite: useGeoSurfaces (la superficie seleccionada y cómo editarla)
+  geoSurfaces,
 }) {
   // Lotes existentes sin geometría en esta vista: candidatos para "Asignar existente".
   const lotsWithEmptyCoords = annotations.filter(a =>
@@ -34,7 +37,19 @@ export default function InspectorPanel({
   );
 
   let content;
-  if (!selectedMarker) {
+  if (mode === 'satellite') {
+    // Vista Satélite: acá se editan manzanas/calles/verdes..., no lotes (los
+    // lotes vienen del plano por la calibración y no se tocan en el mapa).
+    content = geoSurfaces?.selected ? (
+      <GeoSurfaceInspector key={geoSurfaces.selected.id} surfaces={geoSurfaces} onClose={onClose} />
+    ) : (
+      <div className="ins-empty">
+        <span className="ins-empty__icon"><MousePointerClick size={20} /></span>
+        <strong>Nada seleccionado</strong>
+        <p>Con Seleccionar (V), hacé clic en una manzana, calle, verde, agua o perímetro para editarlo.</p>
+      </div>
+    );
+  } else if (!selectedMarker) {
     content = (
       <div className="ins-empty">
         <span className="ins-empty__icon"><MousePointerClick size={20} /></span>
