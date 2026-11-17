@@ -142,7 +142,7 @@
   background: none;
   border: none;
   color: var(--color-text);
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   font-family: inherit;
   text-align: left;
   cursor: pointer;

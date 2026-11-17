@@ -50,7 +50,7 @@
 .row-sheet-title {
   font-family: var(--font-primary);
   font-weight: var(--weight-bold);
-  font-size: var(--text-lg);
+  font-size: var(--text-md);
   color: var(--text-main);
 }
 

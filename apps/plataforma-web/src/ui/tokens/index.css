@@ -76,20 +76,19 @@
   --font-ui: var(--font-body);
   --font-secondary: var(--font-body);
 
-  /* Font sizes */
-  --text-xs: 0.7rem;
-  --text-sm: 0.75rem;
-  --text-base: 0.875rem;
-  --text-md: 1rem;
-  --text-lg: 1.1rem;
-  --text-xl: 1.25rem;
-  --text-2xl: 2rem;
-  --text-3xl: 2.5rem;
+  /* Font sizes — escala única de la app (12/13/14/16/22/30 px).
+     Ningún font-size fijo fuera de estos tokens. */
+  --text-xs: 0.75rem;     /* 12 — eyebrows, badges, metadatos, encabezados de tabla */
+  --text-sm: 0.8125rem;   /* 13 — texto secundario, celdas de tabla */
+  --text-base: 0.875rem;  /* 14 — texto normal, inputs, botones */
+  --text-md: 1rem;        /* 16 — títulos de card, énfasis */
+  --text-lg: 1.375rem;    /* 22 — títulos de sección, valores de KPI */
+  --text-xl: 1.875rem;    /* 30 — títulos de página, números destacados */
 
   /* Semantic type roles */
-  --type-page-title: clamp(1.65rem, 2.6vw, 2.25rem);
-  --type-section-title: clamp(1.35rem, 2.2vw, 1.8rem);
-  --type-metric-hero: clamp(2.4rem, 5vw, 4.25rem);
+  --type-page-title: var(--text-xl);
+  --type-section-title: var(--text-lg);
+  --type-metric-hero: clamp(2.4rem, 5vw, 4.25rem); /* única excepción: número héroe */
   --tracking-title: -0.04em;
   --tracking-eyebrow: 0.16em;
   --leading-title: 1.08;

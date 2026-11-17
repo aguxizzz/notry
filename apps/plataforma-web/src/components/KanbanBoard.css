@@ -14,7 +14,7 @@
 
 .kanban-header h2 {
   font-family: var(--font-primary);
-  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-size: var(--text-xl);
   font-weight: var(--weight-black);
   color: var(--text-main);
   margin: 0 0 2px 0;

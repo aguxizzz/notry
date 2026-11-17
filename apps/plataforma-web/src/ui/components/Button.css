@@ -11,7 +11,7 @@
 .outline-button {
   --btn-h: 40px;      /* md por defecto */
   --btn-px: 18px;
-  --btn-fs: 0.8rem;
+  --btn-fs: var(--text-sm);
   width: auto;
   display: inline-flex;
   align-items: center;
@@ -40,9 +40,9 @@
    más compacto en padding/fuente para filas y contextos apretados). lg = hero de
    login/modal full-width. */
 .btn-sm,
-.btn-fit { --btn-h: 40px; --btn-px: 16px; --btn-fs: 0.75rem; }
-.btn-md  { --btn-h: 40px; --btn-px: 20px; --btn-fs: 0.8rem; }
-.btn-lg  { --btn-h: 52px; --btn-px: 28px; --btn-fs: 0.85rem; width: 100%; }
+.btn-fit { --btn-h: 40px; --btn-px: 16px; --btn-fs: var(--text-xs); }
+.btn-md  { --btn-h: 40px; --btn-px: 20px; --btn-fs: var(--text-sm); }
+.btn-lg  { --btn-h: 52px; --btn-px: 28px; --btn-fs: var(--text-base); width: 100%; }
 /* compat: btn-fit conservaba un min-width fijo */
 .btn-fit { min-width: 110px; }
 

@@ -27,7 +27,7 @@
 .inventario-shell .inv-vbar-v {
   font-family: var(--font-primary);
   font-weight: 700;
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   color: var(--text-main);
 }
 
@@ -50,7 +50,7 @@
 }
 
 .inventario-shell .inv-vbar-l {
-  font-size: 0.68rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   text-transform: capitalize;
 }
@@ -63,7 +63,7 @@
 }
 
 .inventario-shell .inv-velocity-summary span {
-  font-size: 0.76rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 

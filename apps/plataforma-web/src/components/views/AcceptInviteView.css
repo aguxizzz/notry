@@ -7,14 +7,14 @@
 }
 
 .accept-greeting {
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   color: var(--text-muted);
   line-height: 1.55;
   margin: 0 0 var(--space-lg);
 }
 
 .accept-hint {
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   color: var(--text-muted);
   line-height: 1.5;
   margin: var(--space-sm) 0 var(--space-md);

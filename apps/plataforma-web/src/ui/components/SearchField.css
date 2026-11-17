@@ -23,7 +23,7 @@
   background: var(--color-surface);
   color: var(--text-main);
   font: inherit;
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   transition: var(--motion-focus);
 }
 

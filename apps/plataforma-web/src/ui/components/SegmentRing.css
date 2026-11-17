@@ -29,7 +29,7 @@
 .segment-ring-ctr b {
   font-family: var(--font-primary);
   font-weight: 700;
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   letter-spacing: -0.02em;
   line-height: 1;
   color: var(--text-main);
@@ -37,8 +37,7 @@
 
 .segment-ring-ctr span {
   font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
+  letter-spacing: 0;
   color: var(--text-muted);
   margin-top: 3px;
 }
@@ -50,11 +49,9 @@
 }
 
 .segment-ring--sm .segment-ring-ctr b {
-  font-size: 1.5rem;
+  font-size: var(--text-lg);
 }
 
 .segment-ring--sm .segment-ring-ctr span {
-  font-size: 0.56rem;
-  letter-spacing: 0.05em;
   margin-top: 1px;
 }

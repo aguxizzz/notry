@@ -30,7 +30,7 @@
 
 .feedback-state__copy span {
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
 }
 
 .feedback-state--danger .feedback-state__icon {

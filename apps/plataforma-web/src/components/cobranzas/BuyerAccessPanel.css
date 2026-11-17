@@ -30,7 +30,7 @@
 .buyer-access-panel h2 {
   margin: 4px 0 0;
   font-family: var(--font-primary);
-  font-size: 1.15rem;
+  font-size: var(--text-md);
   letter-spacing: -0.03em;
 }
 
@@ -73,7 +73,7 @@
 .buyer-access-panel__status p { margin: 5px 0 0; color: var(--color-text-muted); font-size: var(--text-sm); line-height: 1.4; }
 
 .buyer-access-panel__link { margin-top: var(--space-md); padding: 14px; background: var(--color-surface-subtle); border: 1px solid var(--color-border); border-radius: var(--radius-surface); }
-.buyer-access-panel__link h3 { margin: 4px 0 0; font-family: var(--font-primary); font-size: 1rem; letter-spacing: -0.03em; }
+.buyer-access-panel__link h3 { margin: 4px 0 0; font-family: var(--font-primary); font-size: var(--text-md); letter-spacing: -0.03em; }
 .buyer-access-panel__link p { margin: 9px 0 12px; color: var(--color-text-muted); font-size: var(--text-sm); line-height: 1.4; }
 .buyer-access-panel__link-box { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; padding: 10px 12px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
 .buyer-access-panel__link-box svg { flex: none; color: var(--color-accent-dark); }

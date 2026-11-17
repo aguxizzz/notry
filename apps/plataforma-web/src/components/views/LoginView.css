@@ -36,7 +36,7 @@
   left: 42px;
   color: var(--color-text);
   font-family: var(--font-primary);
-  font-size: 1.1875rem;
+  font-size: var(--text-lg);
   font-weight: var(--weight-bold);
   line-height: 1;
   letter-spacing: -0.04em;
@@ -71,7 +71,7 @@
   margin: 0 0 13px;
   color: var(--color-accent-dark);
   font-family: var(--font-primary);
-  font-size: 0.625rem;
+  font-size: var(--text-xs);
   font-weight: var(--weight-bold);
   line-height: 1.2;
   letter-spacing: 0.19em;
@@ -82,7 +82,7 @@
   margin: 0;
   color: var(--color-text);
   font-family: var(--font-primary);
-  font-size: 1.9375rem;
+  font-size: var(--text-xl);
   font-weight: var(--weight-medium);
   line-height: 1.05;
   letter-spacing: -0.045em;
@@ -108,7 +108,7 @@
   margin-bottom: 7px;
   color: color-mix(in srgb, var(--color-text) 76%, var(--color-cream));
   font-family: var(--font-primary);
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   font-weight: var(--weight-bold);
   line-height: 1;
   letter-spacing: 0.04em;
@@ -195,7 +195,7 @@
   gap: 7px;
   margin-top: 14px;
   color: color-mix(in srgb, var(--color-text-muted) 82%, var(--color-cream));
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
 }
 
 .login-security svg {
@@ -247,7 +247,7 @@
   right: 36px;
   bottom: 30px;
   color: color-mix(in srgb, var(--color-text-muted) 80%, var(--color-cream));
-  font-size: 0.625rem;
+  font-size: var(--text-xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -299,7 +299,7 @@
 
 .form-group label {
   display: block;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: var(--weight-bold);
   text-transform: uppercase;
   color: var(--text-muted);
@@ -313,7 +313,7 @@
   border: 1px solid var(--border-color);
   padding: calc(var(--space-xs) + 2px) var(--space-sm);
   color: var(--text-main);
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   font-family: inherit;
   border-radius: var(--radius-md);
 }
@@ -332,7 +332,7 @@
   border: 1px solid var(--border-color);
   padding: calc(var(--space-xs) + 2px) var(--space-sm);
   color: var(--color-text);
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   font-family: inherit;
   border-radius: var(--radius-md);
   appearance: none;

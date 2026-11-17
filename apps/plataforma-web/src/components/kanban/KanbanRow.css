@@ -87,7 +87,7 @@
 }
 
 .kanban-row-lote {
-  font-size: 0.68rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--color-text-muted);
   letter-spacing: 0.05em;
@@ -127,7 +127,7 @@
 }
 
 .kanban-row-advisor-name {
-  font-size: 0.68rem;
+  font-size: var(--text-xs);
   font-weight: var(--weight-medium);
   color: var(--color-text-muted);
   line-height: 1;

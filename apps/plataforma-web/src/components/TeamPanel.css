@@ -1,6 +1,6 @@
 .team-panel-loading {
   color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: var(--text-base);
 }
 
 /* Members list */
@@ -35,7 +35,7 @@
   align-items: center;
   justify-content: center;
   font-family: var(--font-primary);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   font-weight: var(--weight-bold);
   flex-shrink: 0;
 }
@@ -226,7 +226,7 @@
 /* Modal de invitación lista — usa .modal-overlay / .modal-card estándar */
 .team-temp-password-desc {
   margin: 0 0 var(--space-md);
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   color: var(--text-muted);
   line-height: 1.5;
 }
@@ -248,7 +248,7 @@
 
 .team-invite-link-text {
   font-family: monospace;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: var(--text-main);
   word-break: break-all;
   line-height: 1.4;
@@ -263,7 +263,7 @@
 
 .team-invite-expiry-note {
   margin: var(--space-sm) 0 0;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 
