@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Boxes, CircleDollarSign, Plus, Ticket, X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import {
   Button,
   ErrorBoundary,
@@ -7,8 +7,7 @@ import {
   PageLayout,
   Panel,
   SectionHeader,
-  SummaryBand,
-  SummaryMetric,
+  StageSummary,
 } from '../../ui/components';
 import ActivityFeed from '../ActivityFeed';
 import ShellLayout from '../ShellLayout';
@@ -17,8 +16,8 @@ import {
   computeInventoryStats,
   fmtInt,
   fmtMoney,
+  LOT_STATE_SEGMENTS,
 } from '../inventory/inventoryStats';
-import StateRing from '../inventory/StateRing';
 import SalesVelocityChart from '../inventory/SalesVelocityChart';
 import AlertCard from '../inventory/AlertCard';
 import InventarioControls from '../inventory/InventarioControls';
@@ -68,6 +67,9 @@ export default function InventarioView({
   isVisorOnly = false,
 }) {
   const [attentionFilter, setAttentionFilter] = useState(null);
+  // Estado de lote elegido en las casillas del resumen. Excluyente con el
+  // filtro de atención para no tener dos franjas de "filtro activo" a la vez.
+  const [stateFilter, setStateFilter] = useState(null);
   const inventoryPanelRef = useRef(null);
   const clearAttentionRef = useRef(null);
   const contracts = contractsState?.contracts;
@@ -114,10 +116,13 @@ export default function InventarioView({
 
   const visibleInventoryLots = useMemo(() => {
     const base = filteredInventoryLots ?? inventoryLots ?? [];
-    return activeAttentionRule?.tab === 'lotes'
+    const lots = activeAttentionRule?.tab === 'lotes'
       ? filterByInventoryAttention(base, attentionFilter, attentionContext)
       : filteredInventoryLots;
-  }, [activeAttentionRule, attentionFilter, attentionContext, filteredInventoryLots, inventoryLots]);
+    // null = "sin filtro" para LotesTable; con estado elegido siempre devolvemos lista.
+    if (!stateFilter) return lots;
+    return (lots ?? inventoryLots ?? []).filter(lot => lot.status === stateFilter);
+  }, [activeAttentionRule, attentionFilter, attentionContext, filteredInventoryLots, inventoryLots, stateFilter]);
 
   const visibleInventoryLoteos = useMemo(() => {
     const base = filteredInventoryLoteos ?? inventoryLoteos ?? [];
@@ -149,8 +154,20 @@ export default function InventarioView({
     if (activeAttentionRule && activeAttentionRule.tab !== nextTab) {
       clearAttentionFilter();
     }
+    // El estado es de lotes: en la pestaña Loteos no aplica.
+    if (nextTab !== 'lotes') setStateFilter(null);
     onTabChange(nextTab);
   };
+
+  const handleStateSelect = (stateKey) => {
+    setStateFilter(stateKey);
+    if (!stateKey) return;
+    clearAttentionFilter();
+    onTabChange('lotes');
+  };
+
+  const stateSegment = LOT_STATE_SEGMENTS.find(s => s.key === stateFilter);
+  const stateResultCount = (visibleInventoryLots ?? []).length;
 
   const handleAttentionSelect = (ruleKey) => {
     if (attentionFilter === ruleKey) {
@@ -166,6 +183,7 @@ export default function InventarioView({
       onLoteosSearchChange('');
     }
     onTabChange(rule.tab);
+    setStateFilter(null);
     setAttentionFilter(ruleKey);
   };
 
@@ -195,54 +213,24 @@ export default function InventarioView({
           }
         />
 
-        {!isVisorOnly && <SummaryBand
-          className="inv-summary"
-          aria-label="Resumen del inventario"
-          lead={
-            <div className="inv-summary-lead">
-              <span className="inv-summary-eyebrow">Composición por estado</span>
-              <div className="inv-pie-wrap">
-                <StateRing
-                  counts={{ available: stats.available, reserved: stats.reserved, sold: stats.sold, unavailable: stats.unavailable }}
-                  availablePct={stats.availablePct}
-                />
-                <div className="inv-ring-legend">
-                  <span className="inv-lk" style={{ '--c': 'var(--badge-available)' }}>
-                    <span className="inv-lk-d" />Disponibles <b>{stats.available}</b>
-                  </span>
-                  <span className="inv-lk" style={{ '--c': 'var(--color-stat-reserved)' }}>
-                    <span className="inv-lk-d" />Reservados <b>{stats.reserved}</b>
-                  </span>
-                  <span className="inv-lk" style={{ '--c': 'var(--badge-sold)' }}>
-                    <span className="inv-lk-d" />Vendidos <b>{stats.sold}</b>
-                  </span>
-                  <span className="inv-lk" style={{ '--c': 'var(--badge-unavailable)' }}>
-                    <span className="inv-lk-d" />No disponibles <b>{stats.unavailable}</b>
-                  </span>
-                </div>
-              </div>
-            </div>
-          }
-        >
-          <SummaryMetric
-            icon={<Boxes size={17} />}
-            label="Total de lotes"
-            hint="inventario registrado"
-            value={fmtInt(stats.total)}
+        {/* Resumen: cada estado filtra la tabla de lotes; el bloque "Valor" es solo informativo. */}
+        {!isVisorOnly && (
+          <StageSummary
+            aria-label="Resumen del inventario"
+            total={{ value: fmtInt(stats.total), label: 'lotes' }}
+            segments={LOT_STATE_SEGMENTS.map(s => ({ ...s, value: stats[s.key] }))}
+            activeKey={stateFilter}
+            onSelect={handleStateSelect}
+            aside={{
+              title: 'Valor',
+              tone: 'neutral',
+              items: [
+                { key: 'valor', label: 'Valor estimado', value: fmtMoney(stats.valorEstimado) },
+                { key: 'ticket', label: 'Ticket promedio', value: fmtMoney(stats.ticket) },
+              ],
+            }}
           />
-          <SummaryMetric
-            icon={<CircleDollarSign size={17} />}
-            label="Valor estimado"
-            hint="valor total publicado"
-            value={fmtMoney(stats.valorEstimado)}
-          />
-          <SummaryMetric
-            icon={<Ticket size={17} />}
-            label="Ticket promedio"
-            hint="promedio por lote"
-            value={fmtMoney(stats.ticket)}
-          />
-        </SummaryBand>}
+        )}
 
         {/* Tabla de gestión */}
         <Panel
@@ -252,19 +240,11 @@ export default function InventarioView({
           className="inventory-panel"
           flush
         >
-          <SectionHeader
-            className="inv-phead"
-            eyebrow="Gestión"
-            title={inventoryTab === 'lotes' ? 'Lotes' : 'Loteos'}
-            sub={isVisorOnly
-              ? 'Disponibilidad y valores de los lotes'
-              : inventoryTab === 'lotes'
-                ? 'Disponibilidad, valores y prospectos asociados'
-                : 'Desarrollos, publicación y configuración del visor'}
-          />
           <InventarioControls
             inventoryTab={inventoryTab}
             onTabChange={handleTabChange}
+            lotsCount={stats.total}
+            loteosCount={(inventoryLoteos || []).length}
             inventorySearch={inventorySearch}
             onSearchChange={onSearchChange}
             inventoryLoteosSearch={inventoryLoteosSearch}
@@ -292,6 +272,27 @@ export default function InventarioView({
                 type="button"
                 onClick={clearAttentionFilter}
                 aria-label={`Quitar filtro ${activeAttentionRule.label}`}
+              >
+                <X size={14} aria-hidden="true" />
+                Quitar
+              </button>
+            </div>
+          )}
+
+          {/* Misma franja que el filtro de atención, para el estado elegido en el resumen. */}
+          {stateSegment && (
+            <div className="inv-attention-filter">
+              <span className="inv-attention-filter-copy" role="status" aria-live="polite">
+                <span className="inv-attention-filter-label">Filtro de estado</span>
+                <strong>{stateSegment.label}</strong>
+                <span className="inv-attention-filter-count">
+                  {stateResultCount} {stateResultCount === 1 ? 'resultado' : 'resultados'}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setStateFilter(null)}
+                aria-label={`Quitar filtro ${stateSegment.label}`}
               >
                 <X size={14} aria-hidden="true" />
                 Quitar

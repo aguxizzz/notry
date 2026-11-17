@@ -120,47 +120,15 @@ export function computeInventoryStats(lots = [], loteos = [], summary = null, at
   };
 }
 
-// ── Ring "Lotes por estado" ───────────────────────────────────────────────────
+// ── Composición "Lotes por estado" ──────────────────────────────────────────
 
-// Ring "Lotes por estado". No es 1:1 con los datos: cada estado presente lleva
-// un piso visual mínimo (para que Reservado/Vendido no desaparezcan) y el resto
-// se reparte proporcional; hay un hueco entre segmentos. Los números reales van
-// en la leyenda y el % de disponibilidad al centro.
-export const RING_STATES = [
+// Casillas del resumen (StageSummary); `key` es el lot.status que filtran.
+export const LOT_STATE_SEGMENTS = [
   { key: 'available', color: 'var(--badge-available)', label: 'Disponibles' },
   { key: 'reserved', color: 'var(--color-stat-reserved)', label: 'Reservados' },
   { key: 'sold', color: 'var(--badge-sold)', label: 'Vendidos' },
   { key: 'unavailable', color: 'var(--badge-unavailable)', label: 'No disponibles' },
 ];
-
-export function buildRingGradient(counts) {
-  const present = RING_STATES
-    .map(s => ({ ...s, n: counts[s.key] ?? 0 }))
-    .filter(s => s.n > 0);
-  const totalN = present.reduce((a, s) => a + s.n, 0);
-  if (totalN === 0) return 'var(--inv-track) 0 100%';
-
-  const GAP = present.length > 1 ? 1.6 : 0; // hueco entre segmentos (%)
-  const FLOOR = 9;           // piso visual por segmento (%)
-  const gapTotal = present.length * GAP;
-  const usable = 100 - gapTotal;
-  const floorTotal = Math.min(present.length * FLOOR, usable * 0.6);
-  const floor = floorTotal / present.length;
-  const remainder = usable - floorTotal;
-
-  const stops = [];
-  let cursor = 0;
-  present.forEach((s, i) => {
-    const size = floor + (s.n / totalN) * remainder;
-    const end = cursor + size;
-    stops.push(`${s.color} ${cursor}% ${end}%`);
-    // hueco después de cada segmento (transparente)
-    const gapEnd = i === present.length - 1 ? 100 : end + GAP;
-    stops.push(`transparent ${end}% ${gapEnd}%`);
-    cursor = gapEnd;
-  });
-  return stops.join(', ');
-}
 
 // ── Loteos agrupados por proyecto ────────────────────────────────────────────
 

@@ -31,3 +31,21 @@ export function useRowActionsMode() {
 
   return mode;
 }
+
+// Props extra de una fila en modo 'inline' (escritorio), donde clickear la
+// fila edita la entidad: foco con Tab, Enter/espacio para editar y título de
+// ayuda. El clic en sí lo maneja el onClick de cada tabla (que ignora clics
+// en botones/links de la fila). En los otros modos no agrega nada.
+export function editableRowProps(mode, name, onEdit) {
+  if (mode !== 'inline') return {};
+  return {
+    tabIndex: 0,
+    title: `Editar ${name}`,
+    onKeyDown: (e) => {
+      if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+        e.preventDefault();
+        onEdit();
+      }
+    },
+  };
+}

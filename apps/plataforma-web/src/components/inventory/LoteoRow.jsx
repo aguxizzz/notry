@@ -1,14 +1,15 @@
 // Fila de la tabla de Loteos. La sección (proyecto / sin proyecto) la marcan
 // los encabezados de LoteosTable; la fila en sí es igual en ambos casos.
 //
-// Responsive (ver useRowActionsMode): en 'inline' las columnas Acciones/Links
-// se muestran como siempre; en 'accordion' clickear la fila las reemplaza por
+// Responsive (ver useRowActionsMode): en 'inline' clickear la fila edita el
+// loteo y las columnas Acciones/Links se muestran como siempre; en 'accordion' clickear la fila las reemplaza por
 // un panel expandido debajo (LoteoRowActions); en 'drawer' abre un bottom
 // sheet con las mismas acciones. Movida desde InventarioView.jsx en la Fase 6.
 
 import { Fragment } from 'react';
 import { PencilLine, Trash2, Eye, Droplet, ExternalLink, SquarePen } from 'lucide-react';
 import { API_BASE, VISOR_URL } from '../../config';
+import { editableRowProps } from '../../hooks/useRowActionsMode';
 
 const openVisor = (loteo) =>
   window.open(`${VISOR_URL}/?data=${API_BASE}/loteos/${loteo.id}/group_visor_data`, '_blank', 'noopener,noreferrer');
@@ -57,12 +58,15 @@ export function LoteoRowActions({ loteo, onEditLoteo, onDeleteLoteo, onOpenLoteo
 
 export default function LoteoRow({ row, mode, isExpanded, onToggleExpand, onOpenSheet, onEditLoteo, onDeleteLoteo, onOpenLoteoServices, onSafeOpen, onOpenEditor }) {
   const { loteo } = row;
-  const rowClass = [];
-  if (mode !== 'inline') rowClass.push('row-clickable');
+  const rowClass = ['row-clickable'];
 
+  // Escritorio: la fila entera abre la edición del loteo.
   const handleRowClick = (e) => {
-    if (mode === 'inline') return;
     if (e.target.closest('button, a')) return;
+    if (mode === 'inline') {
+      onEditLoteo(loteo);
+      return;
+    }
     if (mode === 'drawer') {
       onOpenSheet();
       return;
@@ -106,7 +110,11 @@ export default function LoteoRow({ row, mode, isExpanded, onToggleExpand, onOpen
 
   return (
     <Fragment>
-    <tr className={rowClass.join(' ')} onClick={handleRowClick}>
+    <tr
+      className={rowClass.join(' ')}
+      onClick={handleRowClick}
+      {...editableRowProps(mode, loteo.name, () => onEditLoteo(loteo))}
+    >
       <td className="td-name">{loteo.name}</td>
       <td className="td-secondary">
         {loteo.image_url ? (
@@ -140,14 +148,6 @@ export default function LoteoRow({ row, mode, isExpanded, onToggleExpand, onOpen
       </td>
       <td className="td-actions">
         <div className="loteo-link-actions">
-          <button
-            className="action-btn edit"
-            onClick={() => onEditLoteo(loteo)}
-            title="Editar"
-            aria-label={`Editar ${loteo.name}`}
-          >
-            <PencilLine size={16} />
-          </button>
           <button
             className={`action-btn services${loteo.services?.length ? ' active' : ''}`}
             onClick={() => onOpenLoteoServices(loteo)}

@@ -17,7 +17,7 @@
 
 .td-loteo {
   color: var(--text-main) !important;
-  font-size: 0.85rem !important;
+  font-size: var(--text-base) !important;
 }
 
 .td-comments-indicator {
@@ -32,7 +32,7 @@
   background: none;
   border: none;
   padding: 0;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   letter-spacing: 0.02em;
   cursor: pointer;
@@ -90,6 +90,54 @@
 
 .comment-tooltip-wrapper {
   position: relative;
+}
+
+/* Variante preview: comienzo del texto en una línea, tono secundario. */
+.comment-tooltip-wrapper--preview {
+  min-width: 0;
+  max-width: 220px;
+}
+
+.comment-tooltip-preview {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 8px;
+  margin-left: -8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.comment-tooltip-preview svg {
+  flex: none;
+  opacity: 0.7;
+}
+
+.comment-tooltip-preview-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.comment-tooltip-preview:hover,
+.comment-tooltip-preview[aria-expanded='true'] {
+  background: var(--surface-hover);
+  color: var(--text-main);
+}
+
+.comment-tooltip-preview:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 1px;
 }
 
 .comment-tooltip-trigger {
@@ -187,7 +235,7 @@
 }
 
 .comment-tooltip-title {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: var(--weight-bold);
   text-transform: uppercase;
   color: var(--text-muted);
@@ -275,7 +323,7 @@
 
 .report-block-label {
   display: block;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.18em;
@@ -382,7 +430,6 @@
   background: rgba(197, 160, 89, 0.15);
 }
 
-/* .prospectos-list, .prospecto-tag* → inventory/LotesTable.css */
 
 /* ─── Prospecto Tooltip → inventory/ProspectoTooltip.css ─────────────────── */
 
@@ -462,56 +509,6 @@
   --page-section-gap: var(--space-md);
 }
 
-.inventario-shell .inv-summary-eyebrow {
-  display: block;
-  margin-bottom: var(--space-sm);
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.inventario-shell .inv-pie-wrap {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  flex: 1;
-}
-
-/* .inv-ring*, .inv-ring-ctr* → inventory/StateRing.css */
-.inventario-shell .inv-ring-legend {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  flex: 1;
-  min-width: 0;
-}
-
-.inventario-shell .inv-lk {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: var(--text-base);
-  color: var(--text-muted);
-}
-
-.inventario-shell .inv-lk-d {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-  background: var(--c);
-  flex: none;
-}
-
-.inventario-shell .inv-lk b {
-  font-family: var(--font-primary);
-  font-size: var(--text-base);
-  font-weight: 700;
-  color: var(--text-main);
-  margin-left: auto;
-}
-
 /* ── Fila inferior: requieren atención (ancho) + actividad reciente ── */
 .inventario-shell .inv-row3 {
   display: grid;
@@ -524,19 +521,6 @@
 .inventario-shell .inv-activity {
   display: flex;
   flex-direction: column;
-}
-
-/* ── Header de panel (eyebrow + h2 + sub, 3 líneas) ──
-   Eyebrow + h2 unificados con los de Inicio (.stats-header-eyebrow / .stats-header h2). */
-.inventario-shell .inv-phead {
-  padding: var(--space-md) var(--space-md) var(--space-sm);
-}
-
-/* eyebrow + título + sub ahora vienen de <SectionHeader> (tier section). */
-
-/* ── Panel de la tabla ── (superficie desde <Panel flush>) */
-.inventario-shell .inventory-panel .data-toolbar {
-  border-top: 1px solid var(--border-color);
 }
 
 /* Contexto del filtro activado desde "Requieren atención". Vive entre la
@@ -604,7 +588,7 @@
   outline-offset: 2px;
 }
 
-/* .inv-seg y composición específica → inventory/InventarioControls.css */
+/* Encabezado de la tabla (tabs + búsqueda + filtro) → inventory/InventarioControls.css */
 
 /* Tabla refinada */
 .inventario-shell .inventory-table-wrapper {
@@ -625,10 +609,8 @@
 
 .inventario-shell .inventory-table thead th {
   background: var(--inv-subtle);
-  padding: 11px var(--space-lg);
-  font-size: 0.66rem;
-  letter-spacing: 0.08em;
-  border-top: 1px solid var(--border-color);
+  padding: 8px var(--space-lg);
+  font-size: var(--text-xs);
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -644,8 +626,9 @@
   background: var(--inv-subtle);
 }
 
+/* Fila densa (~42px): 32px de los botones de acción + 5px arriba y abajo. */
 .inventario-shell .inventory-table td {
-  padding: 9px var(--space-lg);
+  padding: 5px var(--space-lg);
 }
 
 /* ── Headers ordenables (click para ordanar asc/desc) ── */
@@ -658,7 +641,7 @@
   align-items: center;
   gap: 5px;
   width: 100%;
-  padding: 11px var(--space-lg);
+  padding: 8px var(--space-lg);
   background: none;
   border: none;
   cursor: pointer;
@@ -694,18 +677,40 @@
   border-radius: var(--radius-sm);
 }
 
-/* ── Acciones ghost (sólo tabla de lotes; loteos conserva su estilo) ── */
-.inventario-shell .inventory-table:not(.loteos-table) .td-actions .action-btn {
+/* ── Acciones ghost (lotes y loteos). Editar es clic en la fila. ── */
+.inventario-shell .inventory-table .td-actions .action-btn {
   background: transparent;
   color: var(--text-muted);
+  opacity: 0.45;
+  transition:
+    opacity var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
-.inventario-shell .inventory-table:not(.loteos-table) .td-actions .action-btn.edit:hover {
+.inventario-shell .inventory-table tbody tr.row-clickable:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: -2px;
+}
+
+/* Tenues hasta que la fila se usa: no compiten con los datos al leer la
+   tabla, pero siguen visibles (sin depender del hover para descubrirlas). */
+.inventario-shell .inventory-table tbody tr:hover .td-actions .action-btn,
+.inventario-shell .inventory-table .td-actions .action-btn:focus-visible {
+  opacity: 1;
+}
+
+.inventario-shell .inventory-table .td-actions .action-btn.services:hover {
   background: var(--surface-hover);
   color: var(--text-main);
 }
 
-.inventario-shell .inventory-table:not(.loteos-table) .td-actions .action-btn.delete:hover {
+/* Loteo con servicios cargados: el ícono queda en dorado. */
+.inventario-shell .inventory-table .td-actions .action-btn.services.active {
+  color: var(--accent-dark);
+}
+
+.inventario-shell .inventory-table .td-actions .action-btn.delete:hover {
   background: var(--badge-sold-bg);
   color: var(--badge-sold);
 }
@@ -716,10 +721,6 @@
   align-items: center;
   justify-content: center;
   min-width: 92px;
-  border-radius: var(--radius-full);
-}
-
-.inventario-shell .prospecto-tag {
   border-radius: var(--radius-full);
 }
 
@@ -764,7 +765,7 @@
 }
 
 .inventario-shell .inv-k {
-  font-size: 0.68rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -774,14 +775,14 @@
 .inventario-shell .inv-pv {
   font-family: var(--font-primary);
   font-weight: 700;
-  font-size: 2.4rem;
+  font-size: var(--text-xl);
   letter-spacing: -0.02em;
   color: var(--text-main);
   margin: 6px 0 2px;
 }
 
 .inventario-shell .inv-r {
-  font-size: 0.76rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 
@@ -794,12 +795,12 @@
 .inventario-shell .inv-kpi-v {
   font-family: var(--font-primary);
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: var(--text-md);
   color: var(--text-main);
 }
 
 .inventario-shell .inv-kpi-l {
-  font-size: 0.64rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -823,7 +824,7 @@
 .inventario-shell .inv-hbar-nm {
   font-family: var(--font-primary);
   font-weight: 600;
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   color: var(--text-main);
   white-space: nowrap;
   overflow: hidden;
@@ -848,7 +849,7 @@
   text-align: right;
   font-family: var(--font-primary);
   font-weight: 600;
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   color: var(--text-main);
 }
 
@@ -918,7 +919,7 @@
 }
 
 .inventario-shell .inv-activity .activity-item-text {
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   line-height: 1.35;
   white-space: normal;
   overflow: visible;
@@ -926,7 +927,7 @@
 }
 
 .inventario-shell .inv-activity .activity-item-time {
-  font-size: 0.69rem;
+  font-size: var(--text-xs);
 }
 
 /* ── Responsive ── */

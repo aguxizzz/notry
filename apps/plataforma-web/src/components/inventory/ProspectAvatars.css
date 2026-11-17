@@ -1,0 +1,77 @@
+/* Pila de avatares: círculos solapados con un anillo del color de la
+   superficie, para que el solapamiento se lea limpio sobre cualquier fila. */
+.prospect-avatars {
+  display: inline-flex;
+  align-items: center;
+  padding-left: 6px;
+}
+
+.prospect-avatar {
+  --av-fg: var(--text-muted);
+  --av-bg: color-mix(in srgb, var(--text-muted) 12%, var(--panel-bg));
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: -6px;
+  padding: 0;
+  border: 2px solid var(--panel-bg);
+  border-radius: var(--radius-full);
+  background: var(--av-bg);
+  color: var(--av-fg);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.02em;
+  line-height: 1;
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+/* Fondo sólido (no rgba) para que el solapamiento no transparente. */
+.prospect-avatar--primer_contacto {
+  --av-fg: var(--color-cat-contacto);
+  --av-bg: color-mix(in srgb, var(--color-cat-contacto) 14%, var(--panel-bg));
+}
+
+.prospect-avatar--seguimiento {
+  --av-fg: var(--color-cat-seguimiento);
+  --av-bg: color-mix(in srgb, var(--color-cat-seguimiento) 14%, var(--panel-bg));
+}
+
+.prospect-avatar--negociacion {
+  --av-fg: var(--color-cat-negociacion);
+  --av-bg: color-mix(in srgb, var(--color-cat-negociacion) 16%, var(--panel-bg));
+}
+
+.prospect-avatar--vendido {
+  --av-fg: var(--color-cat-vendido);
+  --av-bg: color-mix(in srgb, var(--color-cat-vendido) 14%, var(--panel-bg));
+}
+
+button.prospect-avatar {
+  cursor: pointer;
+}
+
+button.prospect-avatar:hover,
+button.prospect-avatar:focus-visible,
+.prospect-avatar.is-active {
+  z-index: 1;
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 2px var(--av-fg);
+}
+
+button.prospect-avatar:focus-visible {
+  outline: none;
+}
+
+.prospect-avatar--more {
+  --av-bg: var(--panel-bg);
+  border-color: var(--panel-bg);
+  box-shadow: inset 0 0 0 1px var(--border-color);
+  font-weight: var(--weight-medium);
+}

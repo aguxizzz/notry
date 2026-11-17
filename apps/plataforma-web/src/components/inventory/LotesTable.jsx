@@ -1,5 +1,5 @@
 // Tabla principal de gestión de Lotes. Paginada client-side con sort por
-// columnas. Cada chip de prospecto abre un ProspectoTooltip al clickearlo.
+// columnas. Cada avatar de prospecto abre un ProspectoTooltip al clickearlo.
 //
 // Movida desde InventarioView.jsx en la Fase 7 (último componente grande
 // del módulo de inventario).
@@ -8,10 +8,11 @@ import { Fragment, useState } from 'react';
 import { PencilLine, Trash2 } from 'lucide-react';
 import { Badge, CommentTooltip, RowActionsSheet, SortHeader, TablePager } from '../../ui/components';
 import { useTableSort } from '../../hooks/useTableSort';
-import { useRowActionsMode } from '../../hooks/useRowActionsMode';
+import { editableRowProps, useRowActionsMode } from '../../hooks/useRowActionsMode';
 import { STATUS_DISPLAY } from '../../constants';
 import { LOT_SORT_ACCESSORS, LOTS_PER_PAGE } from './constants';
 import ProspectoTooltip from './ProspectoTooltip';
+import ProspectAvatars from './ProspectAvatars';
 import './LotesTable.css';
 
 export default function LotesTable({ lots, filteredLots, onEditLot, onDeleteLot, allProspectos, onNavigateToProspect }) {
@@ -30,9 +31,14 @@ export default function LotesTable({ lots, filteredLots, onEditLot, onDeleteLot,
     );
   };
 
+  // Escritorio: la fila entera abre la edición. Debajo de 1380px el clic
+  // despliega acordeón/sheet, que muestran las columnas ocultas y las acciones.
   const handleRowClick = (e, lot) => {
-    if (mode === 'inline') return;
     if (e.target.closest('button, a')) return;
+    if (mode === 'inline') {
+      onEditLot(lot);
+      return;
+    }
     if (mode === 'drawer') {
       setSheetLot(lot);
       return;
@@ -60,7 +66,7 @@ export default function LotesTable({ lots, filteredLots, onEditLot, onDeleteLot,
             <SortHeader label="Loteo" sortKey="loteo" sort={sort} onSort={handleSort} />
             <SortHeader label="Prospectos" sortKey="prospectos" sort={sort} onSort={handleSort} className="th-secondary" />
             <th scope="col" className="th-secondary">Notas</th>
-            <th scope="col" className="th-actions">Acciones</th>
+            <th scope="col" className="th-actions"><span className="sr-only">Acciones</span></th>
           </tr>
         </thead>
         <tbody>
@@ -72,7 +78,6 @@ export default function LotesTable({ lots, filteredLots, onEditLot, onDeleteLot,
             <>
             {pageData.map(lot => {
               const prospectosDeLote = (allProspectos || []).filter(p => p.lote_id === lot.id);
-              const tieneDatos = prospectosDeLote.length > 0;
               const areaText = lot.area_m2 ? `${parseFloat(lot.area_m2).toLocaleString()} m²` : '—';
               const priceText = lot.price ? `$${parseFloat(lot.price).toLocaleString()}` : '—';
               const statusBadge = (
@@ -80,28 +85,15 @@ export default function LotesTable({ lots, filteredLots, onEditLot, onDeleteLot,
                   {STATUS_DISPLAY[lot.status] ?? lot.status}
                 </Badge>
               );
-              const prospectosNode = !lot.prospect_names?.length ? (
-                <span className="td-empty">—</span>
-              ) : (
-                <div className="prospectos-list">
-                  {tieneDatos
-                    ? prospectosDeLote.map(p => (
-                        <button
-                          key={p.id}
-                          className={`prospecto-tag clickable${openTooltip?.prospecto?.id === p.id ? ' active' : ''}`}
-                          onClick={(e) => handleTagClick(e, p)}
-                          title={`Ver info de ${p.name}`}
-                        >
-                          {p.name}
-                        </button>
-                      ))
-                    : lot.prospect_names.map((name, i) => (
-                        <span key={i} className="prospecto-tag">{name}</span>
-                      ))
-                  }
-                </div>
+              const prospectosNode = (
+                <ProspectAvatars
+                  prospectos={prospectosDeLote}
+                  names={lot.prospect_names}
+                  activeId={openTooltip?.prospecto?.id}
+                  onSelect={handleTagClick}
+                />
               );
-              const notasNode = <CommentTooltip content={lot.comments} label="Notas" entityName={lot.name} />;
+              const notasNode = <CommentTooltip content={lot.comments} label="Notas" entityName={lot.name} preview />;
 
               // <768px ("drawer"): la fila deja de ser una tabla de columnas y
               // pasa a ser una card apilada — ver nota en table.css sobre
@@ -151,8 +143,9 @@ export default function LotesTable({ lots, filteredLots, onEditLot, onDeleteLot,
               return (
                 <Fragment key={lot.id}>
                 <tr
-                  className={mode !== 'inline' ? 'row-clickable' : undefined}
+                  className="row-clickable"
                   onClick={(e) => handleRowClick(e, lot)}
+                  {...editableRowProps(mode, lot.name, () => onEditLot(lot))}
                 >
                   <td className="td-name">{lot.name}</td>
                   <td>{areaText}</td>
@@ -162,14 +155,6 @@ export default function LotesTable({ lots, filteredLots, onEditLot, onDeleteLot,
                   <td className="td-secondary">{prospectosNode}</td>
                   <td className="td-secondary">{notasNode}</td>
                   <td className="td-actions">
-                    <button
-                      className="action-btn edit"
-                      onClick={() => onEditLot(lot)}
-                      title="Editar"
-                      aria-label={`Editar ${lot.name}`}
-                    >
-                      <PencilLine size={16} />
-                    </button>
                     <button
                       className="action-btn delete"
                       onClick={() => onDeleteLot(lot)}

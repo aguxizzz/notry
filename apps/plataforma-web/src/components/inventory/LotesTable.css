@@ -1,44 +1,7 @@
-/* LotesTable — estilos específicos de la tabla principal de lotes:
-   prospecto-tags (chips) y filas de relleno (reservan alto en la última página
-   para que el pager no salte). El resto de la tabla usa estilos compartidos
-   en ui/components/table.css (.inventory-table, .td-*, etc.). */
-
-.prospectos-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-}
-
-.prospecto-tag {
-  background: rgba(0, 0, 0, 0.04);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  padding: 3px var(--space-xs);
-  white-space: nowrap;
-}
-
-.prospecto-tag.clickable {
-  cursor: pointer;
-  transition:
-    background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out);
-}
-
-.prospecto-tag.clickable:hover {
-  background: rgba(197, 160, 89, 0.10);
-  color: var(--accent-color);
-  border-color: rgba(197, 160, 89, 0.30);
-}
-
-.prospecto-tag.clickable.active {
-  background: rgba(197, 160, 89, 0.14);
-  color: var(--accent-color);
-  border-color: rgba(197, 160, 89, 0.45);
-}
+/* LotesTable — estilos específicos de la tabla principal de lotes: filas de
+   relleno (reservan alto en la última página para que el pager no salte).
+   Los avatares de prospectos viven en ProspectAvatars.css. El resto de la
+   tabla usa estilos compartidos en ui/components/table.css. */
 
 /* Filas de relleno: reservan el alto de 10 filas en la última página para que
    el pager no salte. Invisibles: sin borde, sin hover, sin contenido.

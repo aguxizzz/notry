@@ -1,13 +1,29 @@
-// Toolbar de la tabla de Inventario: tabs Lotes/Loteos + búsqueda + filtros.
+// Encabezado de la tabla de Inventario, en una sola fila: selector Lotes/Loteos
+// (con su cantidad) + búsqueda + filtro.
 // La acción primaria vive en PageHeader para mantener la jerarquía de página.
 
-import { SlidersHorizontal } from 'lucide-react';
-import { DataToolbar, Loader, SearchField, Select } from '../../ui/components';
+import { DataToolbar, Loader, SearchField, SegmentedControl, Select } from '../../ui/components';
 import './InventarioControls.css';
+
+const TABS = [
+  { key: 'lotes', label: 'Lotes' },
+  { key: 'loteos', label: 'Loteos' },
+];
+
+function TabLabel({ label, count }) {
+  return (
+    <>
+      {label}
+      <span className="inv-tab-count">{count}</span>
+    </>
+  );
+}
 
 export default function InventarioControls({
   inventoryTab,
   onTabChange,
+  lotsCount,
+  loteosCount,
   inventorySearch,
   onSearchChange,
   inventoryLoteosSearch,
@@ -24,67 +40,60 @@ export default function InventarioControls({
     { value: '', label: 'Loteo: Todos' },
     ...(inventoryLoteos || []).map(loteo => ({ value: String(loteo.id), label: loteo.name })),
   ];
+  const counts = { lotes: lotsCount, loteos: loteosCount };
+  const loading = inventoryTab === 'lotes'
+    ? inventoryLoading || syncLoading
+    : syncLoading || inventoryLoteosLoading;
+
   return (
     <DataToolbar className="inventory-controls inv-toolbar">
-      {!isVisorOnly && (
-        <div className="inv-seg" role="tablist" aria-label="Ver tabla de">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={inventoryTab === 'lotes'}
-            className={inventoryTab === 'lotes' ? 'on' : ''}
-            onClick={() => onTabChange('lotes')}
-          >
-            Lotes
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={inventoryTab === 'loteos'}
-            className={inventoryTab === 'loteos' ? 'on' : ''}
-            onClick={() => onTabChange('loteos')}
-          >
-            Loteos
-          </button>
-        </div>
+      {isVisorOnly ? (
+        <h2 className="inv-tabs-title">
+          <TabLabel label="Lotes" count={lotsCount} />
+        </h2>
+      ) : (
+        <SegmentedControl
+          className="inv-view-switch"
+          ariaLabel="Ver tabla de"
+          value={inventoryTab}
+          onChange={onTabChange}
+          options={TABS.map(tab => ({
+            value: tab.key,
+            label: <TabLabel label={tab.label} count={counts[tab.key]} />,
+          }))}
+        />
       )}
 
-      {inventoryTab === 'lotes' ? (
-        <>
-          <SearchField
-            id="inventory-lots-search"
-            ariaLabel="Buscar lotes"
-            placeholder="Buscar por nombre…"
-            value={inventorySearch}
-            onChange={event => onSearchChange(event.target.value)}
-          />
-          <div className="inventory-filters">
-            <SlidersHorizontal size={16} className="filter-icon" />
+      <div className="inv-toolbar-tools">
+        {loading && <Loader size="sm" />}
+        {inventoryTab === 'lotes' ? (
+          <>
+            <SearchField
+              id="inventory-lots-search"
+              ariaLabel="Buscar lotes"
+              placeholder="Buscar lote…"
+              value={inventorySearch}
+              onChange={event => onSearchChange(event.target.value)}
+            />
             <Select
               id="inventory-loteo-filter"
+              className="inv-loteo-filter"
+              size="sm"
               value={inventoryLoteoFilter}
               onChange={e => onLoteoFilterChange(e.target.value)}
               options={loteoFilterOptions}
             />
-          </div>
-          <div className="loader-container small">
-            {(inventoryLoading || syncLoading) && <Loader size="sm" />}
-          </div>
-        </>
-      ) : (
-        <>
+          </>
+        ) : (
           <SearchField
             id="inventory-developments-search"
             ariaLabel="Buscar loteos"
-            placeholder="Buscar por nombre…"
+            placeholder="Buscar loteo…"
             value={inventoryLoteosSearch}
             onChange={event => onLoteosSearchChange(event.target.value)}
           />
-          <div className="loader-container small">
-            {(syncLoading || inventoryLoteosLoading) && <Loader size="sm" />}
-          </div>
-        </>
-      )}
+        )}
+      </div>
     </DataToolbar>
   );
 }

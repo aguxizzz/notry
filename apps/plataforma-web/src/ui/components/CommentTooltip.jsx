@@ -2,7 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { MessageCircle, X } from 'lucide-react';
 
-export default function CommentTooltip({ content, label, entityName }) {
+// `preview`: el disparador muestra el comienzo del texto (una línea) en vez
+// del ícono solo, y sin contenido se muestra "—" en vez de un ícono apagado.
+// `children`: el propio contenido pasado es el disparador (ej. la fecha de
+// último contacto); sin comentario se renderiza como texto común.
+export default function CommentTooltip({ content, label, entityName, preview = false, children }) {
   const [isOpen, setIsOpen] = useState(false);
   const [positionBottom, setPositionBottom] = useState(false);
   const [coords, setCoords] = useState({});
@@ -95,6 +99,45 @@ export default function CommentTooltip({ content, label, entityName }) {
       <p className="comment-tooltip-text">{content}</p>
     </div>
   ) : null;
+
+  if (children !== undefined) {
+    if (!hasContent) return children;
+    return (
+      <span className="comment-tooltip-wrapper">
+        <button
+          ref={triggerRef}
+          type="button"
+          className="comment-tooltip-inline"
+          onClick={() => setIsOpen(!isOpen)}
+          title={`Ver ${label.toLowerCase()} de ${entityName}`}
+          aria-expanded={isOpen}
+        >
+          {children}
+        </button>
+        {tooltipElement && createPortal(tooltipElement, document.body)}
+      </span>
+    );
+  }
+
+  if (preview && !hasContent) return <span className="td-empty">—</span>;
+
+  if (preview) {
+    return (
+      <div className="comment-tooltip-wrapper comment-tooltip-wrapper--preview">
+        <button
+          ref={triggerRef}
+          className="comment-tooltip-preview"
+          onClick={() => setIsOpen(!isOpen)}
+          title={`Ver ${label.toLowerCase()} de ${entityName}`}
+          aria-expanded={isOpen}
+        >
+          <MessageCircle size={14} aria-hidden="true" />
+          <span className="comment-tooltip-preview-text">{content.trim()}</span>
+        </button>
+        {tooltipElement && createPortal(tooltipElement, document.body)}
+      </div>
+    );
+  }
 
   return (
     <div className="comment-tooltip-wrapper">

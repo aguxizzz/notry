@@ -1,76 +1,105 @@
-/* InventarioControls — composición específica sobre DataToolbar/SearchField. */
+/* InventarioControls — encabezado de la tabla en una fila: selector
+   Lotes/Loteos (SegmentedControl) a la izquierda, búsqueda + filtro a la
+   derecha. */
 
-.inventario-shell .inventory-filters {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  overflow: visible;
+.inventario-shell .inv-toolbar {
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-lg);
 }
 
-.inventario-shell .inventory-filters .form-group {
-  margin-bottom: 0;
-  flex: 0 1 auto;
-  min-width: 140px;
-}
-
-.inventario-shell .inventory-filters .form-group label {
-  display: none;
-}
-
-.inventario-shell .filter-icon {
-  color: var(--text-muted);
-}
-
-/* ─── Overrides scoped al shell de inventario ──────────────────────────────── */
-
-.inventario-shell .inv-seg {
-  display: inline-flex;
-  background: var(--inv-subtle);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 3px;
+/* ── Selector Lotes/Loteos ── */
+.inventario-shell .inv-view-switch {
   flex: none;
 }
 
-.inventario-shell .inv-seg button {
-  border: none;
-  background: none;
-  font-family: var(--font-primary);
-  font-weight: 600;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  padding: 7px 15px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out),
-              color var(--duration-fast) var(--ease-out);
+.inventario-shell .inv-view-switch button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 108px;
+  font-size: var(--text-sm);
 }
 
-.inventario-shell .inv-seg button.on {
-  background: var(--panel-bg);
+.inventario-shell .inv-tabs-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
   color: var(--text-main);
-  box-shadow: var(--shadow-sm);
+  font-family: var(--font-primary);
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
 }
 
-.inventario-shell .inv-toolbar {
-  flex-wrap: nowrap;
+.inventario-shell .inv-tab-count {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: var(--inv-subtle);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0;
+  text-align: center;
+}
+
+.inventario-shell .inv-view-switch .is-active .inv-tab-count {
+  border-color: color-mix(in srgb, var(--accent-color) 35%, transparent);
+  background: color-mix(in srgb, var(--accent-color) 12%, var(--panel-bg));
+  color: var(--accent-dark);
+}
+
+/* ── Herramientas (derecha) ── */
+.inventario-shell .inv-toolbar-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.inventario-shell .inv-toolbar-tools .search-field {
+  flex: 0 1 260px;
+  min-width: 160px;
+}
+
+.inventario-shell .inv-toolbar-tools .search-field > input {
+  height: 34px;
+}
+
+.inventario-shell .inv-loteo-filter {
+  flex: none;
+  min-width: 150px;
+  margin-bottom: 0;
+}
+
+.inventario-shell .inv-loteo-filter label {
+  display: none;
 }
 
 @media (max-width: 720px) {
   .inventario-shell .inv-toolbar {
     flex-wrap: wrap;
+    padding: var(--space-sm) var(--space-md);
   }
 
-  .inventario-shell .inv-toolbar .search-field {
-    flex-basis: 100%;
-    order: 2;
+  .inventario-shell .inv-view-switch {
+    width: 100%;
   }
 
-  .inventario-shell .inv-toolbar .inventory-filters {
-    order: 3;
+  .inventario-shell .inv-toolbar-tools {
+    width: 100%;
   }
 
-  .inventario-shell .inv-toolbar .loader-container {
-    order: 3;
+  .inventario-shell .inv-toolbar-tools .search-field {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .inventario-shell .inv-loteo-filter {
+    min-width: 130px;
   }
 }

@@ -6,6 +6,13 @@
 
 export const NEGLECTED_THRESHOLD_DAYS = 15;
 
+// Iniciales para avatares: primera letra del nombre + del apellido.
+export function initials(name = '') {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase();
+}
+
 export function daysSinceContact(isoDate) {
   // A prospect without a contact history is new, not overdue. Returning null
   // also prevents UI counters from rendering the misleading "Infinity días".
