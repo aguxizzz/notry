@@ -15,6 +15,22 @@ export async function fetchInventoryBg({ apiFetch, setInventoryLots, setInventor
   }
 }
 
+// manzana/frente/fondo/orientación son opcionales. En el PATCH se mandan como
+// null cuando quedan vacíos (para poder borrarlos); en el POST se omiten.
+export function lotDetailsBody(form, sendNulls) {
+  const body = {};
+  const manzana = form.manzana?.trim();
+  if (manzana) body.manzana = manzana;
+  else if (sendNulls) body.manzana = null;
+  for (const key of ['frente', 'fondo']) {
+    if (form[key] !== '' && form[key] != null) body[key] = parseFloat(form[key]);
+    else if (sendNulls) body[key] = null;
+  }
+  if (form.orientation) body.orientation = form.orientation;
+  else if (sendNulls) body.orientation = null;
+  return body;
+}
+
 export async function createLot({ apiFetch, createLotForm, loteOwnerId, addActivity }) {
   const body = {};
   if (createLotForm.name) body.name = createLotForm.name;
@@ -23,6 +39,7 @@ export async function createLot({ apiFetch, createLotForm, loteOwnerId, addActiv
   if (createLotForm.loteo_id) body.loteo_id = createLotForm.loteo_id;
   if (createLotForm.status) body.status = createLotForm.status;
   if (createLotForm.comments?.trim()) body.comments = createLotForm.comments.trim();
+  Object.assign(body, lotDetailsBody(createLotForm, false));
   const res = await apiFetch(`${API_BASE}/lots`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -44,6 +61,7 @@ export async function patchLot({ apiFetch, editingLotId, editLotForm, loteOwnerI
   else body.area_m2 = null;
   if (editLotForm.comments?.trim()) body.comments = editLotForm.comments.trim();
   else body.comments = null;
+  Object.assign(body, lotDetailsBody(editLotForm, true));
   const res = await apiFetch(`${API_BASE}/lots/${editingLotId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },

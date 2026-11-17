@@ -199,6 +199,7 @@ function renderField(field, formData, onFormChange) {
         step={step}
         min={min}
         max={max}
+        maxLength={maxLength}
         disabled={disabled}
         autoComplete="off"
         onKeyDown={type === 'number' ? handleNumberKeyDown : undefined}

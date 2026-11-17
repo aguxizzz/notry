@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { patchLot } from '../api/lots';
+import { lotDetailsBody, patchLot } from '../api/lots';
 import { API_BASE } from '../config';
-import { MAX_LOT_AREA_M2, MAX_LOT_COMMENTS_LENGTH, MAX_LOT_PRICE } from '../ui/forms/lotFields';
+import { MAX_LOT_AREA_M2, MAX_LOT_COMMENTS_LENGTH, MAX_LOT_PRICE, validateLotSides } from '../ui/forms/lotFields';
 
 export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot, loteOwnerId, addActivity }) {
   const [editLotModalOpen, setEditLotModalOpen] = useState(false);
@@ -21,6 +21,10 @@ export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot, loteOwnerId,
       price: lot.price != null ? String(lot.price) : '',
       area_m2: lot.area_m2 != null ? String(lot.area_m2) : '',
       comments: lot.comments || '',
+      manzana: lot.manzana || '',
+      frente: lot.frente != null ? String(Number(lot.frente)) : '',
+      fondo: lot.fondo != null ? String(Number(lot.fondo)) : '',
+      orientation: lot.orientation || '',
     });
     setEditLotError(null);
     setEditingLotId(lot.id);
@@ -86,7 +90,7 @@ export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot, loteOwnerId,
     if (editLotForm.comments?.length > MAX_LOT_COMMENTS_LENGTH) {
       return `Las observaciones no pueden superar los ${MAX_LOT_COMMENTS_LENGTH} caracteres`;
     }
-    return null;
+    return validateLotSides(editLotForm);
   };
 
   const saveLotFromModal = async (e) => {
@@ -109,6 +113,7 @@ export function useEditLotModal({ apiFetch, onSuccess, onUpdateLot, loteOwnerId,
       if (editLotForm.area_m2 !== '') updates.area_m2 = parseFloat(editLotForm.area_m2);
       if (editLotForm.comments?.trim()) updates.comments = editLotForm.comments.trim();
       else updates.comments = null;
+      Object.assign(updates, lotDetailsBody(editLotForm, true));
       if (
         editLotOriginalLoteoId != null &&
         editLotForm.loteo_id &&
