@@ -2,6 +2,7 @@
 // as flat meshes on the map, between the ground and the lots. Same stacking
 // trick as the rest of the map: no depth test, order set by renderOrder.
 import * as THREE from 'three';
+import { flatFillGeometry } from './flatFill.js';
 
 // Above the whole ground (satellite at 0, vector layers below 0) and under the
 // lot fills (1). Calles over manzanas, in case one was drawn overlapping.
@@ -24,15 +25,12 @@ export const SURFACE_STYLE = {
   },
 };
 
-const vec2 = ([x, z]) => new THREE.Vector2(x, -z);
-
 /**
- * One mesh per kind, laid on the ground. Rings come as [[x, z], ...]; the
- * shape is built in (x, -z) and rotated flat, so +y ends up facing the sky.
+ * One mesh per kind, laid on the ground. `polygons` = [{ outer, holes }] with
+ * rings as [[x, z], ...] (see flatFill.js for why not ShapeGeometry).
  */
-function fillMesh(shapes, order) {
-  const geom = new THREE.ShapeGeometry(shapes);
-  geom.rotateX(-Math.PI / 2);
+function fillMesh(polygons, order) {
+  const geom = flatFillGeometry(polygons);
   const mesh = new THREE.Mesh(geom, new THREE.MeshLambertMaterial({
     transparent: true, depthTest: false, depthWrite: false,
   }));
@@ -50,17 +48,13 @@ export function createSurfaceLayer({ manzanas, calles }) {
   const meshes = {};
 
   if (manzanas.length) {
-    meshes.manzana = fillMesh(manzanas.map(ring => new THREE.Shape(ring.map(vec2))), ORDER.manzanas);
+    meshes.manzana = fillMesh(manzanas.map(ring => ({ outer: ring, holes: [] })), ORDER.manzanas);
     group.add(meshes.manzana);
   }
 
   if (calles.length) {
-    const shapes = calles.map(({ outer, holes }) => {
-      const shape = new THREE.Shape(outer.map(vec2));
-      shape.holes = holes.map(h => new THREE.Path(h.map(vec2)));
-      return shape;
-    });
-    meshes.calle = fillMesh(shapes, ORDER.calles);
+    // The merged network keeps its holes: the manzanas a street grid encloses.
+    meshes.calle = fillMesh(calles, ORDER.calles);
     group.add(meshes.calle);
   }
 

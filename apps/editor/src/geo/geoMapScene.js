@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
 import { boxAround, createGroundBuilders, disposeObject, makeProjection } from '@map3d/ground.js';
+import { flatFillGeometry } from '@map3d/flatFill.js';
 import { applyHomography } from '../utils/homography.js';
 
 const DEFAULT_SPAN_M = 200; // half side to frame when nothing is calibrated yet
@@ -288,8 +289,8 @@ export function createGeoMapScene({
     for (const { ring, style } of lots) {
       const pts = ring.map(([la, ln]) => toLocal(la, ln));
       const mats = materialsFor(style);
-      // Same flat-shape trick as the manzanas/calles below: built in (east,
-      // north) and laid on the ground with rotateX.
+      // Built in (east, north) and laid on the ground with rotateX. A lot has
+      // no holes, so ShapeGeometry is safe here (see flatFill.js).
       const geom = new THREE.ShapeGeometry(new THREE.Shape(pts.map((p) => new THREE.Vector2(p.x, -p.z))));
       geom.rotateX(-Math.PI / 2);
       const fill = new THREE.Mesh(geom, mats.fill);
@@ -322,12 +323,10 @@ export function createGeoMapScene({
       const outer = local(shape.ring);
       const holes = (shape.holes ?? []).map(local);
       if (!shape.outlineOnly && style.fillOpacity > 0) {
-        // Shape in (east, north), laid flat with rotateX like the visor's lots.
-        const flat = (pts) => pts.map((p) => new THREE.Vector2(p.x, -p.z));
-        const s = new THREE.Shape(flat(outer));
-        s.holes = holes.map((h) => new THREE.Path(flat(h)));
-        const geom = new THREE.ShapeGeometry(s);
-        geom.rotateX(-Math.PI / 2);
+        // Same triangulation as the visor (flatFill.js): ShapeGeometry's
+        // earcut can fill a wedge when a polygon has holes.
+        const xz = (pts) => pts.map((p) => [p.x, p.z]);
+        const geom = flatFillGeometry([{ outer: xz(outer), holes: holes.map(xz) }]);
         const fill = new THREE.Mesh(geom, new THREE.MeshBasicMaterial(overlayMat({
           color: style.fill, opacity: style.fillOpacity, side: THREE.DoubleSide,
         })));
