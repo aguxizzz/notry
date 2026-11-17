@@ -1793,6 +1793,19 @@
 }
 
 @media (max-width: 720px) {
+  /* Lista de contratos en celular: quedan lote, comprador y estado; avance y
+     próximo pago se ven al abrir el contrato. */
+  .cob-contract-table .cob-th-progress,
+  .cob-contract-table .cob-th-due,
+  .cob-contract-table .cob-contract-progress,
+  .cob-contract-table .cob-contract-due {
+    display: none;
+  }
+  .cob-contract-table th:nth-child(n),
+  .cob-contract-table td:nth-child(n) {
+    width: auto;
+  }
+
   .cob-detail-header,
   .cob-create-header {
     align-items: stretch;
