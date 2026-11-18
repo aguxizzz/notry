@@ -81,7 +81,7 @@ export default function ViewerExperience() {
   // centro del mapa. Los lugares de afuera solo aparecen así.
   const [mapPoiFocus, setMapPoiFocus] = useState(null);
   const pickMapPoi = useCallback((ann) => {
-    if (!ann) { setMapPoiFocus(null); return; } // la × de la etiqueta del lugar
+    if (!ann) { setMapPoiFocus(null); return; } // la × de la etiqueta, Esc o un toque afuera de los lotes
     const id = ann.uuid || ann.id;
     if (id === mapPoiFocus) handleBlueprintSelect(ann);
     else setMapPoiFocus(id);

@@ -126,7 +126,8 @@ function inside(pts, x, z) {
  *   so the opening view already leaves the phone's top card out.
  * - `pois` (all POI annotations), `northOffset`, `panoramaWidth`: see
  *   poiLayer.js; `onPoiClick(annotation)` when one is tapped, `onPoiClick(null)`
- *   when the picked one is let go (the × on its label). `demoPois` adds
+ *   when the picked one is let go (the × on its label, Esc or a tap on the
+ *   map outside the lots). `demoPois` adds
  *   two made-up places inside the loteo (preview only).
  */
 export function createMapScene({
@@ -713,8 +714,13 @@ export function createMapScene({
     poiLayer.setSelected(id);
     requestRender();
     const poi = id == null ? null : poiLayer.find(id);
-    if (!poi?.far) closeCorridor(!poi);
-    if (!poi) return;
+    if (!poi?.far) closeCorridor(false);
+    if (!poi) {
+      // Let go (×, Esc or a tap on the map): back over the whole loteo. Not
+      // when a lot took its place, that one's flight is already under way.
+      if (!selected) goToView('overview');
+      return;
+    }
     onLot = false;
     if (poi.far) {
       openCorridor(poi);
@@ -778,7 +784,15 @@ export function createMapScene({
     down = null;
     const hit = pick(e);
     if (hit) onLotClick?.(hit.lot);
+    // A tap on the map outside the lots lets go of the picked POI.
+    else if (selectedPoiId != null) onPoiClick?.(null);
   };
+  // Esc too, unless it's meant for a field being typed in.
+  const onKeyDown = (e) => {
+    if (e.key !== 'Escape' || selectedPoiId == null || e.target.matches?.('input, textarea')) return;
+    onPoiClick?.(null);
+  };
+  window.addEventListener('keydown', onKeyDown);
   // Mouse hover: white veil + pointer cursor, like the other modes. Skipped
   // while a button is down (that's a drag).
   const onPointerMove = (e) => {
@@ -891,6 +905,7 @@ export function createMapScene({
     canvas.removeEventListener('pointerup', onPointerUp);
     canvas.removeEventListener('pointermove', onPointerMove);
     canvas.removeEventListener('pointerleave', onPointerLeave);
+    window.removeEventListener('keydown', onKeyDown);
     controls.dispose();
     for (const mesh of [block, highlight, hover?.mesh]) removeMesh(mesh);
     lotLayer.dispose();
