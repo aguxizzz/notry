@@ -1,4 +1,4 @@
-// Manzanas, calles, verdes and agua drawn in the editor's satellite view
+// Manzanas, calles, verdes, agua and perímetro drawn in the editor's satellite view
 // (Loteo.geo_surfaces), brought from blueprint coordinates to the 3D map. They're stored in the
 // blueprint, like the lots, so recalibrating moves them together; here the
 // geo calibration pairs give the blueprint → (lng, lat) homography.
@@ -44,7 +44,7 @@ export function lotGeoRing(geoPoints) {
 
 /**
  * The loteo's surfaces as rings in the map's local meters, ready to fill:
- * { manzanas: [ring], calles, verdes, aguas: [{ outer, holes }] }, rings as
+ * { manzanas, perimetros: [ring], calles, verdes, aguas: [{ outer, holes }] }, rings as
  * [[x, z], ...]. Calles are built here in meters (their width is in meters)
  * and merged, so crossing calles read as one street network. Empty if the
  * loteo has no surfaces or no valid calibration.
@@ -56,7 +56,7 @@ export function lotGeoRing(geoPoints) {
  * `projection` = the scene's { toLocal(lat, lng) → { x, z }, toGeo(x, z) → { lat, lng } }.
  */
 export function geoSurfaceRings(geoSurfaces, geoPoints, projection, lotRings = []) {
-  const empty = { manzanas: [], calles: [], verdes: [], aguas: [] };
+  const empty = { manzanas: [], calles: [], verdes: [], aguas: [], perimetros: [] };
   const H = geoHomography(geoPoints);
   if (!H || !geoSurfaces) return empty;
   const { toLocal, toGeo } = projection;
@@ -65,9 +65,11 @@ export function geoSurfaceRings(geoSurfaces, geoPoints, projection, lotRings = [
     const { x, z } = toLocal(lat, lng);
     return [x, z];
   };
-  const manzanas = (geoSurfaces.manzanas ?? [])
+  // Plain polygons, taken as drawn (no natural border, no clipping).
+  const polygons = list => (list ?? [])
     .filter(m => m.points?.length >= 3)
     .map(m => m.points.map(toMeters));
+  const manzanas = polygons(geoSurfaces.manzanas);
   const ribbons = (geoSurfaces.calles ?? [])
     .filter(c => c.axis?.length >= 2 && c.width > 0)
     .map(c => buildStreetRibbon(c.axis.map(toMeters), c.width));
@@ -92,5 +94,6 @@ export function geoSurfaceRings(geoSurfaces, geoPoints, projection, lotRings = [
     calles: unionStreetAreas(ribbons),
     verdes: natural(geoSurfaces.verdes),
     aguas: natural(geoSurfaces.aguas),
+    perimetros: polygons(geoSurfaces.perimetros),
   };
 }

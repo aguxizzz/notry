@@ -201,14 +201,15 @@ export function createMapScene({
   });
   scene.add(lotLayer.group);
 
-  // Manzanas, calles, verdes and agua go under the lots (see the renderOrder in
+  // Manzanas, calles, verdes, agua and perímetro go under the lots (see the renderOrder in
   // surfaceLayer.js). Verdes and agua are kept off the lots' blueprint outlines.
   const lotBlueprintRings = lots
     .map(({ lot }) => lot.blueprint_coordinates)
     .filter((ring) => ring?.length >= 3);
   const surfaceLayer = createSurfaceLayer(
     geoSurfaceRings(geoSurfaces, geoCalibrationPoints, projection, lotBlueprintRings),
-    { sunDir },
+    // The perímetro's veil reaches the end of the blurry outer ring.
+    { sunDir, veilRadius: OUTER_RADIUS_M, pixelRatio: renderer.getPixelRatio() },
   );
   scene.add(surfaceLayer.group);
 

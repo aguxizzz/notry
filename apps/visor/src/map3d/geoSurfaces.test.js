@@ -30,8 +30,8 @@ describe('geoHomography', () => {
 describe('geoSurfaceRings', () => {
   test('nothing without calibration or surfaces', () => {
     const s = { manzanas: [{ id: 'm', points: [[0, 0], [1, 0], [1, 1]] }], calles: [] };
-    expect(geoSurfaceRings(s, [], projection)).toEqual({ manzanas: [], calles: [], verdes: [], aguas: [] });
-    expect(geoSurfaceRings(null, PAIRS, projection)).toEqual({ manzanas: [], calles: [], verdes: [], aguas: [] });
+    expect(geoSurfaceRings(s, [], projection)).toEqual({ manzanas: [], calles: [], verdes: [], aguas: [], perimetros: [] });
+    expect(geoSurfaceRings(null, PAIRS, projection)).toEqual({ manzanas: [], calles: [], verdes: [], aguas: [], perimetros: [] });
   });
 
   test('a manzana lands on its geo corners', () => {
@@ -43,6 +43,14 @@ describe('geoSurfaceRings', () => {
     expect(ring[0][1]).toBeCloseTo(sw.z, 3);
     expect(ring[2][0]).toBeCloseTo(ne.x, 3);
     expect(ring[2][1]).toBeCloseTo(ne.z, 3);
+  });
+
+  test('a perímetro comes through as a plain ring in meters', () => {
+    const s = { perimetros: [{ id: 'p', points: [[0, 1], [1, 1], [1, 0], [0, 0]] }] };
+    const { perimetros } = geoSurfaceRings(s, PAIRS, projection);
+    expect(perimetros).toHaveLength(1);
+    expect(perimetros[0]).toHaveLength(4);
+    expect(perimetros[0][2][0]).toBeCloseTo(toLocal(LAT + D, LNG + D).x, 3);
   });
 
   test('a calle keeps its width in meters', () => {
