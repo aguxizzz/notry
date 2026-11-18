@@ -23,7 +23,7 @@
 .cli-hero-count {
   font-family: var(--font-primary);
   font-weight: 700;
-  font-size: 1.9rem;
+  font-size: var(--text-xl);
   color: var(--color-accent-dark);
   letter-spacing: -0.02em;
   line-height: 1;
@@ -60,7 +60,7 @@
   color: #fff;
   font-family: var(--font-primary);
   font-weight: 700;
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
 }
 
 .cli-hero-info {
@@ -118,7 +118,7 @@
   background: var(--panel-bg);
   font-family: var(--font-primary);
   font-weight: 600;
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   cursor: pointer;
   transition: background var(--duration-fast) var(--ease-out),

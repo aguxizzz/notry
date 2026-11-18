@@ -1,26 +1,21 @@
 import { useMemo } from 'react';
 import { Panel, SectionHeader } from '../ui/components';
 import { CATEGORY_DISPLAY, ORIGIN_DISPLAY } from '../constants';
-import { daysSinceContact, NEGLECTED_THRESHOLD_DAYS } from '../utils/prospects';
+import { daysSinceContact, initials, NEGLECTED_THRESHOLD_DAYS } from '../utils/prospects';
 import './NeglectedProspectsPanel.css';
-
-function initials(name = '') {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase();
-}
 
 // Hero de "seguimiento vencido": contactos sin actualizar hace más de
 // NEGLECTED_THRESHOLD_DAYS días. El conteo total (para la banda de stats de
 // ClientesView) se computa con el mismo umbral vía daysSinceContact, así los
 // números nunca divergen entre este panel y la banda.
 export default function NeglectedProspectsPanel({ prospects = [], onUpdateContact }) {
+  // Lista completa para el contador; sólo se muestran los 5 más vencidos.
   const stale = useMemo(() => {
     return prospects
+      .filter(p => p.category !== 'vendido')
       .map(p => ({ ...p, days: daysSinceContact(p.last_contact) }))
       .filter(p => p.days != null && p.days >= NEGLECTED_THRESHOLD_DAYS)
-      .sort((a, b) => b.days - a.days)
-      .slice(0, 5);
+      .sort((a, b) => b.days - a.days);
   }, [prospects]);
 
   if (stale.length === 0) return null;
@@ -35,7 +30,7 @@ export default function NeglectedProspectsPanel({ prospects = [], onUpdateContac
         actions={<span className="cli-hero-count">{stale.length}</span>}
       />
       <div className="cli-hero-list">
-        {stale.map((p, i) => (
+        {stale.slice(0, 5).map((p, i) => (
           <div className="cli-hero-item" key={p.id} style={{ animationDelay: `${i * 60}ms` }}>
             <span className="cli-hero-avatar">{initials(p.name)}</span>
             <div className="cli-hero-info">

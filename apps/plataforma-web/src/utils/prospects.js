@@ -21,3 +21,14 @@ export function daysSinceContact(isoDate) {
   if (!Number.isFinite(ms) || ms < 0) return 0;
   return Math.floor(ms / (1000 * 60 * 60 * 24));
 }
+
+// "hoy" / "ayer" / "hace 12 días" / "hace 3 meses" / "hace 1 año".
+export function formatDaysAgo(days) {
+  if (days == null) return null;
+  if (days === 0) return 'hoy';
+  if (days === 1) return 'ayer';
+  if (days < 60) return `hace ${days} días`;
+  if (days < 365) return `hace ${Math.floor(days / 30)} meses`;
+  const years = Math.floor(days / 365);
+  return `hace ${years} ${years === 1 ? 'año' : 'años'}`;
+}

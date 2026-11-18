@@ -1,13 +1,10 @@
 import React, { Fragment, useEffect, useMemo, useState } from 'react';
 import {
-  Clock3,
   Pencil,
   Plus,
   RotateCw,
-  SlidersHorizontal,
   Trash2,
-  UserMinus,
-  Users,
+  X,
 } from 'lucide-react';
 import {
   Button,
@@ -20,20 +17,17 @@ import {
   RowActionsSheet,
   SearchField,
   SectionHeader,
-  Select,
   SortHeader,
-  SummaryBand,
-  SummaryMetric,
+  StageSummary,
   TablePager,
 } from '../../ui/components';
-import CategoryPieChart from '../CategoryPieChart';
 import NeglectedProspectsPanel from '../NeglectedProspectsPanel';
 import ActivityFeed from '../ActivityFeed';
 import ShellLayout from '../ShellLayout';
 import { useTableSort } from '../../hooks/useTableSort';
-import { useRowActionsMode } from '../../hooks/useRowActionsMode';
+import { editableRowProps, useRowActionsMode } from '../../hooks/useRowActionsMode';
 import { CATEGORY_DISPLAY, ORIGIN_DISPLAY, formatDate } from '../../constants';
-import { daysSinceContact, NEGLECTED_THRESHOLD_DAYS } from '../../utils/prospects';
+import { daysSinceContact, formatDaysAgo, NEGLECTED_THRESHOLD_DAYS } from '../../utils/prospects';
 import { ACTIVITY_SCOPES, getActivityTypesForScope } from '../../constants/activityTypes';
 import '../../ui/components/ActionBtn.css';
 import './ClientesView.css';
@@ -55,15 +49,46 @@ const PROSPECT_SORT_ACCESSORS = {
   last_contact: p => (p.last_contact ? new Date(p.last_contact).getTime() : null),
 };
 
+// Casillas del resumen (StageSummary), en orden de embudo. `key` es la
+// categoría del prospecto que filtran.
+const CATEGORY_SEGMENTS = [
+  { key: 'primer_contacto', color: 'var(--color-cat-contacto)', label: 'Primer contacto' },
+  { key: 'seguimiento', color: 'var(--color-cat-seguimiento)', label: 'En seguimiento' },
+  { key: 'negociacion', color: 'var(--color-cat-negociacion)', label: 'En negociación' },
+  { key: 'vendido', color: 'var(--color-cat-vendido)', label: 'Vendidos' },
+];
+
+// Filtros de "Para atender". Mismo criterio que computeClientStats: los
+// vendidos nunca cuentan como pendientes de seguimiento.
+const FOLLOWUP_FILTERS = {
+  vencido: {
+    label: 'Seguimiento vencido',
+    match: p => {
+      const days = daysSinceContact(p.last_contact);
+      return p.category !== 'vendido' && days != null && days >= NEGLECTED_THRESHOLD_DAYS;
+    },
+  },
+  sin_contactar: {
+    label: 'Sin contactar',
+    match: p => p.category !== 'vendido' && daysSinceContact(p.last_contact) == null,
+  },
+};
+
 function computeClientStats(prospects = []) {
-  let sinAsesor = 0;
+  // Vencidos y sin contactar sólo cuentan prospectos no vendidos: un vendido
+  // no necesita seguimiento (mismo criterio que el "Para hoy" de Inicio).
+  let sinContactar = 0;
   let vencido = 0;
+  const byCategory = Object.fromEntries(ORIGIN_STAGE_ORDER.map(category => [category, 0]));
   const byOrigin = new Map();
 
   for (const p of prospects) {
-    if (!p.advisor_id) sinAsesor++;
-    const days = daysSinceContact(p.last_contact);
-    if (days != null && days >= NEGLECTED_THRESHOLD_DAYS) vencido++;
+    if (p.category in byCategory) byCategory[p.category]++;
+    if (p.category !== 'vendido') {
+      const days = daysSinceContact(p.last_contact);
+      if (days == null) sinContactar++;
+      else if (days >= NEGLECTED_THRESHOLD_DAYS) vencido++;
+    }
     if (p.origin) {
       const originStats = byOrigin.get(p.origin) ?? {
         n: 0,
@@ -94,7 +119,14 @@ function computeClientStats(prospects = []) {
     })
     .sort((a, b) => b.n - a.n);
 
-  return { total, sinAsesor, vencido, origins, maxOriginCount: Math.max(...origins.map(({ n }) => n), 0) };
+  return {
+    total,
+    sinContactar,
+    vencido,
+    byCategory,
+    origins,
+    maxOriginCount: Math.max(...origins.map(({ n }) => n), 0),
+  };
 }
 
 function OriginDistribution({ origins, total, maxOriginCount }) {
@@ -139,34 +171,42 @@ function OriginDistribution({ origins, total, maxOriginCount }) {
   );
 }
 
+// Encabezado de la tabla en una sola fila: título con cantidad y filtros
+// activos a la izquierda, búsqueda a la derecha. Los filtros se eligen en el
+// resumen (StageSummary); acá solo se ven y se quitan.
 function ProspectosFilters({
+  count,
+  total,
   search,
   onSearchChange,
-  categoryFilter,
-  onCategoryChange,
+  activeFilters,
 }) {
   return (
     <DataToolbar className="inventory-controls cli-toolbar">
-      <SearchField
-        id="prospects-search"
-        ariaLabel="Buscar prospectos"
-        placeholder="Buscar por nombre o email…"
-        value={search}
-        onChange={event => onSearchChange(event.target.value)}
-      />
-      <div className="inventory-filters">
-        <SlidersHorizontal size={16} className="filter-icon" />
-        <Select
-          id="prospects-category-filter"
-          value={categoryFilter}
-          onChange={e => onCategoryChange(e.target.value)}
-          options={[
-            { value: '', label: 'Categoría: Todas' },
-            ...Object.entries(CATEGORY_DISPLAY).map(([val, label]) => ({
-              value: val,
-              label,
-            })),
-          ]}
+      <div className="cli-toolbar-head">
+        <h2 className="cli-table-title">
+          Contactos
+          {/* "N de M" en cuanto la tabla muestra menos que el total (búsqueda o filtros). */}
+          <span className="cli-table-count">
+            {count !== total ? `${count} de ${total}` : total}
+          </span>
+        </h2>
+        {activeFilters.map(f => (
+          <span key={f.key} className="cli-filter-chip">
+            {f.label}
+            <button type="button" onClick={f.onClear} aria-label={`Quitar filtro ${f.label}`}>
+              <X size={12} aria-hidden="true" />
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="cli-toolbar-tools">
+        <SearchField
+          id="prospects-search"
+          ariaLabel="Buscar prospectos"
+          placeholder="Buscar por nombre o email…"
+          value={search}
+          onChange={event => onSearchChange(event.target.value)}
         />
       </div>
     </DataToolbar>
@@ -181,9 +221,13 @@ function ProspectosTable({ prospectos, filteredProspectos, onEditProspect, onDel
   const { sort, handleSort, sorted, pageData, fillerRows, page, setPage, totalPages, total } =
     useTableSort(baseData, PROSPECT_SORT_ACCESSORS, { perPage: PROSPECTS_PER_PAGE });
 
+  // Escritorio: la fila entera abre la edición del prospecto.
   const handleRowClick = (e, p) => {
-    if (mode === 'inline') return;
     if (e.target.closest('button, a')) return;
+    if (mode === 'inline') {
+      onEditProspect(p);
+      return;
+    }
     if (mode === 'drawer') {
       setSheetProspect(p);
       return;
@@ -222,7 +266,7 @@ function ProspectosTable({ prospectos, filteredProspectos, onEditProspect, onDel
             <SortHeader label="Categoría" sortKey="category" sort={sort} onSort={handleSort} />
             <SortHeader label="Origen" sortKey="origin" sort={sort} onSort={handleSort} className="th-secondary" />
             <SortHeader label="Último Contacto" sortKey="last_contact" sort={sort} onSort={handleSort} />
-            <th scope="col" className="th-actions">Acciones</th>
+            <th scope="col" className="th-actions"><span className="sr-only">Acciones</span></th>
           </tr>
         </thead>
         <tbody>
@@ -238,10 +282,38 @@ function ProspectosTable({ prospectos, filteredProspectos, onEditProspect, onDel
                   {CATEGORY_DISPLAY[p.category] ?? p.category?.replace(/_/g, ' ')}
                 </span>
               );
+              // Mismo criterio que el resumen: vendidos nunca cuentan como
+              // vencidos ni "sin contactar", quedan neutros.
+              const days = daysSinceContact(p.last_contact);
+              const sold = p.category === 'vendido';
+              const contactState = sold ? 'ok'
+                : days == null ? 'never'
+                : days >= NEGLECTED_THRESHOLD_DAYS ? 'overdue'
+                : 'ok';
+              const hasNotes = !!p.observation_notes?.trim();
+              const dateTitle = [
+                p.last_contact && formatDate(p.last_contact),
+                hasNotes && 'clic para ver observaciones',
+              ].filter(Boolean).join(' · ') || undefined;
+              // La fecha misma abre las observaciones; "Registrar" sólo en
+              // escritorio (en acordeón/sheet está como acción con label).
               const lastContactNode = (
                 <div className="last-contact-cell">
-                  <span>{formatDate(p.last_contact)}</span>
-                  <CommentTooltip content={p.observation_notes} label="Observaciones" entityName={p.name} />
+                  <CommentTooltip content={p.observation_notes} label="Observaciones" entityName={p.name}>
+                    <span className={`last-contact-date is-${contactState}`} title={dateTitle}>
+                      {days == null ? (sold ? '—' : 'Sin contactar') : formatDaysAgo(days)}
+                    </span>
+                  </CommentTooltip>
+                  {mode === 'inline' && (
+                    <button
+                      type="button"
+                      className="last-contact-register"
+                      onClick={() => onUpdateContact(p.id, p.name)}
+                      aria-label={`Registrar contacto con ${p.name}`}
+                    >
+                      <RotateCw size={12} strokeWidth={2} aria-hidden="true" /> Registrar
+                    </button>
+                  )}
                 </div>
               );
 
@@ -290,34 +362,19 @@ function ProspectosTable({ prospectos, filteredProspectos, onEditProspect, onDel
                 <Fragment key={p.id}>
                 <tr
                   id={`prospect-row-${p.id}`}
-                  className={mode !== 'inline' ? 'row-clickable' : undefined}
+                  className="row-clickable"
                   onClick={(e) => handleRowClick(e, p)}
+                  {...editableRowProps(mode, p.name, () => onEditProspect(p))}
                 >
                   <td className="td-name">{p.name}</td>
                   <td className="td-muted td-secondary">{p.email || '—'}</td>
                   <td className="td-muted td-secondary">{p.phone || '—'}</td>
-                  <td>{categoryBadge}</td>
-                  <td className="td-muted td-secondary">
+                  <td className="td-nowrap">{categoryBadge}</td>
+                  <td className="td-muted td-secondary td-nowrap">
                     {ORIGIN_DISPLAY[p.origin] ?? '—'}
                   </td>
                   <td className="td-muted">{lastContactNode}</td>
                   <td className="td-actions">
-                    <button
-                      className="action-btn update"
-                      onClick={() => onUpdateContact(p.id, p.name)}
-                      title="Actualizar Contacto"
-                      aria-label={`Actualizar contacto ${p.name}`}
-                    >
-                      <RotateCw size={16} />
-                    </button>
-                    <button
-                      className="action-btn edit"
-                      onClick={() => onEditProspect(p)}
-                      title="Editar"
-                      aria-label={`Editar ${p.name}`}
-                    >
-                      <Pencil size={16} />
-                    </button>
                     <button
                       className="action-btn delete"
                       onClick={() => onDeleteProspect(p)}
@@ -438,6 +495,33 @@ export default function ClientesView({
   activities = [],
 }) {
   const stats = useMemo(() => computeClientStats(allProspectosList), [allProspectosList]);
+  // Filtro de "Para atender" (vencido / sin contactar). Es local a la vista;
+  // la categoría vive en App porque también la usa el sync.
+  const [followupFilter, setFollowupFilter] = useState(null);
+
+  // Combina búsqueda + categoría (ya resueltas en App) con el filtro de seguimiento.
+  // null = sin filtros, ProspectosTable muestra la lista completa.
+  const visibleProspectos = useMemo(() => {
+    if (!followupFilter) return filteredProspectos;
+    const base = filteredProspectos ?? allProspectosList ?? [];
+    return base.filter(FOLLOWUP_FILTERS[followupFilter].match);
+  }, [filteredProspectos, allProspectosList, followupFilter]);
+
+  const toggleFollowup = key => setFollowupFilter(prev => (prev === key ? null : key));
+
+  const activeFilters = [
+    prospectosCategoryFilter && {
+      key: 'category',
+      label: CATEGORY_SEGMENTS.find(s => s.key === prospectosCategoryFilter)?.label
+        ?? CATEGORY_DISPLAY[prospectosCategoryFilter],
+      onClear: () => onCategoryChange(''),
+    },
+    followupFilter && {
+      key: 'followup',
+      label: FOLLOWUP_FILTERS[followupFilter].label,
+      onClear: () => setFollowupFilter(null),
+    },
+  ].filter(Boolean);
 
   const clientActivities = useMemo(
     () => activities.filter(a => CLIENT_ACTIVITY_TYPES.has(a.type)),
@@ -460,50 +544,49 @@ export default function ClientesView({
             }
           />
 
-          <SummaryBand
+          {/* Resumen: cada etapa filtra por categoría; "Para atender" filtra por seguimiento. */}
+          <StageSummary
             className="cli-summary"
             aria-label="Resumen de la cartera"
-            lead={<CategoryPieChart prospects={allProspectosList} embedded />}
-          >
-            <SummaryMetric
-              icon={<Users size={17} />}
-              label="Total contactos"
-              hint="cartera registrada"
-              value={stats.total}
-            />
-            <SummaryMetric
-              icon={<UserMinus size={17} />}
-              label="Sin asesor"
-              hint="requieren asignación"
-              value={stats.sinAsesor}
-            />
-            <SummaryMetric
-              icon={<Clock3 size={17} />}
-              label="Seguimiento vencido"
-              hint="requieren contacto"
-              value={stats.vencido}
-              tone={stats.vencido > 0 ? 'followup' : 'neutral'}
-            />
-          </SummaryBand>
+            total={{ value: stats.total, label: 'contactos' }}
+            segments={CATEGORY_SEGMENTS.map(s => ({ ...s, value: stats.byCategory[s.key] }))}
+            activeKey={prospectosCategoryFilter || null}
+            onSelect={key => onCategoryChange(key ?? '')}
+            aside={{
+              title: 'Para atender',
+              tone: 'alert',
+              items: [
+                {
+                  key: 'vencido',
+                  label: 'Seguimiento vencido',
+                  value: stats.vencido,
+                  active: followupFilter === 'vencido',
+                  onClick: () => toggleFollowup('vencido'),
+                },
+                {
+                  key: 'sin_contactar',
+                  label: 'Sin contactar',
+                  value: stats.sinContactar,
+                  active: followupFilter === 'sin_contactar',
+                  onClick: () => toggleFollowup('sin_contactar'),
+                },
+              ],
+            }}
+          />
 
           <NeglectedProspectsPanel prospects={allProspectosList} onUpdateContact={onUpdateContact} />
 
           <Panel as="section" className="cli-table-panel" flush>
-            <SectionHeader
-              className="cli-phead"
-              eyebrow="Directorio"
-              title="Contactos"
-              sub="Gestioná etapa, asesor y último seguimiento"
-            />
             <ProspectosFilters
+              count={(visibleProspectos ?? allProspectosList ?? []).length}
+              total={allProspectosList?.length ?? 0}
               search={prospectosSearch}
               onSearchChange={onSearchChange}
-              categoryFilter={prospectosCategoryFilter}
-              onCategoryChange={onCategoryChange}
+              activeFilters={activeFilters}
             />
             <ProspectosTable
               prospectos={allProspectosList}
-              filteredProspectos={filteredProspectos}
+              filteredProspectos={visibleProspectos}
               onEditProspect={onEditProspect}
               onDeleteProspect={onDeleteProspect}
               onUpdateContact={onUpdateContact}
