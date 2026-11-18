@@ -89,14 +89,14 @@ export function ViewModeSwitch({ modes, value, onSelect, withIcons = false, clas
   );
 }
 
-// Pestañas Lotes / Cerca (si hay lugares). `children` va al final (Proyecto en
-// escritorio, cerrar en celular).
+// Pestañas Lotes / Alrededores (si hay lugares; internamente sigue siendo la
+// pestaña 'cerca'). `children` va al final (Proyecto en escritorio, cerrar en celular).
 export function LotTabs({ tab, onTab, lotCount, poiCount, className = '', children }) {
   return (
     <nav className={`lp-tabs ${className}`} role="tablist">
       <button type="button" role="tab" aria-selected={tab === 'lotes'} onClick={() => onTab('lotes')}>Lotes <span className="lp-tab-n">{lotCount}</span></button>
       {poiCount > 0 && (
-        <button type="button" role="tab" aria-selected={tab === 'cerca'} onClick={() => onTab('cerca')}>Cerca <span className="lp-tab-n">{poiCount}</span></button>
+        <button type="button" role="tab" aria-selected={tab === 'cerca'} onClick={() => onTab('cerca')}>Alrededores <span className="lp-tab-n">{poiCount}</span></button>
       )}
       {children}
     </nav>

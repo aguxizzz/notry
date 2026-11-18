@@ -207,5 +207,29 @@ export function createGroundBuilders({ toLocal, lat0, innerBox, outerBox, maxTex
     return { inner, outer: outerRing(outerRange, paintVectorCanvas(far, outerRange, tilePx, metersPerPx)) };
   }
 
-  return { satellite, render };
+  /**
+   * Low-detail ground for a geo `box` beyond the outer ring (the way to a far
+   * POI, see poiCorridor.js). One painted plane like the outer ring, drawn
+   * before it (renderOrder -2) so the ring and the sharp map win where they
+   * overlap. Capped at 2048 px: it's seen from kilometers up.
+   */
+  async function far(forMode, box) {
+    const texture = Math.min(maxTexture, 2048);
+    let range;
+    let canvas2d;
+    if (forMode === 'satellite') {
+      range = pickTileRange(box, SATELLITE.maxZoom, texture, SATELLITE.tileSize);
+      canvas2d = await stitchTiles(range, SATELLITE);
+    } else {
+      range = pickTileRange(box, VECTOR_MAX_ZOOM - 2, texture);
+      const tilePx = Math.min(1024, Math.floor(texture / Math.max(range.cols, range.rows)));
+      const metersPerPx = ((156543.03 * Math.cos(rad(lat0))) / 2 ** range.z) * (256 / tilePx);
+      canvas2d = paintVectorCanvas(await loadVectorRange(range), range, tilePx, metersPerPx);
+    }
+    const mesh = outerRing(range, canvas2d);
+    mesh.renderOrder = -2;
+    return mesh;
+  }
+
+  return { satellite, render, far };
 }

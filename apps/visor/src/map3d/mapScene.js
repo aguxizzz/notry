@@ -10,6 +10,8 @@ import { createLotLayer } from './lotLayer.js';
 import { boxAround, createGroundBuilders, disposeObject, makeProjection, rad } from './ground.js';
 import { geoSurfaceRings, lotGeoRing } from './geoSurfaces.js';
 import { SURFACE_STYLE, createSurfaceLayer } from './surfaceLayer.js';
+import { createPoiLayer, placePois } from './poiLayer.js';
+import { corridorBounds, corridorShape, createCorridorVeil } from './poiCorridor.js';
 
 // ---------------------------------------------------------------- settings
 
@@ -19,6 +21,17 @@ const INNER_MARGIN_M = 150; // sharp map around the lots (and how far you can pa
 const SATELLITE_GROW_M = 350;
 const OUTER_RADIUS_M = 3000; // blurry context ring, hidden by fog at the edge
 const DEFAULT_SPAN_M = 200; // framing when the loteo has no geo lots yet
+// Stock fog: starts thinning the map here and hides where the outer ring ends.
+const FOG_NEAR_M = 1400;
+const FOG_FAR_M = 2900;
+const CAMERA_FAR_M = 6000;
+const MAX_DISTANCE_M = 1500; // past this the end of the world shows through the fog
+
+// Far POI (poiCorridor.js): the camera rises behind the loteo looking toward
+// the place, the fog opens along the way. Fog and flight take the same time
+// so closing ends with the camera back over the loteo.
+const CORRIDOR_TILT_DEG = 52;
+const CORRIDOR_MS = 1100;
 
 // Selected lot: same numbers the ArcGIS version had, tested on a real loteo.
 // The block is low on purpose (3 m): marks the lot without reading as a house.
@@ -111,10 +124,15 @@ function inside(pts, x, z) {
  * - `onError(err)`: the map couldn't be built.
  * - `initialInsets`: what the UI covers on start (same shape as setInsets),
  *   so the opening view already leaves the phone's top card out.
+ * - `pois` (all POI annotations), `northOffset`, `panoramaWidth`: see
+ *   poiLayer.js; `onPoiClick(annotation)` when one is tapped, `onPoiClick(null)`
+ *   when the picked one is let go (the × on its label). `demoPois` adds
+ *   two made-up places inside the loteo (preview only).
  */
 export function createMapScene({
   container, latitude, longitude, annotations, loteLabels, geoSurfaces, geoCalibrationPoints, lite = false,
   onLotClick, onLoadingChange, onError, initialInsets,
+  pois = [], northOffset = null, panoramaWidth = null, demoPois = false, onPoiClick,
 }) {
   // Biggest texture we stitch: 4096² RGBA is 64 MB of GPU memory, too much
   // for a low-end phone; 2048² is 16 MB.
@@ -182,7 +200,9 @@ export function createMapScene({
   const anisotropy = lite ? 1 : Math.min(4, renderer.capabilities.getMaxAnisotropy());
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(45, 1, 1, 6000);
+  const camera = new THREE.PerspectiveCamera(45, 1, 1, CAMERA_FAR_M);
+  // One fog for both modes (setMode recolors it); a far POI pushes it back.
+  const fog = new THREE.Fog(0xffffff, FOG_NEAR_M, FOG_FAR_M);
 
   // Ambient + sun; color and intensity are set per mode in setMode (LIGHT).
   const ambient = new THREE.AmbientLight();
@@ -254,7 +274,14 @@ export function createMapScene({
     sun.intensity = light.sun * Math.PI;
     const sky = new THREE.Color(STYLE[mode].sky);
     scene.background = sky;
-    scene.fog = new THREE.Fog(sky, 1400, 2900); // hides where the outer ring ends
+    fog.color.copy(sky);
+    scene.fog = fog;
+    // A corridor open while switching: same veil in the new sky, and the
+    // ground on the way rebuilt in the new mode's look.
+    if (corridor) {
+      corridor.veil.setColor(sky);
+      loadCorridorGround(corridor);
+    }
     refreshBlock(false);
     renderer.shadowMap.needsUpdate = true;
     onLoadingChange?.(false);
@@ -289,16 +316,18 @@ export function createMapScene({
   controls.dampingFactor = 0.12;
   controls.maxPolarAngle = rad(80); // never below the horizon
   controls.minDistance = 25;
-  controls.maxDistance = 1500; // past this the end of the world shows through the fog
+  controls.maxDistance = MAX_DISTANCE_M;
   controls.screenSpacePanning = false; // pan slides over the ground, not up into the sky
   controls.autoRotateSpeed = ORBIT_DEG_PER_S / 6; // OrbitControls: 1.0 = 6°/s when given a delta
   controls.addEventListener('change', requestRender);
 
-  // Keep the target over the sharp map so you can't pan off the edge.
+  // Keep the target over the sharp map so you can't pan off the edge. An open
+  // corridor widens it to reach the far POI (and narrows it back on close).
   const limit = span + INNER_MARGIN_M;
+  let panLimit = limit;
   controls.addEventListener('change', () => {
-    controls.target.x = THREE.MathUtils.clamp(controls.target.x, -limit, limit);
-    controls.target.z = THREE.MathUtils.clamp(controls.target.z, -limit, limit);
+    controls.target.x = THREE.MathUtils.clamp(controls.target.x, -panLimit, panLimit);
+    controls.target.z = THREE.MathUtils.clamp(controls.target.z, -panLimit, panLimit);
   });
 
   // --- panel insets: the part of the screen the lot panel covers. The
@@ -342,6 +371,26 @@ export function createMapScene({
     const position = new THREE.Vector3(0, Math.cos(tilt) * d, Math.sin(tilt) * d);
     return { position, target };
   }
+
+  // --- POIs (preview): pins inside the loteo, edge pills for the rest.
+  const placedPois = placePois(pois, {
+    geoPoints: geoCalibrationPoints, latitude, longitude, northOffset, panoramaWidth, toLocal,
+  });
+  if (demoPois) {
+    // Two made-up places just outside the lots, to see what an inside POI
+    // looks like on a loteo that has none.
+    placedPois.push(
+      { id: 'demo-acceso', exact: true, x: 0, z: halfZ + 25, ann: { type: 'poi', uuid: 'demo-acceso', tooltip: 'Acceso principal', description: 'POI de prueba.' } },
+      { id: 'demo-club', exact: true, x: halfX + 35, z: -halfZ * 0.3, ann: { type: 'poi', uuid: 'demo-club', tooltip: 'Club house', description: 'POI de prueba.' } },
+    );
+  }
+  const poiLayer = createPoiLayer({
+    container,
+    pois: placedPois,
+    getView: () => ({ camera, size, target: controls.target }),
+    onPoiClick: (ann) => onPoiClick?.(ann),
+    onPoiClose: () => onPoiClick?.(null),
+  });
 
   const resize = () => {
     size.w = Math.max(1, container.clientWidth);
@@ -475,6 +524,7 @@ export function createMapScene({
     // A lot without geo_coordinates still opens its ficha; the map stays put.
     if (!entry) return;
     onLot = true;
+    closeCorridor(false); // the flight to the lot below takes the camera back
 
     highlight = lotMesh(entry, BLOCK_COLOR, 0.55);
     scene.add(highlight);
@@ -498,6 +548,134 @@ export function createMapScene({
     onLot = false;
     const { position, target } = viewPose(view.tiltDeg);
     flyTo(position, target);
+  }
+
+  // --- far POI corridor (poiCorridor.js). `open` runs 0 → 1 while the fog
+  // opens and back to 0 on close; `target` is where it's heading. The veil
+  // and the stock fog both follow it in tick().
+  let corridor = null; // { id, poi, box, veil, ground, open, target, closing, frameDist, camToPoi }
+  const corridorGrounds = {}; // `${mode}:${poiId}` → promise of the ground mesh
+
+  // Ground on the way to the POI for the current mode. The fog starts opening
+  // only once it's in, so the camera never looks at an empty plain.
+  async function loadCorridorGround(c) {
+    if (!mode) return;
+    const forMode = mode;
+    const key = `${forMode}:${c.id}`;
+    corridorGrounds[key] ??= builders.far(forMode, c.box)
+      .catch((err) => { delete corridorGrounds[key]; throw err; });
+    let mesh;
+    try {
+      mesh = await corridorGrounds[key];
+    } catch {
+      return; // no ground: the fog just stays closed
+    }
+    if (disposed || corridor !== c || mode !== forMode) return;
+    if (c.ground) scene.remove(c.ground);
+    c.ground = mesh;
+    scene.add(mesh);
+    c.target = 1;
+    requestRender();
+  }
+
+  function openCorridor(poi) {
+    removeCorridor(); // another far POI was open: swap without the round trip
+    const shape = corridorShape(poi, span + 300);
+    const b = corridorBounds(shape);
+    const nw = projection.toGeo(b.minX, b.minZ);
+    const se = projection.toGeo(b.maxX, b.maxZ);
+    const veil = createCorridorVeil(shape, STYLE[mode ?? 'render'].sky);
+    scene.add(veil.mesh);
+    // Far enough back for the whole way to fit on screen.
+    const frameDist = Math.max(MAX_DISTANCE_M, poi.dist * 1.25);
+    // Camera → place distance once framed: the stock fog moves out to just
+    // past the place, hiding the far tiles' edges behind it (whole tiles
+    // reach well beyond the veil).
+    const camToPoi = Math.hypot(poi.dist * 0.7 + Math.sin(rad(CORRIDOR_TILT_DEG)) * frameDist, Math.cos(rad(CORRIDOR_TILT_DEG)) * frameDist);
+    corridor = {
+      id: poi.id, poi, veil, ground: null, open: 0, target: 0, frameDist, camToPoi,
+      box: { north: nw.lat, south: se.lat, west: nw.lng, east: se.lng },
+    };
+    camera.far = frameDist * 6;
+    camera.updateProjectionMatrix();
+    controls.maxDistance = frameDist * 1.4;
+    panLimit = poi.dist + 500;
+    loadCorridorGround(corridor);
+
+    // Behind the loteo, looking at the place, aimed at a third of the way:
+    // further out and the loteo drops off the bottom of the screen.
+    const dir = new THREE.Vector3(poi.x / poi.dist, 0, poi.z / poi.dist);
+    const target = dir.clone().multiplyScalar(poi.dist * 0.3);
+    const tilt = rad(CORRIDOR_TILT_DEG);
+    const toPos = target.clone().addScaledVector(dir, -Math.sin(tilt) * frameDist);
+    toPos.y = Math.cos(tilt) * frameDist;
+    flyTo(toPos, target, { ms: CORRIDOR_MS });
+  }
+
+  // Starts closing; removeCorridor() finishes once the fog is back and the
+  // camera landed. `flyBack`: return to the loteo (nothing else will move it).
+  function closeCorridor(flyBack) {
+    if (!corridor) return;
+    corridor.target = 0;
+    corridor.closing = true;
+    if (flyBack && !selected) goToView('overview');
+    requestRender();
+  }
+
+  // Drops the corridor at once and puts the stock fog and limits back.
+  function removeCorridor() {
+    if (!corridor) return;
+    scene.remove(corridor.veil.mesh);
+    corridor.veil.dispose();
+    if (corridor.ground) scene.remove(corridor.ground); // cached, freed on dispose
+    corridor = null;
+    fog.near = FOG_NEAR_M;
+    fog.far = FOG_FAR_M;
+    camera.far = CAMERA_FAR_M;
+    camera.updateProjectionMatrix();
+    controls.maxDistance = MAX_DISTANCE_M;
+    panLimit = limit;
+    requestRender();
+  }
+
+  // Veil and fog for the current `open` (eased): the veil covers what's off
+  // the corridor while the stock fog moves out to just past the place.
+  function applyCorridor() {
+    const k = corridor.open < 0.5 ? 2 * corridor.open ** 2 : 1 - (-2 * corridor.open + 2) ** 2 / 2;
+    corridor.veil.setOpacity(k);
+    fog.near = THREE.MathUtils.lerp(FOG_NEAR_M, corridor.camToPoi * 1.05, k);
+    fog.far = THREE.MathUtils.lerp(FOG_FAR_M, corridor.camToPoi * 1.5, k);
+  }
+
+  /**
+   * Marks the POI with this id (or none) and turns the camera toward it: a
+   * near one is framed together with the lots; a far one opens the fog
+   * corridor to it (see openCorridor).
+   */
+  let selectedPoiId = null;
+  function setSelectedPoi(id) {
+    if (id === selectedPoiId) return;
+    selectedPoiId = id;
+    poiLayer.setSelected(id);
+    requestRender();
+    const poi = id == null ? null : poiLayer.find(id);
+    if (!poi?.far) closeCorridor(!poi);
+    if (!poi) return;
+    onLot = false;
+    if (poi.far) {
+      openCorridor(poi);
+      return;
+    }
+    const heading = Math.atan2(poi.x, poi.z);
+    const tilt = rad(55);
+    const target = new THREE.Vector3(poi.x / 2, 0, poi.z / 2);
+    let dist = Math.max(Math.max(halfX, halfZ) * 2.6, poi.dist * 1.4);
+    dist = THREE.MathUtils.clamp(dist, controls.minDistance, MAX_DISTANCE_M);
+    // Camera on the opposite side from the POI, so it shows up ahead.
+    const toPos = target.clone().add(new THREE.Vector3(
+      -Math.sin(heading) * Math.sin(tilt) * dist, Math.cos(tilt) * dist, -Math.cos(heading) * Math.sin(tilt) * dist,
+    ));
+    flyTo(toPos, target, { ms: 1100 });
   }
 
   /** Moves closer (factor < 1) or farther (> 1) along the current view line. */
@@ -613,6 +791,18 @@ export function createMapScene({
       if (t === 1) grow = null;
       needsRender = true;
     }
+    if (corridor && corridor.open !== corridor.target) {
+      const step = prefersReducedMotion() ? 1 : (dt * 1000) / CORRIDOR_MS;
+      corridor.open = corridor.target > corridor.open
+        ? Math.min(corridor.target, corridor.open + step)
+        : Math.max(corridor.target, corridor.open - step);
+      applyCorridor();
+      needsRender = true;
+    }
+    // Closed and the camera is back: only now the stock limits return, or
+    // maxDistance would snap the camera mid-flight. `closing`, not just
+    // open = 0: a corridor whose ground is still loading is also at 0.
+    if (corridor?.closing && corridor.open === 0 && !fly) removeCorridor();
     // Stop orbiting once the lot leaves the screen (the user went elsewhere).
     if (controls.autoRotate && selected) {
       projected.copy(selected.center).project(camera);
@@ -623,6 +813,7 @@ export function createMapScene({
     if (needsRender) {
       lotLayer.update(camera, controls.target); // numbers turn with the heading
       renderer.render(scene, camera);
+      poiLayer.update(); // HTML overlay follows the frame just drawn
       needsRender = false;
     }
     frame = requestAnimationFrame(tick);
@@ -642,6 +833,9 @@ export function createMapScene({
     for (const mesh of [block, highlight, hover?.mesh]) removeMesh(mesh);
     lotLayer.dispose();
     surfaceLayer.dispose();
+    poiLayer.dispose();
+    removeCorridor();
+    for (const p of Object.values(corridorGrounds)) p.then(disposeObject).catch(() => {});
     // Grounds of both modes, also the one not on screen. A build still in
     // flight is freed when it lands.
     for (const p of Object.values(cache)) {
@@ -656,7 +850,7 @@ export function createMapScene({
   }
 
   return {
-    setMode, setSelected, setInsets, goToView,
+    setMode, setSelected, setSelectedPoi, setInsets, goToView,
     zoomIn: () => zoomBy(ZOOM_STEP),
     zoomOut: () => zoomBy(1 / ZOOM_STEP),
     dispose,

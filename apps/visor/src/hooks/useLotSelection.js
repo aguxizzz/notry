@@ -127,6 +127,7 @@ export function useLotSelection(handles, { annotationsById, stageId, stageNameBy
   return {
     panel,
     selectedLotId: panel.isOpen && !panel.poi ? panel.markerId : null,
+    selectedPoiId: panel.isOpen && panel.poi ? panel.markerId : null,
     closePanel,
     handleMarkerSelect,
     handleBlueprintSelect,

@@ -58,7 +58,7 @@ export default function ViewerExperience() {
     stageNameById: nav.stageNameById,
     viewMode,
   });
-  const { closePanel, selectLotById, hoverLot } = selection;
+  const { closePanel, selectLotById, hoverLot, handleBlueprintSelect } = selection;
 
   const homePosition = useMemo(
     () => (visor?.homeYaw != null ? { yaw: visor.homeYaw, pitch: visor.homePitch ?? 0 } : null),
@@ -68,7 +68,32 @@ export default function ViewerExperience() {
   const camera = useCameraControls(handles, { homePosition, northOffset });
   // Botones de cámara del mapa 3D (satélite/render); los expone MapViewer.
   const mapRef = useRef(null);
+  // Todos los POIs de la etapa para el mapa 3D, también los que no están en el
+  // plano (los de afuera del loteo). Memo: un array nuevo rearmaría la escena.
+  const mapPois = useMemo(
+    () => (visor?.annotations ?? []).filter((a) => a.type === 'poi'),
+    [visor]
+  );
   const isMap3d = viewMode === 'satellite' || viewMode === 'render';
+  // POI al que apunta el mapa 3D sin tener la ficha abierta: elegirlo en
+  // "Alrededores" (o tocar un pin) gira la cámara hacia él y muestra la línea
+  // con su nombre; tocarlo de nuevo abre la ficha, que en escritorio tapa el
+  // centro del mapa. Los lugares de afuera solo aparecen así.
+  const [mapPoiFocus, setMapPoiFocus] = useState(null);
+  const pickMapPoi = useCallback((ann) => {
+    if (!ann) { setMapPoiFocus(null); return; } // la × de la etiqueta del lugar
+    const id = ann.uuid || ann.id;
+    if (id === mapPoiFocus) handleBlueprintSelect(ann);
+    else setMapPoiFocus(id);
+  }, [mapPoiFocus, handleBlueprintSelect]);
+  // Tocar un lote en el mapa suelta el POI, así al cerrar la ficha la
+  // cámara no vuelve a girar hacia él.
+  const selectMapLot = useCallback((ann) => {
+    setMapPoiFocus(null);
+    handleBlueprintSelect(ann);
+  }, [handleBlueprintSelect]);
+  // Un lote abierto manda: el mapa deja de apuntar al POI.
+  const mapPoiId = selection.selectedLotId ? null : (selection.selectedPoiId ?? mapPoiFocus);
   const { heading, onPositionChange } = useCompass();
 
   // Candidatas para una única precarga conservadora. useViewer descarta las
@@ -180,7 +205,7 @@ export default function ViewerExperience() {
     services: visor.services ?? null,
     selectedId: selection.selectedLotId,
     onCloseLot: closePanel,
-    onPoiSelect: selection.flyToPoi,
+    onPoiSelect: isMap3d ? setMapPoiFocus : selection.flyToPoi,
     onFilterChange: setLotFilter,
     whatsappPhone: group.whatsappPhone,
     hideContactForm: group.hideContactForm,
@@ -252,8 +277,13 @@ export default function ViewerExperience() {
             geoSurfaces={visor.geoSurfaces}
             geoCalibrationPoints={visor.geoCalibrationPoints}
             selectedId={selection.selectedLotId}
-            onMarkerSelect={selection.handleBlueprintSelect}
+            onMarkerSelect={selectMapLot}
             usePanel={layout.usePanel}
+            pois={mapPois}
+            northOffset={northOffset}
+            panoramaWidth={visor.panoramaWidth}
+            selectedPoiId={mapPoiId}
+            onPoiSelect={pickMapPoi}
           />
         </Suspense>
       ) : (

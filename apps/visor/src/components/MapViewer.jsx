@@ -29,10 +29,14 @@ const isLiteDevice = () => document.documentElement.classList.contains('perf-lit
  * much of the screen the panel covers (collapsing it is subscribed to
  * directly, it isn't React state). `ref` exposes the
  * camera buttons: zoomIn, zoomOut and goToView('overview' | 'top').
+ * `pois` are all the stage's POI annotations, `selectedPoiId` the one the map
+ * points at and `onPoiSelect(ann)` a tap on one (falls back to onMarkerSelect);
+ * `northOffset`/`panoramaWidth` place the ones outside the loteo.
  */
 export default function MapViewer({
   latitude, longitude, annotations, loteLabels, geoSurfaces, geoCalibrationPoints,
   variant = 'satellite', selectedId, onMarkerSelect, usePanel, ref,
+  pois, northOffset, panoramaWidth, selectedPoiId, onPoiSelect,
 }) {
   const containerRef = useRef(null);
   const sceneRef = useRef(null);
@@ -50,12 +54,16 @@ export default function MapViewer({
   // a freshly built scene pick up the current values right away. Synced in a
   // layout effect, which runs before every regular effect of the same commit.
   const onMarkerSelectRef = useRef(onMarkerSelect);
+  const onPoiSelectRef = useRef(onPoiSelect);
   const variantRef = useRef(variant);
   const selectedIdRef = useRef(selectedId);
+  const selectedPoiIdRef = useRef(selectedPoiId);
   useLayoutEffect(() => {
     onMarkerSelectRef.current = onMarkerSelect;
+    onPoiSelectRef.current = onPoiSelect;
     variantRef.current = variant;
     selectedIdRef.current = selectedId;
+    selectedPoiIdRef.current = selectedPoiId;
   });
 
   // What the panel covers. On phones the bottom sheet only exists with a lot
@@ -84,6 +92,13 @@ export default function MapViewer({
         lite: isLiteDevice(),
         initialInsets: readInsets(),
         onLotClick: (ann) => onMarkerSelectRef.current?.(ann),
+        // POIs (preview, see map3d/poiLayer.js). ?poisdemo=1 adds two
+        // made-up places inside the loteo, for loteos that have none.
+        pois,
+        northOffset,
+        panoramaWidth,
+        demoPois: new URLSearchParams(window.location.search).has('poisdemo'),
+        onPoiClick: (ann) => (onPoiSelectRef.current ?? onMarkerSelectRef.current)?.(ann),
         onLoadingChange: setLoading,
         onError: (err) => {
           console.error('MapViewer: no se pudo armar el mapa', err);
@@ -99,6 +114,7 @@ export default function MapViewer({
     sceneRef.current = scene;
     scene.setInsets(readInsets());
     scene.setSelected(selectedIdRef.current);
+    scene.setSelectedPoi(selectedPoiIdRef.current);
     scene.setMode(variantRef.current);
     return () => {
       sceneRef.current = null;
@@ -108,7 +124,7 @@ export default function MapViewer({
       setError(null);
       setLoading(true);
     };
-  }, [latitude, longitude, annotations, loteLabels, geoSurfaces, geoCalibrationPoints]);
+  }, [latitude, longitude, annotations, loteLabels, geoSurfaces, geoCalibrationPoints, pois, northOffset, panoramaWidth]);
 
   useEffect(() => {
     sceneRef.current?.setMode(variant);
@@ -117,6 +133,10 @@ export default function MapViewer({
   useEffect(() => {
     sceneRef.current?.setSelected(selectedId);
   }, [selectedId]);
+
+  useEffect(() => {
+    sceneRef.current?.setSelectedPoi(selectedPoiId ?? null);
+  }, [selectedPoiId]);
 
   // The panel opens, collapses or switches to the phone layout: the free area
   // changes. Window resizes too (the panel width doesn't, but the sheet does).
