@@ -68,7 +68,7 @@ export function corridorBounds(shape, pad = 1500) {
  * The veil mesh: a flat grid with the fog amount as per-vertex alpha, in the
  * sky's color. Drawn late and without depth test so it covers every ground
  * layer (no z-fighting at 10+ km); the lots sit in the clear disk anyway.
- * `setOpacity(0-1)` fades the whole veil in and out.
+ * `setOpacity(0-1)` fades the whole veil in and out; `opacity` reads it back.
  */
 export function createCorridorVeil(shape, color) {
   const minX = Math.min(0, shape.x) - MARGIN_M;
@@ -114,6 +114,7 @@ export function createCorridorVeil(shape, color) {
 
   return {
     mesh,
+    get opacity() { return material.opacity; }, // where a crossfade to another place starts from
     setOpacity: (v) => { material.opacity = v; frameMaterial.opacity = v; },
     setColor: (c) => { material.color.set(c); frameMaterial.color.set(c); },
     dispose: () => { geom.dispose(); material.dispose(); frameGeom.dispose(); frameMaterial.dispose(); },

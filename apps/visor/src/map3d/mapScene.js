@@ -280,6 +280,7 @@ export function createMapScene({
     // ground on the way rebuilt in the new mode's look.
     if (corridor) {
       corridor.veil.setColor(sky);
+      leaving?.veil.setColor(sky); // fading out anyway, its ground can stay as is
       loadCorridorGround(corridor);
     }
     refreshBlock(false);
@@ -563,7 +564,11 @@ export function createMapScene({
   // --- far POI corridor (poiCorridor.js). `open` runs 0 → 1 while the fog
   // opens and back to 0 on close; `target` is where it's heading. The veil
   // and the stock fog both follow it in tick().
-  let corridor = null; // { id, poi, box, veil, ground, open, target, closing, frameDist, camToPoi }
+  let corridor = null; // { id, poi, box, veil, ground, open, target, closing, frameDist, camToPoi, fogFrom }
+  // The previous far POI's corridor while switching straight to another one:
+  // its veil and ground stay and fade out as the new one opens over them.
+  // `fadeFrom` is the veil opacity it had when the switch started.
+  let leaving = null;
   const corridorGrounds = {}; // `${mode}:${poiId}` → promise of the ground mesh
 
   // Ground on the way to the POI for the current mode. The fog starts opening
@@ -589,7 +594,16 @@ export function createMapScene({
   }
 
   function openCorridor(poi) {
-    removeCorridor(); // another far POI was open: swap without the round trip
+    // Another far POI was open: no round trip to the stock fog (which, from
+    // 10 km up, fogs the whole map and then sweeps it open again). Its veil
+    // crossfades into the new one and the fog moves on from where it is.
+    dropCorridor(leaving);
+    leaving = null;
+    if (corridor) {
+      leaving = corridor;
+      leaving.fadeFrom = leaving.veil.opacity;
+    }
+    const fogFrom = { near: fog.near, far: fog.far };
     const shape = corridorShape(poi, span + 300);
     const b = corridorBounds(shape);
     const nw = projection.toGeo(b.minX, b.minZ);
@@ -603,13 +617,10 @@ export function createMapScene({
     // reach well beyond the veil).
     const camToPoi = Math.hypot(poi.dist * 0.7 + Math.sin(rad(CORRIDOR_TILT_DEG)) * frameDist, Math.cos(rad(CORRIDOR_TILT_DEG)) * frameDist);
     corridor = {
-      id: poi.id, poi, veil, ground: null, open: 0, target: 0, frameDist, camToPoi,
+      id: poi.id, poi, veil, ground: null, open: 0, target: 0, frameDist, camToPoi, fogFrom,
       box: { north: nw.lat, south: se.lat, west: nw.lng, east: se.lng },
     };
-    camera.far = frameDist * 6;
-    camera.updateProjectionMatrix();
-    controls.maxDistance = frameDist * 1.4;
-    panLimit = poi.dist + 500;
+    applyCorridorLimits();
     loadCorridorGround(corridor);
 
     // Behind the loteo, looking at the place, aimed at a third of the way:
@@ -626,18 +637,43 @@ export function createMapScene({
   // camera landed. `flyBack`: return to the loteo (nothing else will move it).
   function closeCorridor(flyBack) {
     if (!corridor) return;
+    // A switch still crossfading: the old place's veil goes now, or it would
+    // come back into view as this one fades out.
+    dropCorridor(leaving);
+    leaving = null;
     corridor.target = 0;
     corridor.closing = true;
+    // Closing heads back to the stock fog, whatever the opening started from.
+    corridor.fogFrom = { near: FOG_NEAR_M, far: FOG_FAR_M };
     if (flyBack && !selected) goToView('overview');
     requestRender();
+  }
+
+  // Camera reach and pan room for the open corridor(s): while switching, the
+  // bigger of the two, so the camera isn't cut off before it gets back.
+  function applyCorridorLimits() {
+    const frameDist = Math.max(corridor.frameDist, leaving?.frameDist ?? 0);
+    const dist = Math.max(corridor.poi.dist, leaving?.poi.dist ?? 0);
+    camera.far = frameDist * 6;
+    camera.updateProjectionMatrix();
+    controls.maxDistance = frameDist * 1.4;
+    panLimit = dist + 500;
+  }
+
+  // Takes one corridor's veil and ground out of the scene.
+  function dropCorridor(c) {
+    if (!c) return;
+    scene.remove(c.veil.mesh);
+    c.veil.dispose();
+    if (c.ground) scene.remove(c.ground); // cached, freed on dispose
   }
 
   // Drops the corridor at once and puts the stock fog and limits back.
   function removeCorridor() {
     if (!corridor) return;
-    scene.remove(corridor.veil.mesh);
-    corridor.veil.dispose();
-    if (corridor.ground) scene.remove(corridor.ground); // cached, freed on dispose
+    dropCorridor(leaving);
+    leaving = null;
+    dropCorridor(corridor);
     corridor = null;
     fog.near = FOG_NEAR_M;
     fog.far = FOG_FAR_M;
@@ -649,12 +685,20 @@ export function createMapScene({
   }
 
   // Veil and fog for the current `open` (eased): the veil covers what's off
-  // the corridor while the stock fog moves out to just past the place.
+  // the corridor while the fog moves from where it was (stock, or the
+  // previous place's) out to just past this place.
   function applyCorridor() {
     const k = corridor.open < 0.5 ? 2 * corridor.open ** 2 : 1 - (-2 * corridor.open + 2) ** 2 / 2;
     corridor.veil.setOpacity(k);
-    fog.near = THREE.MathUtils.lerp(FOG_NEAR_M, corridor.camToPoi * 1.05, k);
-    fog.far = THREE.MathUtils.lerp(FOG_FAR_M, corridor.camToPoi * 1.5, k);
+    fog.near = THREE.MathUtils.lerp(corridor.fogFrom.near, corridor.camToPoi * 1.05, k);
+    fog.far = THREE.MathUtils.lerp(corridor.fogFrom.far, corridor.camToPoi * 1.5, k);
+    if (!leaving) return;
+    leaving.veil.setOpacity(leaving.fadeFrom * (1 - k));
+    if (corridor.open === 1) {
+      dropCorridor(leaving);
+      leaving = null;
+      applyCorridorLimits();
+    }
   }
 
   /**
