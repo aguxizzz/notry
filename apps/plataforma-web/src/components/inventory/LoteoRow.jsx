@@ -146,26 +146,6 @@ export default function LoteoRow({ row, mode, isExpanded, onToggleExpand, onOpen
           <span className="td-empty">—</span>
         )}
       </td>
-      <td className="td-actions">
-        <div className="loteo-link-actions">
-          <button
-            className={`action-btn services${loteo.services?.length ? ' active' : ''}`}
-            onClick={() => onOpenLoteoServices(loteo)}
-            title="Servicios"
-            aria-label={`Servicios de ${loteo.name}`}
-          >
-            <Droplet size={16} />
-          </button>
-          <button
-            className="action-btn delete"
-            onClick={() => onDeleteLoteo(loteo)}
-            title="Eliminar"
-            aria-label={`Eliminar ${loteo.name}`}
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
-      </td>
       <td className="td-links">
         <div className="loteo-link-actions">
           <button
@@ -185,6 +165,35 @@ export default function LoteoRow({ row, mode, isExpanded, onToggleExpand, onOpen
             aria-label={`Abrir editor de ${loteo.name}`}
           >
             Editor
+          </button>
+        </div>
+      </td>
+      {/* Aparecen al hover (table.css). Servicios queda junto a Editar/Eliminar;
+          con servicios cargados el ícono sale en dorado al mostrarse. */}
+      <td className="td-actions">
+        <div className="loteo-link-actions">
+          <button
+            className="action-btn row-edit"
+            onClick={() => onEditLoteo(loteo)}
+            aria-label={`Editar ${loteo.name}`}
+          >
+            <PencilLine size={14} aria-hidden="true" /> Editar
+          </button>
+          <button
+            className={`action-btn services${loteo.services?.length ? ' active' : ''}`}
+            onClick={() => onOpenLoteoServices(loteo)}
+            title="Servicios"
+            aria-label={`Servicios de ${loteo.name}`}
+          >
+            <Droplet size={16} />
+          </button>
+          <button
+            className="action-btn delete"
+            onClick={() => onDeleteLoteo(loteo)}
+            title="Eliminar"
+            aria-label={`Eliminar ${loteo.name}`}
+          >
+            <Trash2 size={16} />
           </button>
         </div>
       </td>

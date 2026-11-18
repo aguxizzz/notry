@@ -75,36 +75,10 @@
   padding: 11px var(--space-md);
 }
 
-/* Acciones tenues hasta que la fila se usa (mismo criterio que Inventario);
-   editar es clic en la fila. */
-.clientes-shell .td-actions .action-btn {
-  background: transparent;
-  color: var(--text-muted);
-  opacity: 0.45;
-  transition:
-    opacity var(--duration-fast) var(--ease-out),
-    background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
-}
-
-.clientes-shell .inventory-table tbody tr:hover .td-actions .action-btn,
-.clientes-shell .td-actions .action-btn:focus-visible {
-  opacity: 1;
-}
-
+/* Acciones de fila: aparecer al hover, Editar y Eliminar → ui/components/table.css. */
 .clientes-shell .inventory-table tbody tr.row-clickable:focus-visible {
   outline: 2px solid var(--accent-color);
   outline-offset: -2px;
-}
-
-.clientes-shell .td-actions .action-btn.update:hover {
-  background: color-mix(in srgb, #3b82f6 14%, transparent);
-  color: #3b82f6;
-}
-
-.clientes-shell .td-actions .action-btn.delete:hover {
-  background: var(--color-danger-bg);
-  color: var(--color-danger);
 }
 
 /* ── Fila inferior: distribución por origen + actividad reciente ── */

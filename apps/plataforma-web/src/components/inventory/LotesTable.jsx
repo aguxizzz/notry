@@ -156,6 +156,13 @@ export default function LotesTable({ lots, filteredLots, onEditLot, onDeleteLot,
                   <td className="td-secondary">{notasNode}</td>
                   <td className="td-actions">
                     <button
+                      className="action-btn row-edit"
+                      onClick={() => onEditLot(lot)}
+                      aria-label={`Editar ${lot.name}`}
+                    >
+                      <PencilLine size={14} aria-hidden="true" /> Editar
+                    </button>
+                    <button
                       className="action-btn delete"
                       onClick={() => onDeleteLot(lot)}
                       title="Eliminar"

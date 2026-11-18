@@ -10,6 +10,7 @@
 .loteos-table .td-actions {
   display: table-cell;
   vertical-align: middle;
+  text-align: right; /* equivale al justify-content: flex-end de las otras tablas */
 }
 
 /* Entre 768 y 1379px table.css oculta Acciones, Links y las columnas

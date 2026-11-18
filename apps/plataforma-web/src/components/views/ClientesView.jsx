@@ -377,6 +377,13 @@ function ProspectosTable({ prospectos, filteredProspectos, onEditProspect, onDel
                   <td className="td-muted">{lastContactNode}</td>
                   <td className="td-actions">
                     <button
+                      className="action-btn row-edit"
+                      onClick={() => onEditProspect(p)}
+                      aria-label={`Editar ${p.name}`}
+                    >
+                      <Pencil size={14} aria-hidden="true" /> Editar
+                    </button>
+                    <button
                       className="action-btn delete"
                       onClick={() => onDeleteProspect(p)}
                       title="Eliminar"

@@ -677,27 +677,12 @@
   border-radius: var(--radius-sm);
 }
 
-/* ── Acciones ghost (lotes y loteos). Editar es clic en la fila. ── */
-.inventario-shell .inventory-table .td-actions .action-btn {
-  background: transparent;
-  color: var(--text-muted);
-  opacity: 0.45;
-  transition:
-    opacity var(--duration-fast) var(--ease-out),
-    background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
-}
-
+/* ── Acciones de fila (lotes y loteos) ──
+   Aparecer al hover, Editar y Eliminar → ui/components/table.css.
+   Acá solo lo propio de Loteos (botón de servicios). */
 .inventario-shell .inventory-table tbody tr.row-clickable:focus-visible {
   outline: 2px solid var(--accent-color);
   outline-offset: -2px;
-}
-
-/* Tenues hasta que la fila se usa: no compiten con los datos al leer la
-   tabla, pero siguen visibles (sin depender del hover para descubrirlas). */
-.inventario-shell .inventory-table tbody tr:hover .td-actions .action-btn,
-.inventario-shell .inventory-table .td-actions .action-btn:focus-visible {
-  opacity: 1;
 }
 
 .inventario-shell .inventory-table .td-actions .action-btn.services:hover {
@@ -708,11 +693,6 @@
 /* Loteo con servicios cargados: el ícono queda en dorado. */
 .inventario-shell .inventory-table .td-actions .action-btn.services.active {
   color: var(--accent-dark);
-}
-
-.inventario-shell .inventory-table .td-actions .action-btn.delete:hover {
-  background: var(--badge-sold-bg);
-  color: var(--badge-sold);
 }
 
 /* Badges de estado → pill de ancho uniforme */

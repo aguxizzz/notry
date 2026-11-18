@@ -30,8 +30,9 @@ export default function LoteosTable({ loteos, filteredLoteos, projects, loading,
               <th scope="col">Nombre</th>
               <th scope="col" className="th-secondary">Imagen</th>
               <th scope="col" className="th-secondary">Blueprint</th>
-              <th scope="col" className="th-actions"><span className="sr-only">Acciones</span></th>
               <th scope="col" className="th-links">Links</th>
+              {/* Última, como en Lotes y Clientes: ahí aparecen los botones al hover. */}
+              <th scope="col" className="th-actions"><span className="sr-only">Acciones</span></th>
               <th scope="col" className="th-tablet-link">Visor</th>
               <th scope="col" className="th-tablet-link">Editor</th>
             </tr>

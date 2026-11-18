@@ -162,6 +162,63 @@
   cursor: pointer;
 }
 
+/* ── Acciones al hover (escritorio, ≥1380px) ───────────────────────────
+   Editar y Eliminar solo aparecen en la fila que se está usando (mouse o
+   foco con Tab), en vez de repetir la papelera en todas. Debajo de 1380px la
+   columna se oculta y las acciones viven en el acordeón/sheet. Especificidad
+   de 3 clases a propósito: ActionBtn.css se carga después y si no pisaría el
+   fondo de .action-btn.delete/.edit. */
+.inventory-table .td-actions {
+  justify-content: flex-end;
+}
+
+.inventory-table .td-actions .action-btn {
+  background: transparent;
+  color: var(--text-muted);
+  opacity: 0;
+  transition:
+    opacity var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+/* Foco solo de teclado (:focus-visible), no :focus-within: al cerrar el modal
+   de edición el foco vuelve a la fila/botón que lo abrió con el mouse, y con
+   :focus-within las acciones quedaban visibles sin hover. */
+.inventory-table tbody tr:hover .td-actions .action-btn,
+.inventory-table tbody tr:focus-visible .td-actions .action-btn,
+.inventory-table tbody tr:has(:focus-visible) .td-actions .action-btn {
+  opacity: 1;
+}
+
+/* Pantallas anchas táctiles (tablet grande apaisada): sin hover, se ven siempre. */
+@media (hover: none) {
+  .inventory-table .td-actions .action-btn {
+    opacity: 1;
+  }
+}
+
+/* "Editar" con texto: el clic en la fila ya edita, pero esto lo hace evidente. */
+.inventory-table .td-actions .action-btn.row-edit {
+  width: auto;
+  gap: 6px;
+  padding: 0 10px;
+  background: color-mix(in srgb, var(--accent-color) 12%, transparent);
+  color: var(--accent-dark);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.inventory-table .td-actions .action-btn.row-edit:hover {
+  background: var(--accent-color);
+  color: var(--text-main);
+}
+
+.inventory-table .td-actions .action-btn.delete:hover {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
 .row-actions-expand td {
   /* !important: cada shell (.inventario-shell, .clientes-shell) pisa
      `.inventory-table td` con su propio padding vertical de 9px y esa
