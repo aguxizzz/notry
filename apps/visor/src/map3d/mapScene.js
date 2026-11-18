@@ -39,6 +39,12 @@ const ORBIT_RESUME_MS = 2500;
 // How fast the view slides when the panel opens or closes (per second, as an
 // exponential approach; ~0.3 s to get there).
 const INSET_EASE = 12;
+// Frames further apart than this (under ~20 fps) mean the device can't slide
+// smoothly: every step of the slide is a full redraw plus compositing the
+// blurred panel on top, and on a low-end phone it stuttered at ~4 fps for a
+// second and a half. Then the view jumps to the end instead. Measured between
+// frames, not around render(): most of the cost lands outside that call.
+const SLOW_FRAME_MS = 50;
 
 // Sun at 8 h solar time on the equinox: early morning light from the east,
 // same look from any country and hemisphere, ~25-30° high in Argentina.
@@ -536,12 +542,14 @@ export function createMapScene({
   let frame = 0;
 
   function tick(now) {
-    const dt = Math.min(0.1, (now - prev) / 1000);
+    const frameMs = now - prev;
+    const dt = Math.min(0.1, frameMs / 1000);
     prev = now;
 
-    // Slide toward the panel shift instead of jumping when the panel moves.
+    // Slide toward the panel shift instead of jumping when the panel moves,
+    // unless the device is too slow to make it look like a slide.
     if (shift.x !== shift.tx || shift.y !== shift.ty) {
-      const k = 1 - Math.exp(-INSET_EASE * dt);
+      const k = frameMs > SLOW_FRAME_MS ? 1 : 1 - Math.exp(-INSET_EASE * dt);
       shift.x += (shift.tx - shift.x) * k;
       shift.y += (shift.ty - shift.y) * k;
       if (Math.abs(shift.tx - shift.x) < 0.5 && Math.abs(shift.ty - shift.y) < 0.5) {
