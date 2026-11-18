@@ -52,7 +52,8 @@
   overflow: hidden;
   transition: transform 0.45s var(--lp-ease);
 }
-.lp[data-collapsed='1'] { transform: translateX(calc(-100% - 24px)); }
+/* Oculto por clase en <html> y no por prop: así ocultarlo no re-renderiza el visor (ver usePanelLayout). */
+html.lp-on.lp-collapsed .lp { transform: translateX(calc(-100% - 24px)); }
 
 .lp-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 16px 16px 14px; }
 .lp-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -264,7 +265,7 @@
   box-shadow: var(--lp-shadow); font-size: 13.5px; transform: translateX(-140%); transition: transform 0.4s var(--lp-ease) 0.1s;
 }
 .lp-reopen b { font: 600 15px var(--lp-head); }
-.lp-reopen[data-collapsed='1'] { transform: none; }
+html.lp-on.lp-collapsed .lp-reopen { transform: none; }
 
 /* -------------------------------------------------------- controles de la vista */
 .lp-map-ctrl {

@@ -3,7 +3,7 @@
 // and forwards mode, selected lot and panel insets to it.
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { createMapScene } from '../map3d/mapScene.js';
-import { getLotPanelInsets } from '../hooks/usePanelLayout.js';
+import { getLotPanelInsets, subscribePanelCollapsed } from '../hooks/usePanelLayout.js';
 import './MapViewer.css';
 
 // Credits per mode, required on screen by Esri's terms and OSM's license (ODbL).
@@ -25,13 +25,14 @@ const isLiteDevice = () => document.documentElement.classList.contains('perf-lit
 /**
  * `variant` is 'satellite' or 'render'; `selectedId`
  * is the lot with its ficha open (from useLotSelection), the map flies to it.
- * `usePanel`/`panelCollapsed` come from usePanelLayout and only trigger a
- * new reading of how much of the screen the panel covers. `ref` exposes the
+ * `usePanel` comes from usePanelLayout and only triggers a new reading of how
+ * much of the screen the panel covers (collapsing it is subscribed to
+ * directly, it isn't React state). `ref` exposes the
  * camera buttons: zoomIn, zoomOut and goToView('overview' | 'top').
  */
 export default function MapViewer({
   latitude, longitude, annotations, loteLabels, geoSurfaces, geoCalibrationPoints,
-  variant = 'satellite', selectedId, onMarkerSelect, usePanel, panelCollapsed, ref,
+  variant = 'satellite', selectedId, onMarkerSelect, usePanel, ref,
 }) {
   const containerRef = useRef(null);
   const sceneRef = useRef(null);
@@ -123,8 +124,12 @@ export default function MapViewer({
     const update = () => sceneRef.current?.setInsets(readInsets());
     update();
     window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, [selectedId, panelCollapsed, usePanel]);
+    const unsubscribe = subscribePanelCollapsed(update);
+    return () => {
+      window.removeEventListener('resize', update);
+      unsubscribe();
+    };
+  }, [selectedId, usePanel]);
 
   if (latitude == null || longitude == null) return null;
 

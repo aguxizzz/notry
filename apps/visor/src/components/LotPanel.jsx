@@ -19,7 +19,7 @@ export function LotPanel(props) {
   const {
     project, stageName, stages, currentStageId, stageBusy, onSelectStage,
     viewModes, viewMode, onSelectViewMode, services, selectedId, onSelectLot, onHoverLot, onCloseLot,
-    onPoiSelect, collapsed, onToggleCollapsed, whatsappPhone, loteoId,
+    onPoiSelect, onToggleCollapsed, whatsappPhone, loteoId,
   } = props;
   const [tab, setTab] = useState('lotes');
   const { browser, selected, form, fichaProps } = useLotUi(props);
@@ -27,7 +27,8 @@ export function LotPanel(props) {
 
   return (
     <>
-      <aside id="lot-panel" className="lp" data-collapsed={collapsed ? '1' : '0'} data-selected={selected ? '1' : '0'} aria-label="Panel del loteo">
+      {/* Oculto/visible no pasa por acá: lo resuelve la clase lp-collapsed de <html> (ver usePanelLayout). */}
+      <aside id="lot-panel" className="lp" data-selected={selected ? '1' : '0'} aria-label="Panel del loteo">
         <header className="lp-head">
           <Brand project={project} stageName={stageName} />
           <button type="button" className="lp-icon-btn" onClick={onToggleCollapsed} aria-label="Ocultar panel" title="Ocultar panel"><Ico d={I.prev} /></button>
@@ -106,7 +107,7 @@ export function LotPanel(props) {
         )}
       </aside>
 
-      <button type="button" className="lp-reopen" data-collapsed={collapsed ? '1' : '0'} onClick={onToggleCollapsed}>
+      <button type="button" className="lp-reopen" onClick={onToggleCollapsed}>
         <Ico d={I.next} /><b>{counts.available}</b> disponibles
       </button>
     </>

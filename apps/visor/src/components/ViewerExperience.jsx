@@ -14,7 +14,7 @@ import { useStageNavigation } from '../hooks/useStageNavigation.js';
 import { useStageMarkers } from '../hooks/useStageMarkers.js';
 import { useLotSelection, useDeepLinkLot } from '../hooks/useLotSelection.js';
 import { useCameraControls } from '../hooks/useCameraControls.js';
-import { usePanelLayout, getLotPanelInsets } from '../hooks/usePanelLayout.js';
+import { usePanelLayout, getLotPanelInsets, expandPanel, togglePanelCollapsed } from '../hooks/usePanelLayout.js';
 import { useRecommendedLots } from '../hooks/useRecommendedLots.js';
 import { useOnboarding } from '../hooks/useOnboarding.js';
 import { useCompass } from '../hooks/useCompass.js';
@@ -120,11 +120,10 @@ export default function ViewerExperience() {
   }, [closePanel, showStage]);
 
   // Desde la lista (o el link directo) la ficha tiene que quedar a la vista.
-  const { expand } = layout;
   const openLotFromList = useCallback((id) => {
-    expand();
+    expandPanel();
     selectLotById(id);
-  }, [expand, selectLotById]);
+  }, [selectLotById]);
   const openLotFromPanel = useCallback((id) => {
     hoverLot(null);
     openLotFromList(id);
@@ -201,7 +200,8 @@ export default function ViewerExperience() {
         psvRef={viewerRef}
         sway={viewMode === 'panorama'}
         silenceWhen={panel.isOpen}
-        pulseSelector={layout.usePanel ? (layout.collapsed ? '.lp-reopen' : '.lp-tabs button') : '.lf-bar'}
+        // Panel oculto o no se resuelve recién al titilar: solo una de las dos ramas matchea.
+        pulseSelector={layout.usePanel ? 'html.lp-collapsed .lp-reopen, html:not(.lp-collapsed) .lp-tabs button' : '.lf-bar'}
       />
 
       <Compass
@@ -254,7 +254,6 @@ export default function ViewerExperience() {
             selectedId={selection.selectedLotId}
             onMarkerSelect={selection.handleBlueprintSelect}
             usePanel={layout.usePanel}
-            panelCollapsed={layout.collapsed}
           />
         </Suspense>
       ) : (
@@ -275,8 +274,7 @@ export default function ViewerExperience() {
             {...lotUiProps}
             onSelectLot={openLotFromPanel}
             onHoverLot={hoverLot}
-            collapsed={layout.collapsed}
-            onToggleCollapsed={layout.toggleCollapsed}
+            onToggleCollapsed={togglePanelCollapsed}
           />
           {viewMode === 'panorama' && (
             <MapControls
