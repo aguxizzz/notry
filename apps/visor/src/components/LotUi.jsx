@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { SERVICE_DEFS } from '../serviceDefs.js';
 import { formatPoiDistance } from '../annotations.js';
 import { annId, lotStatus, lotArea, fmtArea, lotManzana, lotMedidas, STATUSES } from '../lotData.js';
@@ -107,7 +107,10 @@ export function LotNum({ label, status, large = false }) {
   return <span className={`lp-num${large ? ' lp-num--lg' : ''} s-${status}`}>{label}</span>;
 }
 
-export function LotRow({ ann, label, selected, onSelect, onHover }) {
+// Memo: collapsing the panel, a new selection or a hover re-render the whole
+// visor, and redoing every row cost up to a second on low-end phones. Its
+// props (annotation, label, stable callbacks) only change when that row does.
+export const LotRow = memo(function LotRow({ ann, label, selected, onSelect, onHover }) {
   const status = lotStatus(ann);
   const area = lotArea(ann);
   const manzana = lotManzana(ann);
@@ -141,7 +144,7 @@ export function LotRow({ ann, label, selected, onSelect, onHover }) {
       </span>
     </button>
   );
-}
+});
 
 export function Legend({ counts }) {
   return (
