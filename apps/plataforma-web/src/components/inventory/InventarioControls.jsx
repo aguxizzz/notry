@@ -1,8 +1,8 @@
-// Encabezado de la tabla de Inventario, en una sola fila: selector Lotes/Loteos
-// (con su cantidad) + búsqueda + filtro.
+// Encabezado de la tabla de Inventario, en una sola fila: pestañas-título
+// Lotes/Loteos (con su cantidad) + búsqueda + filtro.
 // La acción primaria vive en PageHeader para mantener la jerarquía de página.
 
-import { DataToolbar, Loader, SearchField, SegmentedControl, Select } from '../../ui/components';
+import { DataToolbar, Loader, SearchField, Select } from '../../ui/components';
 import './InventarioControls.css';
 
 const TABS = [
@@ -47,21 +47,34 @@ export default function InventarioControls({
 
   return (
     <DataToolbar className="inventory-controls inv-toolbar">
+      {/* El selector es el título de la tabla: la pestaña activa lleva la línea
+          dorada apoyada sobre el borde inferior del toolbar. En visor-only hay
+          una sola tabla, así que queda como título fijo con el mismo look. */}
       {isVisorOnly ? (
-        <h2 className="inv-tabs-title">
-          <TabLabel label="Lotes" count={lotsCount} />
+        <h2 className="inv-title-tabs">
+          <span className="inv-title-tab is-active">
+            <TabLabel label="Lotes" count={lotsCount} />
+          </span>
         </h2>
       ) : (
-        <SegmentedControl
-          className="inv-view-switch"
-          ariaLabel="Ver tabla de"
-          value={inventoryTab}
-          onChange={onTabChange}
-          options={TABS.map(tab => ({
-            value: tab.key,
-            label: <TabLabel label={tab.label} count={counts[tab.key]} />,
-          }))}
-        />
+        <div className="inv-title-tabs" role="tablist" aria-label="Ver tabla de">
+          {TABS.map(tab => {
+            const active = inventoryTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                aria-controls="inventory-results"
+                className={`inv-title-tab${active ? ' is-active' : ''}`}
+                onClick={() => onTabChange(tab.key)}
+              >
+                <TabLabel label={tab.label} count={counts[tab.key]} />
+              </button>
+            );
+          })}
+        </div>
       )}
 
       <div className="inv-toolbar-tools">
