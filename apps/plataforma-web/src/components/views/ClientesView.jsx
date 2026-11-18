@@ -171,9 +171,10 @@ function OriginDistribution({ origins, total, maxOriginCount }) {
   );
 }
 
-// Encabezado de la tabla en una sola fila: título con cantidad y filtros
-// activos a la izquierda, búsqueda a la derecha. Los filtros se eligen en el
-// resumen (StageSummary); acá solo se ven y se quitan.
+// Encabezado de la tabla en una sola fila: título con cantidad (mismo tamaño
+// que las pestañas Lotes/Loteos de Inventario) y filtros activos a la
+// izquierda, búsqueda a la derecha. Los filtros se eligen en el resumen
+// (StageSummary); acá solo se ven y se quitan.
 function ProspectosFilters({
   count,
   total,
