@@ -426,13 +426,18 @@ export function createMapScene({
   let highlight = null;
   let hover = null; // { entry, mesh }
   let grow = null; // { start }
-  let fly = null; // { start, ms, fromPos, toPos, fromTarget, toTarget, orbit }
+  let fly = null; // { start, ms, from, to, fromTarget, toTarget, orbit }; from/to are Sphericals around the target
   let resumeTimer = null;
   // Whether the camera is on the selected lot (orbit allowed). A preset view
   // moves it to the whole loteo and the orbit must not resume around that.
   let onLot = false;
 
-  // Animated camera move; `orbit` starts the slow turn on arrival.
+  /**
+   * Animated camera move; `orbit` starts the slow turn on arrival. The camera
+   * travels as heading/tilt/distance around the target, not in a straight
+   * line: a straight line to the other side of the loteo passes right over
+   * the target, where the camera looks straight down and spins at once.
+   */
   function flyTo(toPos, toTarget, { ms = FOCUS_MS, orbit = false } = {}) {
     controls.autoRotate = false;
     clearTimeout(resumeTimer);
@@ -442,10 +447,15 @@ export function createMapScene({
       controls.target.copy(toTarget);
       controls.update();
     } else {
+      const from = new THREE.Spherical().setFromVector3(camera.position.clone().sub(controls.target));
+      const to = new THREE.Spherical().setFromVector3(toPos.clone().sub(toTarget));
+      // Turn the short way round: ±180° at most.
+      const turn = THREE.MathUtils.euclideanModulo(to.theta - from.theta + Math.PI, Math.PI * 2) - Math.PI;
+      to.theta = from.theta + turn;
       fly = {
-        start: performance.now(), ms, orbit,
-        fromPos: camera.position.clone(), toPos: toPos.clone(),
-        fromTarget: controls.target.clone(), toTarget: toTarget.clone(),
+        // A half turn gets 40% more time, or it whips around.
+        start: performance.now(), ms: ms * (1 + 0.4 * Math.abs(turn) / Math.PI), orbit,
+        from, to, fromTarget: controls.target.clone(), toTarget: toTarget.clone(),
       };
     }
     requestRender();
@@ -752,6 +762,7 @@ export function createMapScene({
   // also matters for battery on a phone.
   const ease = (t) => 1 - (1 - t) ** 3;
   const projected = new THREE.Vector3();
+  const flySph = new THREE.Spherical(); // reused every flight frame
   let prev = performance.now();
   let frame = 0;
 
@@ -776,8 +787,15 @@ export function createMapScene({
     if (fly) {
       const t = Math.min(1, (now - fly.start) / fly.ms);
       const k = t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2; // in-out cubic
-      camera.position.lerpVectors(fly.fromPos, fly.toPos, k);
       controls.target.lerpVectors(fly.fromTarget, fly.toTarget, k);
+      // Distance eased in log scale: going from 300 m to 10 km (a far POI)
+      // a plain lerp rushes the first part and crawls at the end.
+      flySph.set(
+        fly.from.radius * (fly.to.radius / fly.from.radius) ** k,
+        THREE.MathUtils.lerp(fly.from.phi, fly.to.phi, k),
+        THREE.MathUtils.lerp(fly.from.theta, fly.to.theta, k),
+      );
+      camera.position.setFromSpherical(flySph).add(controls.target);
       if (t === 1) {
         if (fly.orbit && selected) controls.autoRotate = true;
         fly = null;
