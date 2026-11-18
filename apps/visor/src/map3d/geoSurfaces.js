@@ -1,9 +1,10 @@
-// Manzanas and calles drawn in the editor's satellite view (Loteo.geo_surfaces),
-// brought from blueprint coordinates to the 3D map. They're stored in the
+// Manzanas, calles, verdes and agua drawn in the editor's satellite view
+// (Loteo.geo_surfaces), brought from blueprint coordinates to the 3D map. They're stored in the
 // blueprint, like the lots, so recalibrating moves them together; here the
 // geo calibration pairs give the blueprint → (lng, lat) homography.
 // Shared with the editor through @map3d (geoHomography).
-import { applyHomography, computeHomography, isHomographyValid } from './homography.js';
+import { applyHomography, computeHomography, invertHomography, isHomographyValid } from './homography.js';
+import { naturalShape } from './naturalOutline.js';
 import { buildStreetRibbon, unionStreetAreas } from './streetRibbon.js';
 
 export const MIN_GEO_PAIRS = 4;
@@ -42,18 +43,23 @@ export function lotGeoRing(geoPoints) {
 }
 
 /**
- * Manzanas and calles as rings in the map's local meters, ready to fill:
- * { manzanas: [ring], calles: [{ outer, holes }] }, rings as [[x, z], ...].
- * Calles are built here in meters (their width is in meters) and merged, so
- * crossing calles read as one street network. Empty if the loteo has no
- * surfaces or no valid calibration.
+ * The loteo's surfaces as rings in the map's local meters, ready to fill:
+ * { manzanas: [ring], calles, verdes, aguas: [{ outer, holes }] }, rings as
+ * [[x, z], ...]. Calles are built here in meters (their width is in meters)
+ * and merged, so crossing calles read as one street network. Empty if the
+ * loteo has no surfaces or no valid calibration.
  *
- * `toLocal(lat, lng)` is the scene's projection ({ x, z } in meters).
+ * Verdes and agua get the editor's natural border (naturalShape), worked out
+ * in blueprint coordinates like the editor does so they come out the same
+ * shape, kept off the calles and `lotRings` (lot outlines in the blueprint).
+ *
+ * `projection` = the scene's { toLocal(lat, lng) → { x, z }, toGeo(x, z) → { lat, lng } }.
  */
-export function geoSurfaceRings(geoSurfaces, geoPoints, toLocal) {
-  const empty = { manzanas: [], calles: [] };
+export function geoSurfaceRings(geoSurfaces, geoPoints, projection, lotRings = []) {
+  const empty = { manzanas: [], calles: [], verdes: [], aguas: [] };
   const H = geoHomography(geoPoints);
   if (!H || !geoSurfaces) return empty;
+  const { toLocal, toGeo } = projection;
   const toMeters = (point) => {
     const [lng, lat] = applyHomography(H, point);
     const { x, z } = toLocal(lat, lng);
@@ -65,5 +71,26 @@ export function geoSurfaceRings(geoSurfaces, geoPoints, toLocal) {
   const ribbons = (geoSurfaces.calles ?? [])
     .filter(c => c.axis?.length >= 2 && c.width > 0)
     .map(c => buildStreetRibbon(c.axis.map(toMeters), c.width));
-  return { manzanas, calles: unionStreetAreas(ribbons) };
+
+  // Each calle's outline back in the blueprint, as an obstacle for the
+  // natural shapes (the editor's calleRing does the same round trip).
+  const Hinv = invertHomography(H);
+  const toBlueprint = ([x, z]) => {
+    const { lat, lng } = toGeo(x, z);
+    return applyHomography(Hinv, [lng, lat]);
+  };
+  const obstacles = [...ribbons.filter(r => r.length >= 3).map(r => r.map(toBlueprint)), ...lotRings];
+  const natural = list => (list ?? [])
+    .filter(a => a.points?.length >= 3)
+    .flatMap(a => naturalShape(a.points, {
+      curve: a.curve ?? 0, wobble: a.wobble ?? 0, seed: a.id, obstacles,
+    }))
+    .map(({ outer, holes }) => ({ outer: outer.map(toMeters), holes: holes.map(h => h.map(toMeters)) }));
+
+  return {
+    manzanas,
+    calles: unionStreetAreas(ribbons),
+    verdes: natural(geoSurfaces.verdes),
+    aguas: natural(geoSurfaces.aguas),
+  };
 }

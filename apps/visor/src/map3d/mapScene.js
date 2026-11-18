@@ -101,7 +101,7 @@ function inside(pts, x, z) {
  * - `annotations`: lots of the stage; only polygons that can be placed on the
  *   map are drawn (see lotGeoRing).
  * - `loteLabels`: Map lot id → number shown on the lot.
- * - `geoSurfaces` / `geoCalibrationPoints`: manzanas and calles drawn in the
+ * - `geoSurfaces` / `geoCalibrationPoints`: manzanas, calles, verdes and agua drawn in the
  *   editor's satellite view (blueprint coords) and the pairs to place them.
  * - `lite`: low-end device (devicePerf.js), smaller textures and no antialias.
  * - `onLoadingChange(bool)`: while the map of a mode is being downloaded.
@@ -137,7 +137,8 @@ export function createMapScene({
   }
   const lat0 = lots.length ? (bbox.north + bbox.south) / 2 : latitude;
   const lng0 = lots.length ? (bbox.east + bbox.west) / 2 : longitude;
-  const { toLocal } = makeProjection(lat0, lng0);
+  const projection = makeProjection(lat0, lng0);
+  const { toLocal } = projection;
 
   // Lots in local meters, for picking, highlight and block.
   const localLots = lots.map(({ lot, ring }) => {
@@ -200,8 +201,15 @@ export function createMapScene({
   });
   scene.add(lotLayer.group);
 
-  // Manzanas and calles go under the lots (see the renderOrder in surfaceLayer.js).
-  const surfaceLayer = createSurfaceLayer(geoSurfaceRings(geoSurfaces, geoCalibrationPoints, toLocal));
+  // Manzanas, calles, verdes and agua go under the lots (see the renderOrder in
+  // surfaceLayer.js). Verdes and agua are kept off the lots' blueprint outlines.
+  const lotBlueprintRings = lots
+    .map(({ lot }) => lot.blueprint_coordinates)
+    .filter((ring) => ring?.length >= 3);
+  const surfaceLayer = createSurfaceLayer(
+    geoSurfaceRings(geoSurfaces, geoCalibrationPoints, projection, lotBlueprintRings),
+    { sunDir },
+  );
   scene.add(surfaceLayer.group);
 
   // --- ground per mode, built on first use and kept for switching back

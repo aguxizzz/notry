@@ -16,7 +16,8 @@ const PAIRS = [
   { blueprint: [1, 1], geo: [LAT, LNG + D] },
   { blueprint: [0, 1], geo: [LAT, LNG] },
 ];
-const { toLocal } = makeProjection(LAT, LNG);
+const projection = makeProjection(LAT, LNG);
+const { toLocal } = projection;
 
 describe('geoHomography', () => {
   test('needs 4 pairs', () => {
@@ -29,13 +30,13 @@ describe('geoHomography', () => {
 describe('geoSurfaceRings', () => {
   test('nothing without calibration or surfaces', () => {
     const s = { manzanas: [{ id: 'm', points: [[0, 0], [1, 0], [1, 1]] }], calles: [] };
-    expect(geoSurfaceRings(s, [], toLocal)).toEqual({ manzanas: [], calles: [] });
-    expect(geoSurfaceRings(null, PAIRS, toLocal)).toEqual({ manzanas: [], calles: [] });
+    expect(geoSurfaceRings(s, [], projection)).toEqual({ manzanas: [], calles: [], verdes: [], aguas: [] });
+    expect(geoSurfaceRings(null, PAIRS, projection)).toEqual({ manzanas: [], calles: [], verdes: [], aguas: [] });
   });
 
   test('a manzana lands on its geo corners', () => {
     const s = { manzanas: [{ id: 'm', points: [[0, 1], [1, 1], [1, 0]] }], calles: [] };
-    const [ring] = geoSurfaceRings(s, PAIRS, toLocal).manzanas;
+    const [ring] = geoSurfaceRings(s, PAIRS, projection).manzanas;
     const sw = toLocal(LAT, LNG);
     const ne = toLocal(LAT + D, LNG + D);
     expect(ring[0][0]).toBeCloseTo(sw.x, 3);
@@ -47,7 +48,7 @@ describe('geoSurfaceRings', () => {
   test('a calle keeps its width in meters', () => {
     // Horizontal axis across the middle of the blueprint, 10 m wide.
     const s = { manzanas: [], calles: [{ id: 'c', axis: [[0.2, 0.5], [0.8, 0.5]], width: 10 }] };
-    const { calles } = geoSurfaceRings(s, PAIRS, toLocal);
+    const { calles } = geoSurfaceRings(s, PAIRS, projection);
     expect(calles).toHaveLength(1);
     const zs = calles[0].outer.map(([, z]) => z);
     expect(Math.max(...zs) - Math.min(...zs)).toBeCloseTo(10, 1);
@@ -61,7 +62,23 @@ describe('geoSurfaceRings', () => {
         { id: 'b', axis: [[0.5, 0.2], [0.5, 0.8]], width: 10 },
       ],
     };
-    expect(geoSurfaceRings(s, PAIRS, toLocal).calles).toHaveLength(1);
+    expect(geoSurfaceRings(s, PAIRS, projection).calles).toHaveLength(1);
+  });
+
+  test('a verde crossed by a calle comes out in two pieces, off the lots too', () => {
+    const s = {
+      calles: [{ id: 'c', axis: [[0.5, 0], [0.5, 1]], width: 10 }],
+      verdes: [{ id: 'v', points: [[0.2, 0.2], [0.8, 0.2], [0.8, 0.8], [0.2, 0.8]] }],
+    };
+    const lot = [[0.25, 0.25], [0.35, 0.25], [0.35, 0.35], [0.25, 0.35]];
+    const { verdes, aguas } = geoSurfaceRings(s, PAIRS, projection, [lot]);
+    expect(aguas).toEqual([]);
+    expect(verdes).toHaveLength(2);
+    // The lot sits inside the west piece: it leaves a hole, in meters.
+    const holes = verdes.flatMap(p => p.holes);
+    expect(holes).toHaveLength(1);
+    const xs = holes[0].map(([x]) => x);
+    expect(Math.min(...xs)).toBeCloseTo(toLocal(LAT, LNG + 0.25 * D).x, 0);
   });
 });
 
