@@ -284,6 +284,9 @@ export default function ViewerExperience() {
             panoramaWidth={visor.panoramaWidth}
             selectedPoiId={mapPoiId}
             onPoiSelect={pickMapPoi}
+            // Edificios de alrededor: un GeoJSON en R2 aparte de los datos del
+            // visor porque pesa cientos de KB; null si el loteo no los tiene.
+            buildingsUrl={visor.buildingsUrl ?? null}
           />
         </Suspense>
       ) : (

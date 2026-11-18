@@ -17,6 +17,15 @@ const ATTRIBUTION = {
     </>
   ),
 };
+// Buildings, in both modes: Overture's data is ODbL and mixes Google Open
+// Buildings (CC BY 4.0), Microsoft and OSM footprints.
+const BUILDINGS_ATTRIBUTION = (
+  <>
+    {' · Edificios: '}
+    <a href="https://overturemaps.org" target="_blank" rel="noopener noreferrer">Overture Maps</a>
+    {' (Google, Microsoft, OSM)'}
+  </>
+);
 
 // Low-end device (devicePerf.js, forced with ?lite=1): same class the
 // panorama uses to go easy on the phone.
@@ -32,11 +41,12 @@ const isLiteDevice = () => document.documentElement.classList.contains('perf-lit
  * `pois` are all the stage's POI annotations, `selectedPoiId` the one the map
  * points at and `onPoiSelect(ann)` a tap on one (falls back to onMarkerSelect);
  * `northOffset`/`panoramaWidth` place the ones outside the loteo.
+ * `buildingsUrl` is the stage's GeoJSON of buildings around, null if none.
  */
 export default function MapViewer({
   latitude, longitude, annotations, loteLabels, geoSurfaces, geoCalibrationPoints,
   variant = 'satellite', selectedId, onMarkerSelect, usePanel, ref,
-  pois, northOffset, panoramaWidth, selectedPoiId, onPoiSelect,
+  pois, northOffset, panoramaWidth, selectedPoiId, onPoiSelect, buildingsUrl = null,
 }) {
   const containerRef = useRef(null);
   const sceneRef = useRef(null);
@@ -98,6 +108,7 @@ export default function MapViewer({
         northOffset,
         panoramaWidth,
         demoPois: new URLSearchParams(window.location.search).has('poisdemo'),
+        buildingsUrl,
         onPoiClick: (ann) => (onPoiSelectRef.current ?? onMarkerSelectRef.current)?.(ann),
         onLoadingChange: setLoading,
         onError: (err) => {
@@ -124,7 +135,7 @@ export default function MapViewer({
       setError(null);
       setLoading(true);
     };
-  }, [latitude, longitude, annotations, loteLabels, geoSurfaces, geoCalibrationPoints, pois, northOffset, panoramaWidth]);
+  }, [latitude, longitude, annotations, loteLabels, geoSurfaces, geoCalibrationPoints, pois, northOffset, panoramaWidth, buildingsUrl]);
 
   useEffect(() => {
     sceneRef.current?.setMode(variant);
@@ -158,7 +169,10 @@ export default function MapViewer({
       <div ref={containerRef} className="map-viewer__canvas" />
       {loading && !error && <div className="map-viewer__loading">Cargando mapa…</div>}
       {error && <div className="map-viewer__error">{error}</div>}
-      <div className="map-viewer__attrib">{ATTRIBUTION[variant] ?? ATTRIBUTION.satellite}</div>
+      <div className="map-viewer__attrib">
+        {ATTRIBUTION[variant] ?? ATTRIBUTION.satellite}
+        {buildingsUrl && BUILDINGS_ATTRIBUTION}
+      </div>
     </div>
   );
 }

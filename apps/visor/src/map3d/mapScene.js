@@ -12,6 +12,7 @@ import { geoSurfaceRings, lotGeoRing } from './geoSurfaces.js';
 import { SURFACE_STYLE, createSurfaceLayer } from './surfaceLayer.js';
 import { createPoiLayer, placePois } from './poiLayer.js';
 import { corridorBounds, corridorShape, createCorridorVeil } from './poiCorridor.js';
+import { createBuildingLayer, footprintsFromGeoJSON } from './buildingLayer.js';
 
 // ---------------------------------------------------------------- settings
 
@@ -129,11 +130,13 @@ function inside(pts, x, z) {
  *   when the picked one is let go (the × on its label, Esc or a tap on the
  *   map outside the lots). `demoPois` adds
  *   two made-up places inside the loteo (preview only).
+ * - `buildingsUrl`: GeoJSON with the footprints of the buildings around
+ *   (buildingLayer.js); null = the loteo has none downloaded.
  */
 export function createMapScene({
   container, latitude, longitude, annotations, loteLabels, geoSurfaces, geoCalibrationPoints, lite = false,
   onLotClick, onLoadingChange, onError, initialInsets,
-  pois = [], northOffset = null, panoramaWidth = null, demoPois = false, onPoiClick,
+  pois = [], northOffset = null, panoramaWidth = null, demoPois = false, onPoiClick, buildingsUrl = null,
 }) {
   // Biggest texture we stitch: 4096² RGBA is 64 MB of GPU memory, too much
   // for a low-end phone; 2048² is 16 MB.
@@ -237,6 +240,33 @@ export function createMapScene({
   );
   scene.add(surfaceLayer.group);
 
+  // --- buildings around: loaded after the scene is up, they never hold the
+  // map back. In satellite they take their colors from the ground photo.
+  let buildings = null;
+  const syncBuildings = () => {
+    if (!buildings || !mode) return;
+    buildings.setStyle(mode);
+    // Sharp photo first, then the blurry ring for the buildings past it.
+    buildings.setGround(mode === 'satellite' ? [ground?.inner, ground?.outer] : null);
+    requestRender();
+  };
+  if (buildingsUrl) {
+    // A building standing on a lot of the loteo is what's there today (an old
+    // shed, a house to be torn down): it would cover the lot being sold.
+    const standsOnLot = (x, z) => localLots.some((l) => x >= l.minX && x <= l.maxX && z >= l.minZ && z <= l.maxZ && inside(l.pts, x, z));
+    // Low-end devices get the whole file too (~1.5 km, ~10k buildings): it's
+    // still 2 draw calls, and a 900 m cut showed a hard edge well inside the fog.
+    fetch(buildingsUrl)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((geojson) => {
+        if (disposed) return;
+        buildings = createBuildingLayer(footprintsFromGeoJSON(geojson, toLocal, standsOnLot));
+        scene.add(buildings.group);
+        syncBuildings();
+      })
+      .catch((err) => console.warn('mapScene: no se pudieron cargar los edificios', err));
+  }
+
   // --- ground per mode, built on first use and kept for switching back
   const cache = {};
   let ground = null; // { inner, outer } currently in the scene
@@ -266,6 +296,7 @@ export function createMapScene({
     scene.add(ground.outer, ground.inner);
     lotLayer.setStyle(STYLE[mode]);
     surfaceLayer.setStyle(SURFACE_STYLE[mode]);
+    syncBuildings();
     // ×π because since r155 Lambert divides by π: intensity 1 alone would
     // leave the ground at ~1/3 of its brightness.
     const light = LIGHT[mode];
@@ -306,6 +337,7 @@ export function createMapScene({
       if (ground === layers) {
         scene.remove(old);
         scene.add(mesh);
+        syncBuildings(); // colors re-read from the new, wider photo
         requestRender();
       }
       disposeObject(old);
@@ -910,6 +942,7 @@ export function createMapScene({
     for (const mesh of [block, highlight, hover?.mesh]) removeMesh(mesh);
     lotLayer.dispose();
     surfaceLayer.dispose();
+    buildings?.dispose();
     poiLayer.dispose();
     removeCorridor();
     for (const p of Object.values(corridorGrounds)) p.then(disposeObject).catch(() => {});
