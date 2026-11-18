@@ -13,7 +13,10 @@ import { SURFACE_STYLE, createSurfaceLayer } from './surfaceLayer.js';
 
 // ---------------------------------------------------------------- settings
 
-const INNER_MARGIN_M = 150; // sharp map around the lots
+const INNER_MARGIN_M = 150; // sharp map around the lots (and how far you can pan)
+// Satellite only: the sharp imagery grows up to this much more where the
+// texture allows, so the blurry z-2 ring isn't right next to the loteo.
+const SATELLITE_GROW_M = 350;
 const OUTER_RADIUS_M = 3000; // blurry context ring, hidden by fog at the edge
 const DEFAULT_SPAN_M = 200; // framing when the loteo has no geo lots yet
 
@@ -217,7 +220,9 @@ export function createMapScene({
   const cache = {};
   let ground = null; // { inner, outer } currently in the scene
 
-  const builders = createGroundBuilders({ toLocal, lat0, innerBox, outerBox, maxTexture, anisotropy });
+  const builders = createGroundBuilders({
+    toLocal, lat0, innerBox, outerBox, maxTexture, anisotropy, satelliteGrowM: SATELLITE_GROW_M,
+  });
 
   let mode = null;
   async function setMode(next) {
@@ -254,6 +259,28 @@ export function createMapScene({
     renderer.shadowMap.needsUpdate = true;
     onLoadingChange?.(false);
     requestRender();
+    swapInWider(layers);
+  }
+
+  // Satellite: the wider sharp area loads behind the first ground and replaces
+  // its inner plane when ready. Taken off `layers` so it's swapped only once,
+  // even across mode switches; if satellite isn't on screen by then, it's
+  // swapped in the cache and shows up next time.
+  function swapInWider(layers) {
+    const wider = layers.wider;
+    if (!wider) return;
+    layers.wider = null;
+    wider.then((mesh) => {
+      if (disposed) { disposeObject(mesh); return; }
+      const old = layers.inner;
+      layers.inner = mesh;
+      if (ground === layers) {
+        scene.remove(old);
+        scene.add(mesh);
+        requestRender();
+      }
+      disposeObject(old);
+    }).catch(() => {}); // failed: the small sharp area just stays
   }
 
   // --- controls
@@ -618,7 +645,11 @@ export function createMapScene({
     // Grounds of both modes, also the one not on screen. A build still in
     // flight is freed when it lands.
     for (const p of Object.values(cache)) {
-      p.then((g) => { disposeObject(g.inner); disposeObject(g.outer); }).catch(() => {});
+      p.then((g) => {
+        disposeObject(g.inner);
+        disposeObject(g.outer);
+        g.wider?.then(disposeObject).catch(() => {}); // never swapped in (satellite not shown again)
+      }).catch(() => {});
     }
     renderer.dispose();
     canvas.remove();

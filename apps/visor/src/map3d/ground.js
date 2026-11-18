@@ -60,6 +60,21 @@ function pickTileRange(bbox, maxZoom, maxTexture, tileSize = 256) {
   throw new Error('bbox too large');
 }
 
+/**
+ * `box` grown by up to `growM` meters per side, as far as it still fits in
+ * maxTexture at zoom `z`. Shrinks in 50 m steps; returns `box` untouched if
+ * not even the first step fits (or if `box` alone doesn't fit at `z`).
+ */
+function growWhileFits(box, growM, z, maxTexture, tileSize) {
+  const lat = (box.north + box.south) / 2;
+  for (let m = growM; m > 0; m -= 50) {
+    const d = metersToDeg(m, lat);
+    const grown = { north: box.north + d.lat, south: box.south - d.lat, east: box.east + d.lng, west: box.west - d.lng };
+    if (pickTileRange(grown, z, maxTexture, tileSize).z === z) return grown;
+  }
+  return box;
+}
+
 // ---------------------------------------------------------------- tiles
 
 const loadImage = (src) => new Promise((resolve) => {
@@ -115,8 +130,10 @@ export function disposeObject(root) {
  * - `toLocal`: the scene's projection (makeProjection(...).toLocal).
  * - `lat0`: latitude of the origin, for the meters-per-pixel of the far ring.
  * - `maxTexture`: biggest stitched canvas side (2048 on low-end phones).
+ * - `satelliteGrowM`: extra sharp satellite around innerBox, only as much as
+ *   fits at full zoom, so the blurry ring starts further out. 0 = innerBox as is.
  */
-export function createGroundBuilders({ toLocal, lat0, innerBox, outerBox, maxTexture, anisotropy = 1 }) {
+export function createGroundBuilders({ toLocal, lat0, innerBox, outerBox, maxTexture, anisotropy = 1, satelliteGrowM = 0 }) {
   const tex = (c) => {
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace;
@@ -144,6 +161,18 @@ export function createGroundBuilders({ toLocal, lat0, innerBox, outerBox, maxTex
     return mesh;
   };
 
+  const sharpPlane = (range, canvas2d) => {
+    const mesh = tilePlane(range, tex(canvas2d), new THREE.MeshLambertMaterial());
+    mesh.receiveShadow = true;
+    return mesh;
+  };
+
+  /**
+   * Resolves as soon as the small sharp area (innerBox) and the blurry ring are
+   * in, so the map shows up fast. If satelliteGrowM fits, `wider` is a promise
+   * of a bigger sharp plane the caller swaps in for `inner` when it lands;
+   * otherwise null.
+   */
   async function satellite() {
     const innerRange = pickTileRange(innerBox, SATELLITE.maxZoom, maxTexture, SATELLITE.tileSize);
     const outerRange = pickTileRange(outerBox, innerRange.z - 2, maxTexture, SATELLITE.tileSize);
@@ -151,9 +180,16 @@ export function createGroundBuilders({ toLocal, lat0, innerBox, outerBox, maxTex
       stitchTiles(innerRange, SATELLITE),
       stitchTiles(outerRange, SATELLITE),
     ]);
-    const inner = tilePlane(innerRange, tex(innerCanvas), new THREE.MeshLambertMaterial());
-    inner.receiveShadow = true;
-    return { inner, outer: outerRing(outerRange, outerCanvas) };
+
+    // Started only after the first ground is ready, so it doesn't compete with
+    // it for bandwidth; the tiles they share come from the browser cache.
+    const sharpBox = growWhileFits(innerBox, satelliteGrowM, SATELLITE.maxZoom, maxTexture, SATELLITE.tileSize);
+    let wider = null;
+    if (sharpBox !== innerBox) {
+      const widerRange = pickTileRange(sharpBox, SATELLITE.maxZoom, maxTexture, SATELLITE.tileSize);
+      wider = stitchTiles(widerRange, SATELLITE).then((canvas2d) => sharpPlane(widerRange, canvas2d));
+    }
+    return { inner: sharpPlane(innerRange, innerCanvas), outer: outerRing(outerRange, outerCanvas), wider };
   }
 
   async function render() {
