@@ -348,6 +348,11 @@
 .tool-btn kbd,
 .editor-btn kbd { color: var(--text-subtle); font: inherit; font-size: 0.58rem; }
 .tool-btn.active kbd { color: var(--text-muted); }
+/* Compact set (Satellite view): icons only, the active tool keeps its label so
+   it's still clear what's on. Name and shortcut stay in the title tooltip. */
+.toolbar-tools--compact .tool-btn kbd,
+.toolbar-tools--compact .tool-btn:not(.active) span { display: none; }
+.toolbar-tools--compact .tool-btn:not(.active) { width: 34px; padding: 6px; justify-content: center; }
 
 .calibration-mode-btn.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 

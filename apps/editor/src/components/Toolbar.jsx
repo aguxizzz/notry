@@ -104,15 +104,14 @@ function NaturalShapeSlider({ label, title, value, onChange }) {
 }
 
 /**
- * Surface tools of the Satellite view, shown instead of the lot tools, plus
- * the settings for what's about to be drawn (street width, verde/agua shape).
- * What applies to a selected surface lives in the inspector (GeoSurfaceInspector).
+ * Surface tools of the Satellite view, shown instead of the lot tools. Icons
+ * only (the active one keeps its label): this bar also carries the map
+ * controls and ran out of room even on a 27" screen with a side panel closed.
  */
 function SatelliteTools({ surfaces }) {
-  const { tool, canDraw, streetWidth } = surfaces;
-  const showWidth = tool === 'calle';
+  const { tool, canDraw } = surfaces;
   return (
-    <div className="toolbar-tools" aria-label="Herramientas del satélite">
+    <div className="toolbar-tools toolbar-tools--compact" aria-label="Herramientas del satélite">
       {SATELLITE_TOOLS.map(t => {
         const Icon = t.icon;
         return (
@@ -132,7 +131,22 @@ function SatelliteTools({ surfaces }) {
           </button>
         );
       })}
-      {showWidth && (
+    </div>
+  );
+}
+
+/**
+ * Settings for what's about to be drawn (street width, verde/agua shape), in
+ * the hint bar at the bottom next to the tool's instructions instead of the
+ * top bar, so picking Calle or Verde doesn't stretch it. What applies to a
+ * selected surface lives in the inspector (GeoSurfaceInspector).
+ */
+function SatelliteDrawSettings({ surfaces }) {
+  const { tool, streetWidth } = surfaces;
+  if (tool !== 'calle' && !surfaces.showNaturalShape) return null;
+  return (
+    <>
+      {tool === 'calle' && (
         <label className="geo-draw-toolbar__width">
           <span>Ancho</span>
           <input
@@ -165,7 +179,8 @@ function SatelliteTools({ surfaces }) {
           />
         </>
       )}
-    </div>
+      <span className="toolbar-divider" aria-hidden="true" />
+    </>
   );
 }
 
@@ -412,6 +427,7 @@ export default function Toolbar({
 
       {isSatelliteMode && SATELLITE_HINTS[geoSurfaces.tool] && (
         <div className="drawing-actions" role="status">
+          <SatelliteDrawSettings surfaces={geoSurfaces} />
           <span>{SATELLITE_HINTS[geoSurfaces.tool]}</span>
           {geoSurfaces.drawing.length > 0 && (
             <button type="button" className="editor-btn editor-btn--primary" onClick={geoSurfaces.finish}>
