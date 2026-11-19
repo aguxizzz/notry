@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 // MCP server for notry: exposes the auto-detected lots of a loteo (drafts) and the data of
 // its real lots, so an assistant can fill the drafts in with names, prices and sizes that
-// match the rest. Talks to notry-back over HTTP; runs over stdio (Claude Code starts it).
+// match the rest; and fills a building's units from a JSON file (editor-deptos).
+// Talks to notry-back over HTTP; runs over stdio (Claude Code starts it).
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 import { api, apiBase, listAll } from './api.js';
+import { diffBuildingUnits } from './buildingSync.js';
 import { bbox, centroid, distance, median, polygonArea, round } from './geometry.js';
 
 const server = new McpServer({ name: 'notry', version: '0.1.0' });
@@ -176,6 +179,78 @@ server.registerTool('discard_drafts', {
     }
   }
   return json(results);
+});
+
+// ── Edificios (editor-deptos) ─────────────────────────────────
+
+server.registerTool('list_buildings', {
+  title: 'Listar edificios',
+  description: 'Buildings of the account (the ones editor-deptos edits), with id and name. Start here to get a building_id.',
+  annotations: { readOnlyHint: true },
+}, async () => {
+  const buildings = await api('/buildings');
+  return json(buildings.map(b => ({ id: b.id, name: b.name, slug: b.slug, address: b.address })));
+});
+
+const unitsFileInput = {
+  building_id: z.string().uuid(),
+  file_path: z.string().min(1).describe(
+    'Absolute path to the building JSON: { floors: [{ code, units: [{ code, status, ambientes, '
+    + 'dormitorios, banos, total_m2, covered_m2, semi_m2 }] }] }. Keys starting with "_" are notes and are skipped.',
+  ),
+  code_map: z.record(z.string()).default({}).describe(
+    'File code → building code, for units named differently in the editor (e.g. { "10A": "10B" }).',
+  ),
+};
+
+// Read on every call, never cached: the preview and the save always see the current file and building.
+async function loadUnitsDiff({ building_id, file_path, code_map }) {
+  const file = JSON.parse(await readFile(file_path, 'utf8'));
+  const building = await api(`/buildings/${building_id}`);
+  return { building, diff: diffBuildingUnits(building, file, code_map) };
+}
+
+server.registerTool('preview_building_units', {
+  title: 'Comparar unidades con un archivo',
+  description:
+    'Compares a building JSON file with the units saved for that building and returns what '
+    + 'would change (before/after per unit, only the fields that differ), the codes found on one '
+    + 'side only and the file fields that have no place in a unit (price, patio). Saves nothing: '
+    + 'show this to the user and use apply_building_units only after they agree.',
+  inputSchema: unitsFileInput,
+  annotations: { readOnlyHint: true },
+}, async args => {
+  const { building, diff } = await loadUnitsDiff(args);
+  return json({ building: building.name, ...diff });
+});
+
+server.registerTool('apply_building_units', {
+  title: 'Guardar unidades desde un archivo',
+  description:
+    'Saves the changes preview_building_units shows for the same file and code_map, one unit '
+    + 'at a time. Only existing units are updated (nothing is created or deleted) and only the '
+    + 'fields that differ are sent. `only_codes` limits it to some units. Run the preview first.',
+  inputSchema: { ...unitsFileInput, only_codes: z.array(z.string()).optional() },
+  annotations: { destructiveHint: false, idempotentHint: true },
+}, async ({ only_codes, ...args }) => {
+  const { diff } = await loadUnitsDiff(args);
+  const wanted = only_codes && new Set(only_codes.map(c => c.toUpperCase()));
+  const results = [];
+  for (const change of diff.changes) {
+    if (wanted && !wanted.has(change.code.toUpperCase()) && !wanted.has(change.file_code.toUpperCase())) continue;
+    try {
+      await api(`/buildings/units/${change.unit_id}`, { method: 'PATCH', body: change.after });
+      results.push({ code: change.code, ok: true, fields: Object.keys(change.after) });
+    } catch (error) {
+      results.push({ code: change.code, ok: false, error: error.message });
+    }
+  }
+  return json({
+    updated: results.filter(r => r.ok).length,
+    failed: results.filter(r => !r.ok).length,
+    results,
+    only_in_file: diff.only_in_file,
+  });
 });
 
 // stdout is the protocol channel: anything for humans goes to stderr.

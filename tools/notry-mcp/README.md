@@ -17,6 +17,15 @@ of its own: everything goes through the same endpoints and permissions as the ap
 - `create_lots_from_drafts`: creates up to 50 lots from drafts; it can't touch existing lots.
 - `discard_drafts`: deletes drafts that aren't lots (streets, green spaces).
 
+For buildings (editor-deptos), the unit data comes from a JSON put together from the developer's
+price list, so loading the next building is mostly writing its file:
+
+- `list_buildings`: buildings of the account.
+- `preview_building_units`: compares the JSON with the saved units and shows before/after per unit,
+  codes found on one side only and fields with nowhere to go (price, patio). Saves nothing.
+- `apply_building_units`: saves what the preview shows, unit by unit, only the fields that differ.
+  Never creates or deletes units; `code_map` pairs codes named differently in the editor.
+
 ## Running it
 
 ```bash
