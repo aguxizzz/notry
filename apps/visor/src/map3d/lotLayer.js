@@ -181,7 +181,9 @@ function buildLabels(localLots, labels, anisotropy) {
   const off = [];
   const uv = [];
   const index = [];
+  const ranges = new Map(); // lot id → [first vertex, vertex count], for setLift
   for (const { entry, text } of texts) {
+    ranges.set(entry.id, [pos.length / 3, [...text].length * 4]);
     const width = [...text].reduce((s, ch) => s + glyphs.get(ch).adv, 0);
     let x = -width / 2; // centered on the lot
     for (const ch of text) {
@@ -219,7 +221,7 @@ function buildLabels(localLots, labels, anisotropy) {
     mesh.frustumCulled = false;
     return mesh;
   };
-  return { halo: pass(0, 3), text: pass(1, 4), shared };
+  return { halo: pass(0, 3), text: pass(1, 4), shared, geom, ranges };
 }
 
 /**
@@ -230,13 +232,31 @@ function buildLabels(localLots, labels, anisotropy) {
 export function createLotLayer(localLots, labels, { pixelRatio = 1, anisotropy = 1 } = {}) {
   const fills = buildFills(localLots);
   const borders = buildBorders(localLots, pixelRatio);
-  const { halo, text, shared } = buildLabels(localLots, labels, anisotropy);
+  const { halo, text, shared, geom: labelGeom, ranges } = buildLabels(localLots, labels, anisotropy);
   const group = new THREE.Group();
   group.add(fills, borders, halo, text);
   const offset = new THREE.Vector3();
+  let lifted = null; // id of the lot whose number is off the ground
+
+  // Moves one lot's number to height `h` (meters). Only that lot's few
+  // vertices change, so it's cheap enough to call every frame of the
+  // block's grow animation.
+  const writeHeight = (id, h) => {
+    const range = ranges.get(id);
+    if (!range) return;
+    const attr = labelGeom.attributes.position;
+    for (let i = range[0]; i < range[0] + range[1]; i += 1) attr.setY(i, h);
+    attr.needsUpdate = true;
+  };
 
   return {
     group,
+    /** Lifts the number of lot `id` onto the selected block; null drops it back. */
+    setLift(id, h = 0) {
+      if (lifted != null && lifted !== id) writeHeight(lifted, 0);
+      lifted = id;
+      if (id != null) writeHeight(id, h);
+    },
     setStyle(style) {
       fills.material.opacity = style.fillAlpha;
       text.material.uniforms.uColor.value.set(style.text);

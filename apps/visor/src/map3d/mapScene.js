@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { annId } from '../lotData.js';
 import { createLotLayer } from './lotLayer.js';
+import { createLotBlock } from './lotBlock.js';
 import { boxAround, createGroundBuilders, disposeObject, makeProjection, rad } from './ground.js';
 import { geoSurfaceRings, lotGeoRing, streetEnds } from './geoSurfaces.js';
 import { SURFACE_STYLE, createSurfaceLayer } from './surfaceLayer.js';
@@ -34,11 +35,8 @@ const MAX_DISTANCE_M = 1500; // past this the end of the world shows through the
 const CORRIDOR_TILT_DEG = 52;
 const CORRIDOR_MS = 1100;
 
-// Selected lot: same numbers the ArcGIS version had, tested on a real loteo.
-// The block is low on purpose (3 m): marks the lot without reading as a house.
-const BLOCK_HEIGHT_M = 3;
+// Selected lot raised in 3D (lotBlock.js), grown from the ground.
 const BLOCK_GROW_MS = 550;
-const BLOCK_COLOR = 0xc5a059; // brand gold, like the selected lot in panorama
 const FOCUS_TILT_DEG = 55;
 const FOCUS_MS = 900;
 // Preset cameras over the whole loteo, both north up. 'overview' is the 3/4
@@ -462,10 +460,10 @@ export function createMapScene({
     controls.update();
   }
 
-  // --- selection: highlight + gold block (render only) + flight + orbit
+  // --- selection: raised block + flight + orbit
   let selected = null;
   let block = null;
-  let highlight = null;
+  let blockLabelHeight = 0; // where the selected lot's number sits on the block
   let hover = null; // { entry, mesh }
   let grow = null; // { start }
   let fly = null; // { start, ms, from, to, fromTarget, toTarget, orbit }; from/to are Sphericals around the target
@@ -522,36 +520,28 @@ export function createMapScene({
     disposeObject(mesh);
   };
 
-  function makeBlock(entry) {
-    // Shape in (east, north); after rotateX(-90°) the extrusion points up.
-    const shape = new THREE.Shape(entry.pts.map((p) => new THREE.Vector2(p.x, -p.z)));
-    const geom = new THREE.ExtrudeGeometry(shape, { depth: BLOCK_HEIGHT_M, bevelEnabled: false });
-    geom.rotateX(-Math.PI / 2);
-    const mesh = new THREE.Mesh(geom, new THREE.MeshLambertMaterial({ color: BLOCK_COLOR, transparent: true, opacity: 0.92 }));
-    mesh.castShadow = true;
-    // White edges: without them the faces of a low block blend into one tone.
-    mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geom), new THREE.LineBasicMaterial({ color: 0xffffff })));
-    return mesh;
-  }
-
-  // Block only in render: over the satellite photo a gold volume covers the
-  // very thing the buyer wants to see. `animate` grows it from the ground; on
-  // a mode switch it appears already built.
+  // Block in both modes (rebuilt on a mode switch: each mode has its own
+  // shade of the status color). `animate` grows it from the ground; on a
+  // mode switch it appears already built.
   function refreshBlock(animate) {
     removeMesh(block);
     block = null;
     grow = null;
-    if (!selected || mode !== 'render') {
+    if (!selected || !mode) {
+      lotLayer.setLift(null);
       renderer.shadowMap.needsUpdate = true;
       requestRender();
       return;
     }
-    block = makeBlock(selected);
+    const built = createLotBlock(selected, mode, { lightDir: sunDir });
+    block = built.group;
+    blockLabelHeight = built.labelHeight;
     scene.add(block);
     if (animate && !prefersReducedMotion()) {
       block.scale.y = 0.001;
       grow = { start: performance.now() };
     }
+    lotLayer.setLift(selected.id, blockLabelHeight * block.scale.y);
     // Shadow camera only around the lot: small area = sharp shadow with a small map.
     const s = Math.max(selected.maxX - selected.minX, selected.maxZ - selected.minZ) + 40;
     Object.assign(sun.shadow.camera, { left: -s, right: s, top: s, bottom: -s, near: 1, far: 600 });
@@ -569,17 +559,12 @@ export function createMapScene({
     selected = entry;
     controls.autoRotate = false;
     clearTimeout(resumeTimer);
-    removeMesh(highlight);
-    highlight = null;
     refreshBlock(true);
     onLot = false;
     // A lot without geo_coordinates still opens its ficha; the map stays put.
     if (!entry) return;
     onLot = true;
     closeCorridor(false); // the flight to the lot below takes the camera back
-
-    highlight = lotMesh(entry, BLOCK_COLOR, 0.55);
-    scene.add(highlight);
 
     // Fly: keep the current heading, set the tilt and a distance that fits the lot.
     const s = Math.max(entry.maxX - entry.minX, entry.maxZ - entry.minZ) + 40;
@@ -903,6 +888,7 @@ export function createMapScene({
     if (grow && block) {
       const t = Math.min(1, (now - grow.start) / BLOCK_GROW_MS);
       block.scale.y = Math.max(0.001, ease(t));
+      lotLayer.setLift(selected?.id, blockLabelHeight * block.scale.y); // the number rides up with it
       renderer.shadowMap.needsUpdate = true;
       if (t === 1) grow = null;
       needsRender = true;
@@ -950,7 +936,7 @@ export function createMapScene({
     canvas.removeEventListener('pointerleave', onPointerLeave);
     window.removeEventListener('keydown', onKeyDown);
     controls.dispose();
-    for (const mesh of [block, highlight, hover?.mesh]) removeMesh(mesh);
+    for (const mesh of [block, hover?.mesh]) removeMesh(mesh);
     lotLayer.dispose();
     surfaceLayer.dispose();
     buildings?.dispose();
