@@ -150,10 +150,14 @@ export function Slider({ id, label, valueLabel, ends, min, max, step = 1, value,
   );
 }
 
-export function Swatches({ colors, value, onChange, label }) {
+// `leading`: an extra option before the colors (the texts' "auto"), drawn by
+// the caller. `value` may then not be a hex: the picker and the label skip it.
+export function Swatches({ colors, value, onChange, label, leading = null }) {
   const current = (value || '').toLowerCase();
+  const isHex = /^#[0-9a-f]{6}$/.test(current);
   return (
     <div className="ins-swatches" role="radiogroup" aria-label={label}>
+      {leading}
       {colors.map(color => (
         <button
           key={color}
@@ -167,9 +171,9 @@ export function Swatches({ colors, value, onChange, label }) {
         />
       ))}
       <label className="ins-swatch ins-swatch--custom" title="Otro color">
-        <input type="color" value={value} onChange={event => onChange(event.target.value)} aria-label={`${label}: otro color`} />
+        <input type="color" value={isHex ? current : '#ffffff'} onChange={event => onChange(event.target.value)} aria-label={`${label}: otro color`} />
       </label>
-      <span className="ins-swatches__hex">{(value || '').toUpperCase()}</span>
+      {isHex && <span className="ins-swatches__hex">{current.toUpperCase()}</span>}
     </div>
   );
 }

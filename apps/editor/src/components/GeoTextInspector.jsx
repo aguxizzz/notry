@@ -4,7 +4,8 @@
 import { useEffect, useRef } from 'react';
 import { Copy, FlipHorizontal2, FlipVertical2, RotateCcw, RotateCw, Trash2, Type } from 'lucide-react';
 import {
-  TEXT_COLORS, TEXT_FONTS, TEXT_OUTLINES, loadTextFonts, outlineColorFor, textLook,
+  AUTO_TEXT_COLOR, TEXT_COLORS, TEXT_FONTS, TEXT_OUTLINES, loadTextFonts, outlineColorFor,
+  resolveTextColor, textLook,
 } from '@map3d/textLayer.js';
 import { Field, IconTile, InspectorShell, Section, Segmented, Slider, Swatches } from './inspector/InspectorUI';
 import { MAX_TEXT_LENGTH, MAX_TEXT_SIZE_M, MIN_TEXT_SIZE_M, wrapTextAngle } from '../utils/geoSurfaces';
@@ -18,16 +19,17 @@ const OUTLINE_OPTIONS = Object.entries(TEXT_OUTLINES).map(([value, o]) => ({ val
 /**
  * CSS that imitates how the map paints a text: the font, the letter color and
  * the outline (a blurred text-shadow for "sombra", a stroke behind the fill
- * for "borde"). Approximate, it's only the preview.
+ * for "borde"). An "auto" color is painted as it'd look in `mode`.
+ * Approximate, it's only the preview.
  */
-function lookCss({ font, color, outline }, { flipX, flipY } = {}) {
-  const around = outlineColorFor(color);
+function lookCss({ font, color, outline }, { flipX, flipY } = {}, mode = 'satellite') {
+  const around = outlineColorFor(color, mode);
   return {
     display: 'inline-block',
     transform: `scale(${flipX ? -1 : 1}, ${flipY ? -1 : 1})`,
     fontFamily: TEXT_FONTS[font].family,
     fontWeight: 600,
-    color,
+    color: resolveTextColor(color, mode),
     ...(outline === 'sombra' ? { textShadow: `0 0 6px ${around}, 0 0 2px ${around}` } : {}),
     // paint-order puts the stroke behind the fill, so it doesn't eat into the letters.
     ...(outline === 'borde' ? { WebkitTextStroke: `4px ${around}`, paintOrder: 'stroke fill' } : {}),
@@ -77,8 +79,17 @@ export default function GeoTextInspector({ surfaces, onClose }) {
       )}
     >
       <Section>
-        <div className="ins-preview ins-preview--short geo-text-preview">
-          <span style={{ ...lookCss(look, texto), fontSize: 26 }}>{texto.text || 'Escribí algo'}</span>
+        {/* The background is split: satellite's dark ground on the left, render's light one on the right. */}
+        <div className={`ins-preview ins-preview--short geo-text-preview${look.color === AUTO_TEXT_COLOR ? ' geo-text-preview--split' : ''}`}>
+          {look.color === AUTO_TEXT_COLOR ? (
+            // "Auto" changes with the mode: each half shows its own color.
+            <>
+              <span className="geo-text-preview__half" style={{ ...lookCss(look, texto, 'satellite'), fontSize: 22 }}>{texto.text || 'Escribí algo'}</span>
+              <span className="geo-text-preview__half" style={{ ...lookCss(look, texto, 'render'), fontSize: 22 }}>{texto.text || 'Escribí algo'}</span>
+            </>
+          ) : (
+            <span style={{ ...lookCss(look, texto), fontSize: 26 }}>{texto.text || 'Escribí algo'}</span>
+          )}
         </div>
         <Field label="Texto" htmlFor="geo-text-content">
           <input
@@ -111,8 +122,24 @@ export default function GeoTextInspector({ surfaces, onClose }) {
         </div>
       </Section>
 
-      <Section label="Color">
-        <Swatches colors={TEXT_COLORS} value={look.color} onChange={color => changeOnce({ color })} label="Color del texto" />
+      <Section label="Color" aside={look.color === AUTO_TEXT_COLOR ? 'Automático' : null}>
+        <Swatches
+          colors={TEXT_COLORS}
+          value={look.color}
+          onChange={color => changeOnce({ color })}
+          label="Color del texto"
+          leading={(
+            <button
+              type="button"
+              role="radio"
+              aria-checked={look.color === AUTO_TEXT_COLOR}
+              aria-label="Automático: claro en satélite, oscuro en render"
+              title="Automático: claro en satélite, oscuro en render"
+              className={`ins-swatch ins-swatch--auto${look.color === AUTO_TEXT_COLOR ? ' is-active' : ''}`}
+              onClick={() => changeOnce({ color: AUTO_TEXT_COLOR })}
+            />
+          )}
+        />
         <Segmented
           label="Contorno"
           options={OUTLINE_OPTIONS}

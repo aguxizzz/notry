@@ -242,7 +242,8 @@ export const MAX_TEXT_LENGTH = 80; // mismo tope que el schema del back
 /**
  * Agrega un texto en `point` (plano) y devuelve { surfaces, id }. Si cae
  * sobre una calle (`angle` no null) sale alineado con ella; si no, siempre
- * derecho. Arranca sin contorno: letra blanca lisa.
+ * derecho. Arranca sin contorno y con color automático (claro en satélite,
+ * oscuro en render).
  */
 export function addText(surfaces, { point, angle = null, text = 'Texto', id = crypto.randomUUID() }) {
   const texto = {

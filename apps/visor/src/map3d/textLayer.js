@@ -20,7 +20,18 @@ export const DEFAULT_TEXT_FONT = 'moderna';
 
 // Suggested letter colors; the editor also allows any other.
 export const TEXT_COLORS = ['#ffffff', '#1f2328', '#e2c27d', '#f3ead8'];
-export const DEFAULT_TEXT_COLOR = '#ffffff';
+
+// "auto" = the letter color follows the map mode, because no single color
+// reads on both grounds: satellite has dark streets, render has white ones.
+// Same pair as the lot numbers (mapScene's STYLE). A hex color stays fixed.
+export const AUTO_TEXT_COLOR = 'auto';
+export const AUTO_TEXT_COLORS = { satellite: '#ffffff', render: '#1f2937' };
+export const DEFAULT_TEXT_COLOR = AUTO_TEXT_COLOR;
+
+/** The hex a text's color paints in `mode` ('satellite' | 'render'): resolves "auto". */
+export function resolveTextColor(color, mode = 'satellite') {
+  return color === AUTO_TEXT_COLOR ? (AUTO_TEXT_COLORS[mode] ?? AUTO_TEXT_COLORS.satellite) : color;
+}
 
 // What goes around the letters: nothing, a soft blurred shadow, or a hard
 // border. Its color is picked from the letter's (dark around light letters,
@@ -49,9 +60,12 @@ export function textLook(t) {
   };
 }
 
-/** Color of the shadow/border for letters of `color`: dark for light letters and vice versa. */
-export function outlineColorFor(color) {
-  const c = new THREE.Color(color); // linear: luminance with the real weights
+/**
+ * Color of the shadow/border for letters of `color`: dark for light letters
+ * and vice versa. "auto" is resolved for `mode` first.
+ */
+export function outlineColorFor(color, mode = 'satellite') {
+  const c = new THREE.Color(resolveTextColor(color, mode)); // linear: luminance with the real weights
   const luminance = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
   return luminance > 0.18 ? '#14161a' : '#ffffff';
 }
@@ -102,9 +116,13 @@ const TEXT_VERTEX = /* glsl */ `
   // that angle: seen from the other side it reads upside down, like paint would.
   // aFlip = (±1, ±1) mirrors the text horizontally / vertically: flipping the
   // corner offsets swaps the quads AND the way each glyph is sampled.
+  // aAuto = (letters, halo) take the mode's colors (uAutoColor / uAutoHalo)
+  // instead of their own; the halo doesn't when it's the selection's amber.
   uniform vec3 uRight;
   uniform vec3 uForward;
   uniform float uChannel;
+  uniform vec3 uAutoColor;
+  uniform vec3 uAutoHalo;
   attribute vec2 aOffset;
   attribute float aAngle;
   attribute float aFixed;
@@ -112,13 +130,16 @@ const TEXT_VERTEX = /* glsl */ `
   attribute vec4 aHalo;
   attribute float aHaloKind;
   attribute vec2 aFlip;
+  attribute vec2 aAuto;
   varying vec2 vUv;
   varying vec4 vColor;
   varying float vHaloKind;
   void main() {
     vUv = uv;
     vHaloKind = aHaloKind;
-    vColor = uChannel < 0.5 ? aHalo : vec4(aColor, 1.0);
+    vec3 letter = mix(aColor, uAutoColor, aAuto.x);
+    vec3 around = mix(aHalo.rgb, uAutoHalo, aAuto.y);
+    vColor = uChannel < 0.5 ? vec4(around, aHalo.a) : vec4(letter, 1.0);
     vec3 right = uRight;
     vec3 fwd = uForward;
     if (aFixed > 0.5) {
@@ -160,14 +181,16 @@ const TEXT_FRAGMENT = /* glsl */ `
  * `depthTest` false + `renderOrder` for the editor's flat map, which orders
  * layers by renderOrder alone; the visor keeps the depth test (3D blocks and
  * buildings must hide what's behind them).
- * Call update(camera) before each render so upright texts follow the heading.
+ * Call update(camera) before each render so upright texts follow the heading,
+ * and setMode(mode) when the map switches between 'satellite' and 'render'
+ * (recolors the "auto" texts, no rebuild).
  */
 export function createTextLayer(items, {
-  anisotropy = 1, selectedId = null, depthTest = true, renderOrder = 5,
+  anisotropy = 1, selectedId = null, depthTest = true, renderOrder = 5, mode = 'satellite',
 } = {}) {
   const group = new THREE.Group();
   const texts = items.filter(t => t.text?.trim() && t.size > 0);
-  if (!texts.length) return { group, update() {}, dispose() {} };
+  if (!texts.length) return { group, update() {}, setMode() {}, dispose() {} };
 
   // Each text with its look resolved, and the characters each font needs.
   const looks = texts.map(textLook);
@@ -189,6 +212,7 @@ export function createTextLayer(items, {
   const halo = [];
   const haloKind = [];
   const flip = [];
+  const auto = [];
   const index = [];
   const c = new THREE.Color();
   texts.forEach((t, ti) => {
@@ -198,9 +222,11 @@ export function createTextLayer(items, {
     const m = t.size / GLYPH_PX; // meters per atlas pixel
     const isFixed = t.angle != null;
     const rad = isFixed ? THREE.MathUtils.degToRad(t.angle) : 0;
+    const isAuto = look.color === AUTO_TEXT_COLOR;
     // THREE.Color converts the sRGB hex to the linear working space, which is
-    // what the shader's colorspace_fragment expects to convert back.
-    c.set(look.color);
+    // what the shader's colorspace_fragment expects to convert back. An "auto"
+    // text gets its colors from uniforms; these are just placeholders.
+    c.set(resolveTextColor(look.color));
     const textRgb = [c.r, c.g, c.b];
     // The selection is always a hard amber border, whatever the text's outline.
     c.set(selected ? SELECTED_HALO : outlineColorFor(look.color));
@@ -224,6 +250,7 @@ export function createTextLayer(items, {
         halo.push(...haloRgba);
         haloKind.push(kind);
         flip.push(t.flipX ? -1 : 1, t.flipY ? -1 : 1);
+        auto.push(isAuto ? 1 : 0, isAuto && !selected ? 1 : 0);
       }
       off.push(left, -half, right, -half, right, half, left, half);
       uv.push(g.u0, g.v0, g.u1, g.v0, g.u1, g.v1, g.u0, g.v1);
@@ -241,14 +268,23 @@ export function createTextLayer(items, {
   geom.setAttribute('aHalo', new THREE.Float32BufferAttribute(halo, 4));
   geom.setAttribute('aHaloKind', new THREE.Float32BufferAttribute(haloKind, 1));
   geom.setAttribute('aFlip', new THREE.Float32BufferAttribute(flip, 2));
+  geom.setAttribute('aAuto', new THREE.Float32BufferAttribute(auto, 2));
   geom.setIndex(index);
 
-  // Shared by both passes: the heading changes once per frame for both.
+  // Shared by both passes: the heading changes once per frame for both, the
+  // "auto" colors once per mode switch.
   const shared = {
     uAtlas: { value: texture },
     uRight: { value: new THREE.Vector3(1, 0, 0) },
     uForward: { value: new THREE.Vector3(0, 0, -1) },
+    uAutoColor: { value: new THREE.Color() },
+    uAutoHalo: { value: new THREE.Color() },
   };
+  const setMode = (next) => {
+    shared.uAutoColor.value.set(resolveTextColor(AUTO_TEXT_COLOR, next));
+    shared.uAutoHalo.value.set(outlineColorFor(AUTO_TEXT_COLOR, next));
+  };
+  setMode(mode);
   const pass = (channel, order) => {
     const mat = new THREE.ShaderMaterial({
       uniforms: { ...shared, uChannel: { value: channel } },
@@ -291,6 +327,7 @@ export function createTextLayer(items, {
       shared.uRight.value.copy(right);
       shared.uForward.value.set(right.z, 0, -right.x);
     },
+    setMode,
     // The atlas lives in a shader uniform, which a generic traverse+dispose
     // of the scene wouldn't reach.
     dispose() {

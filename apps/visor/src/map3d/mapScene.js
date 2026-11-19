@@ -240,14 +240,16 @@ export function createMapScene({
   scene.add(surfaceLayer.group);
 
   // Street and zone names written in the editor, on top of the lot numbers
-  // (renderOrder 5 > their 3/4). Same layer in satellite and render: the
-  // texts carry their own colors. Built right away in the fallback font and
-  // again once the real fonts load, so the map never waits on Google Fonts.
+  // (renderOrder 5 > their 3/4). Same layer in satellite and render; the
+  // "auto" colored ones are recolored by setMode. Built right away in the
+  // fallback font and again once the real fonts load, so the map never waits
+  // on Google Fonts. textMode is its own copy of `mode`, declared further down.
   const textItems = geoTextItems(geoSurfaces, geoCalibrationPoints, toLocal);
   let textLayer = null;
+  let textMode = 'satellite';
   const buildTexts = () => {
     if (textLayer) { scene.remove(textLayer.group); textLayer.dispose(); }
-    textLayer = createTextLayer(textItems, { anisotropy });
+    textLayer = createTextLayer(textItems, { anisotropy, mode: textMode });
     scene.add(textLayer.group);
     requestRender();
   };
@@ -312,6 +314,8 @@ export function createMapScene({
     scene.add(ground.outer, ground.inner);
     lotLayer.setStyle(STYLE[mode]);
     surfaceLayer.setStyle(SURFACE_STYLE[mode]);
+    textMode = mode;
+    textLayer?.setMode(mode);
     poiLayer.setMode(mode);
     syncBuildings();
     // ×π because since r155 Lambert divides by π: intensity 1 alone would

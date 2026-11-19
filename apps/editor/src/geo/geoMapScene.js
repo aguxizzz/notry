@@ -153,6 +153,8 @@ export function createGeoMapScene({
     if (ground) scene.remove(ground.inner, ground.outer);
     ground = layers;
     scene.add(ground.outer, ground.inner);
+    // Recolored with the new ground, not before: while it loads the old one is still shown.
+    textLayer?.setMode(next);
     onLoadingChange?.(false);
     requestRender();
   }
@@ -387,7 +389,10 @@ export function createGeoMapScene({
     if (textLayer) { scene.remove(textLayer.group); textLayer.dispose(); }
     const items = texts.map((t) => ({ ...t, ...toLocal(t.lat, t.lng) }));
     // No depth test: this flat map orders its layers by renderOrder alone.
-    textLayer = createTextLayer(items, { anisotropy, selectedId, depthTest: false, renderOrder: ORDER.texts });
+    // `mode` paints the "auto" colored texts like the visor would in that mode.
+    textLayer = createTextLayer(items, {
+      anisotropy, selectedId, depthTest: false, renderOrder: ORDER.texts, mode: mode ?? 'satellite',
+    });
     scene.add(textLayer.group);
     requestRender();
   }

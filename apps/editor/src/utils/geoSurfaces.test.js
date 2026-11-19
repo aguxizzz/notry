@@ -177,10 +177,10 @@ describe('textos', () => {
     expect(calleAngleAt(surfaces, calleRings, [0.9, 0.1], H)).toBeNull();
   });
 
-  it('un texto nuevo arranca sin contorno, con la fuente por defecto y el ángulo que se le pase', () => {
+  it('un texto nuevo arranca sin contorno, en color automático, con la fuente por defecto y el ángulo que se le pase', () => {
     const empty = normalizeGeoSurfaces(null);
     const [texto] = addText(empty, { point: [0.5, 0.5], angle: 30 }).surfaces.textos;
-    expect(texto).toMatchObject({ angle: 30, font: 'moderna', outline: 'none', color: '#ffffff' });
+    expect(texto).toMatchObject({ angle: 30, font: 'moderna', outline: 'none', color: 'auto' });
     expect(addText(empty, { point: [0.5, 0.5] }).surfaces.textos[0].angle).toBeNull();
   });
 
