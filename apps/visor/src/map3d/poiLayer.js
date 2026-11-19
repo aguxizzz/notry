@@ -49,10 +49,10 @@ function typedDistance(ann) {
 /**
  * Where each POI goes on the map, in the scene's local meters:
  * [{ ann, id, x, z, exact }]. Inside the loteo the blueprint anchor goes
- * through the geo calibration (exact, moves with the lots). Outside, nothing
- * stores a real position yet, so for the preview it's estimated: direction
- * from the panorama (pixel column + north) and the typed distance, from the
- * loteo's pin. POIs that can't be placed are left out.
+ * through the geo calibration (exact, moves with the lots). Outside, the real
+ * location typed in the editor (latitude/longitude) when there is one; if not,
+ * it's estimated: direction from the panorama (pixel column + north) and the
+ * typed distance, from the loteo's pin. POIs that can't be placed are left out.
  */
 export function placePois(pois, { geoPoints, latitude, longitude, northOffset, panoramaWidth, toLocal }) {
   const H = geoHomography(geoPoints);
@@ -64,6 +64,12 @@ export function placePois(pois, { geoPoints, latitude, longitude, northOffset, p
     if (H && bp) {
       const [lng, lat] = applyHomography(H, bp);
       const { x, z } = toLocal(lat, lng);
+      out.push({ ann, id, x, z, exact: true });
+      continue;
+    }
+    // The blueprint anchor wins above: it's what lines up with the drawn lots.
+    if (ann.latitude != null && ann.longitude != null) {
+      const { x, z } = toLocal(ann.latitude, ann.longitude);
       out.push({ ann, id, x, z, exact: true });
       continue;
     }
