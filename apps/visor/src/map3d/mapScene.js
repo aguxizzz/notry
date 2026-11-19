@@ -464,6 +464,9 @@ export function createMapScene({
   let selected = null;
   let block = null;
   let blockLabelHeight = 0; // where the selected lot's number sits on the block
+  // Where the camera was before a lot was picked ({ position, target }), to
+  // fly back there when it's let go.
+  let returnView = null;
   let hover = null; // { entry, mesh }
   let grow = null; // { start }
   let fly = null; // { start, ms, from, to, fromTarget, toTarget, orbit }; from/to are Sphericals around the target
@@ -552,17 +555,34 @@ export function createMapScene({
     requestRender();
   }
 
-  /** Selects the lot with this id (or none), flying to it. */
+  /**
+   * Selects the lot with this id (or none), flying to it. Letting go of the
+   * lot flies back to where the camera was before the first pick (going lot
+   * to lot keeps that first spot), unless the camera already left the lot
+   * for a preset view or a POI.
+   */
   function setSelected(id) {
     const entry = id == null ? null : lotById.get(id) ?? null;
     if (entry === selected) return;
+    const wasOnLot = onLot;
     selected = entry;
     controls.autoRotate = false;
     clearTimeout(resumeTimer);
     refreshBlock(true);
     onLot = false;
     // A lot without geo_coordinates still opens its ficha; the map stays put.
-    if (!entry) return;
+    if (!entry) {
+      if (returnView && wasOnLot) flyTo(returnView.position, returnView.target);
+      returnView = null;
+      return;
+    }
+    // Only when the camera isn't on a lot yet; mid-flight back counts as
+    // "not on a lot", so read where the flight was headed, not where it is.
+    if (!wasOnLot) {
+      returnView = fly && !fly.orbit
+        ? { position: new THREE.Vector3().setFromSpherical(fly.to).add(fly.toTarget), target: fly.toTarget.clone() }
+        : { position: camera.position.clone(), target: controls.target.clone() };
+    }
     onLot = true;
     closeCorridor(false); // the flight to the lot below takes the camera back
 
