@@ -48,6 +48,43 @@
   color: inherit;
 }
 
+/* ---- Floating amenity labels (map3d/amenityLayer.js, project setting
+   amenity_labels = 'floating'): icon + name pill centered on the amenity.
+   Not clickable, so touches go through to the map. */
+.map-amenities {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.map-amenity {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px 3px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #2b2b2b;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  will-change: transform;
+  transition: opacity 0.15s ease;
+}
+/* Overlaps a label that ranks higher (amenityLayer.js update): fades out. */
+.map-amenity.is-covered {
+  opacity: 0;
+}
+.map-amenity svg {
+  flex: none;
+  color: #a8823c; /* the visor's gold, a shade darker so it reads on white */
+}
+
 /* ---- POIs on the map (preview, map3d/poiLayer.js). The layer covers the
    canvas but lets touches through; only pins and pills take them. Each
    element is placed with a translate() to its point from the top-left. */

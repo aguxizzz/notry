@@ -268,46 +268,8 @@ export function updateAmenity(surfaces, id, patch) {
   return { ...surfaces, amenities: (surfaces.amenities ?? []).map(a => (a.id === id ? { ...a, ...patch } : a)) };
 }
 
-/**
- * Dónde va la etiqueta (ícono + nombre) de un polígono del plano: el
- * centroide de su área. En una forma cóncava (una L) el centroide puede caer
- * afuera; ahí se usa el medio del tramo más ancho del polígono a esa misma
- * altura, que siempre está adentro. Si el área da 0 (puntos alineados), el promedio.
- */
-export function polygonLabelPoint(points) {
-  const c = areaCentroid(points);
-  if (pointInPolygon(c, points)) return c;
-  // Cruces de la horizontal y = c[1] con los lados, ordenados: entre cada par
-  // (1º-2º, 3º-4º...) la recta va por adentro.
-  const xs = [];
-  points.forEach(([x0, y0], i) => {
-    const [x1, y1] = points[(i + 1) % points.length];
-    if ((y0 > c[1]) !== (y1 > c[1])) xs.push(x0 + ((c[1] - y0) * (x1 - x0)) / (y1 - y0));
-  });
-  xs.sort((a, b) => a - b);
-  let best = null;
-  for (let i = 0; i + 1 < xs.length; i += 2) {
-    if (!best || xs[i + 1] - xs[i] > best[1] - best[0]) best = [xs[i], xs[i + 1]];
-  }
-  return best ? [(best[0] + best[1]) / 2, c[1]] : c;
-}
-
-function areaCentroid(points) {
-  let a = 0;
-  let cx = 0;
-  let cy = 0;
-  points.forEach(([x0, y0], i) => {
-    const [x1, y1] = points[(i + 1) % points.length];
-    const cross = x0 * y1 - x1 * y0;
-    a += cross;
-    cx += (x0 + x1) * cross;
-    cy += (y0 + y1) * cross;
-  });
-  if (Math.abs(a) < 1e-12) {
-    return [points.reduce((s, p) => s + p[0], 0) / points.length, points.reduce((s, p) => s + p[1], 0) / points.length];
-  }
-  return [cx / (3 * a), cy / (3 * a)];
-}
+// Dónde va la etiqueta de una amenity: vive en @map3d porque el visor la pone en el mismo lugar.
+export { polygonLabelPoint } from '@map3d/amenities.js';
 
 // --- Textos: nombres de calles y zonas escritos sobre el mapa.
 

@@ -175,7 +175,8 @@ const TEXT_FRAGMENT = /* glsl */ `
  * letters). Rebuilt whole when the texts change: they're a handful.
  *
  * `items`: [{ id, x, z, text, size, angle, font, color, outline, flipX, flipY }]
- * in local meters; `angle` in degrees (null = follows the camera), flips mirror it. `selectedId` gets
+ * in local meters; optional `y` lifts it off the ground (an amenity's name on
+ * its roof). `angle` in degrees (null = follows the camera), flips mirror it. `selectedId` gets
  * an amber border. Build after loadTextFonts() resolves, or the letters come
  * out in the fallback font.
  * `depthTest` false + `renderOrder` for the editor's flat map, which orders
@@ -243,7 +244,7 @@ export function createTextLayer(items, {
       const half = (cellH / 2) * m;
       const base = pos.length / 3;
       for (let i = 0; i < 4; i += 1) {
-        pos.push(t.x, 0, t.z);
+        pos.push(t.x, t.y ?? 0, t.z);
         angle.push(rad);
         fixed.push(isFixed ? 1 : 0);
         color.push(...textRgb);

@@ -287,6 +287,9 @@ export default function ViewerExperience() {
             // Edificios de alrededor: un GeoJSON en R2 aparte de los datos del
             // visor porque pesa cientos de KB; null si el loteo no los tiene.
             buildingsUrl={visor.buildingsUrl ?? null}
+            // Nombres de las amenities escritos en el piso o como etiqueta
+            // flotante: se elige por proyecto en Visual de la plataforma.
+            amenityLabels={project?.amenity_labels === 'floating' ? 'floating' : 'ground'}
           />
         </Suspense>
       ) : (

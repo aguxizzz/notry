@@ -2,7 +2,7 @@
 // whose answer is known (the blueprint square laid on a ~333 m geo square).
 import { describe, expect, test } from 'vitest';
 import { makeProjection } from './ground.js';
-import { geoHomography, geoSurfaceRings, geoTextItems, lotGeoRing } from './geoSurfaces.js';
+import { geoAmenityItems, geoHomography, geoSurfaceRings, geoTextItems, lotGeoRing } from './geoSurfaces.js';
 
 const LAT = -27.61;
 const LNG = -55.32;
@@ -105,6 +105,28 @@ describe('geoTextItems', () => {
   test('nothing without calibration or texts', () => {
     expect(geoTextItems({ textos: [{ point: [0, 0], text: 'a', size: 5 }] }, [], toLocal)).toEqual([]);
     expect(geoTextItems(null, PAIRS, toLocal)).toEqual([]);
+  });
+});
+
+describe('geoAmenityItems', () => {
+  test('brings the outline and the label point to meters, keeping the rest', () => {
+    const amenity = { id: 'a', points: [[0, 1], [1, 1], [1, 0], [0, 0]], form: 'cancha', sport: 'padel', name: 'Pádel' };
+    const [item] = geoAmenityItems({ amenities: [amenity] }, PAIRS, toLocal);
+    const sw = toLocal(LAT, LNG);
+    expect(item.ring[0][0]).toBeCloseTo(sw.x, 6);
+    expect(item.ring[0][1]).toBeCloseTo(sw.z, 6);
+    // Label in the middle of the square, i.e. the middle of its geo corners.
+    const mid = toLocal(LAT + D / 2, LNG + D / 2);
+    expect(item.label[0]).toBeCloseTo(mid.x, 0);
+    expect(item.label[1]).toBeCloseTo(mid.z, 0);
+    expect(item).toMatchObject({ id: 'a', form: 'cancha', sport: 'padel', name: 'Pádel' });
+  });
+
+  test('nothing without calibration, and skips outlines under 3 points', () => {
+    const amenities = [{ id: 'a', points: [[0, 0], [1, 0], [1, 1]] }];
+    expect(geoAmenityItems({ amenities }, [], toLocal)).toEqual([]);
+    expect(geoAmenityItems({ amenities: [{ id: 'b', points: [[0, 0], [1, 0]] }] }, PAIRS, toLocal)).toEqual([]);
+    expect(geoAmenityItems(null, PAIRS, toLocal)).toEqual([]);
   });
 });
 

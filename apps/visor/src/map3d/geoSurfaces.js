@@ -1,8 +1,9 @@
-// Manzanas, calles, verdes, agua and perímetro drawn in the editor's satellite view
+// Manzanas, calles, verdes, agua, perímetro, texts and amenities drawn in the editor's satellite view
 // (Loteo.geo_surfaces), brought from blueprint coordinates to the 3D map. They're stored in the
 // blueprint, like the lots, so recalibrating moves them together; here the
 // geo calibration pairs give the blueprint → (lng, lat) homography.
 // Shared with the editor through @map3d (geoHomography).
+import { polygonLabelPoint } from './amenities.js';
 import { applyHomography, computeHomography, invertHomography, isHomographyValid } from './homography.js';
 import { naturalShape } from './naturalOutline.js';
 import { buildStreetRibbon, unionStreetAreas } from './streetRibbon.js';
@@ -76,6 +77,26 @@ export function geoTextItems(geoSurfaces, geoPoints, toLocal) {
       const [lng, lat] = applyHomography(H, t.point);
       return { ...t, ...toLocal(lat, lng) };
     });
+}
+
+/**
+ * The loteo's amenities (geo_surfaces.amenities, drawn on the blueprint) for
+ * createAmenityLayer: each one as { ...amenity, ring: [[x, z], ...], label: [x, z] }
+ * in the map's local meters. The label point is worked out in the blueprint,
+ * like the editor does, so it lands on the same spot. Empty without amenities
+ * or a valid calibration.
+ */
+export function geoAmenityItems(geoSurfaces, geoPoints, toLocal) {
+  const H = geoHomography(geoPoints);
+  if (!H) return [];
+  const toMeters = (point) => {
+    const [lng, lat] = applyHomography(H, point);
+    const { x, z } = toLocal(lat, lng);
+    return [x, z];
+  };
+  return (geoSurfaces?.amenities ?? [])
+    .filter(a => a.points?.length >= 3)
+    .map(a => ({ ...a, ring: a.points.map(toMeters), label: toMeters(polygonLabelPoint(a.points)) }));
 }
 
 /**

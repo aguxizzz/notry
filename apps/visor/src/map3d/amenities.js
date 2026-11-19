@@ -77,6 +77,47 @@ export const AMENITY_ICONS = {
   bandera: { label: 'Golf', svg: '<path d="M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2q2 0 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528"/>' },
 };
 
+/**
+ * Where an amenity's label (icon + name) goes, for a polygon as [[x, y], ...]:
+ * the centroid of its area. In a concave shape (an L) the centroid can fall
+ * outside; then it's the middle of the widest run across the polygon at that
+ * same height, which is always inside. Zero area (points in a line) = the average.
+ */
+export function polygonLabelPoint(points) {
+  const c = areaCentroid(points);
+  // Crossings of the horizontal y = c[1] with the sides, sorted: between each
+  // pair (1st-2nd, 3rd-4th...) the line runs inside. An odd count before c = inside.
+  const xs = [];
+  points.forEach(([x0, y0], i) => {
+    const [x1, y1] = points[(i + 1) % points.length];
+    if ((y0 > c[1]) !== (y1 > c[1])) xs.push(x0 + ((c[1] - y0) * (x1 - x0)) / (y1 - y0));
+  });
+  if (xs.filter(x => x < c[0]).length % 2 === 1) return c;
+  xs.sort((a, b) => a - b);
+  let best = null;
+  for (let i = 0; i + 1 < xs.length; i += 2) {
+    if (!best || xs[i + 1] - xs[i] > best[1] - best[0]) best = [xs[i], xs[i + 1]];
+  }
+  return best ? [(best[0] + best[1]) / 2, c[1]] : c;
+}
+
+function areaCentroid(points) {
+  let a = 0;
+  let cx = 0;
+  let cy = 0;
+  points.forEach(([x0, y0], i) => {
+    const [x1, y1] = points[(i + 1) % points.length];
+    const cross = x0 * y1 - x1 * y0;
+    a += cross;
+    cx += (x0 + x1) * cross;
+    cy += (y0 + y1) * cross;
+  });
+  if (Math.abs(a) < 1e-12) {
+    return [points.reduce((s, p) => s + p[0], 0) / points.length, points.reduce((s, p) => s + p[1], 0) / points.length];
+  }
+  return [cx / (3 * a), cy / (3 * a)];
+}
+
 /** A whole <svg> for an icon key, or '' if it doesn't exist. Stroke follows `currentColor`. */
 export function amenityIconSvg(key, size = 16) {
   const icon = AMENITY_ICONS[key];

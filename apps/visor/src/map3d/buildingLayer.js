@@ -14,7 +14,7 @@ const JITTER_M = 0.35; // ± per building, so a row of houses isn't one flat lin
 
 // Walls darken toward the ground: a cheap stand-in for the shadow where a wall
 // meets the ground (ambient occlusion), without a shadow pass for thousands.
-const WALL_FOOT_SHADE = 0.72;
+export const WALL_FOOT_SHADE = 0.72;
 
 const STYLE = {
   // Light model look, like a white architect's maqueta.
@@ -59,7 +59,7 @@ function hashRing(ring) {
 
 // Signed area in local meters; > 0 = counter-clockwise seen from above
 // (x east, z south, so the sign flips against the usual x/y formula).
-function signedArea(ring) {
+export function signedArea(ring) {
   let a = 0;
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i, i += 1) {
     a += ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1];
@@ -116,8 +116,8 @@ export function footprintsFromGeoJSON(geojson, toLocal, skip = () => false) {
 
 // Walls: one quad per edge, outward normals. `top` is 1 on the top vertices
 // and 0 at the foot (paint darkens the foot); `owner` says which building
-// each vertex belongs to, for the colors.
-function buildWalls(footprints) {
+// each vertex belongs to, for the colors. Also used by amenityLayer.js.
+export function buildWalls(footprints) {
   const pos = [];
   const nor = [];
   const top = [];
@@ -149,7 +149,7 @@ function buildWalls(footprints) {
 }
 
 // Roofs: flat, earcut per building. Colors are filled in by setGround.
-function buildRoofs(footprints) {
+export function buildRoofs(footprints) {
   const pos = [];
   const index = [];
   const owner = [];

@@ -42,11 +42,12 @@ const isLiteDevice = () => document.documentElement.classList.contains('perf-lit
  * points at and `onPoiSelect(ann)` a tap on one (falls back to onMarkerSelect);
  * `northOffset`/`panoramaWidth` place the ones outside the loteo.
  * `buildingsUrl` is the stage's GeoJSON of buildings around, null if none.
+ * `amenityLabels` = 'ground' | 'floating', how the amenities' names show (project setting).
  */
 export default function MapViewer({
   latitude, longitude, annotations, loteLabels, geoSurfaces, geoCalibrationPoints,
   variant = 'satellite', selectedId, onMarkerSelect, usePanel, ref,
-  pois, northOffset, panoramaWidth, selectedPoiId, onPoiSelect, buildingsUrl = null,
+  pois, northOffset, panoramaWidth, selectedPoiId, onPoiSelect, buildingsUrl = null, amenityLabels = 'ground',
 }) {
   const containerRef = useRef(null);
   const sceneRef = useRef(null);
@@ -109,6 +110,7 @@ export default function MapViewer({
         panoramaWidth,
         demoPois: new URLSearchParams(window.location.search).has('poisdemo'),
         buildingsUrl,
+        amenityLabels,
         onPoiClick: (ann) => (onPoiSelectRef.current ?? onMarkerSelectRef.current)?.(ann),
         onLoadingChange: setLoading,
         onError: (err) => {
@@ -135,7 +137,7 @@ export default function MapViewer({
       setError(null);
       setLoading(true);
     };
-  }, [latitude, longitude, annotations, loteLabels, geoSurfaces, geoCalibrationPoints, pois, northOffset, panoramaWidth, buildingsUrl]);
+  }, [latitude, longitude, annotations, loteLabels, geoSurfaces, geoCalibrationPoints, pois, northOffset, panoramaWidth, buildingsUrl, amenityLabels]);
 
   useEffect(() => {
     sceneRef.current?.setMode(variant);

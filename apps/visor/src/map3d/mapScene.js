@@ -9,7 +9,8 @@ import { annId } from '../lotData.js';
 import { createLotLayer } from './lotLayer.js';
 import { createLotBlock } from './lotBlock.js';
 import { boxAround, createGroundBuilders, disposeObject, makeProjection, rad } from './ground.js';
-import { geoSurfaceRings, geoTextItems, lotGeoRing, streetEnds } from './geoSurfaces.js';
+import { geoAmenityItems, geoSurfaceRings, geoTextItems, lotGeoRing, streetEnds } from './geoSurfaces.js';
+import { amenityTextItems, createAmenityLayer } from './amenityLayer.js';
 import { createTextLayer, loadTextFonts } from './textLayer.js';
 import { SURFACE_STYLE, createSurfaceLayer } from './surfaceLayer.js';
 import { createPoiLayer, placePois } from './poiLayer.js';
@@ -131,11 +132,14 @@ function inside(pts, x, z) {
  *   two made-up places inside the loteo (preview only).
  * - `buildingsUrl`: GeoJSON with the footprints of the buildings around
  *   (buildingLayer.js); null = the loteo has none downloaded.
+ * - `amenityLabels`: how the amenities' names show, 'ground' (written on
+ *   them) or 'floating' (HTML labels); the project's branding.amenity_labels.
  */
 export function createMapScene({
   container, latitude, longitude, annotations, loteLabels, geoSurfaces, geoCalibrationPoints, lite = false,
   onLotClick, onLoadingChange, onError, initialInsets,
   pois = [], northOffset = null, panoramaWidth = null, demoPois = false, onPoiClick, buildingsUrl = null,
+  amenityLabels = 'ground',
 }) {
   // Biggest texture we stitch: 4096² RGBA is 64 MB of GPU memory, too much
   // for a low-end phone; 2048² is 16 MB.
@@ -244,19 +248,33 @@ export function createMapScene({
   // "auto" colored ones are recolored by setMode. Built right away in the
   // fallback font and again once the real fonts load, so the map never waits
   // on Google Fonts. textMode is its own copy of `mode`, declared further down.
-  const textItems = geoTextItems(geoSurfaces, geoCalibrationPoints, toLocal);
+  // With amenityLabels 'ground' the amenities' names go in the same layer,
+  // sized to fit each amenity; a function so they're measured again in the
+  // real font once it loads.
+  const amenityItems = geoAmenityItems(geoSurfaces, geoCalibrationPoints, toLocal);
+  const amenityNames = amenityLabels === 'floating' ? [] : amenityItems;
+  const textItems = () => [...geoTextItems(geoSurfaces, geoCalibrationPoints, toLocal), ...amenityTextItems(amenityNames)];
   let textLayer = null;
   let textMode = 'satellite';
   const buildTexts = () => {
     if (textLayer) { scene.remove(textLayer.group); textLayer.dispose(); }
-    textLayer = createTextLayer(textItems, { anisotropy, mode: textMode });
+    textLayer = createTextLayer(textItems(), { anisotropy, mode: textMode });
     scene.add(textLayer.group);
     requestRender();
   };
-  if (textItems.length) {
+  if (geoSurfaces?.textos?.length || amenityNames.length) {
     buildTexts();
     loadTextFonts().then(() => { if (!disposed) buildTexts(); });
   }
+
+  // Club house, canchas, estacionamiento... drawn in the editor. With
+  // 'floating' labels their HTML goes in before the POI layer's, so a POI pin
+  // stays on top. `size` and `camera` are declared further down; getView
+  // only runs once the frame loop is up.
+  const amenityLayer = createAmenityLayer(amenityItems, {
+    pixelRatio: renderer.getPixelRatio(), labels: amenityLabels, container, getView: () => ({ camera, size }),
+  });
+  scene.add(amenityLayer.group);
 
   // --- buildings around: loaded after the scene is up, they never hold the
   // map back. In satellite they take their colors from the ground photo.
@@ -316,6 +334,7 @@ export function createMapScene({
     surfaceLayer.setStyle(SURFACE_STYLE[mode]);
     textMode = mode;
     textLayer?.setMode(mode);
+    amenityLayer.setMode(mode);
     poiLayer.setMode(mode);
     syncBuildings();
     // ×π because since r155 Lambert divides by π: intensity 1 alone would
@@ -959,10 +978,10 @@ export function createMapScene({
 
     if (needsRender) {
       lotLayer.update(camera, controls.target); // numbers turn with the heading
-      textLayer?.update(camera); // and so do the texts without a fixed angle
+      textLayer?.update(camera); // and so do the texts without a fixed angle (amenity names too)
       renderer.render(scene, camera);
       poiLayer.update(); // HTML overlay follows the frame just drawn
-      needsRender = false;
+      amenityLayer.update(); // and so do the floating amenity labels, if that's the mode      needsRender = false;
     }
     frame = requestAnimationFrame(tick);
   }
@@ -983,6 +1002,7 @@ export function createMapScene({
     lotLayer.dispose();
     surfaceLayer.dispose();
     textLayer?.dispose();
+    amenityLayer.dispose();
     buildings?.dispose();
     poiLayer.dispose();
     removeCorridor();
