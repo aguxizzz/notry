@@ -584,8 +584,16 @@ function App() {
           return;
         }
         if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); gs.handleDeleteKey(); return; }
+        // Copiar/pegar/duplicar textos (portapapeles propio de useGeoSurfaces).
+        // Solo se frena el atajo del navegador cuando hubo algo para hacer.
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
+          const k = e.key.toLowerCase();
+          if (k === 'c' && gs.copySelected()) { e.preventDefault(); return; }
+          if (k === 'v' && gs.paste()) { e.preventDefault(); return; }
+          if (k === 'd' && gs.duplicateSelected()) { e.preventDefault(); return; }
+        }
         // Mismos atajos que muestra SATELLITE_TOOLS en Toolbar.jsx.
-        const SATELLITE_KEYS = { v: 'select', 1: 'manzana', 2: 'calle', 3: 'verde', 4: 'agua', 5: 'perimetro' };
+        const SATELLITE_KEYS = { v: 'select', 1: 'manzana', 2: 'calle', 3: 'verde', 4: 'agua', 5: 'perimetro', 6: 'texto' };
         const key = e.key.toLowerCase();
         if (!e.ctrlKey && !e.metaKey && key in SATELLITE_KEYS) {
           // Sin vincular no hay herramientas; igual se corta acá para que no

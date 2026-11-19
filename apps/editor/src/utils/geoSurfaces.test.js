@@ -4,8 +4,9 @@
 import { describe, expect, it } from 'vitest';
 import { computeHomography, invertHomography } from './homography.js';
 import {
-  DEFAULT_NATURAL_SHAPE, addSurface, blueprintToGeo, calleRing, displayRings, findSurfaceAt, geoToBlueprint, normalizeGeoSurfaces,
-  removeSurface, snapToAxis, surfaceRings,
+  DEFAULT_NATURAL_SHAPE, addSurface, addText, blueprintToGeo, calleAngleAt, calleRing, displayRings, findSurfaceAt,
+  findTextAt, geoToBlueprint, normalizeGeoSurfaces, normalizeTextAngle, removeSurface, snapToAxis, surfaceRings,
+  pasteText, withoutEmptyTexts, wrapTextAngle,
 } from './geoSurfaces.js';
 
 // Plano [0,1]² sobre un rectángulo de ~400 m × ~200 m en Misiones: el plano
@@ -110,7 +111,7 @@ describe('shapes', () => {
 describe('normalizeGeoSurfaces', () => {
   it('completa con listas vacías lo que un loteo viejo no trae', () => {
     expect(normalizeGeoSurfaces({ manzanas: [{ id: 'm' }] })).toEqual({
-      manzanas: [{ id: 'm' }], calles: [], verdes: [], aguas: [], perimetros: [],
+      manzanas: [{ id: 'm' }], calles: [], verdes: [], aguas: [], perimetros: [], textos: [],
     });
   });
 });
@@ -151,5 +152,70 @@ describe('conexiones entre calles', () => {
   it('lejos de cualquier eje el click queda donde cayó', () => {
     const s = calle(base, 'h', [[0.2, 0.5], [0.5, 0.5]]);
     expect(snapToAxis(s, [0.6, 0.6])).toEqual([0.6, 0.6]);
+  });
+});
+
+describe('textos', () => {
+  // Sin canvas en los tests: cada letra mide lo mismo que el tamaño (en metros).
+  const boxOf = (text, size) => ({ halfW: (text.length * size) / 2, halfH: size / 2 });
+
+  it('normaliza el ángulo a (-90, 90]: una recta y su opuesta son el mismo texto', () => {
+    expect(normalizeTextAngle(0)).toBe(0);
+    expect(normalizeTextAngle(180)).toBe(0);
+    expect(normalizeTextAngle(135)).toBe(-45);
+    expect(normalizeTextAngle(-100)).toBe(80);
+    expect(normalizeTextAngle(90)).toBe(90);
+  });
+
+  it('sobre una calle toma el ángulo del terreno, no el del plano estirado', () => {
+    // Diagonal del plano: en el terreno (400 × 200 m) baja ~26,6° del este hacia el sur, no 45°.
+    const surfaces = addSurface(normalizeGeoSurfaces(null), { kind: 'calle', points: [[0, 0], [1, 1]], width: 12, id: 'c1' });
+    const calleRings = surfaceRings(surfaces, H, Hinv).filter(r => r.kind === 'calle');
+    const angle = calleAngleAt(surfaces, calleRings, [0.5, 0.5], H);
+    expect(angle).toBeCloseTo((Math.atan2(200, 400) * 180) / Math.PI, 0);
+    // Lejos de la calle no hay ángulo: queda como nombre de zona.
+    expect(calleAngleAt(surfaces, calleRings, [0.9, 0.1], H)).toBeNull();
+  });
+
+  it('un texto nuevo arranca sin contorno, con la fuente por defecto y el ángulo que se le pase', () => {
+    const empty = normalizeGeoSurfaces(null);
+    const [texto] = addText(empty, { point: [0.5, 0.5], angle: 30 }).surfaces.textos;
+    expect(texto).toMatchObject({ angle: 30, font: 'moderna', outline: 'none', color: '#ffffff' });
+    expect(addText(empty, { point: [0.5, 0.5] }).surfaces.textos[0].angle).toBeNull();
+  });
+
+  it('se clickea dentro de la caja girada del texto y no fuera', () => {
+    // "ABCD" de 10 m: caja de 40 × 10 m. Horizontal (0°) en el centro del plano.
+    const textos = [{ id: 't', point: [0.5, 0.5], text: 'ABCD', size: 10, angle: 0 }];
+    const [lat, lng] = blueprintToGeo(H, [0.5, 0.5]);
+    const at = (east, south) => geoToBlueprint(Hinv, [lat - south / 111320, lng + east / (111320 * Math.cos((LAT * Math.PI) / 180))]);
+    expect(findTextAt(textos, at(18, 0), H, boxOf)).toBe('t');
+    expect(findTextAt(textos, at(0, 18), H, boxOf)).toBeNull();
+    // Girado 90°: ahora la caja va de norte a sur.
+    const vertical = [{ ...textos[0], angle: 90 }];
+    expect(findTextAt(vertical, at(0, 18), H, boxOf)).toBe('t');
+    expect(findTextAt(vertical, at(18, 0), H, boxOf)).toBeNull();
+  });
+
+  it('el ángulo libre da la vuelta entera: (-180, 180]', () => {
+    expect(wrapTextAngle(170 + 90)).toBe(-100);
+    expect(wrapTextAngle(-180)).toBe(180);
+    expect(wrapTextAngle(-90 - 90)).toBe(180);
+    expect(wrapTextAngle(45)).toBe(45);
+  });
+
+  it('pegar pone una copia nueva corrida unos metros, con el mismo aspecto', () => {
+    const original = { id: 't', point: [0.5, 0.5], text: 'Plaza', size: 10, angle: 30, font: 'mano', flipX: true };
+    const { surfaces, id } = pasteText(normalizeGeoSurfaces(null), original, H, Hinv, 'copia');
+    const [copy] = surfaces.textos;
+    expect(id).toBe('copia');
+    expect(copy).toMatchObject({ text: 'Plaza', angle: 30, font: 'mano', flipX: true });
+    // 12 m al este y 12 al sur: ~17 m en diagonal, aunque el plano esté estirado 2:1.
+    expect(metersBetween(blueprintToGeo(H, original.point), blueprintToGeo(H, copy.point))).toBeCloseTo(12 * Math.SQRT2, 0);
+  });
+
+  it('al guardar se descartan los textos vacíos', () => {
+    const surfaces = { ...normalizeGeoSurfaces(null), textos: [{ id: 'a', text: '  ' }, { id: 'b', text: 'Plaza' }] };
+    expect(withoutEmptyTexts(surfaces).textos.map(t => t.id)).toEqual(['b']);
   });
 });

@@ -1,5 +1,5 @@
 // Satellite view of the editor, alongside Plano and Panorama: the lots (and the
-// manzanas/calles drawn here) over the real map, through the plano↔geo
+// manzanas/calles and texts drawn here) over the real map, through the plano↔geo
 // calibration. Linking the plano to the map happens in GeoCalibrationOverlay;
 // this view only asks for it when there's no valid calibration yet.
 import { Suspense, lazy, useMemo } from 'react';
@@ -72,6 +72,10 @@ export default function SatelliteView({ latitude, longitude, blueprintUrl, geo, 
         surfaces={mapSurfaces}
         drawingTool={surfaces.isDrawingTool}
         onMapPointPicked={surfaces.handleMapPoint}
+        texts={surfaces.geoTexts}
+        selectedTextId={selected?.kind === 'texto' ? selected.id : null}
+        canDragAt={surfaces.canDragAt}
+        onDrag={surfaces.drag}
       />
     </Suspense>
   );

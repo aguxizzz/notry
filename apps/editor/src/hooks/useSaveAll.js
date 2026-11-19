@@ -4,6 +4,7 @@ import {
   polygonChanged, poiChanged, buildLotItem, buildPoiUpdateItem, buildPoiCreateItem, isPendingPoiValid,
 } from '../utils/saveAllPayload';
 import { useUIFeedback } from './useUIFeedback';
+import { withoutEmptyTexts } from '../utils/geoSurfaces';
 
 // `changes` sale de detectChanges (utils/editorChanges): la misma detección
 // que el indicador de "cambios sin guardar" y el borrador.
@@ -72,7 +73,9 @@ export function useSaveAll({ annotations, setAnnotations, token, loteoId, savedA
         ...(geoCalibrationChanged ? { geo_calibration_points: geoCalibrationPoints ?? [] } : {}),
         ...(renderSurfacesChanged ? { render_surfaces: renderSurfaces ?? null } : {}),
         // Siempre el objeto entero: listas vacías borran lo guardado (null no tocaría la columna).
-        ...(geoSurfacesChanged ? { geo_surfaces: geoSurfaces } : {}),
+        // Los textos que quedaron vacíos (se borró todo lo escrito) no viajan:
+        // no se ven ni se pueden clickear, y el back pide al menos una letra.
+        ...(geoSurfacesChanged ? { geo_surfaces: withoutEmptyTexts(geoSurfaces) } : {}),
         lots: polygonsWithUuid.map(marker => buildLotItem(marker, savedMap)),
         pois_create: pendingPois.map(buildPoiCreateItem),
         pois_update: poisWithUuid.map(buildPoiUpdateItem),

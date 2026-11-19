@@ -20,18 +20,24 @@ import MapControls from './MapControls';
  * pin = fine tune), reported through onAdjust (useGeoCalibration.adjust).
  * `showPins` off hides the calibration pins (the Satellite view only needs
  * the pairs for the homography, not to see them).
+ * `texts` ([{ id, lat, lng, text, size, angle, style }]) are written on the
+ * map, `selectedTextId` with an amber halo; `canDragAt`/`onDrag` let them be
+ * dragged (see createGeoMapScene). Only the Satellite view passes them.
  * `view` (useMapView) comes from outside when the controls live in the main
  * toolbar (Satellite view); without it the map keeps its own state and draws
  * its own floating bar (calibration), starting the blueprint at half opacity.
  */
 export default function GeoCalibrationMap({
   latitude, longitude, points, polygons, blueprintUrl, surfaces, drawingTool, adjustMode,
-  showPins = true, view, onMapPointPicked, onAdjust,
+  showPins = true, view, onMapPointPicked, onAdjust, texts, selectedTextId = null, canDragAt, onDrag,
 }) {
   const containerRef = useRef(null);
   const sceneRef = useRef(null);
   const onPickRef = useRef(onMapPointPicked);
   const onAdjustRef = useRef(onAdjust);
+  // Refs like the others: the scene is built once and keeps calling these.
+  const canDragAtRef = useRef(canDragAt);
+  const onDragRef = useRef(onDrag);
   // Always called (hooks can't be conditional), only used when `view` is missing.
   const ownView = useMapView(0.5);
   const { mode, opacity, orientation } = view ?? ownView;
@@ -42,7 +48,9 @@ export default function GeoCalibrationMap({
   useEffect(() => {
     onPickRef.current = onMapPointPicked;
     onAdjustRef.current = onAdjust;
-  }, [onMapPointPicked, onAdjust]);
+    canDragAtRef.current = canDragAt;
+    onDragRef.current = onDrag;
+  }, [onMapPointPicked, onAdjust, canDragAt, onDrag]);
 
   const homography = useMemo(() => geoHomography(points ?? []), [points]);
 
@@ -63,6 +71,8 @@ export default function GeoCalibrationMap({
         focus: initialFocus,
         onPick: (p) => onPickRef.current?.(p),
         onAdjust: (g) => onAdjustRef.current?.(g),
+        canDragAt: (p) => !!canDragAtRef.current?.(p),
+        onDrag: (g) => onDragRef.current?.(g),
         onLoadingChange: setLoading,
         onError: (err) => {
           console.error('GeoCalibrationMap: no se pudo armar el mapa', err);
@@ -113,6 +123,7 @@ export default function GeoCalibrationMap({
     sceneRef.current?.setLots((polygons ?? []).map(p => ({ ring: p.geo_coordinates, style: getLotSvgStyle(p) })));
   }, [polygons, latitude, longitude]);
   useEffect(() => { sceneRef.current?.setSurfaces(surfaces); }, [surfaces, latitude, longitude]);
+  useEffect(() => { sceneRef.current?.setTexts(texts ?? [], selectedTextId); }, [texts, selectedTextId, latitude, longitude]);
   useEffect(() => { sceneRef.current?.setCursor(drawingTool); }, [drawingTool, latitude, longitude]);
   useEffect(() => { sceneRef.current?.setAdjust(!!adjustMode); }, [adjustMode, latitude, longitude]);
   useEffect(() => {

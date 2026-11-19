@@ -1,14 +1,16 @@
-// Estado del dibujo de manzanas y calles en la vista Satélite (ver
+// Estado del dibujo de manzanas, calles y textos en la vista Satélite (ver
 // utils/geoSurfaces.js para el modelo). Los clicks llegan del mapa en lat/lng y
 // se guardan en coordenadas del plano, así se mueven junto con los lotes si se
 // recalibra.
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { makeProjection } from '@map3d/ground.js';
 import { invertHomography } from '../utils/homography';
 import { geoHomography } from '../utils/geoCalibration';
 import {
-  DEFAULT_NATURAL_SHAPE, DEFAULT_STREET_WIDTH_M, EMPTY_GEO_SURFACES, NATURAL_KINDS, addSurface, blueprintToGeo,
-  displayRings, findCalle, findNaturalArea, findSurfaceAt, geoToBlueprint, isAreaKind, minPointsFor, removeSurface,
-  setAreaShape, setCalleWidth, snapToAxis, surfaceRings,
+  DEFAULT_NATURAL_SHAPE, DEFAULT_STREET_WIDTH_M, EMPTY_GEO_SURFACES, NATURAL_KINDS, addSurface, addText, blueprintToGeo,
+  calleAngleAt, displayRings, findCalle, findNaturalArea, findSurfaceAt, findText, findTextAt, geoToBlueprint,
+  isAreaKind, minPointsFor, pasteText, removeSurface, setAreaShape, setCalleWidth, snapToAxis, surfaceRings, updateText,
+  wrapTextAngle,
 } from '../utils/geoSurfaces';
 
 // Click a esta distancia del primer punto (en fracción del plano) cierra el
@@ -16,7 +18,7 @@ import {
 const CLOSE_DISTANCE = 0.012;
 
 /**
- * `tool`: 'select', 'calle' o un polígono de AREA_KINDS ('manzana', 'verde',
+ * `tool`: 'select', 'calle', 'texto' o un polígono de AREA_KINDS ('manzana', 'verde',
  * 'agua', 'perimetro'). Sin calibración geo válida no se
  * puede dibujar (no hay forma de llevar el click al plano ni de medir el ancho
  * en metros), así que la vista Satélite pide vincular primero.
@@ -61,9 +63,23 @@ export function useGeoSurfaces({ geoPoints, annotations, onBeforeChange, onSelec
     return hit ? hit.ring.map(p => blueprintToGeo(H, p)) : null;
   }, [rings, H, selected]);
   const geoDrawing = useMemo(() => (H ? drawing.map(p => blueprintToGeo(H, p)) : []), [drawing, H]);
+  // Textos para el mapa, en lat/lng; la escena los pasa a metros.
+  const geoTexts = useMemo(() => (H ? (surfaces.textos ?? []).map(t => {
+    const [lat, lng] = blueprintToGeo(H, t.point);
+    return { ...t, lat, lng };
+  }) : []), [surfaces.textos, H]);
 
   const selectedCalle = selected?.kind === 'calle' ? findCalle(surfaces, selected.id) : null;
   const selectedArea = findNaturalArea(surfaces, selected);
+  const selectedText = selected?.kind === 'texto' ? findText(surfaces, selected.id) : null;
+
+  /** Selecciona una superficie o texto (o nada) y suelta el lote, que vive en App. */
+  const selectShape = (hit) => {
+    const isLot = hit?.kind === 'lote';
+    setSelected(isLot ? null : hit);
+    onSelectLot?.(isLot ? hit.id : null);
+    if (hit) onSelect?.(hit);
+  };
 
   /** Cambiar de herramienta corta el trazo y suelta la selección. Re-elegir la activa vuelve a Seleccionar. */
   const changeTool = (next) => {
@@ -97,12 +113,22 @@ export function useGeoSurfaces({ geoPoints, annotations, onBeforeChange, onSelec
     // exacto sobre el eje y, si es una punta, addSurface continúa esa calle.
     const point = tool === 'calle' ? snapToAxis(surfaces, raw) : raw;
     if (tool === 'select') {
-      const hit = findSurfaceAt(pickRings, point);
-      // Una sola cosa seleccionada a la vez: o una superficie (acá) o un lote (en App).
-      const isLot = hit?.kind === 'lote';
-      setSelected(isLot ? null : hit);
-      onSelectLot?.(isLot ? hit.id : null);
-      if (hit) onSelect?.(hit);
+      // Los textos van arriba de todo en el mapa, así que se buscan primero.
+      // Una sola cosa seleccionada a la vez: o una superficie/texto (acá) o un lote (en App).
+      const textId = findTextAt(surfaces.textos, raw, H);
+      selectShape(textId ? { kind: 'texto', id: textId } : findSurfaceAt(pickRings, point));
+      return;
+    }
+    if (tool === 'texto') {
+      // Sobre una calle sale alineado con ella; el inspector se abre con el
+      // texto seleccionado para escribirlo, y se vuelve a Seleccionar para
+      // poder arrastrarlo enseguida.
+      const angle = calleAngleAt(surfaces, rings.filter(r => r.kind === 'calle'), raw, H);
+      const { surfaces: next, id } = addText(surfaces, { point: raw, angle });
+      onBeforeChange();
+      setSurfaces(next);
+      setTool('select');
+      selectShape({ kind: 'texto', id });
       return;
     }
     if (isAreaKind(tool) && drawing.length >= 3) {
@@ -143,6 +169,93 @@ export function useGeoSurfaces({ geoPoints, annotations, onBeforeChange, onSelec
   };
   const changeNaturalShape = patch => setNaturalShape(prev => ({ ...prev, ...patch }));
 
+  // Edición del texto seleccionado. Igual que los sliders, el snapshot de
+  // historial se toma al empezar (foco en el campo, o tocar un slider), no
+  // por cada letra.
+  const beginSelectedTextChange = () => {
+    if (selectedText) onBeforeChange();
+  };
+  /** Campos del texto seleccionado (text, size, angle, style). */
+  const changeSelectedText = (patch) => {
+    if (selectedText) setSurfaces(prev => updateText(prev, selectedText.id, patch));
+  };
+
+  // Portapapeles propio (no el del sistema): guarda el texto tal cual, así
+  // también se puede pegar en otro loteo. Se pega corrido, al lado del original.
+  const clipboardRef = useRef(null);
+  const copySelected = () => {
+    if (!selectedText) return false;
+    clipboardRef.current = selectedText;
+    return true;
+  };
+  const paste = () => {
+    if (!clipboardRef.current || !H) return false;
+    onBeforeChange();
+    const { surfaces: next, id } = pasteText(surfaces, clipboardRef.current, H, Hinv);
+    setSurfaces(next);
+    // Lo pegado queda copiado: Ctrl+V otra vez pone otro al lado de este, en escalera.
+    clipboardRef.current = findText(next, id);
+    selectShape({ kind: 'texto', id });
+    return true;
+  };
+  const duplicateSelected = () => copySelected() && paste();
+
+  // Arrastre de textos con Seleccionar: el mapa pregunta al apretar si hay
+  // algo para agarrar (canDragAt) y después manda el movimiento (drag).
+  // Con Alt apretado el arrastre gira el texto alrededor de su centro.
+  const dragRef = useRef(null); // { id, moved, mode, origin, ... }
+  /** ¿Hay un texto bajo { latitude, longitude }? Si hay, queda seleccionado y agarrado. */
+  const canDragAt = ({ latitude, longitude }) => {
+    if (tool !== 'select' || !Hinv) return false;
+    const id = findTextAt(surfaces.textos, geoToBlueprint(Hinv, [latitude, longitude]), H);
+    if (!id) return false;
+    dragRef.current = { id, moved: false };
+    selectShape({ kind: 'texto', id });
+    return true;
+  };
+  /**
+   * { phase: 'move' | 'end', from, to, alt } en lat/lng: el texto sigue al
+   * puntero, o con Alt gira (lo decide el primer movimiento, no cambia a mitad).
+   */
+  const drag = ({ phase, from, to, alt }) => {
+    const grabbed = dragRef.current;
+    if (!grabbed || !Hinv) return;
+    if (phase === 'end') { dragRef.current = null; return; }
+    if (phase !== 'move') return;
+    // Un solo snapshot por arrastre, y ninguno si fue solo un clic.
+    if (!grabbed.moved) {
+      onBeforeChange();
+      grabbed.moved = true;
+      const start = findText(surfaces, grabbed.id);
+      if (!start) return;
+      grabbed.origin = start.point;
+      grabbed.mode = alt ? 'rotate' : 'move';
+      if (grabbed.mode === 'rotate') {
+        // Ángulos medidos en metros alrededor del centro del texto; uno que
+        // giraba con la cámara arranca horizontal y pasa a fijo.
+        const [lat, lng] = blueprintToGeo(H, start.point);
+        grabbed.toLocal = makeProjection(lat, lng).toLocal;
+        grabbed.baseAngle = start.angle ?? 0;
+      }
+    }
+    if (!grabbed.origin) return;
+    if (grabbed.mode === 'rotate') {
+      const bearing = (p) => {
+        const { x, z } = grabbed.toLocal(p.latitude, p.longitude);
+        return (Math.atan2(z, x) * 180) / Math.PI; // mismo sentido que el ángulo del texto
+      };
+      const angle = wrapTextAngle(grabbed.baseAngle + bearing(to) - bearing(from));
+      setSurfaces(prev => updateText(prev, grabbed.id, { angle }));
+      return;
+    }
+    // Se mueve por la diferencia desde donde se agarró, no al puntero: así el
+    // texto no salta a centrarse bajo el mouse.
+    const a = geoToBlueprint(Hinv, [from.latitude, from.longitude]);
+    const b = geoToBlueprint(Hinv, [to.latitude, to.longitude]);
+    const [ox, oy] = grabbed.origin;
+    setSurfaces(prev => updateText(prev, grabbed.id, { point: [ox + b[0] - a[0], oy + b[1] - a[1]] }));
+  };
+
   /** Backspace/Delete: saca el último punto del trazo o borra la selección. */
   const handleDeleteKey = () => {
     if (drawing.length) {
@@ -161,14 +274,18 @@ export function useGeoSurfaces({ geoPoints, annotations, onBeforeChange, onSelec
 
   return {
     surfaces, setSurfaces,
-    tool, setTool: changeTool, reset, canDraw: !!H, isDrawingTool: tool === 'calle' || isAreaKind(tool),
-    drawing, geoDrawing, selected, selectedCalle,
-    geoRings, geoSelectedRing,
+    tool, setTool: changeTool, reset, canDraw: !!H,
+    isDrawingTool: tool === 'calle' || tool === 'texto' || isAreaKind(tool),
+    drawing, geoDrawing, selected, selectedCalle, selectedText,
+    geoRings, geoSelectedRing, geoTexts,
     // Para lo próximo a dibujar (barra).
     streetWidth, changeStreetWidth: setStreetWidth,
     naturalShape, changeNaturalShape, showNaturalShape: NATURAL_KINDS.has(tool),
     // La shape seleccionada (inspector).
     selectedArea, changeSelectedCalleWidth, beginSelectedAreaChange, changeSelectedArea,
+    beginSelectedTextChange, changeSelectedText,
+    copySelected, paste, duplicateSelected,
+    canDragAt, drag,
     handleMapPoint, finish, deleteSelected, handleDeleteKey, handleEscape,
   };
 }

@@ -74,16 +74,18 @@ const SATELLITE_TOOLS = [
   { id: 'verde', icon: Trees, label: 'Verde', shortcut: '3' },
   { id: 'agua', icon: Waves, label: 'Agua', shortcut: '4' },
   { id: 'perimetro', icon: Fence, label: 'Perímetro', shortcut: '5' },
+  { id: 'texto', icon: Type, label: 'Texto', shortcut: '6' },
 ];
 
 const AREA_HINT = 'Clic para agregar puntos · clic en el primero o Enter para cerrar · Supr saca el último';
 const SATELLITE_HINTS = {
-  select: 'Clic en un lote o una superficie para editarlo en el inspector · Supr borra la superficie',
+  select: 'Clic en un lote, superficie o texto para editarlo en el inspector · arrastrá un texto para moverlo · Supr borra',
   manzana: AREA_HINT,
   verde: AREA_HINT,
   agua: AREA_HINT,
   perimetro: AREA_HINT,
   calle: 'Clic para trazar el eje · Enter para terminar · Supr saca el último',
+  texto: 'Clic donde va el texto · sobre una calle sale alineado con ella · después se arrastra con Seleccionar',
 };
 
 /** A 0..1 slider of the verde/agua outline, shown as 0-100. */

@@ -1,11 +1,13 @@
 // Top-down map of the editor's geo calibration (GeoCalibrationMap.jsx wraps it
 // for React). Same ground as the visor's satellite / render modes (@map3d),
 // plus the blueprint image warped onto the map through the calibration's
-// homography, the lot outlines and the numbered calibration pins.
+// homography, the lot outlines, the numbered calibration pins and the texts
+// written on the map (same layer as the visor's, @map3d/textLayer.js).
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
 import { boxAround, createGroundBuilders, disposeObject, makeProjection } from '@map3d/ground.js';
 import { flatFillGeometry } from '@map3d/flatFill.js';
+import { createTextLayer, loadTextFonts } from '@map3d/textLayer.js';
 import { applyHomography } from '../utils/homography.js';
 
 const DEFAULT_SPAN_M = 200; // half side to frame when nothing is calibrated yet
@@ -20,8 +22,8 @@ const MIN_ZOOM = 0.05;
 const MAX_ZOOM = 40;
 
 // Above the ground (which stacks itself between -1 and 0): blueprint, drawn
-// manzanas/calles, lots, and the stroke being drawn on top of everything.
-const ORDER = { blueprint: 10, surfaces: 10.5, lots: 11, drawing: 12 };
+// manzanas/calles, lots, texts, and the stroke being drawn on top of everything.
+const ORDER = { blueprint: 10, surfaces: 10.5, lots: 11, texts: 11.5, drawing: 12 };
 const LOT_COLOR = 0x22d3ee;
 // Same colors as the blueprint pane (GeoCalibrationOverlay), so a shape reads
 // the same on both sides.
@@ -66,9 +68,13 @@ function cssColor(css, fallback) {
  * - `onAdjust({ phase, target, from, to })`: drag of the blueprint while
  *   setAdjust(true); phase 'start' | 'move' | 'end', target { type: 'move' |
  *   'corner' | 'pin', id? }, from/to as { latitude, longitude } on the ground.
+ * - `canDragAt({ latitude, longitude })` → true when a press there grabs
+ *   something (a text); the drag then goes to `onDrag({ phase, from, to, alt })`
+ *   with the same shape as onAdjust (+ whether Alt is held), and the press is
+ *   neither a pan nor a pick.
  */
 export function createGeoMapScene({
-  container, latitude, longitude, focus = [], onPick, onAdjust, onLoadingChange, onError,
+  container, latitude, longitude, focus = [], onPick, onAdjust, canDragAt, onDrag, onLoadingChange, onError,
 }) {
   // Origin and framing from what's already known on the map.
   let lat0 = latitude;
@@ -369,6 +375,23 @@ export function createGeoMapScene({
     requestRender();
   }
 
+  // --- texts: [{ id, lat, lng, text, size, angle, font, color, outline }],
+  // rebuilt whole on every change (a handful). The selected one gets an amber border.
+  let textLayer = null;
+  let lastTexts = [[], null];
+  // Until the fonts arrive the texts are drawn in the fallback font; once
+  // they do, the last texts are built again with the real ones.
+  loadTextFonts().then(() => { if (!disposed) setTexts(...lastTexts); });
+  function setTexts(texts = [], selectedId = null) {
+    lastTexts = [texts, selectedId];
+    if (textLayer) { scene.remove(textLayer.group); textLayer.dispose(); }
+    const items = texts.map((t) => ({ ...t, ...toLocal(t.lat, t.lng) }));
+    // No depth test: this flat map orders its layers by renderOrder alone.
+    textLayer = createTextLayer(items, { anisotropy, selectedId, depthTest: false, renderOrder: ORDER.texts });
+    scene.add(textLayer.group);
+    requestRender();
+  }
+
   /** Crosshair while drawing, so a click reads as "add a point", not "pan". */
   function setCursor(drawingTool) {
     canvas.style.cursor = drawingTool ? 'crosshair' : '';
@@ -517,28 +540,38 @@ export function createGeoMapScene({
   }
   const CURSOR = { pin: 'grab', corner: 'nwse-resize', move: 'move' };
 
-  let grab = null; // { target, from }
+  // { target, from, report }: report is onAdjust for the blueprint's handles
+  // and onDrag for something the React side said it can grab (a text).
+  let grab = null;
   const geoOf = (g) => ({ latitude: g.latitude, longitude: g.longitude });
   const onGrabMove = (e) => {
     const g = groundAt(e);
-    if (grab && g) onAdjust?.({ phase: 'move', target: grab.target, from: grab.from, to: geoOf(g) });
+    if (grab && g) grab.report?.({ phase: 'move', target: grab.target, from: grab.from, to: geoOf(g), alt: e.altKey });
   };
   const onGrabEnd = (e) => {
     window.removeEventListener('pointermove', onGrabMove);
     window.removeEventListener('pointerup', onGrabEnd);
     const g = groundAt(e);
-    if (grab) onAdjust?.({ phase: 'end', target: grab.target, from: grab.from, to: g ? geoOf(g) : grab.from });
+    if (grab) grab.report?.({ phase: 'end', target: grab.target, from: grab.from, to: g ? geoOf(g) : grab.from });
     grab = null;
   };
   const onGrabStart = (e) => {
     if (e.button !== 0) return;
-    const target = grabTarget(e);
-    const g = target && groundAt(e);
+    // The blueprint's handles first ("Ajustar"); otherwise whatever the React
+    // side can grab under the pointer.
+    let target = grabTarget(e);
+    let report = onAdjust;
+    const g = groundAt(e);
     if (!g) return;
+    if (!target && canDragAt?.(geoOf(g))) {
+      target = { type: 'drag' };
+      report = onDrag;
+    }
+    if (!target) return;
     e.stopPropagation(); // MapControls never sees it: no pan
     e.preventDefault();
-    grab = { target, from: geoOf(g) };
-    onAdjust?.({ phase: 'start', target, from: grab.from, to: grab.from });
+    grab = { target, from: geoOf(g), report };
+    report?.({ phase: 'start', target, from: grab.from, to: grab.from });
     window.addEventListener('pointermove', onGrabMove);
     window.addEventListener('pointerup', onGrabEnd);
   };
@@ -555,6 +588,7 @@ export function createGeoMapScene({
   let frame = 0;
   function tick() {
     if (needsRender) {
+      textLayer?.update(camera);
       renderer.render(scene, camera);
       placePins();
       needsRender = false;
@@ -577,6 +611,7 @@ export function createGeoMapScene({
     disposeObject(lotGroup);
     disposeObject(surfaceGroup);
     disposeObject(warpMesh);
+    textLayer?.dispose();
     for (const p of Object.values(cache)) {
       p.then((g) => { disposeObject(g.inner); disposeObject(g.outer); }).catch(() => {});
     }
@@ -586,7 +621,7 @@ export function createGeoMapScene({
   }
 
   return {
-    setMode, setBlueprint, setHomography, setOrientation, setOpacity, setLots, setPins, setSurfaces, setCursor,
-    setAdjust, dispose,
+    setMode, setBlueprint, setHomography, setOrientation, setOpacity, setLots, setPins, setSurfaces, setTexts,
+    setCursor, setAdjust, dispose,
   };
 }

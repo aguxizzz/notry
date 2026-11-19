@@ -3,6 +3,7 @@ import POIInspector from './POIInspector';
 import PendingPolygonInspector from './PendingPolygonInspector';
 import LoteInspector from './LoteInspector';
 import TextInspector from './TextInspector';
+import GeoTextInspector from './GeoTextInspector';
 import GeoSurfaceInspector from './GeoSurfaceInspector';
 import { Field, InspectorShell, Section } from './inspector/InspectorUI';
 import { hasLocationIn } from '../utils/annotationModel';
@@ -44,7 +45,9 @@ export default function InspectorPanel({
     // del plano por la calibración y su forma no se toca en el mapa, pero sí se
     // pueden seleccionar para editar sus datos (estado, precio...).
     const lot = selectedMarker?.type === 'polygon' && !selectedMarker.pending ? selectedMarker : null;
-    content = geoSurfaces?.selected ? (
+    content = geoSurfaces?.selectedText ? (
+      <GeoTextInspector key={geoSurfaces.selected.id} surfaces={geoSurfaces} onClose={onClose} />
+    ) : geoSurfaces?.selected ? (
       <GeoSurfaceInspector key={geoSurfaces.selected.id} surfaces={geoSurfaces} onClose={onClose} />
     ) : lot ? (
       <LoteInspector
@@ -63,7 +66,7 @@ export default function InspectorPanel({
       <div className="ins-empty">
         <span className="ins-empty__icon"><MousePointerClick size={20} /></span>
         <strong>Nada seleccionado</strong>
-        <p>Con Seleccionar (V), hacé clic en un lote, manzana, calle, verde, agua o perímetro para editarlo.</p>
+        <p>Con Seleccionar (V), hacé clic en un lote, manzana, calle, verde, agua, perímetro o texto para editarlo.</p>
       </div>
     );
   } else if (!selectedMarker) {

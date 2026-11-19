@@ -6,12 +6,9 @@ import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { annId, lotStatus, STATUS_COLORS } from '../lotData.js';
+import { GLYPH_PX, buildGlyphAtlas } from './glyphAtlas.js';
 
 const LABEL_HEIGHT_M = 3.2; // same size the numbers had when painted on the map
-// Glyphs are rasterized once at this size. At the closest camera distance a
-// number is ~150 px tall on screen, so 96 px (+ mipmaps) never looks blurry.
-const GLYPH_PX = 96;
-const HALO_PX = 24;
 const BORDER_PX = 1.5; // CSS px, constant on screen at any zoom
 
 // Everything lies on the ground plane (y = 0). polygonOffset pulls each layer
@@ -77,62 +74,6 @@ function buildBorders(localLots, pixelRatio) {
   const lines = new LineSegments2(geom, mat);
   lines.renderOrder = 2;
   return lines;
-}
-
-/**
- * Rasterizes each distinct character once into an atlas. The halo goes in the
- * red channel and the letter in the green one, so the same texture serves the
- * halo pass and the text pass, each tinted by a uniform per mode.
- */
-function buildGlyphAtlas(chars) {
-  const font = `700 ${GLYPH_PX}px system-ui, sans-serif`;
-  const pad = HALO_PX / 2 + 4; // room for the halo + a gap so mipmaps don't bleed
-  const cellH = Math.ceil(GLYPH_PX * 1.2) + pad * 2;
-  const measure = document.createElement('canvas').getContext('2d');
-  measure.font = font;
-
-  const MAX_W = 1024;
-  const glyphs = new Map();
-  let x = 0;
-  let y = 0;
-  for (const ch of chars) {
-    const adv = measure.measureText(ch).width;
-    const w = Math.ceil(adv + pad * 2);
-    if (x + w > MAX_W) { x = 0; y += cellH; }
-    glyphs.set(ch, { x, y, w, adv });
-    x += w;
-  }
-
-  const canvas = document.createElement('canvas');
-  canvas.width = MAX_W;
-  canvas.height = y + cellH;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.font = font;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.lineJoin = 'round';
-  ctx.lineWidth = HALO_PX;
-  // 'lighter' adds colors, so red (halo) and green (letter) don't erase each other.
-  ctx.globalCompositeOperation = 'lighter';
-  for (const [ch, g] of glyphs) {
-    const cx = g.x + g.w / 2;
-    const cy = g.y + cellH / 2;
-    ctx.strokeStyle = '#f00';
-    ctx.strokeText(ch, cx, cy);
-    ctx.fillStyle = '#0f0';
-    ctx.fillText(ch, cx, cy);
-  }
-
-  const texture = new THREE.CanvasTexture(canvas); // flipY: v = 1 at the canvas top
-  for (const g of glyphs.values()) {
-    g.u0 = g.x / canvas.width;
-    g.u1 = (g.x + g.w) / canvas.width;
-    g.v1 = 1 - g.y / canvas.height;
-    g.v0 = 1 - (g.y + cellH) / canvas.height;
-  }
-  return { texture, glyphs, pad, cellH };
 }
 
 const LABEL_VERTEX = /* glsl */ `

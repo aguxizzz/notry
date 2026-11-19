@@ -7,10 +7,15 @@
 // Shapes:
 //   manzana, verde, agua, perímetro: { id, points: [[nx, ny], ...] } — polígono del plano [0,1]²
 //   calle: { id, axis: [[nx, ny], ...], width }                     — eje del plano + ancho en METROS
+//   texto: { id, point: [nx, ny], text, size, angle, font, color, outline } — tamaño en METROS,
+//          ángulo en grados sobre el terreno (null = siempre derecho, gira con la cámara),
+//          font de TEXT_FONTS, color hex, outline de TEXT_OUTLINES (ver @map3d/textLayer.js),
+//          flipX/flipY espejan el texto
 // Distinto de render_surfaces (modo Render del panorama), que está en pixeles
 // del panorama y no sirve para el mapa.
 import { makeProjection } from '@map3d/ground.js';
 import { naturalShape } from '@map3d/naturalOutline.js';
+import { DEFAULT_TEXT_COLOR, DEFAULT_TEXT_FONT, DEFAULT_TEXT_OUTLINE, textBox } from '@map3d/textLayer.js';
 import { applyHomography } from './homography.js';
 import {
   buildStreetRibbon, findAxisEndpointSnap, mergeStreetAxis, pointInPolygon, unionStreetAreas,
@@ -43,7 +48,7 @@ export function areaPieces(kind, area, obstacles = []) {
   });
 }
 
-export const EMPTY_GEO_SURFACES = { manzanas: [], calles: [], verdes: [], aguas: [], perimetros: [] };
+export const EMPTY_GEO_SURFACES = { manzanas: [], calles: [], verdes: [], aguas: [], perimetros: [], textos: [] };
 // Calle de loteo típica con veredas; se ajusta por calle desde la barra.
 export const DEFAULT_STREET_WIDTH_M = 12;
 export const MIN_STREET_WIDTH_M = 3;
@@ -200,7 +205,7 @@ export function addSurface(surfaces, { kind, points, width, natural = DEFAULT_NA
   return { ...surfaces, [key]: [...(surfaces[key] ?? []), area] };
 }
 
-const listOf = kind => (kind === 'calle' ? 'calles' : AREA_KINDS[kind]);
+const listOf = kind => (kind === 'calle' ? 'calles' : kind === 'texto' ? 'textos' : AREA_KINDS[kind]);
 
 export function removeSurface(surfaces, { kind, id }) {
   const key = listOf(kind);
@@ -223,4 +228,129 @@ export function setAreaShape(surfaces, { kind, id }, patch) {
 export function findNaturalArea(surfaces, selected) {
   if (!selected || !NATURAL_KINDS.has(selected.kind)) return null;
   return surfaces[AREA_KINDS[selected.kind]]?.find(a => a.id === selected.id) ?? null;
+}
+
+// --- Textos: nombres de calles y zonas escritos sobre el mapa.
+
+// Tamaño = alto de la letra en metros (crece y se achica con el zoom, como
+// los números de los lotes, que miden 3,2 m). 8 m entra en una calle de 12.
+export const DEFAULT_TEXT_SIZE_M = 8;
+export const MIN_TEXT_SIZE_M = 2;
+export const MAX_TEXT_SIZE_M = 60;
+export const MAX_TEXT_LENGTH = 80; // mismo tope que el schema del back
+
+/**
+ * Agrega un texto en `point` (plano) y devuelve { surfaces, id }. Si cae
+ * sobre una calle (`angle` no null) sale alineado con ella; si no, siempre
+ * derecho. Arranca sin contorno: letra blanca lisa.
+ */
+export function addText(surfaces, { point, angle = null, text = 'Texto', id = crypto.randomUUID() }) {
+  const texto = {
+    id, point, text, size: DEFAULT_TEXT_SIZE_M, angle,
+    font: DEFAULT_TEXT_FONT, color: DEFAULT_TEXT_COLOR, outline: DEFAULT_TEXT_OUTLINE,
+  };
+  return { surfaces: { ...surfaces, textos: [...(surfaces.textos ?? []), texto] }, id };
+}
+
+/** Cambia campos de un texto (text, size, angle, font, color, outline, point). */
+export function updateText(surfaces, id, patch) {
+  return { ...surfaces, textos: (surfaces.textos ?? []).map(t => (t.id === id ? { ...t, ...patch } : t)) };
+}
+
+/** Las superficies sin los textos vacíos, para guardar. */
+export function withoutEmptyTexts(surfaces) {
+  return { ...surfaces, textos: (surfaces.textos ?? []).filter(t => t.text?.trim()) };
+}
+
+export const findText = (surfaces, id) => (surfaces.textos ?? []).find(t => t.id === id) ?? null;
+
+/**
+ * Ángulo de una recta en grados, llevado a (-90, 90]: una calle no tiene
+ * sentido, y así el texto que se le alinea arranca leyéndose de izquierda a
+ * derecha con el norte arriba. Después se gira libre (wrapTextAngle).
+ */
+export function normalizeTextAngle(deg) {
+  let a = ((deg % 180) + 180) % 180; // [0, 180)
+  if (a > 90) a -= 180;
+  return Math.round(a * 10) / 10;
+}
+
+/** Cualquier ángulo en grados llevado a (-180, 180], para el giro libre del texto. */
+export function wrapTextAngle(deg) {
+  let a = ((((deg + 180) % 360) + 360) % 360) - 180; // [-180, 180)
+  if (a === -180) a = 180;
+  return Math.round(a * 10) / 10;
+}
+
+// Lo que se corre un texto pegado o duplicado respecto del original, en
+// fracciones de su tamaño hacia el sureste: se ve al lado y no encima.
+const PASTE_OFFSET = 1.2;
+
+/**
+ * Agrega una copia de `texto` (de este u otro loteo, viene del portapapeles
+ * interno) corrida un poco, y devuelve { surfaces, id }. El corrimiento se
+ * hace en metros, así es el mismo aunque el plano esté estirado.
+ */
+export function pasteText(surfaces, texto, H, Hinv, id = crypto.randomUUID()) {
+  let point = texto.point;
+  if (H && Hinv) {
+    const [lat, lng] = blueprintToGeo(H, texto.point);
+    const d = texto.size * PASTE_OFFSET;
+    // toGeo(x, z) con origen en el original: x al este, z al sur.
+    const moved = makeProjection(lat, lng).toGeo(d, d);
+    point = geoToBlueprint(Hinv, [moved.lat, moved.lng]);
+  }
+  const copy = { ...texto, id, point };
+  return { surfaces: { ...surfaces, textos: [...(surfaces.textos ?? []), copy] }, id };
+}
+
+/**
+ * Si `point` (plano) cae sobre una calle, el ángulo del tramo del eje más
+ * cercano, medido en el terreno (metros, no en el plano, que puede estar
+ * deformado), en grados desde el este hacia el sur. null si no hay calle ahí.
+ * `calleRings`: [{ id, ring }] en el plano, como los arma surfaceRings.
+ */
+export function calleAngleAt(surfaces, calleRings, point, H) {
+  const hit = calleRings.find(r => pointInPolygon(point, r.ring));
+  const calle = hit && findCalle(surfaces, hit.id);
+  if (!calle || !H) return null;
+  let best = null;
+  for (let i = 0; i < calle.axis.length - 1; i += 1) {
+    const d = distanceToSegment(point, calle.axis[i], calle.axis[i + 1]);
+    if (!best || d < best.d) best = { d, a: calle.axis[i], b: calle.axis[i + 1] };
+  }
+  const [latA, lngA] = blueprintToGeo(H, best.a);
+  const [latB, lngB] = blueprintToGeo(H, best.b);
+  const { toLocal } = makeProjection(latA, lngA);
+  const end = toLocal(latB, lngB); // el inicio del tramo es el origen (0, 0)
+  // x = este, z = sur: atan2(z, x) es el ángulo "desde el este hacia el sur" que usa textLayer.
+  return normalizeTextAngle((Math.atan2(end.z, end.x) * 180) / Math.PI);
+}
+
+/**
+ * El id del texto bajo `point` (plano), o null. Se mide en metros alrededor de
+ * cada texto, con la caja de sus letras girada según su ángulo; los que giran
+ * con la cámara se toman con un círculo, porque su orientación depende de la vista.
+ * Los últimos agregados van arriba, así que se buscan de atrás para adelante.
+ * `boxOf(text, size, font)` → { halfW, halfH } (se inyecta en los tests, sin canvas).
+ */
+export function findTextAt(textos, point, H, boxOf = textBox) {
+  if (!H || !textos?.length) return null;
+  const [lat, lng] = blueprintToGeo(H, point);
+  for (let i = textos.length - 1; i >= 0; i -= 1) {
+    const t = textos[i];
+    const [tLat, tLng] = blueprintToGeo(H, t.point);
+    const { x, z } = makeProjection(tLat, tLng).toLocal(lat, lng);
+    const { halfW, halfH } = boxOf(t.text, t.size, t.font);
+    if (t.angle == null) {
+      if (Math.hypot(x, z) <= Math.max(halfW, halfH)) return t.id;
+      continue;
+    }
+    // Al marco del texto: u a lo largo de la línea, v a lo ancho.
+    const a = (t.angle * Math.PI) / 180;
+    const u = x * Math.cos(a) + z * Math.sin(a);
+    const v = -x * Math.sin(a) + z * Math.cos(a);
+    if (Math.abs(u) <= halfW && Math.abs(v) <= halfH) return t.id;
+  }
+  return null;
 }
