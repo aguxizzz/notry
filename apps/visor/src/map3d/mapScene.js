@@ -8,7 +8,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { annId } from '../lotData.js';
 import { createLotLayer } from './lotLayer.js';
 import { boxAround, createGroundBuilders, disposeObject, makeProjection, rad } from './ground.js';
-import { geoSurfaceRings, lotGeoRing } from './geoSurfaces.js';
+import { geoSurfaceRings, lotGeoRing, streetEnds } from './geoSurfaces.js';
 import { SURFACE_STYLE, createSurfaceLayer } from './surfaceLayer.js';
 import { createPoiLayer, placePois } from './poiLayer.js';
 import { corridorBounds, corridorShape, createCorridorVeil } from './poiCorridor.js';
@@ -296,6 +296,7 @@ export function createMapScene({
     scene.add(ground.outer, ground.inner);
     lotLayer.setStyle(STYLE[mode]);
     surfaceLayer.setStyle(SURFACE_STYLE[mode]);
+    poiLayer.setMode(mode);
     syncBuildings();
     // ×π because since r155 Lambert divides by π: intensity 1 alone would
     // leave the ground at ~1/3 of its brightness.
@@ -418,9 +419,16 @@ export function createMapScene({
       { id: 'demo-club', exact: true, x: halfX + 35, z: -halfZ * 0.3, ann: { type: 'poi', uuid: 'demo-club', tooltip: 'Club house', description: 'POI de prueba.' } },
     );
   }
+  // Where the gold line to an outside place may leave the loteo: the ends of
+  // its calles (the ones reaching the edge are its exits). A loteo without
+  // calles falls back to the lots' corners, the closest one to the road wins.
+  const ends = streetEnds(geoSurfaces, geoCalibrationPoints, toLocal);
+  const exits = ends.length ? ends : localLots.flatMap((l) => l.pts);
   const poiLayer = createPoiLayer({
     container,
     pois: placedPois,
+    exits,
+    reducedMotion: prefersReducedMotion(),
     getView: () => ({ camera, size, target: controls.target }),
     onPoiClick: (ann) => onPoiClick?.(ann),
     onPoiClose: () => onPoiClick?.(null),
@@ -917,6 +925,9 @@ export function createMapScene({
       if (Math.abs(projected.x) > 1 || Math.abs(projected.y) > 1) controls.autoRotate = false;
     }
     if (controls.update(dt)) needsRender = true;
+    // The gold line drawing itself toward the picked place needs frames
+    // even with the camera still.
+    if (poiLayer.isGrowing()) needsRender = true;
 
     if (needsRender) {
       lotLayer.update(camera, controls.target); // numbers turn with the heading

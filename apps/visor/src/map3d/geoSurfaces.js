@@ -43,6 +43,24 @@ export function lotGeoRing(geoPoints) {
 }
 
 /**
+ * Both ends of every calle's axis, in the map's local meters ([{ x, z }]).
+ * A calle that runs out to the loteo's edge ends there, so these are the
+ * candidates for where a route to a place outside leaves the loteo
+ * (poiLayer.js). Empty without calles or a valid calibration.
+ */
+export function streetEnds(geoSurfaces, geoPoints, toLocal) {
+  const H = geoHomography(geoPoints);
+  if (!H) return [];
+  const toMeters = (point) => {
+    const [lng, lat] = applyHomography(H, point);
+    return toLocal(lat, lng);
+  };
+  return (geoSurfaces?.calles ?? [])
+    .filter(c => c.axis?.length >= 2)
+    .flatMap(c => [toMeters(c.axis[0]), toMeters(c.axis[c.axis.length - 1])]);
+}
+
+/**
  * The loteo's surfaces as rings in the map's local meters, ready to fill:
  * { manzanas, perimetros: [ring], calles, verdes, aguas: [{ outer, holes }] }, rings as
  * [[x, z], ...]. Calles are built here in meters (their width is in meters)

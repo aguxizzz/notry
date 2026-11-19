@@ -3,7 +3,9 @@
 // aren't drawn until picked in the panel's Alrededores tab; then mapScene
 // opens the fog up to them (poiCorridor.js) and here they get a waypoint on
 // their spot plus a line from the loteo, along the streets when the back
-// stored a driving route for them, straight otherwise.
+// stored a driving route for them, straight otherwise. The line leaves from
+// the loteo's exit closest to the road (a calle's end) and draws itself
+// toward the place instead of popping in.
 // Drawn as an HTML/SVG overlay over the canvas, repositioned by mapScene on
 // every rendered frame.
 import { applyHomography } from './homography.js';
@@ -21,6 +23,21 @@ const LABEL_MARGIN = 16; // px kept between the waypoint's card and the screen b
 // Waypoint stem + dot under the card, in px: room the anchor point needs below
 // the card when it's pinned to the screen border.
 const WAY_STEM_PX = 52;
+// The gold line grows from the loteo to the place over GROW_MS, starting a
+// beat after the pick so the camera is already on its way when it shows up.
+const GROW_MS = 1600;
+const GROW_DELAY_MS = 250;
+// Picking where the line joins the route: each meter from the loteo's exit
+// to the road weighs this many meters of road (see linePoints).
+const OFF_ROAD_WEIGHT = 3;
+// Line look per map mode. Over the satellite photo plain gold sinks into the
+// asphalt and the roofs, so it gets a dark casing (a wider stroke under it,
+// like a navigation app's route) and a lighter gold. The render's pale ground
+// already makes the gold stand out; a thin white casing just keeps it crisp.
+const LINE_STYLE = {
+  satellite: { casing: '#1a140c', casingOpacity: 0.7, casingWidth: 7.5, color: '#f2c66b', width: 3.5 },
+  render: { casing: '#ffffff', casingOpacity: 0.8, casingWidth: 5.5, color: '#c5a059', width: 2.5 },
+};
 
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 
@@ -54,21 +71,76 @@ function routeText(route) {
   return `${min} min en auto · ${formatMeters(route.distance_m)}`;
 }
 
+/** Closest point to `p` on the segment a → b, and how far it is. */
+function closestOnSegment(p, a, b) {
+  const dx = b.x - a.x;
+  const dz = b.z - a.z;
+  const len2 = dx * dx + dz * dz;
+  const t = len2 ? Math.min(1, Math.max(0, ((p.x - a.x) * dx + (p.z - a.z) * dz) / len2)) : 0;
+  const point = { x: a.x + t * dx, z: a.z + t * dz };
+  return { point, d: Math.hypot(p.x - point.x, p.z - point.z) };
+}
+
 /**
- * Points the gold line goes through, in scene meters: the route when there is
- * one (from the scene origin to its start, since the route leaves from the
- * loteo's pin and not exactly from the lots' center), else a straight line
- * cut in steps so a stretch behind the camera can drop out on its own.
+ * Points the gold line goes through, in scene meters. `exits` are where it
+ * may leave the loteo (see mapScene); a place inside the loteo, or a loteo
+ * with no exits, keeps the lots' center (the scene origin) as the start.
+ *
+ * With a route: from the exit closest to any stretch of it, joined to that
+ * stretch. The route itself leaves from the loteo's pin, snapped by OSRM to
+ * whatever road was nearest, so what it did before that stretch is dropped:
+ * it often went around the loteo the long way. Segments, not just vertices,
+ * since OSRM leaves straight roads with points hundreds of meters apart.
+ * Without a route: straight from the exit closest to the place, cut in steps
+ * so a stretch behind the camera can drop out on its own.
  */
-function linePoints(item) {
-  if (item.route) return [{ x: 0, z: 0 }, ...item.route];
+export function linePoints(item, exits = []) {
+  const useExits = !item.inside && exits.length > 0;
+  if (item.route) {
+    if (!useExits) return [{ x: 0, z: 0 }, ...item.route];
+    const { route } = item;
+    const cum = cumulative(route);
+    const total = cum[cum.length - 1];
+    // Score = the jump from the exit to the road plus what's left of the
+    // route from there. Closest-to-the-road alone ties between an exit by the
+    // route's start and one further along it; this keeps the shorter trip.
+    // The jump counts triple, it's off-road.
+    let best = null;
+    for (const exit of exits) {
+      for (let j = 0; j < route.length - 1; j += 1) {
+        const c = closestOnSegment(exit, route[j], route[j + 1]);
+        const left = total - cum[j] - Math.hypot(c.point.x - route[j].x, c.point.z - route[j].z);
+        const score = OFF_ROAD_WEIGHT * c.d + left;
+        // `<=`: on a tie the later stretch, so joining right on a vertex
+        // doesn't repeat it as the next stretch's start.
+        if (!best || score <= best.score) best = { ...c, exit, j, score };
+      }
+    }
+    return [best.exit, best.point, ...route.slice(best.j + 1)];
+  }
+  const toPlace = (p) => Math.hypot(item.x - p.x, item.z - p.z);
+  const from = useExits
+    ? exits.reduce((a, b) => (toPlace(b) < toPlace(a) ? b : a))
+    : { x: 0, z: 0 };
   const steps = 40;
-  return Array.from({ length: steps + 1 }, (_, i) => ({ x: (item.x * i) / steps, z: (item.z * i) / steps }));
+  return Array.from({ length: steps + 1 }, (_, i) => ({
+    x: from.x + ((item.x - from.x) * i) / steps,
+    z: from.z + ((item.z - from.z) * i) / steps,
+  }));
+}
+
+/** Running length along `pts` (cum[i] = meters from pts[0] to pts[i]). */
+function cumulative(pts) {
+  const cum = [0];
+  for (let i = 1; i < pts.length; i += 1) {
+    cum.push(cum[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].z - pts[i - 1].z));
+  }
+  return cum;
 }
 
 /**
  * Where each POI goes on the map, in the scene's local meters:
- * [{ ann, id, x, z, exact, route? }]. Inside the loteo the blueprint anchor goes
+ * [{ ann, id, x, z, exact, inside?, route? }]. Inside the loteo the blueprint anchor goes
  * through the geo calibration (exact, moves with the lots). Outside, the real
  * location typed in the editor (latitude/longitude) when there is one; if not,
  * it's estimated: direction from the panorama (pixel column + north) and the
@@ -84,7 +156,9 @@ export function placePois(pois, { geoPoints, latitude, longitude, northOffset, p
     if (H && bp) {
       const [lng, lat] = applyHomography(H, bp);
       const { x, z } = toLocal(lat, lng);
-      out.push({ ann, id, x, z, exact: true });
+      // `inside`: placed on the blueprint, so it's in the loteo and its line
+      // keeps leaving from the center rather than from an exit.
+      out.push({ ann, id, x, z, exact: true, inside: true });
       continue;
     }
     // The blueprint anchor wins above: it's what lines up with the drawn lots.
@@ -118,15 +192,33 @@ export function placePois(pois, { geoPoints, latitude, longitude, northOffset, p
  * Overlay with the POIs over the map canvas. `getView()` gives what the
  * layer needs each frame: { camera, size: {w, h}, target }. `onPoiClick(ann)`
  * when one is tapped (a pin, or the label of the picked far one);
- * `onPoiClose()` from that label's ×. Returns { update, setSelected, find, dispose }.
+ * `onPoiClose()` from that label's ×. `exits`: where lines to outside places
+ * may leave the loteo (see linePoints); `reducedMotion` skips the line's growth.
+ * Returns { update, setSelected, setMode, isGrowing, find, dispose }.
  */
-export function createPoiLayer({ container, pois, getView, onPoiClick, onPoiClose }) {
+export function createPoiLayer({ container, pois, exits = [], reducedMotion = false, getView, onPoiClick, onPoiClose }) {
   const root = document.createElement('div');
   root.className = 'map-pois';
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', 'map-pois__line');
-  svg.innerHTML = '<path fill="none" stroke="#c5a059" stroke-opacity="0.85" stroke-width="2.5" stroke-linecap="round"/>';
-  const linePath = svg.querySelector('path');
+  // Casing under the gold, then a dot riding the tip while the line grows.
+  svg.innerHTML = `<path fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <path fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle r="4.5" stroke-width="2"/>`;
+  const [casingPath, linePath] = svg.querySelectorAll('path');
+  const tipDot = svg.querySelector('circle');
+
+  function setMode(mode) {
+    const s = LINE_STYLE[mode] ?? LINE_STYLE.render;
+    casingPath.setAttribute('stroke', s.casing);
+    casingPath.setAttribute('stroke-opacity', s.casingOpacity);
+    casingPath.setAttribute('stroke-width', s.casingWidth);
+    linePath.setAttribute('stroke', s.color);
+    linePath.setAttribute('stroke-width', s.width);
+    tipDot.setAttribute('fill', s.color);
+    tipDot.setAttribute('stroke', s.casing);
+  }
+  setMode('render');
   root.appendChild(svg);
   container.appendChild(root);
 
@@ -169,6 +261,17 @@ export function createPoiLayer({ container, pois, getView, onPoiClick, onPoiClos
   });
 
   let selectedId = null;
+  // When the picked line started growing, and whether its full length was
+  // already drawn (the last frame has to land exactly on 1).
+  let growStart = 0;
+  let growDone = true;
+
+  /** How much of the picked line is drawn, 0-1, eased in-out. */
+  function growth(now) {
+    if (reducedMotion) return 1;
+    const t = Math.min(1, Math.max(0, (now - growStart - GROW_DELAY_MS) / GROW_MS));
+    return t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2;
+  }
 
   // World point → CSS px on the canvas; null if behind the camera. Done by
   // hand instead of Vector3.project() to tell "behind" apart (cz ≥ 0), which
@@ -208,20 +311,49 @@ export function createPoiLayer({ container, pois, getView, onPoiClick, onPoiClos
   // Gold line from the lots to the picked POI, plus the far one's waypoint.
   // Along the streets when the POI has a route, straight otherwise. Drawn in
   // screen space so it keeps its width; a point behind the camera just breaks
-  // the line instead of mirroring.
+  // the line instead of mirroring. While growing it's cut in world meters,
+  // not on screen, so it advances at an even pace along the road whatever
+  // the perspective does to the far end.
   function drawLine(camera, size) {
     const sel = items.find((it) => it.id === selectedId);
     for (const it of items) if (it.far && it !== sel) it.el.hidden = true;
-    if (!sel) { linePath.setAttribute('d', ''); return; }
+    if (!sel) {
+      linePath.setAttribute('d', '');
+      casingPath.setAttribute('d', '');
+      tipDot.setAttribute('visibility', 'hidden');
+      return;
+    }
+    // Worked out once per POI, on its first pick (exits × route segments).
+    sel.line ??= linePoints(sel, exits);
+    sel.cum ??= cumulative(sel.line);
+    const k = growth(performance.now());
+    growDone = k === 1;
+    const reach = k * sel.cum[sel.cum.length - 1];
     let d = '';
     let pen = false;
-    for (const pt of linePoints(sel)) {
-      const s = toScreen(camera, size, pt.x, 0.5, pt.z);
-      if (!s) { pen = false; continue; }
+    let tip = null;
+    const plot = (x, z) => {
+      const s = toScreen(camera, size, x, 0.5, z);
+      tip = s;
+      if (!s) { pen = false; return; }
       d += `${pen ? 'L' : 'M'}${s.x.toFixed(1)} ${s.y.toFixed(1)}`;
       pen = true;
+    };
+    for (let i = 0; i < sel.line.length; i += 1) {
+      const pt = sel.line[i];
+      if (sel.cum[i] <= reach) { plot(pt.x, pt.z); continue; }
+      // The segment the tip is on: drawn up to where it is, then stop.
+      const prev = sel.line[i - 1];
+      const f = (reach - sel.cum[i - 1]) / (sel.cum[i] - sel.cum[i - 1]);
+      plot(prev.x + (pt.x - prev.x) * f, prev.z + (pt.z - prev.z) * f);
+      break;
     }
     linePath.setAttribute('d', d);
+    casingPath.setAttribute('d', d);
+    // The dot leads the line while it grows and goes once it arrives.
+    const showTip = !growDone && k > 0 && tip;
+    tipDot.setAttribute('visibility', showTip ? 'visible' : 'hidden');
+    if (showTip) { tipDot.setAttribute('cx', tip.x.toFixed(1)); tipDot.setAttribute('cy', tip.y.toFixed(1)); }
     if (!sel.far) return;
     // Waypoint on its spot. Off screen (the user looked elsewhere) it waits at
     // the border without stem, so the place is never lost.
@@ -239,7 +371,13 @@ export function createPoiLayer({ container, pois, getView, onPoiClick, onPoiClos
 
   function setSelected(id) {
     selectedId = id;
+    // Every pick draws its line again from the loteo.
+    growStart = performance.now();
+    growDone = id == null;
   }
+
+  /** True while the picked line is still drawing itself (the scene keeps rendering). */
+  const isGrowing = () => !growDone;
 
   /** The POI with this id ({ x, z, dist, far }), for the camera to frame it. */
   const find = (id) => items.find((it) => it.id === id) ?? null;
@@ -248,5 +386,5 @@ export function createPoiLayer({ container, pois, getView, onPoiClick, onPoiClos
     root.remove();
   }
 
-  return { update, setSelected, find, dispose };
+  return { update, setSelected, setMode, isGrowing, find, dispose };
 }
