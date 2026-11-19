@@ -2,7 +2,8 @@
 // look: places inside the loteo are pins on the ground. Places outside it
 // aren't drawn until picked in the panel's Alrededores tab; then mapScene
 // opens the fog up to them (poiCorridor.js) and here they get a waypoint on
-// their spot plus a straight line from the loteo.
+// their spot plus a line from the loteo, along the streets when the back
+// stored a driving route for them, straight otherwise.
 // Drawn as an HTML/SVG overlay over the canvas, repositioned by mapScene on
 // every rendered frame.
 import { applyHomography } from './homography.js';
@@ -46,9 +47,28 @@ function typedDistance(ann) {
   return ann.distance_unit === 'min' ? `${n} min` : `${n} km`;
 }
 
+/** "8 min en auto · 3,9 km" from the back's route, or '' without one. */
+function routeText(route) {
+  if (!route?.duration_s) return '';
+  const min = Math.max(1, Math.round(route.duration_s / 60));
+  return `${min} min en auto · ${formatMeters(route.distance_m)}`;
+}
+
+/**
+ * Points the gold line goes through, in scene meters: the route when there is
+ * one (from the scene origin to its start, since the route leaves from the
+ * loteo's pin and not exactly from the lots' center), else a straight line
+ * cut in steps so a stretch behind the camera can drop out on its own.
+ */
+function linePoints(item) {
+  if (item.route) return [{ x: 0, z: 0 }, ...item.route];
+  const steps = 40;
+  return Array.from({ length: steps + 1 }, (_, i) => ({ x: (item.x * i) / steps, z: (item.z * i) / steps }));
+}
+
 /**
  * Where each POI goes on the map, in the scene's local meters:
- * [{ ann, id, x, z, exact }]. Inside the loteo the blueprint anchor goes
+ * [{ ann, id, x, z, exact, route? }]. Inside the loteo the blueprint anchor goes
  * through the geo calibration (exact, moves with the lots). Outside, the real
  * location typed in the editor (latitude/longitude) when there is one; if not,
  * it's estimated: direction from the panorama (pixel column + north) and the
@@ -70,7 +90,11 @@ export function placePois(pois, { geoPoints, latitude, longitude, northOffset, p
     // The blueprint anchor wins above: it's what lines up with the drawn lots.
     if (ann.latitude != null && ann.longitude != null) {
       const { x, z } = toLocal(ann.latitude, ann.longitude);
-      out.push({ ann, id, x, z, exact: true });
+      // Driving route the back got from OSRM, turned into scene meters once here.
+      const route = ann.route?.points?.length >= 2
+        ? ann.route.points.map(([lat, lng]) => toLocal(lat, lng))
+        : null;
+      out.push({ ann, id, x, z, exact: true, route });
       continue;
     }
     const px = ann.panorama_anchor ?? (ann.panorama_coordinates?.length ? centroid(ann.panorama_coordinates) : null);
@@ -110,9 +134,9 @@ export function createPoiLayer({ container, pois, getView, onPoiClick, onPoiClos
     const dist = Math.hypot(p.x, p.z); // from the lots' center (scene origin)
     const far = dist > NEAR_LIMIT_M;
     const typed = typedDistance(p.ann);
-    // Typed distance first: for outside places it's what the developer
-    // measured (by road); inside, the map measures it.
-    const distText = typed || formatMeters(dist);
+    // The real drive wins when there's a route; then the typed distance (what
+    // the developer measured by road); inside the loteo, the map measures it.
+    const distText = routeText(p.ann.route) || typed || formatMeters(dist);
     const isView = p.ann.poi_kind === 'perspective';
     const icon = isView ? CAMERA_ICON : PIN_ICON;
     const title = escapeHtml(p.ann.tooltip ?? '');
@@ -181,19 +205,18 @@ export function createPoiLayer({ container, pois, getView, onPoiClick, onPoiClos
     drawLine(camera, size);
   }
 
-  // Straight gold line from the lots to the picked POI, plus the far one's
-  // waypoint. Drawn in screen space so it keeps its width. Sampled in steps
-  // so a stretch behind the camera just breaks the line instead of mirroring.
+  // Gold line from the lots to the picked POI, plus the far one's waypoint.
+  // Along the streets when the POI has a route, straight otherwise. Drawn in
+  // screen space so it keeps its width; a point behind the camera just breaks
+  // the line instead of mirroring.
   function drawLine(camera, size) {
     const sel = items.find((it) => it.id === selectedId);
     for (const it of items) if (it.far && it !== sel) it.el.hidden = true;
     if (!sel) { linePath.setAttribute('d', ''); return; }
-    const steps = 40;
     let d = '';
     let pen = false;
-    for (let i = 0; i <= steps; i += 1) {
-      const k = i / steps;
-      const s = toScreen(camera, size, sel.x * k, 0.5, sel.z * k);
+    for (const pt of linePoints(sel)) {
+      const s = toScreen(camera, size, pt.x, 0.5, pt.z);
       if (!s) { pen = false; continue; }
       d += `${pen ? 'L' : 'M'}${s.x.toFixed(1)} ${s.y.toFixed(1)}`;
       pen = true;
