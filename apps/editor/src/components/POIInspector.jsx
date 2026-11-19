@@ -1,10 +1,11 @@
 import { createElement, useRef, useState } from 'react';
 import {
   DoorOpen, Dumbbell, Waves, Car, Utensils, ShoppingBag,
-  Eye, TreePine, Landmark, HelpCircle, Check, ImagePlus, Info, Layers, Link2, MapPin, RefreshCw, Trash2,
+  Eye, TreePine, Landmark, HelpCircle, Check, ExternalLink, ImagePlus, Info, Layers, Link2, MapPin, RefreshCw, Trash2,
 } from 'lucide-react';
 import { Field, IconTile, InspectorShell, Section, Segmented, Slider, Swatches } from './inspector/InspectorUI';
 import { ACCEPTED_IMAGES, useImageUpload } from './inspector/inspectorUtils';
+import { distanceMeters, formatLocation, isShortMapsLink, parseLocation } from '../utils/poiLocation';
 
 const POI_ICON_OPTIONS = [
   { value: 'entrance',    Icon: DoorOpen,    label: 'Entrada' },
@@ -38,6 +39,7 @@ export default function POIInspector({
   siblingStages = [],
   onFieldChange,
   uploadFn,
+  loteoLocation = null,
 }) {
   const isPending = poi.pending === true;
 
@@ -310,6 +312,18 @@ export default function POIInspector({
         </div>
       </Section>
 
+      <Section label="Ubicación real" aside="Lugares de afuera">
+        <LocationField
+          latitude={poi.latitude}
+          longitude={poi.longitude}
+          loteoLocation={loteoLocation}
+          onChange={(lat, lng) => {
+            handleChange('latitude', lat);
+            handleChange('longitude', lng);
+          }}
+        />
+      </Section>
+
       <Section label="Distancia" aside="Opcional">
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 112px', gap: 8, alignItems: 'end' }}>
           <Field label={form.distance_unit === 'min' ? 'Minutos en auto' : 'Kilómetros'} htmlFor="poi-distance">
@@ -334,6 +348,68 @@ export default function POIInspector({
         </div>
       </Section>
     </InspectorShell>
+  );
+}
+
+/**
+ * Where the place really is, pasted from Google Maps (coordinates or a link).
+ * The visor's map puts outside places there instead of estimating them from
+ * the panorama. Keeps the raw text locally: while it doesn't parse, the last
+ * valid location stays; clearing the field removes it.
+ */
+function LocationField({ latitude, longitude, loteoLocation, onChange }) {
+  const hasSaved = latitude != null && longitude != null;
+  const [text, setText] = useState(() => (hasSaved ? formatLocation(latitude, longitude) : ''));
+  const parsed = parseLocation(text);
+
+  const edit = value => {
+    setText(value);
+    const next = parseLocation(value);
+    if (next) onChange(next.lat, next.lng);
+    else if (!value.trim()) onChange(null, null);
+  };
+  // Pasting a long Maps link leaves it unreadable in a narrow field, so a
+  // valid one is rewritten as plain coordinates once the field loses focus.
+  const tidy = () => { if (parsed) setText(formatLocation(parsed.lat, parsed.lng)); };
+
+  let error = null;
+  if (text.trim() && !parsed) {
+    error = isShortMapsLink(text)
+      ? 'Ese link corto no trae coordenadas. Abrilo y copiá el de la barra de direcciones, o hacé clic derecho en el lugar y copiá las coordenadas.'
+      : 'No encontré coordenadas. Pegá "latitud, longitud" o un link de Google Maps.';
+  }
+
+  const meters = parsed && loteoLocation ? distanceMeters(loteoLocation, parsed) : null;
+  const distanceText = meters == null ? null
+    : meters < 1000 ? `${Math.round(meters / 10) * 10} m` : `${(meters / 1000).toFixed(1).replace('.', ',')} km`;
+
+  return (
+    <>
+      <Field label="Coordenadas o link de Google Maps" htmlFor="poi-location">
+        <input
+          id="poi-location"
+          className="ins-num"
+          value={text}
+          onChange={e => edit(e.target.value)}
+          onBlur={tidy}
+          placeholder="Ej: -31.4201, -64.1888"
+        />
+      </Field>
+      {error && <p className="ins-error">{error}</p>}
+      {parsed && (
+        <div className="ins-derived">
+          {distanceText && <span>A <b>{distanceText}</b> en línea recta del loteo</span>}
+          <a
+            href={`https://www.google.com/maps?q=${parsed.lat},${parsed.lng}`}
+            target="_blank"
+            rel="noreferrer"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'inherit' }}
+          >
+            Ver en Google Maps <ExternalLink size={12} />
+          </a>
+        </div>
+      )}
+    </>
   );
 }
 

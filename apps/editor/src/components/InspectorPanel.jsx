@@ -27,6 +27,8 @@ export default function InspectorPanel({
   onAssign,
   // POI
   siblingStages, onPoiFieldChange,
+  // { lat, lng } del loteo o null: el inspector del POI mide contra esto la ubicación pegada.
+  loteoLocation,
   uploadFn,
   // Vista Satélite: useGeoSurfaces (la superficie seleccionada y cómo editarla)
   geoSurfaces,
@@ -100,6 +102,7 @@ export default function InspectorPanel({
         siblingStages={siblingStages}
         onFieldChange={onPoiFieldChange}
         uploadFn={uploadFn}
+        loteoLocation={loteoLocation}
       />
     );
   } else if (selectedMarker.type === 'text') {

@@ -51,6 +51,8 @@ export const poiChanged = (cur, saved) => {
     || String(cur.distance_value ?? '') !== String(saved.distance_value ?? '')
     || (cur.distance_unit ?? '') !== (saved.distance_unit ?? '')
     || (cur.category ?? '') !== (saved.category ?? '')
+    || (cur.latitude ?? null) !== (saved.latitude ?? null)
+    || (cur.longitude ?? null) !== (saved.longitude ?? null)
   );
 };
 
@@ -98,6 +100,9 @@ const poiMetadataFields = poi => {
     distance_value: poi.distance_value === '' || poi.distance_value == null ? null : Number(poi.distance_value),
     distance_unit: poi.distance_unit || null,
     category: poi.category?.trim() || null,
+    // The back only takes both or neither; the inspector always sets them together.
+    latitude: poi.latitude ?? null,
+    longitude: poi.latitude == null ? null : (poi.longitude ?? null),
   };
 };
 

@@ -68,6 +68,10 @@ function App() {
     onDataLoaded: (data, ctx) => applyLoadedData(data, ctx),
   });
   const { loteoId, selectedLoteo, panoramaUrl, blueprintUrl } = loteo;
+  // Pin del loteo (cargado en el CRM): el inspector del POI mide la ubicación real contra él.
+  const loteoLocation = selectedLoteo?.latitude != null && selectedLoteo?.longitude != null
+    ? { lat: selectedLoteo.latitude, lng: selectedLoteo.longitude }
+    : null;
 
   // Pares plano↔panorama y la proyección que sale de ellos (ver useCalibration).
   const calibration = useCalibration({
@@ -1184,6 +1188,7 @@ function App() {
           onAssignTargetChange={setAssignTargetId}
           onAssign={() => handleAssignToExistingLot(selectedMarker)}
           siblingStages={loteo.siblingStages}
+          loteoLocation={loteoLocation}
           accessToken={accessToken}
           uploadFn={uploadFn}
           geoSurfaces={geoSurfaces}
