@@ -11,10 +11,16 @@
 //          ángulo en grados sobre el terreno (null = siempre derecho, gira con la cámara),
 //          font de TEXT_FONTS, color hex, outline de TEXT_OUTLINES (ver @map3d/textLayer.js),
 //          flipX/flipY espejan el texto
+//   amenity: { id, points, form, name, icon, floors?, material?, sport? } — polígono del plano
+//          con una de las formas genéricas de @map3d/amenities.js (edificio con pisos, piso
+//          con material, cancha con deporte), nombre libre e ícono de AMENITY_ICONS
 // Distinto de render_surfaces (modo Render del panorama), que está en pixeles
 // del panorama y no sirve para el mapa.
 import { makeProjection } from '@map3d/ground.js';
 import { naturalShape } from '@map3d/naturalOutline.js';
+import {
+  DEFAULT_AMENITY_FORM, DEFAULT_AMENITY_MATERIAL, DEFAULT_AMENITY_SPORT, amenityColor,
+} from '@map3d/amenities.js';
 import { DEFAULT_TEXT_COLOR, DEFAULT_TEXT_FONT, DEFAULT_TEXT_OUTLINE, textBox } from '@map3d/textLayer.js';
 import { applyHomography } from './homography.js';
 import {
@@ -23,9 +29,10 @@ import {
 
 // Las superficies que son polígonos y la lista donde se guarda cada una. Se
 // dibujan todas igual (puntos + cerrar en el primero); cambia cómo las pinta
-// el visor. El orden es el de prioridad al clickear: el perímetro, que suele
-// envolver todo, va último para no tapar lo que tiene adentro.
-export const AREA_KINDS = { manzana: 'manzanas', verde: 'verdes', agua: 'aguas', perimetro: 'perimetros' };
+// el visor. El orden es el de pintado; qué gana al clickear lo decide PICK_PRIORITY.
+export const AREA_KINDS = {
+  manzana: 'manzanas', verde: 'verdes', agua: 'aguas', amenity: 'amenities', perimetro: 'perimetros',
+};
 export const isAreaKind = kind => kind in AREA_KINDS;
 
 // Verdes y agua llevan además `curve` y `wobble` (0..1): el borde se dibuja
@@ -48,7 +55,9 @@ export function areaPieces(kind, area, obstacles = []) {
   });
 }
 
-export const EMPTY_GEO_SURFACES = { manzanas: [], calles: [], verdes: [], aguas: [], perimetros: [], textos: [] };
+export const EMPTY_GEO_SURFACES = {
+  manzanas: [], calles: [], verdes: [], aguas: [], perimetros: [], textos: [], amenities: [],
+};
 // Calle de loteo típica con veredas; se ajusta por calle desde la barra.
 export const DEFAULT_STREET_WIDTH_M = 12;
 export const MIN_STREET_WIDTH_M = 3;
@@ -120,7 +129,11 @@ export function surfaceRings(surfaces, H, Hinv, lotRings = []) {
     ...calles,
     ...Object.entries(AREA_KINDS).flatMap(([kind, key]) => (
       (surfaces[key] ?? []).flatMap(a => (
-        areaPieces(kind, a, obstacles).map(({ outer, holes }) => ({ kind, id: a.id, ring: outer, holes }))
+        areaPieces(kind, a, obstacles).map(({ outer, holes }) => ({
+          kind, id: a.id, ring: outer, holes,
+          // Cada amenity tiene su color (techo, material o cancha); el resto va por tipo.
+          ...(kind === 'amenity' ? { color: amenityColor(a) } : {}),
+        }))
       ))
     )),
   ].filter(s => s.ring.length >= 3);
@@ -156,9 +169,10 @@ const nearRingEdge = (ring, point) => ring.some((a, i) => (
 
 // Qué gana cuando un click cae sobre varias shapes superpuestas: lo más chico
 // y lo que suele ir dibujado adentro de otra cosa primero (un lote o un
-// espejo de agua dentro de un verde, un verde dentro de una manzana). El
-// orden en que vienen los contornos es el de pintado, no sirve para esto.
-const PICK_PRIORITY = { lote: 0, agua: 1, verde: 2, calle: 3, manzana: 4, perimetro: 5 };
+// espejo de agua dentro de un verde, una cancha dentro de una plaza, un verde
+// dentro de una manzana). El orden en que vienen los contornos es el de
+// pintado, no sirve para esto.
+const PICK_PRIORITY = { lote: 0, amenity: 1, agua: 2, verde: 3, calle: 4, manzana: 5, perimetro: 6 };
 
 /**
  * La shape bajo un punto del plano, como { kind, id }, o null. `rings` puede
@@ -201,10 +215,13 @@ export function addSurface(surfaces, { kind, points, width, natural = DEFAULT_NA
   }
   const key = AREA_KINDS[kind];
   if (!key) return surfaces;
-  const area = NATURAL_KINDS.has(kind) ? { id, points, curve: natural.curve, wobble: natural.wobble } : { id, points };
+  const area = NATURAL_KINDS.has(kind) ? { id, points, curve: natural.curve, wobble: natural.wobble }
+    : kind === 'amenity' ? newAmenity(id, points)
+      : { id, points };
   return { ...surfaces, [key]: [...(surfaces[key] ?? []), area] };
 }
 
+// Amenities caen en AREA_KINDS como los demás polígonos.
 const listOf = kind => (kind === 'calle' ? 'calles' : kind === 'texto' ? 'textos' : AREA_KINDS[kind]);
 
 export function removeSurface(surfaces, { kind, id }) {
@@ -228,6 +245,68 @@ export function setAreaShape(surfaces, { kind, id }, patch) {
 export function findNaturalArea(surfaces, selected) {
   if (!selected || !NATURAL_KINDS.has(selected.kind)) return null;
   return surfaces[AREA_KINDS[selected.kind]]?.find(a => a.id === selected.id) ?? null;
+}
+
+// --- Amenities: club house, guardia, canchas, estacionamiento... (ver @map3d/amenities.js).
+
+/**
+ * Amenity recién cerrada: edificio de 1 piso sin nombre ni ícono. Lleva los
+ * campos de las tres formas, así cambiar de forma en el inspector no pierde
+ * lo elegido en otra (pasar a Piso y volver a Edificio mantiene los pisos).
+ */
+function newAmenity(id, points) {
+  return {
+    id, points, form: DEFAULT_AMENITY_FORM, name: '', icon: null,
+    floors: 1, material: DEFAULT_AMENITY_MATERIAL, sport: DEFAULT_AMENITY_SPORT,
+  };
+}
+
+export const findAmenity = (surfaces, id) => (surfaces.amenities ?? []).find(a => a.id === id) ?? null;
+
+/** Cambia campos de una amenity (form, name, icon, floors, material, sport). */
+export function updateAmenity(surfaces, id, patch) {
+  return { ...surfaces, amenities: (surfaces.amenities ?? []).map(a => (a.id === id ? { ...a, ...patch } : a)) };
+}
+
+/**
+ * Dónde va la etiqueta (ícono + nombre) de un polígono del plano: el
+ * centroide de su área. En una forma cóncava (una L) el centroide puede caer
+ * afuera; ahí se usa el medio del tramo más ancho del polígono a esa misma
+ * altura, que siempre está adentro. Si el área da 0 (puntos alineados), el promedio.
+ */
+export function polygonLabelPoint(points) {
+  const c = areaCentroid(points);
+  if (pointInPolygon(c, points)) return c;
+  // Cruces de la horizontal y = c[1] con los lados, ordenados: entre cada par
+  // (1º-2º, 3º-4º...) la recta va por adentro.
+  const xs = [];
+  points.forEach(([x0, y0], i) => {
+    const [x1, y1] = points[(i + 1) % points.length];
+    if ((y0 > c[1]) !== (y1 > c[1])) xs.push(x0 + ((c[1] - y0) * (x1 - x0)) / (y1 - y0));
+  });
+  xs.sort((a, b) => a - b);
+  let best = null;
+  for (let i = 0; i + 1 < xs.length; i += 2) {
+    if (!best || xs[i + 1] - xs[i] > best[1] - best[0]) best = [xs[i], xs[i + 1]];
+  }
+  return best ? [(best[0] + best[1]) / 2, c[1]] : c;
+}
+
+function areaCentroid(points) {
+  let a = 0;
+  let cx = 0;
+  let cy = 0;
+  points.forEach(([x0, y0], i) => {
+    const [x1, y1] = points[(i + 1) % points.length];
+    const cross = x0 * y1 - x1 * y0;
+    a += cross;
+    cx += (x0 + x1) * cross;
+    cy += (y0 + y1) * cross;
+  });
+  if (Math.abs(a) < 1e-12) {
+    return [points.reduce((s, p) => s + p[0], 0) / points.length, points.reduce((s, p) => s + p[1], 0) / points.length];
+  }
+  return [cx / (3 * a), cy / (3 * a)];
 }
 
 // --- Textos: nombres de calles y zonas escritos sobre el mapa.

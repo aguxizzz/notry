@@ -1,13 +1,15 @@
 // Top-down map of the editor's geo calibration (GeoCalibrationMap.jsx wraps it
 // for React). Same ground as the visor's satellite / render modes (@map3d),
 // plus the blueprint image warped onto the map through the calibration's
-// homography, the lot outlines, the numbered calibration pins and the texts
-// written on the map (same layer as the visor's, @map3d/textLayer.js).
+// homography, the lot outlines, the numbered calibration pins, the texts
+// written on the map (same layer as the visor's, @map3d/textLayer.js) and the
+// amenities' icon + name labels.
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
 import { boxAround, createGroundBuilders, disposeObject, makeProjection } from '@map3d/ground.js';
 import { flatFillGeometry } from '@map3d/flatFill.js';
 import { createTextLayer, loadTextFonts } from '@map3d/textLayer.js';
+import { amenityIconSvg } from '@map3d/amenities.js';
 import { applyHomography } from '../utils/homography.js';
 
 const DEFAULT_SPAN_M = 200; // half side to frame when nothing is calibrated yet
@@ -35,6 +37,10 @@ const SURFACE_STYLE = {
   verde: { fill: 0x4ade80, fillOpacity: 0.35, line: 0x86efac },
   agua: { fill: 0x38bdf8, fillOpacity: 0.45, line: 0x7dd3fc },
   perimetro: { fill: 0xf472b6, fillOpacity: 0, line: 0xf472b6 },
+  // Fill comes per amenity (shape.color: roof, material or court) and is
+  // opaque, a preview of how the visor paints it; the white border sets it
+  // apart from the photo.
+  amenity: { fill: 0xece6d9, fillOpacity: 0.9, line: 0xffffff },
 };
 const SELECTED_LINE = 0xffffff;
 // "Ajustar": how close (screen px) a press must be to a pin or corner to grab it.
@@ -337,7 +343,7 @@ export function createGeoMapScene({
         const xz = (pts) => pts.map((p) => [p.x, p.z]);
         const geom = flatFillGeometry([{ outer: xz(outer), holes: holes.map(xz) }]);
         const fill = new THREE.Mesh(geom, new THREE.MeshBasicMaterial(overlayMat({
-          color: style.fill, opacity: style.fillOpacity, side: THREE.DoubleSide,
+          color: shape.color ?? style.fill, opacity: style.fillOpacity, side: THREE.DoubleSide,
         })));
         fill.renderOrder = ORDER.surfaces;
         surfaceGroup.add(fill);
@@ -417,6 +423,30 @@ export function createGeoMapScene({
     requestRender();
   }
 
+  // --- amenity labels: [{ id, lat, lng, name, icon }], icon + name as HTML
+  // like the pins (crisp at any zoom). They don't take clicks: the amenity is
+  // picked through its polygon underneath.
+  let labels = [];
+  function setAmenityLabels(list = [], selectedId = null) {
+    for (const label of labels) label.el.remove();
+    labels = list.map(({ id, lat, lng, name, icon }) => {
+      // The outer element is the anchor placePins moves; the pill inside
+      // centers itself on it (its width depends on the name).
+      const el = document.createElement('div');
+      el.className = 'geo-map-amenity';
+      const pill = document.createElement('div');
+      pill.className = `geo-map-amenity__pill${id === selectedId ? ' is-selected' : ''}`;
+      // The icon is our own markup (AMENITY_ICONS); the name is user text, so it goes in as text.
+      pill.innerHTML = amenityIconSvg(icon, 14);
+      if (name) pill.append(Object.assign(document.createElement('span'), { textContent: name }));
+      el.append(pill);
+      pinLayer.appendChild(el);
+      const p = toLocal(lat, lng);
+      return { id, el, world: new THREE.Vector3(p.x, 0, p.z), screen: { x: 0, y: 0 } };
+    });
+    requestRender();
+  }
+
   // Corners of the warped blueprint, the "Ajustar" scale/rotate handles. HTML
   // like the pins; only shown in adjust mode with a calibration.
   const corners = BLUEPRINT_CORNERS.map(() => {
@@ -436,7 +466,7 @@ export function createGeoMapScene({
     out.y = ((1 - projected.y) / 2) * size.h;
   };
   function placePins() {
-    for (const pin of pins) {
+    for (const pin of [...pins, ...labels]) {
       toScreen(pin.world, pin.screen);
       pin.el.style.transform = `translate(${pin.screen.x}px, ${pin.screen.y}px)`;
     }
@@ -627,6 +657,6 @@ export function createGeoMapScene({
 
   return {
     setMode, setBlueprint, setHomography, setOrientation, setOpacity, setLots, setPins, setSurfaces, setTexts,
-    setCursor, setAdjust, dispose,
+    setAmenityLabels, setCursor, setAdjust, dispose,
   };
 }

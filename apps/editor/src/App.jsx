@@ -593,7 +593,7 @@ function App() {
           if (k === 'd' && gs.duplicateSelected()) { e.preventDefault(); return; }
         }
         // Mismos atajos que muestra SATELLITE_TOOLS en Toolbar.jsx.
-        const SATELLITE_KEYS = { v: 'select', 1: 'manzana', 2: 'calle', 3: 'verde', 4: 'agua', 5: 'perimetro', 6: 'texto' };
+        const SATELLITE_KEYS = { v: 'select', 1: 'manzana', 2: 'calle', 3: 'verde', 4: 'agua', 5: 'perimetro', 6: 'texto', 7: 'amenity' };
         const key = e.key.toLowerCase();
         if (!e.ctrlKey && !e.metaKey && key in SATELLITE_KEYS) {
           // Sin vincular no hay herramientas; igual se corta acá para que no

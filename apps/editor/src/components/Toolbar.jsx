@@ -1,4 +1,5 @@
 import {
+  Building2,
   Camera,
   Crosshair,
   Fence,
@@ -75,6 +76,8 @@ const SATELLITE_TOOLS = [
   { id: 'agua', icon: Waves, label: 'Agua', shortcut: '4' },
   { id: 'perimetro', icon: Fence, label: 'Perímetro', shortcut: '5' },
   { id: 'texto', icon: Type, label: 'Texto', shortcut: '6' },
+  // Club house, guardia, canchas... (forma, nombre e ícono se eligen en el inspector).
+  { id: 'amenity', icon: Building2, label: 'Amenity', shortcut: '7' },
 ];
 
 const AREA_HINT = 'Clic para agregar puntos · clic en el primero o Enter para cerrar · Supr saca el último';
@@ -86,6 +89,7 @@ const SATELLITE_HINTS = {
   perimetro: AREA_HINT,
   calle: 'Clic para trazar el eje · Enter para terminar · Supr saca el último',
   texto: 'Clic donde va el texto · sobre una calle sale alineado con ella · después se arrastra con Seleccionar',
+  amenity: `${AREA_HINT} · al cerrar elegís qué es en el inspector`,
 };
 
 /** A 0..1 slider of the verde/agua outline, shown as 0-100. */

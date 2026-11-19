@@ -5,6 +5,7 @@ import LoteInspector from './LoteInspector';
 import TextInspector from './TextInspector';
 import GeoTextInspector from './GeoTextInspector';
 import GeoSurfaceInspector from './GeoSurfaceInspector';
+import GeoAmenityInspector from './GeoAmenityInspector';
 import { Field, InspectorShell, Section } from './inspector/InspectorUI';
 import { hasLocationIn } from '../utils/annotationModel';
 
@@ -47,6 +48,8 @@ export default function InspectorPanel({
     const lot = selectedMarker?.type === 'polygon' && !selectedMarker.pending ? selectedMarker : null;
     content = geoSurfaces?.selectedText ? (
       <GeoTextInspector key={geoSurfaces.selected.id} surfaces={geoSurfaces} onClose={onClose} />
+    ) : geoSurfaces?.selectedAmenity ? (
+      <GeoAmenityInspector key={geoSurfaces.selected.id} surfaces={geoSurfaces} onClose={onClose} />
     ) : geoSurfaces?.selected ? (
       <GeoSurfaceInspector key={geoSurfaces.selected.id} surfaces={geoSurfaces} onClose={onClose} />
     ) : lot ? (

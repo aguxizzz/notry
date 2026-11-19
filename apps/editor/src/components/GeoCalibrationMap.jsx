@@ -23,6 +23,8 @@ import MapControls from './MapControls';
  * `texts` ([{ id, lat, lng, text, size, angle, style }]) are written on the
  * map, `selectedTextId` with an amber halo; `canDragAt`/`onDrag` let them be
  * dragged (see createGeoMapScene). Only the Satellite view passes them.
+ * `amenityLabels` ([{ id, lat, lng, name, icon }]) put each amenity's icon and
+ * name over it, `selectedAmenityId` highlighted; also Satellite view only.
  * `view` (useMapView) comes from outside when the controls live in the main
  * toolbar (Satellite view); without it the map keeps its own state and draws
  * its own floating bar (calibration), starting the blueprint at half opacity.
@@ -30,6 +32,7 @@ import MapControls from './MapControls';
 export default function GeoCalibrationMap({
   latitude, longitude, points, polygons, blueprintUrl, surfaces, drawingTool, adjustMode,
   showPins = true, view, onMapPointPicked, onAdjust, texts, selectedTextId = null, canDragAt, onDrag,
+  amenityLabels, selectedAmenityId = null,
 }) {
   const containerRef = useRef(null);
   const sceneRef = useRef(null);
@@ -124,6 +127,9 @@ export default function GeoCalibrationMap({
   }, [polygons, latitude, longitude]);
   useEffect(() => { sceneRef.current?.setSurfaces(surfaces); }, [surfaces, latitude, longitude]);
   useEffect(() => { sceneRef.current?.setTexts(texts ?? [], selectedTextId); }, [texts, selectedTextId, latitude, longitude]);
+  useEffect(() => {
+    sceneRef.current?.setAmenityLabels(amenityLabels ?? [], selectedAmenityId);
+  }, [amenityLabels, selectedAmenityId, latitude, longitude]);
   useEffect(() => { sceneRef.current?.setCursor(drawingTool); }, [drawingTool, latitude, longitude]);
   useEffect(() => { sceneRef.current?.setAdjust(!!adjustMode); }, [adjustMode, latitude, longitude]);
   useEffect(() => {

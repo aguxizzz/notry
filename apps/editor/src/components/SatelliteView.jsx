@@ -74,6 +74,8 @@ export default function SatelliteView({ latitude, longitude, blueprintUrl, geo, 
         onMapPointPicked={surfaces.handleMapPoint}
         texts={surfaces.geoTexts}
         selectedTextId={selected?.kind === 'texto' ? selected.id : null}
+        amenityLabels={surfaces.geoAmenityLabels}
+        selectedAmenityId={selected?.kind === 'amenity' ? selected.id : null}
         canDragAt={surfaces.canDragAt}
         onDrag={surfaces.drag}
       />

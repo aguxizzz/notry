@@ -1,4 +1,4 @@
-// Estado del dibujo de manzanas, calles y textos en la vista Satélite (ver
+// Estado del dibujo de manzanas, calles, amenities y textos en la vista Satélite (ver
 // utils/geoSurfaces.js para el modelo). Los clicks llegan del mapa en lat/lng y
 // se guardan en coordenadas del plano, así se mueven junto con los lotes si se
 // recalibra.
@@ -8,9 +8,9 @@ import { invertHomography } from '../utils/homography';
 import { geoHomography } from '../utils/geoCalibration';
 import {
   DEFAULT_NATURAL_SHAPE, DEFAULT_STREET_WIDTH_M, EMPTY_GEO_SURFACES, NATURAL_KINDS, addSurface, addText, blueprintToGeo,
-  calleAngleAt, displayRings, findCalle, findNaturalArea, findSurfaceAt, findText, findTextAt, geoToBlueprint,
-  isAreaKind, minPointsFor, pasteText, removeSurface, setAreaShape, setCalleWidth, snapToAxis, surfaceRings, updateText,
-  wrapTextAngle,
+  calleAngleAt, displayRings, findAmenity, findCalle, findNaturalArea, findSurfaceAt, findText, findTextAt,
+  geoToBlueprint, isAreaKind, minPointsFor, pasteText, polygonLabelPoint, removeSurface, setAreaShape, setCalleWidth,
+  snapToAxis, surfaceRings, updateAmenity, updateText, wrapTextAngle,
 } from '../utils/geoSurfaces';
 
 // Click a esta distancia del primer punto (en fracción del plano) cierra el
@@ -19,7 +19,7 @@ const CLOSE_DISTANCE = 0.012;
 
 /**
  * `tool`: 'select', 'calle', 'texto' o un polígono de AREA_KINDS ('manzana', 'verde',
- * 'agua', 'perimetro'). Sin calibración geo válida no se
+ * 'agua', 'amenity', 'perimetro'). Sin calibración geo válida no se
  * puede dibujar (no hay forma de llevar el click al plano ni de medir el ancho
  * en metros), así que la vista Satélite pide vincular primero.
  *
@@ -68,10 +68,19 @@ export function useGeoSurfaces({ geoPoints, annotations, onBeforeChange, onSelec
     const [lat, lng] = blueprintToGeo(H, t.point);
     return { ...t, lat, lng };
   }) : []), [surfaces.textos, H]);
+  // Etiquetas de las amenities (ícono + nombre) en lat/lng; las que no tienen
+  // ninguno de los dos no muestran nada.
+  const geoAmenityLabels = useMemo(() => (H ? (surfaces.amenities ?? [])
+    .filter(a => a.name?.trim() || a.icon)
+    .map(a => {
+      const [lat, lng] = blueprintToGeo(H, polygonLabelPoint(a.points));
+      return { id: a.id, lat, lng, name: a.name?.trim() ?? '', icon: a.icon };
+    }) : []), [surfaces.amenities, H]);
 
   const selectedCalle = selected?.kind === 'calle' ? findCalle(surfaces, selected.id) : null;
   const selectedArea = findNaturalArea(surfaces, selected);
   const selectedText = selected?.kind === 'texto' ? findText(surfaces, selected.id) : null;
+  const selectedAmenity = selected?.kind === 'amenity' ? findAmenity(surfaces, selected.id) : null;
 
   /** Selecciona una superficie o texto (o nada) y suelta el lote, que vive en App. */
   const selectShape = (hit) => {
@@ -100,8 +109,16 @@ export function useGeoSurfaces({ geoPoints, annotations, onBeforeChange, onSelec
     const kind = tool;
     if ((!isAreaKind(kind) && kind !== 'calle') || drawing.length < minPointsFor(kind)) return false;
     onBeforeChange();
-    setSurfaces(prev => addSurface(prev, { kind, points: drawing, width: streetWidth, natural: naturalShape }));
+    const id = crypto.randomUUID();
+    setSurfaces(prev => addSurface(prev, { kind, points: drawing, width: streetWidth, natural: naturalShape, id }));
     setDrawing([]);
+    // Una amenity recién cerrada todavía no dice qué es: queda seleccionada
+    // para elegir forma, nombre e ícono en el inspector, y se vuelve a
+    // Seleccionar (se dibujan de a una, no en serie como las manzanas).
+    if (kind === 'amenity') {
+      setTool('select');
+      selectShape({ kind, id });
+    }
     return true;
   };
 
@@ -178,6 +195,16 @@ export function useGeoSurfaces({ geoPoints, annotations, onBeforeChange, onSelec
   /** Campos del texto seleccionado (text, size, angle, style). */
   const changeSelectedText = (patch) => {
     if (selectedText) setSurfaces(prev => updateText(prev, selectedText.id, patch));
+  };
+
+  // Amenity seleccionada: igual que el texto, el campo del nombre toma el
+  // snapshot al recibir foco; los botones, uno por click.
+  const beginSelectedAmenityChange = () => {
+    if (selectedAmenity) onBeforeChange();
+  };
+  /** Campos de la amenity seleccionada (form, name, icon, floors, material, sport). */
+  const changeSelectedAmenity = (patch) => {
+    if (selectedAmenity) setSurfaces(prev => updateAmenity(prev, selectedAmenity.id, patch));
   };
 
   // Portapapeles propio (no el del sistema): guarda el texto tal cual, así
@@ -276,14 +303,15 @@ export function useGeoSurfaces({ geoPoints, annotations, onBeforeChange, onSelec
     surfaces, setSurfaces,
     tool, setTool: changeTool, reset, canDraw: !!H,
     isDrawingTool: tool === 'calle' || tool === 'texto' || isAreaKind(tool),
-    drawing, geoDrawing, selected, selectedCalle, selectedText,
-    geoRings, geoSelectedRing, geoTexts,
+    drawing, geoDrawing, selected, selectedCalle, selectedText, selectedAmenity,
+    geoRings, geoSelectedRing, geoTexts, geoAmenityLabels,
     // Para lo próximo a dibujar (barra).
     streetWidth, changeStreetWidth: setStreetWidth,
     naturalShape, changeNaturalShape, showNaturalShape: NATURAL_KINDS.has(tool),
     // La shape seleccionada (inspector).
     selectedArea, changeSelectedCalleWidth, beginSelectedAreaChange, changeSelectedArea,
     beginSelectedTextChange, changeSelectedText,
+    beginSelectedAmenityChange, changeSelectedAmenity,
     copySelected, paste, duplicateSelected,
     canDragAt, drag,
     handleMapPoint, finish, deleteSelected, handleDeleteKey, handleEscape,

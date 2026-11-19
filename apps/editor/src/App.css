@@ -1317,6 +1317,25 @@ div[onClick]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
 }
 .geo-map-handle[hidden] { display: none; }
 
+/* Amenity labels (icon + name) over their polygon, positioned like the pins.
+   The anchor has no size; the pill centers itself on it. */
+.geo-map-amenity { position: absolute; top: 0; left: 0; }
+.geo-map-amenity__pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: rgba(17, 17, 20, 0.78);
+  color: #fff;
+  font: var(--weight-semibold, 600) 11px/1 var(--font-ui);
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+.geo-map-amenity__pill svg { flex: none; }
+.geo-map-amenity__pill.is-selected { outline: 2px solid var(--accent); }
+
 .geo-map-loading {
   position: absolute;
   bottom: var(--space-sm);

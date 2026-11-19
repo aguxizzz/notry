@@ -6,7 +6,7 @@ import { computeHomography, invertHomography } from './homography.js';
 import {
   DEFAULT_NATURAL_SHAPE, addSurface, addText, blueprintToGeo, calleAngleAt, calleRing, displayRings, findSurfaceAt,
   findTextAt, geoToBlueprint, normalizeGeoSurfaces, normalizeTextAngle, removeSurface, snapToAxis, surfaceRings,
-  pasteText, withoutEmptyTexts, wrapTextAngle,
+  pasteText, withoutEmptyTexts, wrapTextAngle, EMPTY_GEO_SURFACES, findAmenity, polygonLabelPoint, updateAmenity,
 } from './geoSurfaces.js';
 
 // Plano [0,1]² sobre un rectángulo de ~400 m × ~200 m en Misiones: el plano
@@ -111,8 +111,56 @@ describe('shapes', () => {
 describe('normalizeGeoSurfaces', () => {
   it('completa con listas vacías lo que un loteo viejo no trae', () => {
     expect(normalizeGeoSurfaces({ manzanas: [{ id: 'm' }] })).toEqual({
-      manzanas: [{ id: 'm' }], calles: [], verdes: [], aguas: [], perimetros: [], textos: [],
+      manzanas: [{ id: 'm' }], calles: [], verdes: [], aguas: [], perimetros: [], textos: [], amenities: [],
     });
+  });
+});
+
+describe('amenities', () => {
+  const square = [[0.4, 0.4], [0.6, 0.4], [0.6, 0.6], [0.4, 0.6]];
+
+  it('una amenity recién cerrada es un edificio de 1 piso sin nombre, con los campos de las otras formas', () => {
+    const s = addSurface(EMPTY_GEO_SURFACES, { kind: 'amenity', id: 'a', points: square });
+    expect(s.amenities).toEqual([{
+      id: 'a', points: square, form: 'edificio', name: '', icon: null, floors: 1, material: 'cemento', sport: 'padel',
+    }]);
+  });
+
+  it('cambiar de forma conserva lo elegido en la otra', () => {
+    let s = addSurface(EMPTY_GEO_SURFACES, { kind: 'amenity', id: 'a', points: square });
+    s = updateAmenity(s, 'a', { floors: 2 });
+    s = updateAmenity(s, 'a', { form: 'piso' });
+    s = updateAmenity(s, 'a', { form: 'edificio' });
+    expect(findAmenity(s, 'a').floors).toBe(2);
+  });
+
+  it('una cancha dentro de una plaza gana el click sobre la plaza', () => {
+    const big = [[0, 0], [1, 0], [1, 1], [0, 1]];
+    const rings = [
+      { kind: 'verde', id: 'plaza', ring: big },
+      { kind: 'amenity', id: 'cancha', ring: square },
+    ];
+    expect(findSurfaceAt(rings, [0.5, 0.5])).toEqual({ kind: 'amenity', id: 'cancha' });
+  });
+
+  it('la etiqueta va en el centroide de una forma convexa', () => {
+    const [x, y] = polygonLabelPoint([[0, 0], [1, 0], [1, 0.5], [0, 0.5]]);
+    expect(x).toBeCloseTo(0.5);
+    expect(y).toBeCloseTo(0.25);
+  });
+
+  it('en una L, cuyo centroide cae afuera, la etiqueta queda adentro', () => {
+    // Centroide del área ≈ (0.32, 0.32): en el hueco de la L. A esa altura
+    // solo la pata vertical (x 0..0.2) está adentro.
+    const l = [[0, 0], [1, 0], [1, 0.2], [0.2, 0.2], [0.2, 1], [0, 1]];
+    const [x, y] = polygonLabelPoint(l);
+    expect(x).toBeCloseTo(0.1);
+    expect(y).toBeCloseTo(0.3222, 3);
+  });
+
+  it('se borra como cualquier polígono', () => {
+    const s = addSurface(EMPTY_GEO_SURFACES, { kind: 'amenity', id: 'a', points: square });
+    expect(removeSurface(s, { kind: 'amenity', id: 'a' }).amenities).toEqual([]);
   });
 });
 
