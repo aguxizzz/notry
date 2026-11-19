@@ -15,6 +15,11 @@ const MARGIN_M = 4000;
 // The frame's outer edge. A far place puts the camera 10+ km behind the
 // loteo, and whole map tiles stick out well past the veil grid.
 const FRAME_M = 200000;
+// After ground, surfaces, lot fills/borders and the buildings (2.5), before
+// the lot numbers (3, 4). It can't share the buildings' 2.5: three.js then
+// sorts the two by their geometry's center, and the veil's sits out toward
+// the place, so it was drawn first and the far buildings ended up on top.
+const VEIL_ORDER = 2.75;
 
 const smoothstep = (a, b, v) => {
   const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
@@ -92,7 +97,7 @@ export function createCorridorVeil(shape, color) {
     depthTest: false, depthWrite: false, fog: false,
   });
   const mesh = new THREE.Mesh(geom, material);
-  mesh.renderOrder = 2.5; // after ground, surfaces and lot fills
+  mesh.renderOrder = VEIL_ORDER;
   mesh.frustumCulled = false;
 
   // Opaque frame around the grid, out to FRAME_M: a big square with the
@@ -108,7 +113,7 @@ export function createCorridorVeil(shape, color) {
     color, transparent: true, opacity: 0, depthTest: false, depthWrite: false, fog: false, side: THREE.DoubleSide,
   });
   const frame = new THREE.Mesh(frameGeom, frameMaterial);
-  frame.renderOrder = 2.5;
+  frame.renderOrder = VEIL_ORDER;
   frame.frustumCulled = false;
   mesh.add(frame);
 
