@@ -40,15 +40,30 @@ export default function InspectorPanel({
 
   let content;
   if (mode === 'satellite') {
-    // Vista Satélite: acá se editan manzanas/calles/verdes..., no lotes (los
-    // lotes vienen del plano por la calibración y no se tocan en el mapa).
+    // Vista Satélite: acá se dibujan manzanas/calles/verdes... Los lotes vienen
+    // del plano por la calibración y su forma no se toca en el mapa, pero sí se
+    // pueden seleccionar para editar sus datos (estado, precio...).
+    const lot = selectedMarker?.type === 'polygon' && !selectedMarker.pending ? selectedMarker : null;
     content = geoSurfaces?.selected ? (
       <GeoSurfaceInspector key={geoSurfaces.selected.id} surfaces={geoSurfaces} onClose={onClose} />
+    ) : lot ? (
+      <LoteInspector
+        selectedMarker={lot}
+        onUpdateSelected={updateSelected}
+        homography={homography}
+        onImportFromBlueprint={onImportFromBlueprint}
+        onRemoveFromPanorama={onRemoveFromPanorama}
+        onRemoveFromView={onDelete}
+        onDeleteLot={onDeleteLot}
+        onClose={onClose}
+        editorMode={mode}
+        uploadFn={uploadFn}
+      />
     ) : (
       <div className="ins-empty">
         <span className="ins-empty__icon"><MousePointerClick size={20} /></span>
         <strong>Nada seleccionado</strong>
-        <p>Con Seleccionar (V), hacé clic en una manzana, calle, verde, agua o perímetro para editarlo.</p>
+        <p>Con Seleccionar (V), hacé clic en un lote, manzana, calle, verde, agua o perímetro para editarlo.</p>
       </div>
     );
   } else if (!selectedMarker) {

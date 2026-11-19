@@ -24,8 +24,10 @@ const CLOSE_DISTANCE = 0.012;
  * `onBeforeChange` se llama antes de cada cambio a las shapes (historial).
  * `onSelect` avisa cuando un click selecciona una shape (App abre el inspector).
  * `annotations` son los lotes del editor: verdes y agua se recortan contra ellos.
+ * `onSelectLot(id | null)`: los lotes también se clickean acá, pero su selección
+ * vive en App (selectedId) porque el inspector del lote es el mismo de las otras vistas.
  */
-export function useGeoSurfaces({ geoPoints, annotations, onBeforeChange, onSelect }) {
+export function useGeoSurfaces({ geoPoints, annotations, onBeforeChange, onSelect, onSelectLot }) {
   const [surfaces, setSurfaces] = useState(EMPTY_GEO_SURFACES);
   const [tool, setTool] = useState('select');
   const [drawing, setDrawing] = useState([]); // puntos del plano del trazo en curso
@@ -38,10 +40,16 @@ export function useGeoSurfaces({ geoPoints, annotations, onBeforeChange, onSelec
 
   // Contornos por shape en el plano (para buscar clicks y marcar la selección)
   // y, en geo, lo que dibuja el mapa: las calles ya fundidas entre sí.
-  const lotRings = useMemo(() => (annotations ?? [])
-    .filter(a => a.type === 'polygon' && a.blueprint_coordinates?.length >= 3)
-    .map(a => a.blueprint_coordinates), [annotations]);
+  const lots = useMemo(() => (annotations ?? [])
+    .filter(a => a.type === 'polygon' && a.blueprint_coordinates?.length >= 3), [annotations]);
+  const lotRings = useMemo(() => lots.map(a => a.blueprint_coordinates), [lots]);
   const rings = useMemo(() => surfaceRings(surfaces, H, Hinv, lotRings), [surfaces, H, Hinv, lotRings]);
+  // Lo que se puede clickear: las superficies más los lotes (que no se pintan
+  // desde acá, así que no van en `rings`).
+  const pickRings = useMemo(() => [
+    ...lots.map(a => ({ kind: 'lote', id: a.id, ring: a.blueprint_coordinates, holes: [] })),
+    ...rings,
+  ], [lots, rings]);
   const geoRings = useMemo(() => {
     if (!H) return [];
     const toGeo = ring => ring.map(p => blueprintToGeo(H, p));
@@ -62,6 +70,7 @@ export function useGeoSurfaces({ geoPoints, annotations, onBeforeChange, onSelec
     setTool(prev => (prev === next ? 'select' : next));
     setDrawing([]);
     setSelected(null);
+    onSelectLot?.(null);
   };
 
   /** Al salir de la vista: nada a medio dibujar ni seleccionado. */
@@ -88,8 +97,11 @@ export function useGeoSurfaces({ geoPoints, annotations, onBeforeChange, onSelec
     // exacto sobre el eje y, si es una punta, addSurface continúa esa calle.
     const point = tool === 'calle' ? snapToAxis(surfaces, raw) : raw;
     if (tool === 'select') {
-      const hit = findSurfaceAt(rings, point);
-      setSelected(hit);
+      const hit = findSurfaceAt(pickRings, point);
+      // Una sola cosa seleccionada a la vez: o una superficie (acá) o un lote (en App).
+      const isLot = hit?.kind === 'lote';
+      setSelected(isLot ? null : hit);
+      onSelectLot?.(isLot ? hit.id : null);
       if (hit) onSelect?.(hit);
       return;
     }

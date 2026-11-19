@@ -29,6 +29,10 @@ export default function LoteInspector({
   const inPanorama = panoramaVertices > 0;
   const canProject = !!homography && inBlueprint;
   const onBlueprintView = editorMode === 'blueprint';
+  // En Satélite el lote sale del plano (por la calibración geo): no hay
+  // polígono propio de esa vista para quitar, y la forma que se muestra es la del plano.
+  const onSatelliteView = editorMode === 'satellite';
+  const fromBlueprint = onBlueprintView || onSatelliteView;
 
   const [justProjectedId, setJustProjectedId] = useState(null);
   const justProjected = justProjectedId === selectedMarker.id;
@@ -52,7 +56,7 @@ export default function LoteInspector({
 
   return (
     <InspectorShell
-      media={<LotShape coords={onBlueprintView ? selectedMarker.blueprint_coordinates : selectedMarker.panorama_coordinates} size={44} color={statusColor(status)} />}
+      media={<LotShape coords={fromBlueprint ? selectedMarker.blueprint_coordinates : selectedMarker.panorama_coordinates} size={44} color={statusColor(status)} />}
       title={(
         <input
           className="ins-title-input"
@@ -66,14 +70,16 @@ export default function LoteInspector({
       onClose={onClose}
       footer={(
         <>
-          <button
-            type="button"
-            className="editor-btn editor-btn--ghost ins-foot__block"
-            onClick={onRemoveFromView}
-            title={`Lo saca de la vista ${onBlueprintView ? 'Plano' : 'Panorama'}. El lote y su ubicación en la otra vista quedan. Se deshace con Ctrl+Z (Supr)`}
-          >
-            Quitar del {onBlueprintView ? 'plano' : 'panorama'}
-          </button>
+          {!onSatelliteView && (
+            <button
+              type="button"
+              className="editor-btn editor-btn--ghost ins-foot__block"
+              onClick={onRemoveFromView}
+              title={`Lo saca de la vista ${onBlueprintView ? 'Plano' : 'Panorama'}. El lote y su ubicación en la otra vista quedan. Se deshace con Ctrl+Z (Supr)`}
+            >
+              Quitar del {onBlueprintView ? 'plano' : 'panorama'}
+            </button>
+          )}
           <button
             type="button"
             className="editor-btn editor-btn--danger-ghost"
@@ -154,7 +160,7 @@ export default function LoteInspector({
                   <button
                     type="button"
                     className="ins-icon-mini"
-                    onClick={onBlueprintView ? onRemoveFromPanorama : onRemoveFromView}
+                    onClick={fromBlueprint ? onRemoveFromPanorama : onRemoveFromView}
                     aria-label="Quitar del panorama"
                     title="Saca el lote del panorama. El lote y su polígono del plano quedan. Se deshace con Ctrl+Z"
                   >

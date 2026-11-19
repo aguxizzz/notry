@@ -149,13 +149,23 @@ const nearRingEdge = (ring, point) => ring.some((a, i) => (
   distanceToSegment(point, a, ring[(i + 1) % ring.length]) < EDGE_PICK_DISTANCE
 ));
 
+// Qué gana cuando un click cae sobre varias shapes superpuestas: lo más chico
+// y lo que suele ir dibujado adentro de otra cosa primero (un lote o un
+// espejo de agua dentro de un verde, un verde dentro de una manzana). El
+// orden en que vienen los contornos es el de pintado, no sirve para esto.
+const PICK_PRIORITY = { lote: 0, agua: 1, verde: 2, calle: 3, manzana: 4, perimetro: 5 };
+
 /**
- * La shape bajo un punto del plano, como { kind, id }, o null. El perímetro
- * se agarra solo por el borde: envuelve todo el loteo, y si cualquier click
- * de adentro lo seleccionara no habría forma de clickear en vacío.
+ * La shape bajo un punto del plano, como { kind, id }, o null. `rings` puede
+ * traer también los lotes (kind 'lote'). El perímetro se agarra solo por el
+ * borde: envuelve todo el loteo, y si cualquier click de adentro lo
+ * seleccionara no habría forma de clickear en vacío.
  */
 export function findSurfaceAt(rings, point) {
-  const hit = rings.find(s => (
+  // sort es estable: dentro de un mismo tipo se respeta el orden original
+  // (el pedazo más grande de un verde cortado sigue yendo primero).
+  const byPriority = [...rings].sort((a, b) => (PICK_PRIORITY[a.kind] ?? 9) - (PICK_PRIORITY[b.kind] ?? 9));
+  const hit = byPriority.find(s => (
     s.kind === 'perimetro'
       ? nearRingEdge(s.ring, point)
       // Un click en el agujero que un lote le dejó a un verde no es el verde.

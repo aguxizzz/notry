@@ -96,6 +96,8 @@ function App() {
   // declara más abajo, pero el callback recién corre con un click).
   const geoSurfaces = useGeoSurfaces({
     geoPoints: geo.points, annotations, onBeforeChange: snapshotHistory, onSelect: () => setInspectorOpen(true),
+    // Arrow function: setSelectedId se declara más abajo y recién se usa al clickear.
+    onSelectLot: id => setSelectedId(id),
   });
   // Satellite view's map background/opacity/orientation, here because the
   // controls live in the Toolbar and the map in SatelliteView. Blueprint starts hidden.
@@ -556,7 +558,10 @@ function App() {
           keyboardStateRef.current.handleEscapeGeoCalibration();
         } else if (keyboardStateRef.current?.mode === 'satellite') {
           // Corta el trazo, después la selección, después vuelve a Seleccionar.
-          keyboardStateRef.current.geoSurfaces.handleEscape();
+          // Un lote seleccionado cuenta como selección, pero vive en App.
+          const { geoSurfaces: gs, selectedId: lotId } = keyboardStateRef.current;
+          if (lotId && !gs.drawing.length) keyboardStateRef.current.clearSelection();
+          else gs.handleEscape();
         } else if (keyboardStateRef.current?.activeTool === 'autodetect') {
           keyboardStateRef.current?.setActiveTool('select');
         } else if (keyboardStateRef.current?.activeTool === 'rect') {
@@ -867,6 +872,8 @@ function App() {
       saveAll: handleSaveAll,
       render,
       geoSurfaces,
+      selectedId,
+      clearSelection: () => setSelectedId(null),
     };
   });
 
@@ -1100,6 +1107,7 @@ function App() {
                 blueprintUrl={blueprintUrl}
                 geo={geo}
                 surfaces={geoSurfaces}
+                selectedLotId={selectedId}
                 mapView={satelliteMapView}
                 onLink={() => handleToolChange('calibrate-geo')}
               />

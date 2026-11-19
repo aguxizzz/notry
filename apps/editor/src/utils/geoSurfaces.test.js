@@ -88,6 +88,23 @@ describe('shapes', () => {
     expect(findSurfaceAt(rings, [0.5, 0.5])).toBeNull();
     expect(findSurfaceAt(rings, [0.5, 0.105])).toEqual({ kind: 'perimetro', id: 'p' });
   });
+
+  it('con shapes superpuestas gana lo de adentro: lote y agua, después verde, la manzana al fondo', () => {
+    // Una manzana grande con un verde adentro, un espejo de agua dentro del
+    // verde y un lote en otra esquina de la manzana. El orden de la lista
+    // es el de pintado (manzana primero), a propósito.
+    const box = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+    const rings = [
+      { kind: 'manzana', id: 'm', ring: box(0, 0, 1, 1), holes: [] },
+      { kind: 'verde', id: 'v', ring: box(0.1, 0.1, 0.5, 0.5), holes: [] },
+      { kind: 'agua', id: 'a', ring: box(0.2, 0.2, 0.3, 0.3), holes: [] },
+      { kind: 'lote', id: 7, ring: box(0.7, 0.7, 0.9, 0.9), holes: [] },
+    ];
+    expect(findSurfaceAt(rings, [0.25, 0.25])).toEqual({ kind: 'agua', id: 'a' });
+    expect(findSurfaceAt(rings, [0.4, 0.4])).toEqual({ kind: 'verde', id: 'v' });
+    expect(findSurfaceAt(rings, [0.8, 0.8])).toEqual({ kind: 'lote', id: 7 });
+    expect(findSurfaceAt(rings, [0.6, 0.2])).toEqual({ kind: 'manzana', id: 'm' });
+  });
 });
 
 describe('normalizeGeoSurfaces', () => {

@@ -318,7 +318,8 @@ export function createGeoMapScene({
   function setSurfaces({ shapes = [], drawing = [] } = {}) {
     for (const child of [...surfaceGroup.children]) { surfaceGroup.remove(child); disposeObject(child); }
     for (const shape of shapes) {
-      const style = SURFACE_STYLE[shape.kind];
+      // A selected lot comes only as an outline and has no surface style of its own.
+      const style = SURFACE_STYLE[shape.kind] ?? SURFACE_STYLE.manzana;
       const local = (ring) => ring.map(([la, ln]) => toLocal(la, ln));
       const outer = local(shape.ring);
       const holes = (shape.holes ?? []).map(local);
@@ -340,7 +341,9 @@ export function createGeoMapScene({
           new THREE.BufferGeometry().setFromPoints(pts.map((p) => new THREE.Vector3(p.x, 0, p.z))),
           lineMat,
         );
-        outline.renderOrder = ORDER.surfaces + (shape.outlineOnly ? 0.2 : 0.1);
+        // The selection border goes over the lots too, or a selected lot's
+        // own border would hide it.
+        outline.renderOrder = shape.outlineOnly ? ORDER.lots + 0.2 : ORDER.surfaces + 0.1;
         surfaceGroup.add(outline);
       }
     }

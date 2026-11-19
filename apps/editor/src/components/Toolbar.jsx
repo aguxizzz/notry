@@ -78,7 +78,7 @@ const SATELLITE_TOOLS = [
 
 const AREA_HINT = 'Clic para agregar puntos · clic en el primero o Enter para cerrar · Supr saca el último';
 const SATELLITE_HINTS = {
-  select: 'Clic en una superficie para editarla en el inspector · Supr la borra',
+  select: 'Clic en un lote o una superficie para editarlo en el inspector · Supr borra la superficie',
   manzana: AREA_HINT,
   verde: AREA_HINT,
   agua: AREA_HINT,

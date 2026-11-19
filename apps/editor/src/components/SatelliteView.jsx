@@ -12,17 +12,26 @@ const GeoCalibrationMap = lazy(() => import('./GeoCalibrationMap'));
  * `geo` is useGeoCalibration (pairs + live-projected lots), `surfaces` is
  * useGeoSurfaces (drawing tool and shapes). `onLink` opens the calibration.
  * `mapView` (useMapView) is owned by App because its controls sit in the main toolbar.
+ * `selectedLotId`: App's selection, outlined here when it's one of the lots on the map.
  */
-export default function SatelliteView({ latitude, longitude, blueprintUrl, geo, surfaces, mapView, onLink }) {
+export default function SatelliteView({ latitude, longitude, blueprintUrl, geo, surfaces, selectedLotId, mapView, onLink }) {
   const { canDraw, geoRings, geoSelectedRing, geoDrawing, selected } = surfaces;
+  // The lot's ring comes already on the map (geo.polygons, live-projected).
+  const selectedLotRing = useMemo(
+    () => (selectedLotId != null ? geo.polygons.find(p => p.id === selectedLotId)?.geo_coordinates ?? null : null),
+    [geo.polygons, selectedLotId],
+  );
   // The selection is an outline on top: calles are painted merged, so the
   // selected one has no outline of its own to highlight.
-  const mapSurfaces = useMemo(() => ({
-    shapes: geoSelectedRing
-      ? [...geoRings, { kind: selected.kind, id: 'selected', ring: geoSelectedRing, selected: true, outlineOnly: true }]
-      : geoRings,
-    drawing: geoDrawing,
-  }), [geoRings, geoSelectedRing, geoDrawing, selected]);
+  const mapSurfaces = useMemo(() => {
+    const outline = geoSelectedRing
+      ? { kind: selected.kind, ring: geoSelectedRing }
+      : selectedLotRing && { kind: 'lote', ring: selectedLotRing };
+    return {
+      shapes: outline ? [...geoRings, { ...outline, id: 'selected', selected: true, outlineOnly: true }] : geoRings,
+      drawing: geoDrawing,
+    };
+  }, [geoRings, geoSelectedRing, selectedLotRing, geoDrawing, selected]);
 
   // Without a center there's no map to show at all; the pin still comes from the CRM.
   if (latitude == null || longitude == null) {
