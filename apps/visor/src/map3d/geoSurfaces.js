@@ -61,6 +61,24 @@ export function streetEnds(geoSurfaces, geoPoints, toLocal) {
 }
 
 /**
+ * The loteo's texts (geo_surfaces.textos, placed on the blueprint) as
+ * createTextLayer items: each text with its `point` turned into the map's
+ * local meters ({ ...text, x, z }). The angle needs no conversion: the editor
+ * already stores it on the map's ground (degrees from east towards south).
+ * Empty without texts or a valid calibration.
+ */
+export function geoTextItems(geoSurfaces, geoPoints, toLocal) {
+  const H = geoHomography(geoPoints);
+  if (!H) return [];
+  return (geoSurfaces?.textos ?? [])
+    .filter(t => t.point?.length === 2)
+    .map((t) => {
+      const [lng, lat] = applyHomography(H, t.point);
+      return { ...t, ...toLocal(lat, lng) };
+    });
+}
+
+/**
  * The loteo's surfaces as rings in the map's local meters, ready to fill:
  * { manzanas, perimetros: [ring], calles, verdes, aguas: [{ outer, holes }] }, rings as
  * [[x, z], ...]. Calles are built here in meters (their width is in meters)

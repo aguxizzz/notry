@@ -9,7 +9,8 @@ import { annId } from '../lotData.js';
 import { createLotLayer } from './lotLayer.js';
 import { createLotBlock } from './lotBlock.js';
 import { boxAround, createGroundBuilders, disposeObject, makeProjection, rad } from './ground.js';
-import { geoSurfaceRings, lotGeoRing, streetEnds } from './geoSurfaces.js';
+import { geoSurfaceRings, geoTextItems, lotGeoRing, streetEnds } from './geoSurfaces.js';
+import { createTextLayer, loadTextFonts } from './textLayer.js';
 import { SURFACE_STYLE, createSurfaceLayer } from './surfaceLayer.js';
 import { createPoiLayer, placePois } from './poiLayer.js';
 import { corridorBounds, corridorShape, createCorridorVeil } from './poiCorridor.js';
@@ -237,6 +238,23 @@ export function createMapScene({
     { sunDir, veilRadius: OUTER_RADIUS_M, pixelRatio: renderer.getPixelRatio() },
   );
   scene.add(surfaceLayer.group);
+
+  // Street and zone names written in the editor, on top of the lot numbers
+  // (renderOrder 5 > their 3/4). Same layer in satellite and render: the
+  // texts carry their own colors. Built right away in the fallback font and
+  // again once the real fonts load, so the map never waits on Google Fonts.
+  const textItems = geoTextItems(geoSurfaces, geoCalibrationPoints, toLocal);
+  let textLayer = null;
+  const buildTexts = () => {
+    if (textLayer) { scene.remove(textLayer.group); textLayer.dispose(); }
+    textLayer = createTextLayer(textItems, { anisotropy });
+    scene.add(textLayer.group);
+    requestRender();
+  };
+  if (textItems.length) {
+    buildTexts();
+    loadTextFonts().then(() => { if (!disposed) buildTexts(); });
+  }
 
   // --- buildings around: loaded after the scene is up, they never hold the
   // map back. In satellite they take their colors from the ground photo.
@@ -937,6 +955,7 @@ export function createMapScene({
 
     if (needsRender) {
       lotLayer.update(camera, controls.target); // numbers turn with the heading
+      textLayer?.update(camera); // and so do the texts without a fixed angle
       renderer.render(scene, camera);
       poiLayer.update(); // HTML overlay follows the frame just drawn
       needsRender = false;
@@ -959,6 +978,7 @@ export function createMapScene({
     for (const mesh of [block, hover?.mesh]) removeMesh(mesh);
     lotLayer.dispose();
     surfaceLayer.dispose();
+    textLayer?.dispose();
     buildings?.dispose();
     poiLayer.dispose();
     removeCorridor();

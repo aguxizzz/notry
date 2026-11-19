@@ -2,7 +2,7 @@
 // whose answer is known (the blueprint square laid on a ~333 m geo square).
 import { describe, expect, test } from 'vitest';
 import { makeProjection } from './ground.js';
-import { geoHomography, geoSurfaceRings, lotGeoRing } from './geoSurfaces.js';
+import { geoHomography, geoSurfaceRings, geoTextItems, lotGeoRing } from './geoSurfaces.js';
 
 const LAT = -27.61;
 const LNG = -55.32;
@@ -87,6 +87,24 @@ describe('geoSurfaceRings', () => {
     expect(holes).toHaveLength(1);
     const xs = holes[0].map(([x]) => x);
     expect(Math.min(...xs)).toBeCloseTo(toLocal(LAT, LNG + 0.25 * D).x, 0);
+  });
+});
+
+describe('geoTextItems', () => {
+  test('places each text at its blueprint point, in meters, keeping the rest', () => {
+    const s = { textos: [{ id: 't', point: [1, 1], text: 'Calle 1', size: 8, angle: 30 }, { id: 'sin-punto', text: 'x' }] };
+    const items = geoTextItems(s, PAIRS, toLocal);
+    expect(items).toHaveLength(1);
+    // Blueprint (1, 1) is the SE corner of the calibration square.
+    const se = toLocal(LAT, LNG + D);
+    expect(items[0].x).toBeCloseTo(se.x, 3);
+    expect(items[0].z).toBeCloseTo(se.z, 3);
+    expect(items[0]).toMatchObject({ id: 't', text: 'Calle 1', size: 8, angle: 30 });
+  });
+
+  test('nothing without calibration or texts', () => {
+    expect(geoTextItems({ textos: [{ point: [0, 0], text: 'a', size: 5 }] }, [], toLocal)).toEqual([]);
+    expect(geoTextItems(null, PAIRS, toLocal)).toEqual([]);
   });
 });
 
