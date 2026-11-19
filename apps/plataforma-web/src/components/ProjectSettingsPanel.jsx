@@ -49,7 +49,15 @@ const EMPTY_BRANDING = {
   lote_badge_colors: false,
   lote_plano_style: 'inherit',
   show_price: false,
+  amenity_labels: 'ground',
 };
+
+// Cómo muestra el mapa 3D del visor (satélite y render) los nombres de las
+// amenities dibujadas en el editor (club house, canchas...).
+const AMENITY_LABELS_OPTIONS = [
+  { value: 'ground', label: 'Escritos sobre cada amenity' },
+  { value: 'floating', label: 'Etiqueta flotante con ícono' },
+];
 
 const LOTE_BADGE_STYLE_OPTIONS = [
   { value: 'default', label: 'Píldora blanca (default)' },
@@ -430,6 +438,14 @@ export default function ProjectSettingsPanel({
               value={branding.lote_plano_style || 'inherit'}
               onChange={e => setBrandingField('lote_plano_style', e.target.value)}
               options={LOTE_PLANO_STYLE_OPTIONS}
+            />
+
+            <Select
+              id="project-amenity-labels"
+              label="Nombres de amenities en el mapa (visor)"
+              value={branding.amenity_labels || 'ground'}
+              onChange={e => setBrandingField('amenity_labels', e.target.value)}
+              options={AMENITY_LABELS_OPTIONS}
             />
 
             {usesDefaultBadge && (
