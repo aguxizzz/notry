@@ -22,7 +22,7 @@ Tiene su propio `CLAUDE.md` con detalles. Si una tarea toca front y back, leer a
 | `visor` | Visor 360 público de lotes (Photo Sphere Viewer). Deploy en Vercel (`apps/visor/vercel.json`). |
 | `editor` | Editor/calibrador blueprint↔panorama. Herramienta de dev. |
 | `visor-deptos` | Visor de unidades de un edificio (fachada → planta → ficha). `?edificio=<slug o uuid>` carga el edificio de la API pública; sin parámetro, la demo mock de `src/data.js`. Sin PSV. Puerto 5178. |
-| `editor-deptos` | Editor de edificios para `visor-deptos`: pisos, imagen por piso, alineación contra el plano original (overlay con opacidad) y polígonos por unidad. Consume `/api/v1/buildings` (login propio, `X-Active-Org-Id` para super_admin). Puerto 5179. |
+| `editor-deptos` | Editor de edificios para `visor-deptos`: pisos, imagen por piso, alineación contra el plano original (overlay con opacidad) y polígonos por unidad. Consume `/api/v1/buildings` (login propio, `X-Active-Org-Id` para super_admin). "Vista previa" abre `preview.html`, que monta `visor-deptos` desde esta misma app (no hace falta levantar el 5178). Puerto 5179. |
 
 Stack común: Vite 8 + React 19 + `@photo-sphere-viewer/core` y `markers-plugin`.
 

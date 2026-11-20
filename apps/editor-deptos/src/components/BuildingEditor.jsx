@@ -11,6 +11,7 @@ import FloorCanvas from './FloorCanvas.jsx';
 import Loader from './Loader.jsx';
 import Inspector from './Inspector.jsx';
 import Icon from './icons.jsx';
+import VisorPreview from './VisorPreview.jsx';
 
 const pick = (obj, keys) => Object.fromEntries(keys.map((k) => [k, obj[k]]));
 
@@ -22,6 +23,7 @@ export default function BuildingEditor({ buildingId, onBack, topbarSlot }) {
   const [unitId, setUnitId] = useState(null);
   const [tool, setTool] = useState('select');
   const [showBuildingForm, setShowBuildingForm] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
   const { canon } = store;
 
@@ -293,6 +295,9 @@ export default function BuildingEditor({ buildingId, onBack, topbarSlot }) {
             ) : (
               status && <span className={`save-pill ${status.endsWith('…') ? 'is-busy' : ''}`}>{status}</span>
             )}
+            <button className="secondary topbar-preview" title="Ver cómo queda en el visor" onClick={() => setShowPreview(true)}>
+              <Icon name="eye" size={16} /> Vista previa
+            </button>
             <span className="topbar-divider" aria-hidden="true" />
           </>,
           topbarSlot
@@ -333,6 +338,9 @@ export default function BuildingEditor({ buildingId, onBack, topbarSlot }) {
         />
       )}
       {confirmDialog}
+      {showPreview && (
+        <VisorPreview buildingId={building.id} busy={Boolean(status?.endsWith('…'))} onClose={() => setShowPreview(false)} />
+      )}
     </div>
   );
 }

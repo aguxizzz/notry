@@ -14,6 +14,13 @@ const PATHS = {
   undo: 'M9 14L4 9l5-5 M4 9h10a6 6 0 0 1 0 12h-3',
   redo: 'M15 14l5-5-5-5 M20 9H10a6 6 0 0 0 0 12h3',
   trash:'M5 7h14 M10 7V4h4v3 M7 7l1 13h8l1-13',
+  // Vista previa del visor (VisorPreview.jsx).
+  eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+  external: 'M14 4h6v6 M20 4l-9 9 M18 14v6H4V6h6',
+  refresh: 'M20 5v5h-5 M20 10a8 8 0 1 0 1 5',
+  monitor: 'M3 5h18v11H3z M9 20h6 M12 16v4',
+  phone: 'M8 3h8v18H8z M11 18h2',
+  close: 'M6 6l12 12 M18 6L6 18',
 };
 
 export default function Icon({ name, size = 18 }) {

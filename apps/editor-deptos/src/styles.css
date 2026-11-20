@@ -131,6 +131,22 @@ button.ghost:hover:not(:disabled) { color: var(--text); border-color: var(--line
 .topbar-app { color: var(--muted); font-size: 13px; }
 .topbar-org { width: 240px; height: 32px; margin-left: 6px; }
 .topbar-user { display: inline-flex; align-items: center; gap: 9px; color: var(--muted); font-size: 13px; }
+button.secondary.topbar-preview { height: 32px; }
+
+/* Vista previa del visor (VisorPreview.jsx). Usa .modal para que el foco adentro apague los
+   atajos del editor, pero ocupa casi toda la ventana. */
+.modal-backdrop .modal.preview-panel {
+  width: calc(100vw - 48px); height: calc(100vh - 48px); padding: 0; gap: 0; overflow: hidden; outline: none;
+}
+.preview-bar { display: flex; align-items: center; gap: 8px; padding: 10px 12px 10px 18px; border-bottom: 1px solid var(--line); }
+.preview-bar h3 { margin-right: 10px; }
+.preview-devices { display: flex; gap: 4px; }
+.preview-stage { flex: 1; min-height: 0; display: grid; place-items: center; background: var(--bg); }
+.preview-stage iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+/* Celular: un iPhone de tamaño medio (390×844), achicado si la ventana no da de alto. */
+.preview-stage--phone iframe {
+  width: 390px; height: min(844px, calc(100% - 32px)); border: 1px solid var(--line); border-radius: 18px;
+}
 .avatar {
   display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; flex: none;
   background: color-mix(in srgb, var(--accent) 16%, var(--panel-2)); color: var(--accent);
