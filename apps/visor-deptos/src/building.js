@@ -123,6 +123,19 @@ function turn(front, width, height) {
   }
 }
 
+// Baja `dy` todo lo de un piso ya armado: imagen, contorno, huella y sus unidades
+// (que viven en la lista general, se reconocen por `floor`).
+function shiftFloor(level, units, dy) {
+  const move = ([x, y]) => [x, y + dy];
+  if (level.image) level.image = { ...level.image, transform: `translate(0 ${dy}) ${level.image.transform}` };
+  if (level.shape) level.shape = level.shape.map(move);
+  level.footprint = { ...level.footprint, y: level.footprint.y + dy };
+  for (const unit of units) {
+    if (unit.floor !== level.id) continue;
+    unit.shape = { points: unit.shape.points.map(move), pin: move(unit.shape.pin) };
+  }
+}
+
 // El render trae fondo (terreno, pasto, papel blanco…) alrededor del edificio. Se
 // recorta al contorno dibujado en el editor (`outline`); si el piso no tiene, a la
 // caja de sus unidades (ya alineadas) con un margen para el muro exterior.
@@ -200,9 +213,20 @@ export function fromApi(data) {
     };
   });
 
+  // Cada piso se encaja por su imagen, y las imágenes no comparten encuadre: el
+  // borde frontal de cada contorno cae a distinta altura. La fachada está en el
+  // borde de abajo de la huella total, así que se baja cada piso hasta esa línea;
+  // si no, queda un hueco entre la fachada y el frente del piso.
+  const sized = levels.filter((l) => l.footprint);
+  const frontY = Math.max(...sized.map((l) => l.footprint.y + l.footprint.h));
+  for (const level of sized) {
+    const dy = frontY - (level.footprint.y + level.footprint.h);
+    if (dy > 0.5) shiftFloor(level, units, dy);
+  }
+
   // Huella del edificio: la unión de las de cada piso. Los pisos sin unidades
   // (amenities, terraza) se recortan con ella.
-  const footprints = levels.filter((l) => l.footprint).map((l) => l.footprint);
+  const footprints = sized.map((l) => l.footprint);
   const all = footprints.length
     ? bbox(footprints.flatMap((b) => [[b.x, b.y], [b.x + b.w, b.y + b.h]]))
     : { x: 0, y: 0, w: frame.width, h: frame.height };
