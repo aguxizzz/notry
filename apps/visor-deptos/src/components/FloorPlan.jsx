@@ -47,9 +47,10 @@ function Core() {
   );
 }
 
-// Sin `onSelect` la unidad es solo dibujo (la tapa de la maqueta 3D).
+// Sin `onSelect` la unidad es solo dibujo (la tapa de la maqueta 3D); `pins`
+// le dibuja igual el pin, sin que sea clickeable.
 // `overImage`: va sobre la imagen real del piso, así que no se rellena.
-function Unit({ unit, index, selected, dimmed, overImage, pinScale, onSelect }) {
+function Unit({ unit, index, selected, dimmed, overImage, pinScale, pins, onSelect }) {
   const { shape } = unit;
   const [px, py] = shape.pin;
   const { balcony, walls = [] } = shape;
@@ -81,7 +82,7 @@ function Unit({ unit, index, selected, dimmed, overImage, pinScale, onSelect }) 
         <line key={`${x1}-${y1}-${x2}-${y2}`} className="plan-unit__wall" x1={x1} y1={y1} x2={x2} y2={y2} />
       ))}
       <polygon className="plan-unit__outline" points={shape.points.map((p) => p.join(',')).join(' ')} />
-      {onSelect && (
+      {(onSelect || pins) && (
         <g className="plan-pin" transform={`translate(${px} ${py}) scale(${pinScale})`}>
           <g className="plan-pin__pop">
             <circle className="plan-pin__halo" r="22" />
@@ -120,7 +121,7 @@ function SlabShape({ floor, plan, className, dx = 0, dy = 0 }) {
 // cada piso en la maqueta 3D de la fachada (sin `onSelect`).
 // Un edificio real trae la imagen de cada piso; la demo dibuja la planta a mano
 // (núcleo, zonas, balcones).
-export function PlanArt({ floor, selectedUnit = null, onSelect }) {
+export function PlanArt({ floor, selectedUnit = null, pins = false, onSelect }) {
   const { plan: PLAN, demo, pinScale, unitsOfFloor } = useBuilding();
   const units = unitsOfFloor(floor.id);
   const { image, shape } = floor;
@@ -167,6 +168,7 @@ export function PlanArt({ floor, selectedUnit = null, onSelect }) {
           dimmed={!!selectedUnit && selectedUnit.id !== unit.id}
           overImage={!!image}
           pinScale={pinScale}
+          pins={pins}
           onSelect={onSelect}
         />
       ))}

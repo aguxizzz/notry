@@ -46,8 +46,13 @@ function cameraFor({ facade: FACADE, plan: PLAN, floorById }, view, floorId, vw,
   if (view === 'floor') {
     const planScale = Math.min(vw / PLAN.width, vh / PLAN.height);
     const scale = (PLAN.w * planScale) / FACADE.w;
+    // The 2D plan centers the whole canvas, not the footprint: in real buildings
+    // the footprint is off-center, so the top lands shifted by that offset. Without
+    // it the camera ends a few px off and the plan "snaps" into place on the swap.
+    const dx = (PLAN.x + PLAN.w / 2 - PLAN.width / 2) * planScale;
+    const dy = (PLAN.y + PLAN.h / 2 - PLAN.height / 2) * planScale;
     return {
-      outer: `translate3d(${vw / 2}px, ${vh / 2}px, 0) scale(${scale})`,
+      outer: `translate3d(${vw / 2 + dx}px, ${vh / 2 + dy}px, 0) scale(${scale})`,
       inner: `rotateX(-90deg) translateY(${-top}px)`,
     };
   }
@@ -253,10 +258,12 @@ export default function Facade({ view, floorId, hoverId, onHover, onEnter }) {
                   {/* Solo la tapa del piso elegido (o el que está bajo el mouse,
                       que es el que se va a elegir) lleva la planta: las demás
                       asomaban alrededor durante el giro y bajaban imágenes de
-                      pisos a los que nadie entra. El hover sirve de precarga. */}
+                      pisos a los que nadie entra. El hover sirve de precarga.
+                      It carries the unit pins too, so they pop in during the
+                      camera move instead of after the swap (CSS times them). */}
                   {(delta === 0 || hoverId === floor.id) && (
                     <svg viewBox={`${PLAN.x} ${PLAN.y} ${PLAN.w} ${PLAN.h}`}>
-                      <PlanArt floor={floor} />
+                      <PlanArt floor={floor} pins />
                     </svg>
                   )}
                 </div>

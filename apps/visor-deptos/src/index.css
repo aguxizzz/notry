@@ -96,7 +96,9 @@ ul {
   --t-swap: 1.07s;
   --swap: calc(var(--t-swap) * var(--k));
   --d-ui: calc(0.55s * var(--k));
-  --d-pins: calc(var(--swap) + 60ms);
+  /* Pins start popping halfway through the camera move (on the 3D top), so
+     they're already there when the 2D plan takes over. */
+  --d-pins: calc(var(--swap) * 0.5);
   --pin-step: 60ms;
   --t-floor: 0.44s;
 }
@@ -248,13 +250,16 @@ ul {
 }
 
 /* La tapa se dibuja a tamaño de planta y se achica para entrar en la huella:
-   así al final del giro no queda una textura estirada. */
+   así al final del giro no queda una textura estirada.
+   Centered with translate, not top/left: layout snaps a fractional offset to
+   whole px, the camera's zoom magnifies that, and the plan visibly slid
+   sideways (~1px) when the 2D one replaced it. */
 .bld-floor__top {
-  top: calc(var(--plan-h) / -2);
-  left: calc(var(--plan-w) / -2);
+  top: 0;
+  left: 0;
   width: var(--plan-w);
   height: var(--plan-h);
-  transform: rotateX(90deg) scale(var(--top-scale));
+  transform: translate(-50%, -50%) rotateX(90deg) scale(var(--top-scale));
   backface-visibility: hidden;
   pointer-events: none;
 }
@@ -458,9 +463,12 @@ ul {
   opacity: 1;
   transition: opacity calc(0.5s * var(--k)) ease calc(0.7s * var(--k));
 }
+/* Crossfade with the 2D plan's own shadow: same 0.1s linear at the swap as
+   .layer--floor. Cutting it at once left the shadow almost gone while the
+   plan faded in, so it blinked. */
 .stage[data-view='floor'] .plan-base__shadow {
   opacity: 0;
-  transition: opacity 0s linear var(--swap);
+  transition: opacity 0.1s linear var(--swap);
 }
 
 .plan-camera {
@@ -580,6 +588,27 @@ ul {
    desde la fachada. */
 .plan[data-from] .plan-pin__pop {
   animation: none;
+}
+/* Pins on the 3D top: hidden on the facade, and on entering they run the same
+   pop as the 2D plan's. Both start on the same click (the 2D plan remounts
+   then), so at the swap they're at the exact same frame and nothing jumps. */
+.bld-floor__top .plan-pin {
+  opacity: 0;
+  transition: opacity calc(0.2s * var(--k)) ease;
+}
+.bld-floor__top .plan-unit .plan-pin__pop,
+.bld-floor__top .plan-unit .plan-pin__halo {
+  animation-name: none;
+}
+.stage[data-view='floor'] .bld-floor[data-rel='sel'] .bld-floor__top .plan-pin {
+  opacity: 1;
+  transition: none;
+}
+.stage[data-view='floor'] .bld-floor[data-rel='sel'] .bld-floor__top .plan-pin__pop {
+  animation-name: pin-pop;
+}
+.stage[data-view='floor'] .bld-floor[data-rel='sel'] .bld-floor__top .plan-unit--available .plan-pin__halo {
+  animation-name: pin-pulse;
 }
 .plan-pin__dot {
   fill: var(--status);
