@@ -157,7 +157,7 @@ export function Viewer() {
         </defs>
       </svg>
 
-      <PlanBase selectedUnit={inFloor ? selectedUnit : null} isNarrow={isNarrow} />
+      <PlanBase floor={floor} selectedUnit={inFloor ? selectedUnit : null} isNarrow={isNarrow} />
 
       <div className="layer layer--facade" inert={inFloor}>
         <Facade view={view} floorId={floorId} hoverId={hover?.id} onHover={handleHover} onEnter={goToFloor} />

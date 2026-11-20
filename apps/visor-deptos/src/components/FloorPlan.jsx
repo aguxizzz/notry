@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useId, useLayoutEffect, useRef } from 'react';
 import { STATUS, useBuilding } from '../building.js';
 
 // Encuadra la unidad en el área de pantalla que queda libre de UI: la ficha
@@ -106,6 +106,16 @@ function Zones({ zones }) {
   ));
 }
 
+// Forma de la losa de un piso: su contorno si lo tiene, si no la caja de su
+// huella (o la de todo el edificio). `dx`/`dy` la corren, para la sombra.
+function SlabShape({ floor, plan, className, dx = 0, dy = 0 }) {
+  if (floor?.shape) {
+    return <polygon className={className} points={floor.shape.map(([x, y]) => `${x + dx},${y + dy}`).join(' ')} />;
+  }
+  const box = floor?.footprint || plan;
+  return <rect className={className} x={box.x + dx} y={box.y + dy} width={box.w} height={box.h} />;
+}
+
 // Losa + contenido de un piso. La usan la planta interactiva y la tapa de
 // cada piso en la maqueta 3D de la fachada (sin `onSelect`).
 // Un edificio real trae la imagen de cada piso; la demo dibuja la planta a mano
@@ -113,8 +123,12 @@ function Zones({ zones }) {
 export function PlanArt({ floor, selectedUnit = null, onSelect }) {
   const { plan: PLAN, demo, pinScale, unitsOfFloor } = useBuilding();
   const units = unitsOfFloor(floor.id);
-  const { image } = floor;
+  const { image, shape } = floor;
   const slab = floor.footprint || PLAN;
+  // La misma planta se dibuja a la vez en la tapa 3D y en la vista de piso: cada
+  // una necesita su propio id de recorte. Sin los «:» de useId, que algunos
+  // navegadores no aceptan dentro de url(#…).
+  const clipId = `slab-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`;
   const picture = image && (
     <image
       href={image.href}
@@ -126,13 +140,22 @@ export function PlanArt({ floor, selectedUnit = null, onSelect }) {
   );
   return (
     <>
-      <rect className="plan-slab" x={slab.x} y={slab.y} width={slab.w} height={slab.h} />
-      {picture && (
-        // El <svg> anidado recorta la imagen a la caja de la huella del piso.
-        <svg x={slab.x} y={slab.y} width={slab.w} height={slab.h} viewBox={`${slab.x} ${slab.y} ${slab.w} ${slab.h}`}>
-          {picture}
-        </svg>
-      )}
+      <SlabShape floor={floor} plan={PLAN} className="plan-slab" />
+      {picture &&
+        (shape ? (
+          // Recorte con el contorno: patios y márgenes del render quedan afuera.
+          <>
+            <clipPath id={clipId}>
+              <SlabShape floor={floor} plan={PLAN} />
+            </clipPath>
+            <g clipPath={`url(#${clipId})`}>{picture}</g>
+          </>
+        ) : (
+          // El <svg> anidado recorta la imagen a la caja de la huella del piso.
+          <svg x={slab.x} y={slab.y} width={slab.w} height={slab.h} viewBox={`${slab.x} ${slab.y} ${slab.w} ${slab.h}`}>
+            {picture}
+          </svg>
+        ))}
       {floor.zones && <Zones zones={floor.zones} />}
       {demo && floor.kind !== 'roof' && <Core />}
       {units.map((unit, i) => (
@@ -154,7 +177,8 @@ export function PlanArt({ floor, selectedUnit = null, onSelect }) {
 // Manzana alrededor de la planta. Va en una capa aparte, debajo de las
 // plantas: es igual en todos los pisos, así que no se mueve al cambiar de
 // piso, pero sigue a la cámara cuando se elige una unidad.
-export function PlanBase({ selectedUnit, isNarrow }) {
+// `floor` (el piso activo) le da a la sombra la forma de su losa.
+export function PlanBase({ floor, selectedUnit, isNarrow }) {
   const { plan: PLAN, demo } = useBuilding();
   return (
     <svg
@@ -173,7 +197,7 @@ export function PlanBase({ selectedUnit, isNarrow }) {
           </>
         )}
         {/* Sombra de la losa mientras la maqueta 3D todavía está a la vista. */}
-        <rect className="plan-shadow plan-base__shadow" x={PLAN.x + 10} y={PLAN.y + 16} width={PLAN.w} height={PLAN.h} />
+        <SlabShape floor={floor?.shape ? floor : null} plan={PLAN} className="plan-shadow plan-base__shadow" dx={10} dy={16} />
       </g>
     </svg>
   );
@@ -217,7 +241,9 @@ export default function FloorPlan({ floor, pos, from, selectedUnit, isNarrow, on
       }}
     >
       <g className="plan-camera" style={{ transform: cameraFor(exiting ? null : selectedUnit, isNarrow, PLAN) }}>
-        <rect className="plan-shadow" x={PLAN.x + 10} y={PLAN.y + 16} width={PLAN.w} height={PLAN.h} />
+        {/* Con contorno la sombra lo sigue (cae dentro de los patios); sin él, la
+            caja de todo el edificio, como siempre. */}
+        <SlabShape floor={floor.shape ? floor : null} plan={PLAN} className="plan-shadow" dx={10} dy={16} />
         <PlanArt floor={floor} selectedUnit={selectedUnit} onSelect={onSelect} />
       </g>
     </svg>

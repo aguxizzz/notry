@@ -108,8 +108,8 @@ function alignment(a, w, h) {
 }
 
 // El render trae fondo (terreno, pasto, papel blanco…) alrededor del edificio. Se
-// recorta a la caja de sus unidades (ya alineadas) con un margen para el muro
-// exterior.
+// recorta al contorno dibujado en el editor (`outline`); si el piso no tiene, a la
+// caja de sus unidades (ya alineadas) con un margen para el muro exterior.
 const WALL_MARGIN = 0.008;
 
 export function fromApi(data) {
@@ -157,6 +157,9 @@ export function fromApi(data) {
       });
     }
 
+    // Contorno del edificio en el espacio de planta (null = recorte por caja).
+    const shape = f.outline?.length >= 3 ? f.outline.map(toPlan) : null;
+
     return {
       id: f.id,
       label: f.kind === 'ground' ? 'PB' : f.code,
@@ -165,7 +168,8 @@ export function fromApi(data) {
       h: f.facade_height || FLOOR_HEIGHT[f.kind] || FLOOR_HEIGHT.units,
       summary: f.summary,
       zones: f.zones,
-      footprint: unitPoints.length ? grow(bbox(unitPoints), margin) : null,
+      shape,
+      footprint: shape ? bbox(shape) : unitPoints.length ? grow(bbox(unitPoints), margin) : null,
       image: f.plan_image_url
         ? {
             href: f.plan_image_url,
