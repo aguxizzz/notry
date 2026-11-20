@@ -148,9 +148,13 @@ export function createBuildingStore(buildingId, { api, debounceMs = 600 }) {
   function patchBuilding(patch) {
     const before = valuesBefore(state.building, patch);
     commit((b) => ({ ...b, ...patch }));
+    const saved = run(() => inLane(buildingId, () => api.updateBuilding(buildingId, patch)));
+    // The back normalizes the slug ("Citrino II" → "citrino-ii") and makes one up from the
+    // name when it's cleared: show what it actually stored, that's what goes in the link.
+    if ('slug' in patch) saved.then((res) => res && commit((b) => ({ ...b, slug: res.slug })));
     return {
       undo: () => patchBuilding(before).undo,
-      saved: run(() => inLane(buildingId, () => api.updateBuilding(buildingId, patch))),
+      saved,
     };
   }
 
