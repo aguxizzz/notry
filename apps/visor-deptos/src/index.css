@@ -230,7 +230,8 @@ ul {
   outline: none;
   transform: translateZ(calc(var(--depth) / 2));
 }
-.bld-floor__front svg {
+/* Only the outer svg: a photo front nests another one that must keep clipping. */
+.bld-floor__front > svg {
   display: block;
   overflow: visible;
   animation: floor-rise 0.7s var(--ease-out) backwards;
@@ -239,7 +240,7 @@ ul {
 }
 /* Los demás pisos se lavan con filter y no con opacity: un frente translúcido
    deja ver las tapas (plantas) que tiene detrás. */
-.bld:has(.bld-floor.is-hover) .bld-floor:not(.is-hover) .bld-floor__front svg {
+.bld:has(.bld-floor.is-hover) .bld-floor:not(.is-hover) .bld-floor__front > svg {
   filter: contrast(0.8) brightness(1.08);
 }
 .stage[data-view='floor'] .bld-floor__front {
@@ -280,7 +281,8 @@ ul {
    el cielo tapa el suelo. */
 .bld-sky,
 .bld-hood,
-.bld-ground {
+.bld-ground,
+.bld-photo {
   position: absolute;
   transition: opacity calc(var(--t-env) * var(--k)) ease calc(var(--d-env) * var(--k));
 }
@@ -319,8 +321,21 @@ ul {
 }
 .stage[data-view='floor'] .bld-sky,
 .stage[data-view='floor'] .bld-hood,
-.stage[data-view='floor'] .bld-ground {
+.stage[data-view='floor'] .bld-ground,
+.stage[data-view='floor'] .bld-photo {
   opacity: 0;
+}
+
+/* Facade photo backdrop: just behind the fronts (1 unit) so it lines up with
+   them in perspective, and already blurred in the file (a CSS blur on a layer
+   inside a 3D scene is too heavy for low-end phones). */
+.bld-photo {
+  background-size: 100% 100%;
+  transform: translateZ(calc(var(--depth) / 2 - 1px));
+}
+/* Behind the cut-out tower the gap shows the sky: a blue one to match photos. */
+.bld:has(.bld-photo) .bld-sky {
+  background: linear-gradient(#9cbfe6 0%, #c9dcef 70%, #e6eef5 100%);
 }
 
 .facade-floor__body {

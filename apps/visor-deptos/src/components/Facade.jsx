@@ -59,8 +59,29 @@ function cameraFor({ facade: FACADE, plan: PLAN, floorById }, view, floorId, vw,
   };
 }
 
-function FrontArt({ floor, w }) {
+function FrontArt({ floor, w, facade }) {
   const { h, kind } = floor;
+
+  // With a facade photo, each front is just its band of the image: the whole
+  // image is shifted so the floor's rectangle lands on this floor's viewBox.
+  // The nested <svg> clips it to that band, since the outer one has overflow
+  // visible (for the hover outline) and would otherwise paint the full photo.
+  // It bleeds 1 unit down over the floor below (same pixels, so invisible) to
+  // hide the hairline seams that subpixel rounding leaves between bands.
+  if (facade.image) {
+    return (
+      <svg width={w} height={h + 1}>
+        <image
+          href={facade.image}
+          x={-facade.x}
+          y={-floor.y}
+          width={facade.width}
+          height={facade.height}
+          preserveAspectRatio="none"
+        />
+      </svg>
+    );
+  }
 
   if (kind === 'roof') {
     return (
@@ -90,6 +111,18 @@ function FrontArt({ floor, w }) {
       <rect className="facade-floor__slab" x={-6} y={h - 8} width={w + 12} height={8} />
     </>
   );
+}
+
+// clip-path for the backdrop photo: the whole image minus the tower's rectangle
+// (evenodd turns the inner ring into a hole). The hole is 1 unit smaller per
+// side so no seam shows between the fronts and the backdrop.
+function photoHole(facade, floors) {
+  const top = Math.min(...floors.map((f) => f.y)) + 1;
+  const x1 = facade.x + 1;
+  const x2 = facade.x + facade.w - 1;
+  const y2 = facade.ground - 1;
+  const { width: W, height: H } = facade;
+  return `polygon(evenodd, 0 0, ${W}px 0, ${W}px ${H}px, 0 ${H}px, 0 0, ${x1}px ${top}px, ${x1}px ${y2}px, ${x2}px ${y2}px, ${x2}px ${top}px, ${x1}px ${top}px)`;
 }
 
 export default function Facade({ view, floorId, hoverId, onHover, onEnter }) {
@@ -166,21 +199,40 @@ export default function Facade({ view, floorId, hoverId, onHover, onEnter }) {
       >
         <div ref={tiltRef} className="bld-tilt" style={{ transform: cam.inner }}>
           <div className="bld-sky" />
-          <div className="bld-hood">
-            {NEIGHBOURS.map((n) => (
-              <i
-                key={n.x}
-                style={{
-                  left: n.x - centerX,
-                  top: n.y - FACADE.ground,
-                  width: n.w,
-                  height: n.h,
-                }}
-              />
-            ))}
-          </div>
-          <div className="bld-ground bld-ground--back" />
-          <div className="bld-ground" />
+          {FACADE.backdrop ? (
+            // The (blurred) photo already has the street and neighbours, so it
+            // replaces the drawn ones. It sits right behind the fronts with the
+            // tower cut out, so lifting floors shows the plan, not a ghost tower.
+            <div
+              className="bld-photo"
+              style={{
+                left: -centerX,
+                top: -FACADE.ground,
+                width: FACADE.width,
+                height: FACADE.height,
+                backgroundImage: `url(${FACADE.backdrop})`,
+                clipPath: photoHole(FACADE, floors),
+              }}
+            />
+          ) : (
+            <>
+              <div className="bld-hood">
+                {NEIGHBOURS.map((n) => (
+                  <i
+                    key={n.x}
+                    style={{
+                      left: n.x - centerX,
+                      top: n.y - FACADE.ground,
+                      width: n.w,
+                      height: n.h,
+                    }}
+                  />
+                ))}
+              </div>
+              <div className="bld-ground bld-ground--back" />
+              <div className="bld-ground" />
+            </>
+          )}
 
           {floors.map((floor) => {
             const delta = floor.index - selected.index;
@@ -222,7 +274,7 @@ export default function Facade({ view, floorId, hoverId, onHover, onEnter }) {
                   onClick={() => onEnter(floor.id)}
                 >
                   <svg viewBox={`0 0 ${FACADE.w} ${floor.h}`} width={FACADE.w} height={floor.h}>
-                    <FrontArt floor={floor} w={FACADE.w} />
+                    <FrontArt floor={floor} w={FACADE.w} facade={FACADE} />
                     <rect className="facade-floor__hit" x={-6} y={0} width={FACADE.w + 12} height={floor.h} />
                   </svg>
                 </button>
