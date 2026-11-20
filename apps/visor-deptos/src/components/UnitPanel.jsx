@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { STATUS, typologyLabel, useBuilding } from '../building.js';
+import UnitGallery from './UnitGallery.jsx';
 
 const m2 = (value) => `${value.toLocaleString('es-AR')} m²`;
 const money = ({ amount, currency }) => `${currency} ${amount.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
@@ -49,9 +50,8 @@ export default function UnitPanel({ unit, onClose }) {
           </header>
 
           <div className="unit-panel__body" key={shown.id}>
-            <div className="unit-panel__media">
-              <span>Render de la unidad</span>
-            </div>
+            {/* Sin fotos (el demo, o una unidad que todavía no tiene) no se muestra el recuadro. */}
+            {shown.images?.length > 0 && <UnitGallery images={shown.images} />}
 
             {/* Solo disponibles: el back ya lo filtra, esto cubre también el demo. */}
             {shown.price && shown.status === 'available' && (

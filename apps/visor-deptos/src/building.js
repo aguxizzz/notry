@@ -151,6 +151,7 @@ export function fromApi(data) {
         total: num(u.total_m2),
         cubierta: num(u.covered_m2),
         semi: num(u.semi_m2),
+        images: u.image_urls || [],
         // El back ya lo manda recortado a {amount, currency} y solo en disponibles.
         price: u.pricing?.amount != null ? { amount: num(u.pricing.amount), currency: u.pricing.currency || 'USD' } : null,
         shape: { points, pin: u.pin ? toPlan(u.pin) : centroid(points) },

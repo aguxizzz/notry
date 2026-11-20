@@ -938,16 +938,83 @@ ul {
   }
 }
 
-.unit-panel__media {
+/* Galería de fotos de la unidad (UnitGallery). 16:9 porque así vienen los renders. */
+.unit-gallery {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #d9d9d5;
+}
+.unit-gallery__track {
+  display: flex;
+  height: 100%;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.unit-gallery__track::-webkit-scrollbar {
+  display: none;
+}
+.unit-gallery__track img {
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  scroll-snap-align: start;
+  user-select: none;
+}
+.unit-gallery__nav {
+  position: absolute;
+  top: 50%;
   display: grid;
   place-items: center;
-  height: 170px;
-  border-radius: 10px;
-  background: repeating-linear-gradient(135deg, #cfcfcb 0 14px, #c6c6c2 14px 28px);
-  color: var(--text-muted);
-  font-size: 13px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: opacity var(--t-fast), background var(--t-fast);
+}
+.unit-gallery__nav:hover {
+  background: #ffffff;
+}
+.unit-gallery__nav:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+.unit-gallery__nav svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.unit-gallery__nav.is-prev {
+  left: 8px;
+}
+.unit-gallery__nav.is-next {
+  right: 8px;
+}
+.unit-gallery__count {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffffff;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+/* En el celular se pasa con el dedo: las flechas solo tapan la foto. */
+@media (hover: none) {
+  .unit-gallery__nav {
+    display: none;
+  }
 }
 
 /* Precio arriba del botón de contacto: es lo primero que se busca en la ficha. */
