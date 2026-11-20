@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FLOOR_BY_ID, STATUS, typologyLabel } from '../data.js';
+import { STATUS, typologyLabel, useBuilding } from '../building.js';
 
 const m2 = (value) => `${value.toLocaleString('es-AR')} m²`;
 const money = ({ amount, currency }) => `${currency} ${amount.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
@@ -14,6 +14,7 @@ function Row({ label, value }) {
 }
 
 export default function UnitPanel({ unit, onClose }) {
+  const { floorById } = useBuilding();
   // Se conserva la última unidad para que el contenido no desaparezca
   // mientras el panel hace la animación de salida.
   const [shown, setShown] = useState(unit);
@@ -34,8 +35,8 @@ export default function UnitPanel({ unit, onClose }) {
         <>
           <header className="unit-panel__header">
             <div>
-              <span className="unit-panel__eyebrow">{FLOOR_BY_ID[shown.floor].name}</span>
-              <h2>Unidad {shown.id}</h2>
+              <span className="unit-panel__eyebrow">{floorById[shown.floor].name}</span>
+              <h2>Unidad {shown.code}</h2>
             </div>
             <span className="badge" style={{ '--status': STATUS[shown.status].color }}>
               {STATUS[shown.status].label}
@@ -64,23 +65,29 @@ export default function UnitPanel({ unit, onClose }) {
               {contacted ? 'Demo: no se envía nada' : 'Contactar'}
             </button>
 
-            <section className="unit-card">
-              <h3>Tipología</h3>
-              <p>{typologyLabel(shown)}</p>
-            </section>
+            {typologyLabel(shown) && (
+              <section className="unit-card">
+                <h3>Tipología</h3>
+                <p>{typologyLabel(shown)}</p>
+              </section>
+            )}
 
-            <section className="unit-card">
-              <h3>Detalle de ambientes</h3>
-              {shown.dormitorios > 0 && <Row label="Dormitorios" value={shown.dormitorios} />}
-              <Row label="Baños" value={shown.banos} />
-            </section>
+            {(shown.dormitorios > 0 || shown.banos != null) && (
+              <section className="unit-card">
+                <h3>Detalle de ambientes</h3>
+                {shown.dormitorios > 0 && <Row label="Dormitorios" value={shown.dormitorios} />}
+                {shown.banos != null && <Row label="Baños" value={shown.banos} />}
+              </section>
+            )}
 
-            <section className="unit-card">
-              <h3>Detalle de superficie</h3>
-              <Row label="Superficie total" value={m2(shown.total)} />
-              <Row label="Superficie cubierta" value={m2(shown.cubierta)} />
-              <Row label="Superficie semicubierta" value={m2(shown.semi)} />
-            </section>
+            {(shown.total != null || shown.cubierta != null || shown.semi) && (
+              <section className="unit-card">
+                <h3>Detalle de superficie</h3>
+                {shown.total != null && <Row label="Superficie total" value={m2(shown.total)} />}
+                {shown.cubierta != null && <Row label="Superficie cubierta" value={m2(shown.cubierta)} />}
+                {shown.semi > 0 && <Row label="Superficie semicubierta" value={m2(shown.semi)} />}
+              </section>
+            )}
           </div>
         </>
       )}

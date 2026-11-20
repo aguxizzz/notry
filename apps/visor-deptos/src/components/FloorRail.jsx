@@ -1,8 +1,8 @@
-import { FLOORS, availableCount } from '../data.js';
-
-const TOP_DOWN = [...FLOORS].reverse();
+import { useBuilding } from '../building.js';
 
 export default function FloorRail({ activeId, hoverId, onHover, onPick }) {
+  const { floors, availableCount } = useBuilding();
+  const TOP_DOWN = [...floors].reverse();
   const activeIndex = TOP_DOWN.findIndex((floor) => floor.id === activeId);
 
   return (
@@ -18,7 +18,7 @@ export default function FloorRail({ activeId, hoverId, onHover, onPick }) {
       <div className="rail__list">
         {activeIndex >= 0 && <span className="rail__indicator" style={{ '--i': activeIndex }} />}
         {TOP_DOWN.map((floor) => {
-          const free = floor.kind === 'units' ? availableCount(floor.id) : 0;
+          const free = availableCount(floor.id);
           return (
             <button
               key={floor.id}

@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import { FACADE, FLOORS, FLOOR_BY_ID, PLAN } from '../data.js';
+import { useBuilding } from '../building.js';
 import { PlanArt } from './FloorPlan.jsx';
 
 // La fachada es una maqueta 3D en CSS (sin WebGL): cada piso es una caja con
@@ -9,11 +9,10 @@ import { PlanArt } from './FloorPlan.jsx';
 // llegar, la tapa queda exactamente donde se dibuja la planta interactiva, que
 // la reemplaza sin que se note.
 
-// Fondo del edificio: el que hace que la tapa tenga la proporción de la planta.
-const DEPTH = (FACADE.w * PLAN.h) / PLAN.w;
 // Distancia de la cámara, relativa al lado mayor de la pantalla.
 const PERSPECTIVE = 2;
 
+// En coordenadas del viewBox de fachada por defecto (1600×900, suelo en 860).
 const NEIGHBOURS = [
   { x: 0, y: 700, w: 250, h: 160 },
   { x: 250, y: 740, w: 190, h: 120 },
@@ -22,7 +21,6 @@ const NEIGHBOURS = [
   { x: 1150, y: 760, w: 170, h: 100 },
   { x: 1320, y: 700, w: 280, h: 160 },
 ];
-const CENTER_X = FACADE.x + FACADE.w / 2;
 
 function useViewport() {
   const [size, setSize] = useState(() => ({
@@ -43,8 +41,8 @@ function useViewport() {
 //   fachada: de frente, encuadre "slice" con el suelo abajo.
 //   planta:  girada 90° sobre la tapa del piso, centrada y escalada para que la
 //            huella coincida con la planta 2D (viewBox "meet").
-function cameraFor(view, floorId, vw, vh) {
-  const top = FLOOR_BY_ID[floorId].y - FACADE.ground;
+function cameraFor({ facade: FACADE, plan: PLAN, floorById }, view, floorId, vw, vh) {
+  const top = floorById[floorId].y - FACADE.ground;
   if (view === 'floor') {
     const planScale = Math.min(vw / PLAN.width, vh / PLAN.height);
     const scale = (PLAN.w * planScale) / FACADE.w;
@@ -61,8 +59,7 @@ function cameraFor(view, floorId, vw, vh) {
   };
 }
 
-function FrontArt({ floor }) {
-  const { w } = FACADE;
+function FrontArt({ floor, w }) {
   const { h, kind } = floor;
 
   if (kind === 'roof') {
@@ -78,7 +75,7 @@ function FrontArt({ floor }) {
   return (
     <>
       <rect className="facade-floor__body" x={0} y={0} width={w} height={h} />
-      {kind === 'pb' ? (
+      {kind === 'ground' ? (
         <>
           <rect className="facade-floor__glass" x={14} y={16} width={150} height={h - 16} />
           <rect className="facade-floor__glass" x={190} y={26} width={64} height={h - 26} />
@@ -96,9 +93,14 @@ function FrontArt({ floor }) {
 }
 
 export default function Facade({ view, floorId, hoverId, onHover, onEnter }) {
+  const building = useBuilding();
+  const { facade: FACADE, plan: PLAN, floors } = building;
   const { w: vw, h: vh } = useViewport();
-  const selected = FLOOR_BY_ID[floorId];
+  const selected = building.floorById[floorId];
   const facadeScale = Math.max(vw / FACADE.width, vh / FACADE.height);
+  // Fondo del edificio: el que hace que la tapa tenga la proporción de la planta.
+  const depth = (FACADE.w * PLAN.h) / PLAN.w;
+  const centerX = FACADE.x + FACADE.w / 2;
 
   // Al cambiar el tamaño de la pantalla la cámara salta a la pose nueva, sin
   // animar.
@@ -125,7 +127,7 @@ export default function Facade({ view, floorId, hoverId, onHover, onEnter }) {
     const was = prev.current;
     prev.current = { view, floorId };
     if (view !== 'floor' || was.view !== 'facade' || was.floorId === floorId) return;
-    const from = cameraFor('facade', floorId, vw, vh);
+    const from = cameraFor(building, 'facade', floorId, vw, vh);
     const rig = rigRef.current;
     const tilt = tiltRef.current;
     const to = [rig.style.transform, tilt.style.transform];
@@ -136,9 +138,9 @@ export default function Facade({ view, floorId, hoverId, onHover, onEnter }) {
     rig.style.transition = tilt.style.transition = '';
     rig.style.transform = to[0];
     tilt.style.transform = to[1];
-  }, [view, floorId, vw, vh]);
+  }, [building, view, floorId, vw, vh]);
 
-  const cam = cameraFor(view, floorId, vw, vh);
+  const cam = cameraFor(building, view, floorId, vw, vh);
 
   return (
     <div
@@ -147,7 +149,7 @@ export default function Facade({ view, floorId, hoverId, onHover, onEnter }) {
       style={{
         perspective: `${Math.round(Math.max(vw, vh) * PERSPECTIVE)}px`,
         '--w': `${FACADE.w}px`,
-        '--depth': `${DEPTH}px`,
+        '--depth': `${depth}px`,
         '--plan-w': `${PLAN.w}px`,
         '--plan-h': `${PLAN.h}px`,
         '--top-scale': FACADE.w / PLAN.w,
@@ -169,7 +171,7 @@ export default function Facade({ view, floorId, hoverId, onHover, onEnter }) {
               <i
                 key={n.x}
                 style={{
-                  left: n.x - CENTER_X,
+                  left: n.x - centerX,
                   top: n.y - FACADE.ground,
                   width: n.w,
                   height: n.h,
@@ -180,7 +182,7 @@ export default function Facade({ view, floorId, hoverId, onHover, onEnter }) {
           <div className="bld-ground bld-ground--back" />
           <div className="bld-ground" />
 
-          {FLOORS.map((floor) => {
+          {floors.map((floor) => {
             const delta = floor.index - selected.index;
             return (
               <div
@@ -196,9 +198,15 @@ export default function Facade({ view, floorId, hoverId, onHover, onEnter }) {
                 }}
               >
                 <div className="bld-floor__top">
-                  <svg viewBox={`${PLAN.x} ${PLAN.y} ${PLAN.w} ${PLAN.h}`}>
-                    <PlanArt floor={floor} />
-                  </svg>
+                  {/* Solo la tapa del piso elegido (o el que está bajo el mouse,
+                      que es el que se va a elegir) lleva la planta: las demás
+                      asomaban alrededor durante el giro y bajaban imágenes de
+                      pisos a los que nadie entra. El hover sirve de precarga. */}
+                  {(delta === 0 || hoverId === floor.id) && (
+                    <svg viewBox={`${PLAN.x} ${PLAN.y} ${PLAN.w} ${PLAN.h}`}>
+                      <PlanArt floor={floor} />
+                    </svg>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -214,7 +222,7 @@ export default function Facade({ view, floorId, hoverId, onHover, onEnter }) {
                   onClick={() => onEnter(floor.id)}
                 >
                   <svg viewBox={`0 0 ${FACADE.w} ${floor.h}`} width={FACADE.w} height={floor.h}>
-                    <FrontArt floor={floor} />
+                    <FrontArt floor={floor} w={FACADE.w} />
                     <rect className="facade-floor__hit" x={-6} y={0} width={FACADE.w + 12} height={floor.h} />
                   </svg>
                 </button>

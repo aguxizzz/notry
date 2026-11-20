@@ -1,12 +1,12 @@
 import { useLayoutEffect, useRef } from 'react';
-import { PLAN, STATUS, UNIT_SHAPES, ZONES, unitsOfFloor } from '../data.js';
+import { STATUS, useBuilding } from '../building.js';
 
 // Encuadra la unidad en el área de pantalla que queda libre de UI: la ficha
 // tapa la izquierda (desktop) o la mitad de abajo (mobile) y el selector de
 // pisos la derecha.
-export function cameraFor(unit, isNarrow) {
+export function cameraFor(unit, isNarrow, PLAN) {
   if (!unit) return 'translate(0px, 0px) scale(1)';
-  const points = UNIT_SHAPES[unit.letter].points;
+  const { points } = unit.shape;
   const xs = points.map((p) => p[0]);
   const ys = points.map((p) => p[1]);
   const unitW = Math.max(...xs) - Math.min(...xs);
@@ -48,15 +48,17 @@ function Core() {
 }
 
 // Sin `onSelect` la unidad es solo dibujo (la tapa de la maqueta 3D).
-function Unit({ unit, index, selected, dimmed, onSelect }) {
-  const shape = UNIT_SHAPES[unit.letter];
+// `overImage`: va sobre la imagen real del piso, así que no se rellena.
+function Unit({ unit, index, selected, dimmed, overImage, pinScale, onSelect }) {
+  const { shape } = unit;
   const [px, py] = shape.pin;
-  const { balcony } = shape;
+  const { balcony, walls = [] } = shape;
+  const tagW = Math.max(44, 16 + unit.code.length * 10);
   const interactive = onSelect
     ? {
         role: 'button',
         tabIndex: 0,
-        'aria-label': `Unidad ${unit.id}, ${STATUS[unit.status].label}`,
+        'aria-label': `Unidad ${unit.code}, ${STATUS[unit.status].label}`,
         onClick: () => onSelect(unit),
         onKeyDown: (e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -69,23 +71,23 @@ function Unit({ unit, index, selected, dimmed, onSelect }) {
 
   return (
     <g
-      className={`plan-unit plan-unit--${unit.status}${selected ? ' is-selected' : ''}${dimmed ? ' is-dimmed' : ''}`}
+      className={`plan-unit plan-unit--${unit.status}${overImage ? ' plan-unit--image' : ''}${selected ? ' is-selected' : ''}${dimmed ? ' is-dimmed' : ''}`}
       style={{ '--status': STATUS[unit.status].color, '--i': index }}
       {...interactive}
     >
       <polygon className="plan-unit__fill" points={shape.points.map((p) => p.join(',')).join(' ')} />
-      <rect className="plan-unit__balcony" x={balcony.x} y={balcony.y} width={balcony.w} height={balcony.h} />
-      {shape.walls.map(([x1, y1, x2, y2]) => (
+      {balcony && <rect className="plan-unit__balcony" x={balcony.x} y={balcony.y} width={balcony.w} height={balcony.h} />}
+      {walls.map(([x1, y1, x2, y2]) => (
         <line key={`${x1}-${y1}-${x2}-${y2}`} className="plan-unit__wall" x1={x1} y1={y1} x2={x2} y2={y2} />
       ))}
       <polygon className="plan-unit__outline" points={shape.points.map((p) => p.join(',')).join(' ')} />
       {onSelect && (
-        <g className="plan-pin" transform={`translate(${px} ${py})`}>
+        <g className="plan-pin" transform={`translate(${px} ${py}) scale(${pinScale})`}>
           <g className="plan-pin__pop">
             <circle className="plan-pin__halo" r="22" />
             <circle className="plan-pin__dot" r="13" />
-            <rect className="plan-pin__tag" x="-22" y="22" width="44" height="24" rx="6" />
-            <text className="plan-pin__text" y="39">{unit.id}</text>
+            <rect className="plan-pin__tag" x={-tagW / 2} y="22" width={tagW} height="24" rx="6" />
+            <text className="plan-pin__text" y="39">{unit.code}</text>
           </g>
         </g>
       )}
@@ -93,8 +95,8 @@ function Unit({ unit, index, selected, dimmed, onSelect }) {
   );
 }
 
-function Zones({ floorId }) {
-  return ZONES[floorId].map((zone) => (
+function Zones({ zones }) {
+  return zones.map((zone) => (
     <g key={zone.label} className={`plan-zone${zone.water ? ' plan-zone--water' : ''}`}>
       <rect x={zone.x} y={zone.y} width={zone.w} height={zone.h} />
       <text className="plan-label" x={zone.x + zone.w / 2} y={zone.labelY ?? zone.y + zone.h / 2 + 6}>
@@ -106,31 +108,45 @@ function Zones({ floorId }) {
 
 // Losa + contenido de un piso. La usan la planta interactiva y la tapa de
 // cada piso en la maqueta 3D de la fachada (sin `onSelect`).
+// Un edificio real trae la imagen de cada piso; la demo dibuja la planta a mano
+// (núcleo, zonas, balcones).
 export function PlanArt({ floor, selectedUnit = null, onSelect }) {
-  const units = floor.kind === 'units' ? unitsOfFloor(floor.id) : [];
+  const { plan: PLAN, demo, pinScale, unitsOfFloor } = useBuilding();
+  const units = unitsOfFloor(floor.id);
+  const { image } = floor;
+  const slab = floor.footprint || PLAN;
+  const picture = image && (
+    <image
+      href={image.href}
+      width={image.width}
+      height={image.height}
+      transform={image.transform}
+      preserveAspectRatio="none"
+    />
+  );
   return (
     <>
-      <rect className="plan-slab" x={PLAN.x} y={PLAN.y} width={PLAN.w} height={PLAN.h} />
-      {floor.kind === 'units' ? (
-        <>
-          <Core />
-          {units.map((unit, i) => (
-            <Unit
-              key={unit.id}
-              unit={unit}
-              index={i}
-              selected={selectedUnit?.id === unit.id}
-              dimmed={!!selectedUnit && selectedUnit.id !== unit.id}
-              onSelect={onSelect}
-            />
-          ))}
-        </>
-      ) : (
-        <>
-          <Zones floorId={floor.id} />
-          {floor.kind !== 'roof' && <Core />}
-        </>
+      <rect className="plan-slab" x={slab.x} y={slab.y} width={slab.w} height={slab.h} />
+      {picture && (
+        // El <svg> anidado recorta la imagen a la caja de la huella del piso.
+        <svg x={slab.x} y={slab.y} width={slab.w} height={slab.h} viewBox={`${slab.x} ${slab.y} ${slab.w} ${slab.h}`}>
+          {picture}
+        </svg>
       )}
+      {floor.zones && <Zones zones={floor.zones} />}
+      {demo && floor.kind !== 'roof' && <Core />}
+      {units.map((unit, i) => (
+        <Unit
+          key={unit.id}
+          unit={unit}
+          index={i}
+          selected={selectedUnit?.id === unit.id}
+          dimmed={!!selectedUnit && selectedUnit.id !== unit.id}
+          overImage={!!image}
+          pinScale={pinScale}
+          onSelect={onSelect}
+        />
+      ))}
     </>
   );
 }
@@ -139,6 +155,7 @@ export function PlanArt({ floor, selectedUnit = null, onSelect }) {
 // plantas: es igual en todos los pisos, así que no se mueve al cambiar de
 // piso, pero sigue a la cámara cuando se elige una unidad.
 export function PlanBase({ selectedUnit, isNarrow }) {
+  const { plan: PLAN, demo } = useBuilding();
   return (
     <svg
       className="plan-base"
@@ -146,11 +163,15 @@ export function PlanBase({ selectedUnit, isNarrow }) {
       preserveAspectRatio="xMidYMid meet"
       aria-hidden="true"
     >
-      <g className="plan-camera" style={{ transform: cameraFor(selectedUnit, isNarrow) }}>
-        <rect className="plan-context" x="330" y="-40" width="330" height="170" />
-        <rect className="plan-context" x="1090" y="-40" width="220" height="240" />
-        <rect className="plan-context" x="380" y="560" width="170" height="260" />
-        <rect className="plan-context" x="1110" y="560" width="300" height="260" />
+      <g className="plan-camera" style={{ transform: cameraFor(selectedUnit, isNarrow, PLAN) }}>
+        {demo && (
+          <>
+            <rect className="plan-context" x="330" y="-40" width="330" height="170" />
+            <rect className="plan-context" x="1090" y="-40" width="220" height="240" />
+            <rect className="plan-context" x="380" y="560" width="170" height="260" />
+            <rect className="plan-context" x="1110" y="560" width="300" height="260" />
+          </>
+        )}
         {/* Sombra de la losa mientras la maqueta 3D todavía está a la vista. */}
         <rect className="plan-shadow plan-base__shadow" x={PLAN.x + 10} y={PLAN.y + 16} width={PLAN.w} height={PLAN.h} />
       </g>
@@ -163,6 +184,7 @@ export function PlanBase({ selectedUnit, isNarrow }) {
 // puede cambiar de piso a mitad de camino. `from` es desde dónde entra al
 // montarse ('up' | 'down'), o null si se llegó desde la fachada.
 export default function FloorPlan({ floor, pos, from, selectedUnit, isNarrow, onSelect, onGone }) {
+  const { plan: PLAN } = useBuilding();
   const exiting = pos !== 'in';
 
   // Entrada al montarse: se pinta un instante en la posición de origen y se
@@ -194,7 +216,7 @@ export default function FloorPlan({ floor, pos, from, selectedUnit, isNarrow, on
         if (exiting && e.target === e.currentTarget && e.propertyName === 'opacity') onGone?.();
       }}
     >
-      <g className="plan-camera" style={{ transform: cameraFor(exiting ? null : selectedUnit, isNarrow) }}>
+      <g className="plan-camera" style={{ transform: cameraFor(exiting ? null : selectedUnit, isNarrow, PLAN) }}>
         <rect className="plan-shadow" x={PLAN.x + 10} y={PLAN.y + 16} width={PLAN.w} height={PLAN.h} />
         <PlanArt floor={floor} selectedUnit={selectedUnit} onSelect={onSelect} />
       </g>

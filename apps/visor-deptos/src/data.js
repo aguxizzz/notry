@@ -1,20 +1,15 @@
-// Datos de demo. Todo es estático: no hay API ni persistencia.
-// La geometría (fachada y plantas) son placeholders hasta tener planos reales.
+// Edificio de demo (se abre sin `?edificio=`): estático, sin API. Sirve para
+// mostrar el visor sin depender del back. building.js lo pasa al mismo modelo
+// que un edificio real.
 
 export const PROJECT_NAME = 'Torre Demo';
-
-export const STATUS = {
-  available: { label: 'Disponible', color: '#22c55e' },
-  reserved: { label: 'Reservado', color: '#3b82f6' },
-  sold: { label: 'Vendido', color: '#ef4444' },
-};
 
 // ── Fachada ────────────────────────────────────────────────────
 // viewBox 1600×900. Los pisos se apilan desde el suelo hacia arriba.
 export const FACADE = { width: 1600, height: 900, ground: 860, x: 660, w: 280 };
 
 const LEVELS = [
-  { id: 'PB', label: 'PB', name: 'Planta baja', kind: 'pb', h: 84, summary: 'Hall · Local · Cocheras' },
+  { id: 'PB', label: 'PB', name: 'Planta baja', kind: 'ground', h: 84, summary: 'Hall · Local · Cocheras' },
   ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
     id: String(n),
     label: String(n),
@@ -96,18 +91,6 @@ export const UNITS = Object.entries(AVAILABILITY).flatMap(([floor, codes]) =>
     ...TYPOLOGIES[letter],
   }))
 );
-
-export function unitsOfFloor(floorId) {
-  return UNITS.filter((u) => u.floor === floorId);
-}
-
-export function availableCount(floorId) {
-  return unitsOfFloor(floorId).filter((u) => u.status === 'available').length;
-}
-
-export function typologyLabel(unit) {
-  return unit.ambientes === 1 ? 'Monoambiente' : `${unit.ambientes} ambientes`;
-}
 
 // Niveles sin unidades: zonas rotuladas, no clickeables.
 export const ZONES = {

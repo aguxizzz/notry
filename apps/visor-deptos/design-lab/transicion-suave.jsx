@@ -139,7 +139,7 @@ function FrontArt({ floor }) {
   return (
     <>
       <rect className="facade-floor__body" x={0} y={0} width={w} height={h} />
-      {kind === 'pb' ? (
+      {kind === 'ground' ? (
         <>
           <rect className="facade-floor__glass" x={14} y={16} width={150} height={h - 16} />
           <rect className="facade-floor__glass" x={190} y={26} width={64} height={h - 26} />

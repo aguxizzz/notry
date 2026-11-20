@@ -3,7 +3,7 @@ import Facade from './components/Facade.jsx';
 import FloorPlan, { PlanBase } from './components/FloorPlan.jsx';
 import FloorRail from './components/FloorRail.jsx';
 import UnitPanel from './components/UnitPanel.jsx';
-import { FLOOR_BY_ID, PROJECT_NAME, STATUS, availableCount, unitsOfFloor } from './data.js';
+import { BuildingContext, STATUS, fetchBuilding, mockBuilding, useBuilding } from './building.js';
 
 const NARROW_QUERY = '(max-width: 720px)';
 
@@ -26,20 +26,61 @@ function floorScreenPoint(id) {
   return { left: box.left, centerY: box.top + box.height / 2 };
 }
 
-function floorSummary(floor) {
-  if (floor.kind !== 'units') return floor.summary;
-  const total = unitsOfFloor(floor.id).length;
-  const free = availableCount(floor.id);
+function floorSummary(building, floor) {
+  const total = building.unitsOfFloor(floor.id).length;
+  if (total === 0) return floor.summary;
+  const free = building.availableCount(floor.id);
   return free === 0 ? 'Sin unidades disponibles' : `${free} de ${total} disponibles`;
 }
 
+// Sin `?edificio=` se abre la demo (data.js); con `?edificio=<id>`, el edificio
+// real de la API.
+const BUILDING_ID = new URLSearchParams(window.location.search).get('edificio');
+
 export default function App() {
+  const [state, setState] = useState(() => (BUILDING_ID ? { loading: true } : { building: mockBuilding }));
+
+  useEffect(() => {
+    if (!BUILDING_ID) return;
+    fetchBuilding(BUILDING_ID)
+      .then((building) => {
+        document.title = building.name;
+        setState({ building });
+      })
+      .catch((error) => setState({ error: error.message }));
+  }, []);
+
+  if (!state.building) {
+    return (
+      <div className="stage stage--status">
+        <p className="status-msg glass">{state.error || 'Cargando edificio…'}</p>
+      </div>
+    );
+  }
+  if (state.building.floors.length === 0) {
+    return (
+      <div className="stage stage--status">
+        <p className="status-msg glass">Este edificio todavía no tiene pisos cargados.</p>
+      </div>
+    );
+  }
+  return (
+    <BuildingContext.Provider value={state.building}>
+      <Viewer />
+    </BuildingContext.Provider>
+  );
+}
+
+// Exported so design-lab pages can mount it with a building of their own.
+export function Viewer() {
+  const building = useBuilding();
+  const FLOOR_BY_ID = building.floorById;
   const isNarrow = useIsNarrow();
   const [view, setView] = useState('facade');
-  const [floorId, setFloorId] = useState('4');
+  const [floorId, setFloorId] = useState(building.defaultFloorId);
   // Plantas montadas: la activa más las que todavía están saliendo. `from` es
   // de dónde entró ('up' | 'down'), o null si se llegó desde la fachada.
-  const [plans, setPlans] = useState([{ id: '4', from: null }]);
+  const [plans, setPlans] = useState([{ id: building.defaultFloorId, from: null }]);
   // Cada entrada desde la fachada remonta la planta (re-anima los pines).
   const [entry, setEntry] = useState(0);
   // 'enter' (desde la fachada) o 'switch' (cambio de piso ya adentro).
@@ -74,7 +115,7 @@ export default function App() {
       setPlans((list) => (list.some((p) => p.id === id) ? list : [...list, { id, from }]));
       setFloorId(id);
     },
-    [view, floorId]
+    [view, floorId, FLOOR_BY_ID]
   );
 
   const dropPlan = useCallback((id) => {
@@ -144,7 +185,7 @@ export default function App() {
       {!inFloor && hoverFloor && (
         <div className="floor-tip glass" style={{ left: hover.left, top: hover.centerY }}>
           <strong>{hoverFloor.name}</strong>
-          <span>{floorSummary(hoverFloor)}</span>
+          <span>{floorSummary(building, hoverFloor)}</span>
         </div>
       )}
 
@@ -162,13 +203,13 @@ export default function App() {
         </button>
         <div className="brand glass">
           <span className="brand__mark" />
-          <span>{PROJECT_NAME}</span>
+          <span>{building.name}</span>
         </div>
       </header>
 
       <div className={`floor-title glass${inFloor ? ' is-visible' : ''}`} aria-live="polite">
         <strong key={floorId}>{floor.name}</strong>
-        <span>{floorSummary(floor)}</span>
+        <span>{floorSummary(building, floor)}</span>
       </div>
 
       <FloorRail
@@ -182,11 +223,11 @@ export default function App() {
 
       <div className={`hint glass${inFloor ? '' : ' is-visible'}`}>Elegí un piso para ver sus unidades</div>
 
-      <ul className={`legend glass${inFloor && floor.kind === 'units' ? ' is-visible' : ''}`}>
-        {Object.entries(STATUS).map(([key, status]) => (
+      <ul className={`legend glass${inFloor && building.unitsOfFloor(floorId).length > 0 ? ' is-visible' : ''}`}>
+        {building.statuses.map((key) => (
           <li key={key}>
-            <i style={{ background: status.color }} />
-            {status.label}
+            <i style={{ background: STATUS[key].color }} />
+            {STATUS[key].label}
           </li>
         ))}
       </ul>
