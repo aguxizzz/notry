@@ -209,8 +209,13 @@ export function fromApi(data) {
   });
 }
 
-export async function fetchBuilding(id) {
-  const res = await fetch(`${API_BASE}/public/buildings/${encodeURIComponent(id)}`);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// `ref` is the slug of the public link (?edificio=citrino-ii) or the building's uuid,
+// which the first links used and the editor preview still uses.
+export async function fetchBuilding(ref) {
+  const path = UUID_RE.test(ref) ? ref : `by-slug/${encodeURIComponent(ref)}`;
+  const res = await fetch(`${API_BASE}/public/buildings/${path}`);
   if (!res.ok) throw new Error(res.status === 404 ? 'No encontramos este edificio.' : 'No se pudo cargar el edificio.');
   return fromApi(await res.json());
 }

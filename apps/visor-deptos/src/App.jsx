@@ -33,8 +33,8 @@ function floorSummary(building, floor) {
   return free === 0 ? 'Sin unidades disponibles' : `${free} de ${total} disponibles`;
 }
 
-// Sin `?edificio=` se abre la demo (data.js); con `?edificio=<id>`, el edificio
-// real de la API.
+// Sin `?edificio=` se abre la demo (data.js); con `?edificio=<slug o id>`, el
+// edificio real de la API.
 const BUILDING_ID = new URLSearchParams(window.location.search).get('edificio');
 
 export default function App() {
