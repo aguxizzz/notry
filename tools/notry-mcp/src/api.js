@@ -25,17 +25,20 @@ async function login() {
 /**
  * JSON request against the API. Throws an Error with the back's `detail` so the tool
  * result tells the model what went wrong (a 422 says which field, for example).
+ * A FormData body goes as multipart (file uploads); anything else as JSON.
  */
 export async function api(path, { method = 'GET', body } = {}, retried = false) {
   if (!token) await login();
+  const isForm = body instanceof FormData;
   const headers = { Authorization: `Bearer ${token}` };
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  // For FormData, fetch writes the multipart Content-Type itself (it carries the boundary).
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
   if (ORG_ID) headers['X-Active-Org-Id'] = ORG_ID;
 
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined || isForm ? body : JSON.stringify(body),
   });
   // Expired token: one fresh login and retry, never a loop.
   if (res.status === 401 && !retried) {

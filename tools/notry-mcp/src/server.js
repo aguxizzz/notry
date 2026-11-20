@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 // MCP server for notry: exposes the auto-detected lots of a loteo (drafts) and the data of
 // its real lots, so an assistant can fill the drafts in with names, prices and sizes that
-// match the rest; and fills a building's units from a JSON file (editor-deptos).
+// match the rest; and fills a building's units from a JSON file and uploads their photos (editor-deptos).
 // Talks to notry-back over HTTP; runs over stdio (Claude Code starts it).
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
+import { basename, extname } from 'node:path';
 import { z } from 'zod';
 import { api, apiBase, listAll } from './api.js';
 import { diffBuildingUnits } from './buildingSync.js';
+import { nextImageUrls, planUnitImages } from './unitImages.js';
 import { bbox, centroid, distance, median, polygonArea, round } from './geometry.js';
 
 const server = new McpServer({ name: 'notry', version: '0.1.0' });
@@ -251,6 +253,94 @@ server.registerTool('apply_building_units', {
     failed: results.filter(r => !r.ok).length,
     results,
     only_in_file: diff.only_in_file,
+  });
+});
+
+// The back accepts these image types (upload.py); the extension decides the type sent.
+const IMAGE_TYPES = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
+
+/** Uploads one local image to the building's "units" folder in storage and returns its public URL. */
+async function uploadUnitImage(buildingId, path) {
+  const type = IMAGE_TYPES[extname(path).toLowerCase()];
+  if (!type) throw new Error(`${path}: solo se suben jpg, png o webp`);
+  const form = new FormData();
+  form.append('file', new Blob([await readFile(path)], { type }), basename(path));
+  form.append('purpose', 'units');
+  return (await api(`/buildings/${buildingId}/images`, { method: 'POST', body: form })).url;
+}
+
+server.registerTool('set_unit_images', {
+  title: 'Subir fotos a unidades',
+  description:
+    'Uploads local photos and sets them as the photos of a building\'s units (image_urls, the '
+    + 'gallery of the unit in visor-deptos). Takes groups of files → unit codes, usually one group '
+    + 'per unit type; a unit in several groups gets all of them, in order (the first one is the cover). '
+    + 'Each file is uploaded once even if many units use it. With dry_run (default) nothing is '
+    + 'uploaded: it returns what each unit would end up with, to show the user first. '
+    + 'mode "replace" (default) leaves only the new photos, so running it again ends the same; '
+    + '"append" adds them after the current ones (running it twice repeats them).',
+  inputSchema: {
+    building_id: z.string().uuid(),
+    groups: z.array(z.object({
+      unit_codes: z.array(z.string().min(1)).min(1),
+      image_paths: z.array(z.string().min(1)).min(1).describe('Absolute paths to jpg/png/webp files.'),
+    })).min(1),
+    mode: z.enum(['replace', 'append']).default('replace'),
+    dry_run: z.boolean().default(true),
+  },
+  annotations: { destructiveHint: true, idempotentHint: false },
+}, async ({ building_id, groups, mode, dry_run }) => {
+  const building = await api(`/buildings/${building_id}`);
+  const plan = planUnitImages(building, groups);
+
+  // Check every file before uploading anything, so a typo doesn't leave half the units done.
+  const missing = [];
+  for (const path of plan.paths) {
+    try {
+      await access(path);
+      if (!IMAGE_TYPES[extname(path).toLowerCase()]) missing.push(`${path} (tipo no soportado)`);
+    } catch {
+      missing.push(path);
+    }
+  }
+  if (missing.length) return json({ error: 'Hay archivos que no existen o no se pueden subir', missing });
+
+  if (dry_run) {
+    return json({
+      dry_run: true,
+      building: building.name,
+      mode,
+      uploads: plan.paths.length,
+      unknown_codes: plan.unknown_codes,
+      units: plan.units.map(u => ({
+        code: u.code,
+        current: u.current.length,
+        after: mode === 'append' ? u.current.length + u.paths.length : u.paths.length,
+        photos: u.paths.map(p => basename(p)),
+      })),
+    });
+  }
+
+  // Upload first, then save the units: if an upload fails no unit points at a missing photo.
+  const urlByPath = new Map();
+  for (const path of plan.paths) urlByPath.set(path, await uploadUnitImage(building_id, path));
+
+  const results = [];
+  for (const unit of plan.units) {
+    const image_urls = nextImageUrls(unit.current, unit.paths.map(p => urlByPath.get(p)), mode);
+    try {
+      await api(`/buildings/units/${unit.unit_id}`, { method: 'PATCH', body: { image_urls } });
+      results.push({ code: unit.code, ok: true, photos: image_urls.length });
+    } catch (error) {
+      results.push({ code: unit.code, ok: false, error: error.message });
+    }
+  }
+  return json({
+    uploaded: urlByPath.size,
+    updated: results.filter(r => r.ok).length,
+    failed: results.filter(r => !r.ok).length,
+    unknown_codes: plan.unknown_codes,
+    results,
   });
 });
 
