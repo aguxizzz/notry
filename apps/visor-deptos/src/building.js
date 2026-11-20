@@ -107,6 +107,22 @@ function alignment(a, w, h) {
   };
 }
 
+// Giro de toda la planta para que el lado que da al frente (`plan_front` del
+// edificio) quede abajo, debajo de la fachada. Se aplica al final, sobre el marco
+// común de `width` × `height`; con 90° el marco pasa a ser de `height` × `width`.
+function turn(front, width, height) {
+  switch (front) {
+    case 'left': // 90° antihorario: el borde izquierdo baja
+      return { width: height, height: width, apply: ([x, y]) => [y, width - x], svg: `translate(0 ${width}) rotate(-90)` };
+    case 'right': // 90° horario: el borde derecho baja
+      return { width: height, height: width, apply: ([x, y]) => [height - y, x], svg: `translate(${height} 0) rotate(90)` };
+    case 'top':
+      return { width, height, apply: ([x, y]) => [width - x, height - y], svg: `translate(${width} ${height}) rotate(180)` };
+    default:
+      return { width, height, apply: (p) => p, svg: '' };
+  }
+}
+
 // El render trae fondo (terreno, pasto, papel blanco…) alrededor del edificio. Se
 // recorta al contorno dibujado en el editor (`outline`); si el piso no tiene, a la
 // caja de sus unidades (ya alineadas) con un margen para el muro exterior.
@@ -121,6 +137,7 @@ export function fromApi(data) {
   const width = ref?.plan_width || 1600;
   const height = ref?.plan_height || 1000;
   const margin = Math.max(width, height) * WALL_MARGIN;
+  const frame = turn(data.plan_front, width, height);
 
   const units = [];
   const levels = sorted.map((f) => {
@@ -132,7 +149,7 @@ export function fromApi(data) {
     const align = alignment(f.alignment, fw, fh);
     const toPlan = (p) => {
       const [x, y] = align.apply(p);
-      return [ox + x * k, oy + y * k];
+      return frame.apply([ox + x * k, oy + y * k]);
     };
 
     const unitPoints = [];
@@ -176,7 +193,8 @@ export function fromApi(data) {
             href: f.plan_image_url,
             width: fw,
             height: fh,
-            transform: `translate(${ox} ${oy}) scale(${k}) ${align.svg}`,
+            // Mismo orden que toPlan leído de afuera hacia adentro: giro, encaje, alineación.
+            transform: `${frame.svg} translate(${ox} ${oy}) scale(${k}) ${align.svg}`,
           }
         : null,
     };
@@ -187,9 +205,9 @@ export function fromApi(data) {
   const footprints = levels.filter((l) => l.footprint).map((l) => l.footprint);
   const all = footprints.length
     ? bbox(footprints.flatMap((b) => [[b.x, b.y], [b.x + b.w, b.y + b.h]]))
-    : { x: 0, y: 0, w: width, h: height };
+    : { x: 0, y: 0, w: frame.width, h: frame.height };
   for (const level of levels) level.footprint ??= all;
-  const plan = { width, height, ...all };
+  const plan = { width: frame.width, height: frame.height, ...all };
 
   const facade = { ...DEFAULT_FACADE, ...(data.facade || {}) };
   const floors = stack(levels, facade.ground);
@@ -201,7 +219,8 @@ export function fromApi(data) {
     name: data.name,
     facade,
     plan,
-    // Pines y etiquetas están dibujados para una planta de ~1600 de ancho.
+    // Pines y etiquetas están dibujados para una planta de ~1600 de ancho. Va el
+    // ancho sin girar: el tamaño de la planta no cambia por rotarla.
     pinScale: width / 1600,
     defaultFloorId: (firstFree || withUnits[0] || floors[0])?.id,
     floors,
