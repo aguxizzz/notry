@@ -280,6 +280,18 @@ export default function Inspector({
                   <NumberField label="m² cubiertos" value={unit.covered_m2 == null ? null : Number(unit.covered_m2)} step={0.01} nullable onCommit={(v) => onSaveUnit({ covered_m2: v })} />
                   <NumberField label="m² semi" value={unit.semi_m2 == null ? null : Number(unit.semi_m2)} step={0.01} nullable onCommit={(v) => onSaveUnit({ semi_m2: v })} />
                 </div>
+                {/* `pricing` es JSON libre en el back: se pisa solo el monto y se conserva
+                    cualquier otro dato que tenga. Vacío = sin precio (el visor no lo muestra). */}
+                <NumberField
+                  label="Precio (USD)"
+                  value={unit.pricing?.amount ?? null}
+                  nullable
+                  onCommit={(amount) => {
+                    const { amount: _old, ...rest } = unit.pricing || {};
+                    const pricing = amount == null ? rest : { ...rest, amount, currency: 'USD' };
+                    onSaveUnit({ pricing: Object.keys(pricing).length ? pricing : null });
+                  }}
+                />
                 <button className="ghost danger" onClick={onDeleteUnit}>
                   <Icon name="trash" size={16} /> Borrar unidad
                 </button>
