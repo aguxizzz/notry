@@ -22,7 +22,8 @@ price list, so loading the next building is mostly writing its file:
 
 - `list_buildings`: buildings of the account.
 - `preview_building_units`: compares the JSON with the saved units and shows before/after per unit,
-  codes found on one side only and fields with nowhere to go (price, patio). Saves nothing.
+  codes found on one side only and fields with nowhere to go (patio). `price_usd` goes into the
+  unit's fixed USD price, the same one editor-deptos edits. Saves nothing.
 - `apply_building_units`: saves what the preview shows, unit by unit, only the fields that differ.
   Never creates or deletes units; `code_map` pairs codes named differently in the editor.
 

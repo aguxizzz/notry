@@ -196,7 +196,8 @@ const unitsFileInput = {
   building_id: z.string().uuid(),
   file_path: z.string().min(1).describe(
     'Absolute path to the building JSON: { floors: [{ code, units: [{ code, status, ambientes, '
-    + 'dormitorios, banos, total_m2, covered_m2, semi_m2 }] }] }. Keys starting with "_" are notes and are skipped.',
+    + 'dormitorios, banos, total_m2, covered_m2, semi_m2, price_usd }] }] }. price_usd is saved as the '
+    + 'unit\'s fixed USD price (pricing.amount). Keys starting with "_" are notes and are skipped.',
   ),
   code_map: z.record(z.string()).default({}).describe(
     'File code → building code, for units named differently in the editor (e.g. { "10A": "10B" }).',
@@ -215,7 +216,7 @@ server.registerTool('preview_building_units', {
   description:
     'Compares a building JSON file with the units saved for that building and returns what '
     + 'would change (before/after per unit, only the fields that differ), the codes found on one '
-    + 'side only and the file fields that have no place in a unit (price, patio). Saves nothing: '
+    + 'side only and the file fields that have no place in a unit (patio, for example). Saves nothing: '
     + 'show this to the user and use apply_building_units only after they agree.',
   inputSchema: unitsFileInput,
   annotations: { readOnlyHint: true },

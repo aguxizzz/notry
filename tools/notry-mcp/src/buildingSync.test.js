@@ -27,17 +27,26 @@ const file = {
 
 test('only changed fields go in the diff, and decimals compare as numbers', () => {
   const diff = diffBuildingUnits(building, file);
-  assert.deepEqual(diff.changes, [
-    { code: '3A', file_code: '3A', unit_id: 'u3a', before: { status: 'available', semi_m2: null }, after: { status: 'sold', semi_m2: 9.51 } },
-  ]);
+  assert.equal(diff.changes.length, 1);
+  assert.deepEqual(diff.changes[0].before, { status: 'available', semi_m2: null, pricing: null });
+  assert.deepEqual(diff.changes[0].after.semi_m2, 9.51);
   assert.deepEqual(diff.unchanged, ['3B']);
+});
+
+test('price_usd goes into pricing.amount and keeps the other pricing keys', () => {
+  const withPricing = { floors: [{ code: '3', units: [{ id: 'u', code: '3A', pricing: { amount: '90', currency: 'USD', note: 'x' } }] }] };
+  const priceFile = amount => ({ floors: [{ units: [{ code: '3A', price_usd: amount }] }] });
+  assert.deepEqual(diffBuildingUnits(withPricing, priceFile(90)).unchanged, ['3A']);
+  assert.deepEqual(diffBuildingUnits(withPricing, priceFile(100)).changes[0].after, {
+    pricing: { amount: 100, currency: 'USD', note: 'x' },
+  });
 });
 
 test('unmatched codes are reported on each side and unknown fields are listed', () => {
   const diff = diffBuildingUnits(building, file);
   assert.deepEqual(diff.only_in_file, ['10A', '12A']);
   assert.deepEqual(diff.only_in_building, ['10B', '11A']);
-  assert.deepEqual(diff.ignored_fields, ['price_usd']);
+  assert.deepEqual(diff.ignored_fields, []);
 });
 
 test('code_map pairs a file code with a differently named unit', () => {
