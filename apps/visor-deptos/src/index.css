@@ -919,6 +919,22 @@ ul {
   text-transform: uppercase;
 }
 
+/* Precio arriba del botón de contacto: es lo primero que se busca en la ficha. */
+.unit-price {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 2px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.unit-price strong {
+  color: var(--text-primary);
+  font: 600 22px var(--font-title);
+  font-variant-numeric: tabular-nums;
+}
+
 .cta {
   height: 46px;
   border: 0;

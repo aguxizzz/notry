@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { FLOOR_BY_ID, STATUS, typologyLabel } from '../data.js';
 
 const m2 = (value) => `${value.toLocaleString('es-AR')} m²`;
+const money = ({ amount, currency }) => `${currency} ${amount.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
 
 function Row({ label, value }) {
   return (
@@ -50,6 +51,14 @@ export default function UnitPanel({ unit, onClose }) {
             <div className="unit-panel__media">
               <span>Render de la unidad</span>
             </div>
+
+            {/* Solo disponibles: el back ya lo filtra, esto cubre también el demo. */}
+            {shown.price && shown.status === 'available' && (
+              <div className="unit-price">
+                <span>Precio</span>
+                <strong>{money(shown.price)}</strong>
+              </div>
+            )}
 
             <button type="button" className="cta" onClick={() => setContacted(true)}>
               {contacted ? 'Demo: no se envía nada' : 'Contactar'}
